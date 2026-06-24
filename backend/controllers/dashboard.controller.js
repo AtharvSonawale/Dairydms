@@ -11,7 +11,6 @@ const pool = require('../config/db');
 exports.getDashboard = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
-        console.log('[getDashboard] req.user:', req.user, '| resolved centreId:', centreId);
         const today = new Date().toISOString().split('T')[0];
         const from = req.query.from || req.query.date || today;
         const to = req.query.to || req.query.date || today;

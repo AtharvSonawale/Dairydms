@@ -27,6 +27,7 @@ export function AuthProvider({ children }) {
             const dairy_id = localStorage.getItem('dairy_id');
             const dairy_name = localStorage.getItem('dairy_name');
             const centre_name = localStorage.getItem('centre_name');
+            const has_seen_tour_raw = localStorage.getItem('has_seen_tour');
 
             return {
                 token,
@@ -36,6 +37,7 @@ export function AuthProvider({ children }) {
                 dairy_id,
                 dairy_name,
                 centre_name,
+                has_seen_tour: has_seen_tour_raw === null ? null : Number(has_seen_tour_raw),
                 id: decodeId(token)
             };
         } catch {
@@ -52,7 +54,10 @@ export function AuthProvider({ children }) {
         localStorage.setItem('dairy_id', data.dairy_id || '');
         localStorage.setItem('dairy_name', data.dairy_name || '');
         localStorage.setItem('centre_name', data.centre_name || '');
-        setUser({ ...data, id: decodeId(data?.token) });
+        if (data.has_seen_tour !== undefined && data.has_seen_tour !== null) {
+            localStorage.setItem('has_seen_tour', String(data.has_seen_tour));
+        }
+        setUser({ ...data, has_seen_tour: Number(data.has_seen_tour), id: decodeId(data?.token) });
     };
 
     const logout = () => {
@@ -60,8 +65,13 @@ export function AuthProvider({ children }) {
         setUser(null);
     };
 
+    const markTourSeen = () => {
+        localStorage.setItem('has_seen_tour', '1');
+        setUser((prev) => (prev ? { ...prev, has_seen_tour: 1 } : prev));
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, logout, markTourSeen }}>
             {children}
         </AuthContext.Provider>
     );

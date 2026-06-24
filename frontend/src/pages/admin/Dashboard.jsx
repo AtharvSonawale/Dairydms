@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { driver } from "driver.js";
-import "driver.js/dist/driver.css";
 import { useTranslation } from "react-i18next";
 import api from "../../api/axios";
 import {
@@ -198,40 +196,6 @@ export default function AdminDashboard() {
         advance: true, products: true, dispatch: true,
         ownerUsage: true, operators: true,
     });
-
-    useEffect(() => {
-        if (user && user.role === "admin" && user.has_seen_tour === 0) {
-            const driverObj = driver({
-                showProgress: true,
-                allowClose: true,
-                onDestroyed: () => {
-                    api.put("/admin/mark-tour-seen").catch(() => { });
-                },
-                steps: [
-                    {
-                        element: '[data-tour="dashboard-title"]',
-                        popover: { title: "Welcome!", description: "This is your admin dashboard — your home base for everything." },
-                    },
-                    {
-                        element: '[data-tour="period-toggle"]',
-                        popover: { title: "Time Period", description: "Switch between day, week, month, or year views." },
-                    },
-                    {
-                        element: '[data-tour="revenue-overview"]',
-                        popover: { title: "Revenue Overview", description: "Your total profit, sales, and spend at a glance." },
-                    },
-                    {
-                        element: '[data-tour="milk-collection"]',
-                        popover: { title: "Milk Collection", description: "Track total milk collected, payable amount, and fat/SNF averages." },
-                    },
-                ],
-            });
-            driverObj.drive();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]);
-
-    
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });

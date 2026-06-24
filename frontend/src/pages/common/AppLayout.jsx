@@ -4,6 +4,9 @@ import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';        // ← react-i18next
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
+import api from '../../api/axios';
 import {
     LayoutDashboard, HardHat, Users, BarChart2, Star,
     Milk, Package, Wallet, Truck, ClipboardList,
@@ -24,6 +27,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.dashboard'),
         icon: <LayoutDashboard size={16} />,
         to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
+        tourId: 'nav-dashboard',
     },
 
     // ── Admin Only ───────────────────────────────────────────────
@@ -32,6 +36,7 @@ const SHARED_NAV = (isAdmin, t) => [
             label: t('nav.administration'),
             icon: <Settings size={16} />,
             to: null,
+            tourId: 'nav-administration',
             children: [
                 { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings' },
                 { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates' },
@@ -48,6 +53,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.sellers'),
         icon: <Users size={16} />,
         to: null,
+        tourId: 'nav-sellers',
         children: [
             { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister' },
             { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates' },
@@ -60,6 +66,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.milkCollection'),
         icon: <Milk size={16} />,
         to: null,
+        tourId: 'nav-milk-collection',
         children: [
             { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries' },
             { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage' },
@@ -72,6 +79,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.walkinSales'),
         icon: <ShoppingCart size={16} />,
         to: null,
+        tourId: 'nav-walkin-sales',
         children: [
             { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales' },
             { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments' },
@@ -84,6 +92,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.products'),
         icon: <Package size={16} />,
         to: null,
+        tourId: 'nav-products',
         children: [
             { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products' },
             { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase' },
@@ -96,6 +105,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.finance'),
         icon: <Wallet size={16} />,
         to: null,
+        tourId: 'nav-finance',
         children: [
             { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance' },
             { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit' },
@@ -107,6 +117,7 @@ const SHARED_NAV = (isAdmin, t) => [
         label: t('nav.bonusRegister'),
         icon: <Star size={16} />,
         to: null,
+        tourId: 'nav-bonus-register',
         children: [
             { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister' },
             { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister' },
@@ -114,9 +125,8 @@ const SHARED_NAV = (isAdmin, t) => [
     },
 
     // ── Reports ──────────────────────────────────────────────────
-    { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport' },
+    { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
 ];
-
 const initials = (name = '') =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
@@ -169,7 +179,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
             <nav className={`sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 space-y-1`}>
                 {navItems.map(item =>
                     item.children ? (
-                        <div key={item.label}>
+                        <div key={item.label} data-tour={item.tourId}>
                             <button
                                 onClick={() => setExpanded(p => ({ ...p, [item.label]: !p[item.label] }))}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150
@@ -214,6 +224,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                         <NavLink
                             key={item.to}
                             to={item.to}
+                            data-tour={item.tourId}
                             title={collapsed && !mobile ? item.label : undefined}
                             className={({ isActive }) =>
                                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 group relative
@@ -280,7 +291,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
 }
 
 export default function AppLayout() {
-    const { user, logout } = useAuth();
+    const { user, logout, markTourSeen } = useAuth();
     const { appName, logoUrl } = useAppConfig();   // ← global app identity
     const { t } = useTranslation();                // ← i18next
     const navigate = useNavigate();
@@ -292,10 +303,98 @@ export default function AppLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [expanded, setExpanded] = useState({});
 
-    // Re-build nav whenever language (t) or role changes
     const navItems = useMemo(() => SHARED_NAV(isAdmin, t), [isAdmin, t]);
 
     useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+    // ── First-login app tour for admins ─────────────────────────
+    useEffect(() => {
+        const notSeenYet = user?.has_seen_tour === 0;
+        if (!(isAdmin && user && notSeenYet)) return;
+
+        // Wait for Outlet content (Dashboard) + sidebar to paint before
+        // querying the DOM or starting the tour — both must happen inside
+        // the same delayed callback, or an early DOM check can wrongly
+        // conclude there's nothing to show.
+        // Make sure the sidebar is expanded (not icon-only) before the tour
+        // tries to highlight labelled nav groups.
+        setCollapsed(false);
+
+        const timeoutId = setTimeout(() => {
+        // Pick whichever sidebar is actually visible — desktop and mobile
+            // both render the same data-tour attributes, and a plain
+            // querySelector would always grab the (possibly hidden) first one.
+            const visibleSidebar = ['[data-sidebar="desktop"]', '[data-sidebar="mobile"]']
+                .map(sel => document.querySelector(sel))
+                .find(el => el && el.offsetParent !== null);
+
+            const findVisible = (tourId) => {
+                if (!visibleSidebar) return null;
+                const el = visibleSidebar.querySelector(`[data-tour="${tourId}"]`);
+                return el && el.offsetParent !== null ? el : null;
+            };
+
+            const navSteps = navItems
+                .filter(item => item.tourId && findVisible(item.tourId))
+                .map(item => ({
+                    element: `${visibleSidebar.matches('[data-sidebar="desktop"]') ? '[data-sidebar="desktop"]' : '[data-sidebar="mobile"]'} [data-tour="${item.tourId}"]`,
+                    popover: {
+                        title: item.label,
+                        description: item.children
+                            ? t('tour.sectionDescription', { defaultValue: `Open this to manage ${item.label}.` })
+                            : t('tour.pageDescription', { defaultValue: `Go to ${item.label}.` }),
+                        onPopoverRender: () => {
+                            if (item.children) {
+                                setExpanded(p => ({ ...p, [item.label]: true }));
+                            }
+                        },
+                    },
+                }));
+
+            const dashboardSteps = [
+                {
+                    element: '[data-tour="dashboard-title"]',
+                    popover: { title: 'Welcome!', description: 'This is your admin dashboard — your home base for everything.' },
+                },
+                {
+                    element: '[data-tour="period-toggle"]',
+                    popover: { title: 'Time Period', description: 'Switch between day, week, month, or year views.' },
+                },
+                {
+                    element: '[data-tour="revenue-overview"]',
+                    popover: { title: 'Revenue Overview', description: 'Your total profit, sales, and spend at a glance.' },
+                },
+                {
+                    element: '[data-tour="milk-collection"]',
+                    popover: { title: 'Milk Collection', description: 'Track total milk collected, payable amount, and fat/SNF averages.' },
+                },
+            ].filter(step => {
+                const el = document.querySelector(step.element);
+                return el && el.offsetParent !== null;
+            });
+
+            const steps = [...dashboardSteps, ...navSteps];
+
+            console.log('[tour] dashboardSteps:', dashboardSteps.length, '| navSteps:', navSteps.length, '| visibleSidebar:', visibleSidebar?.dataset?.sidebar);
+
+            if (steps.length === 0) return;
+
+            const tourObj = driver({
+                showProgress: true,
+                allowClose: true,
+                onDestroyed: () => {
+                    api.put('/admin/mark-tour-seen')
+                        .then(() => markTourSeen())
+                        .catch(() => { });
+                },
+                steps,
+            });
+            tourObj.drive();
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAdmin, user]);
 
     const handleLogout = () => setShowLogoutConfirm(true);
     const confirmLogout = () => {
@@ -320,7 +419,7 @@ export default function AppLayout() {
             )}
 
             {/* Mobile sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 lg:hidden
+            <aside data-sidebar="mobile" className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 lg:hidden
                 ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <SidebarContent mobile
@@ -331,7 +430,7 @@ export default function AppLayout() {
             </aside>
 
             {/* Desktop sidebar */}
-            <aside className={`relative hidden lg:flex flex-col shrink-0 transition-all duration-300
+            <aside data-sidebar="desktop" className={`relative hidden lg:flex flex-col shrink-0 transition-all duration-300
                 ${collapsed ? 'w-[68px]' : 'w-56'}
                 ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}`}>
                 <ToggleBtn collapsed={collapsed} onClick={() => setCollapsed(p => !p)} isAdmin={isAdmin} />

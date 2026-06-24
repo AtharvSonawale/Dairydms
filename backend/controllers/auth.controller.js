@@ -50,6 +50,7 @@ exports.adminLogin = async (req, res) => {
             dairy_id: admin.dairy_id,
             dairy_name: admin.dairy_name,
             centre_name: admin.centre_name,
+            has_seen_tour: admin.has_seen_tour,
         });
 
     } catch (err) {
