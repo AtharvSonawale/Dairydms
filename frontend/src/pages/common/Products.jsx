@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import AccessDenied from '../../components/AccessDenied';
 
 // ── helpers ───────────────────────────────────────────────────
@@ -301,6 +303,28 @@ export default function Products() {
         setTimeout(() => setFlash(null), 3500);
     };
 
+    const startProductsTour = () => {
+    const driverObj = driver({
+        showProgress: true,
+        allowClose: true,
+        steps: [
+            {
+                element: '[data-tour="product-actions"]',
+                popover: { title: t('products.addProduct'), description: 'Search existing products or add a new one to your inventory.' },
+            },
+            {
+                element: '[data-tour="product-stats"]',
+                popover: { title: t('products.totalProducts'), description: 'View total products, low stock alerts, out-of-stock count, and overall stock quantity.' },
+            },
+            {
+                element: '[data-tour="products-table"]',
+                popover: { title: t('products.actions'), description: 'Click Edit on any row to update product details inline. Use the × button to remove a product.' },
+            },
+        ],
+    });
+    driverObj.drive();
+};
+
     // fetch
     const fetchProducts = async () => {
         setLoading(true);
@@ -420,20 +444,26 @@ export default function Products() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {can('products', 'C') && (
-                            <button
-                                onClick={() => { setShowAdd(true); setNewProduct(EMPTY_NEW); }}
-                                className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 active:scale-95 transition shadow-md"
-                            >
-                                <Plus size={14} /> {t('products.addProduct')}
-                            </button>
-                        )}
-                    </div>
+                    <div className="flex items-center gap-2" data-tour="product-actions">
+    <button
+        onClick={startProductsTour}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+    >
+        <BadgeCheck size={13} /> Take a Tour
+    </button>
+    {can('products', 'C') && (
+        <button
+            onClick={() => { setShowAdd(true); setNewProduct(EMPTY_NEW); }}
+            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 active:scale-95 transition shadow-md"
+        >
+            <Plus size={14} /> {t('products.addProduct')}
+        </button>
+    )}
+</div>
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="product-stats">
                     {[
                         { label: t('products.totalProducts'), value: totalProducts, icon: <Package size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('products.lowStock'), value: lowStock, icon: <AlertTriangle size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
@@ -465,7 +495,7 @@ export default function Products() {
                 )}
 
                 {/* Search + Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="products-table">
 
                     {/* Search bar */}
                     <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">

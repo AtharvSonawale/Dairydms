@@ -10,7 +10,8 @@ import { useAuth } from "../context/AuthContext";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
 import { useAppConfig } from '../context/AppConfigContext';
-
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 // ── helpers ───────────────────────────────────────────────────
 const getShiftByTime = () => {
     const h = new Date().getHours();
@@ -46,10 +47,9 @@ const isValidFat = (v) => parseFloat(v) >= FAT_MIN && parseFloat(v) <= FAT_MAX;
 const isValidSnf = (v) => parseFloat(v) >= SNF_MIN && parseFloat(v) <= SNF_MAX;
 
 // ── sub-components ────────────────────────────────────────────
-
-function Field({ label, icon, children }) {
+function Field({ label, icon, children, ...rest }) {
     return (
-        <div className="flex flex-col gap-1.5 shrink-0 self-end">
+        <div className="flex flex-col gap-1.5 shrink-0 self-end" {...rest}>
             <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
                 {icon}{label}
             </span>
@@ -156,6 +156,39 @@ export default function MilkEntry() {
     const { can, loading: permLoading } = usePermission();
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+    const startMilkEntryTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="seller-field"]',
+                    popover: { title: 'Select Seller', description: 'Search and pick the seller for this entry.' },
+                },
+                {
+                    element: '[data-tour="shift-field"]',
+                    popover: { title: 'Shift', description: 'Choose morning or evening shift.' },
+                },
+                {
+                    element: '[data-tour="qty-field"]',
+                    popover: { title: 'Quantity', description: 'Enter the quantity of milk collected, in liters.' },
+                },
+                {
+                    element: '[data-tour="fat-field"]',
+                    popover: { title: 'Fat %', description: 'Enter the fat percentage — rate auto-fills once valid.' },
+                },
+                {
+                    element: '[data-tour="save-btn"]',
+                    popover: { title: 'Save Entry', description: 'Click here to save the milk entry.' },
+                },
+                {
+                    element: '[data-tour="entries-table"]',
+                    popover: { title: 'Entries Table', description: 'All saved entries for the selected date appear here.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
     // Date range & PDF
     const [rangeMode, setRangeMode] = useState("daily");
     const [fromDate, setFromDate] = useState(today());
@@ -677,6 +710,14 @@ export default function MilkEntry() {
                                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
                         </div>
 
+                        <button
+                            type="button"
+                            onClick={startMilkEntryTour}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-gray-200 transition self-end"
+                        >
+                            <BadgeCheck size={13} /> {t('milkEntry.startTour') || 'Take a Tour'}
+                        </button>
+
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('milkEntry.downloadPDF')}</span>
 
@@ -784,7 +825,7 @@ export default function MilkEntry() {
                     )}
                     <div className="flex items-start gap-3 flex-wrap">
 
-                        <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />}>
+                        <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />} data-tour="seller-field">
                             <div className="relative" style={{ width: "160px" }}>
                                 <TinyInput
                                     value={sellerSearch}
@@ -872,7 +913,7 @@ export default function MilkEntry() {
                             )}
                         </Field>
 
-                        <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={12} /> : <Moon size={12} />}>
+                        <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={12} /> : <Moon size={12} />} data-tour="shift-field">
                             <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
                         </Field>
 
@@ -892,14 +933,14 @@ export default function MilkEntry() {
                             <SellerTypeToggle value={form.seller_type} onChange={(v) => set("seller_type", v)} />
                         </Field>
 
-                        <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={12} />}>
+                        <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={12} />} data-tour="qty-field">
                             <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
                                 placeholder="0.0" type="number" step="0.01"
                                 className="bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-200"
                                 style={{ width: "72px" }} />
                         </Field>
 
-                        <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={12} />}>
+                        <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={12} />} data-tour="fat-field">
                             <TinyInput
                                 value={form.fat}
                                 onChange={(e) => {
@@ -964,8 +1005,9 @@ export default function MilkEntry() {
                             {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </p>
                         <button type="button" onClick={editingEntry ? handleUpdate : handleSave} disabled={saving}
+                            data-tour="save-btn"
                             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                ${saving ? "bg-gray-300 cursor-not-allowed" : editingEntry ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
+        ${saving ? "bg-gray-300 cursor-not-allowed" : editingEntry ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
                             <Save size={15} />
                             {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
                         </button>
@@ -995,7 +1037,7 @@ export default function MilkEntry() {
                         </span>
                     </div>
 
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-100 bg-gray-50/80" data-tour="entries-table" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
                             <div key={label} className="px-3 py-3 flex items-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
                                 {label}

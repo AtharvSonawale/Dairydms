@@ -9,6 +9,9 @@ import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
 
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
+
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -93,6 +96,32 @@ export default function OwnerUsage() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startOwnerUsageTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="usage-stats"]',
+                    popover: { title: t('ownerUsage.totalUsed'), description: 'Summary of total milk used today, broken down by cow and buffalo, plus the total number of entries recorded.' },
+                },
+                {
+                    element: '[data-tour="usage-stock"]',
+                    popover: { title: t('ownerUsage.cowAvailable'), description: 'Live view of remaining stock available for cow, buffalo, and total — calculated after walk-in sales and prior usage entries.' },
+                },
+                {
+                    element: '[data-tour="usage-form"]',
+                    popover: { title: t('ownerUsage.newUsageEntry'), description: 'Select a shift and milk type, enter the quantity used, and optionally describe the purpose. Stock availability is shown inline to prevent over-entry.' },
+                },
+                {
+                    element: '[data-tour="usage-table"]',
+                    popover: { title: t('ownerUsage.colShift'), description: 'All usage entries for the selected date, listed with shift, milk type, quantity, purpose, and time recorded.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     // fetch entries for date
@@ -204,6 +233,12 @@ export default function OwnerUsage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={startOwnerUsageTour}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('ownerUsage.dateLabel')}</span>
                             <input
@@ -218,7 +253,7 @@ export default function OwnerUsage() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="usage-stats">
                     {[
                         { label: t('ownerUsage.totalUsed'), value: totalUsed.toFixed(2) + " L", icon: <TrendingDown size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('ownerUsage.cowUsed'), value: cowUsed.toFixed(2) + " L", icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
@@ -237,7 +272,7 @@ export default function OwnerUsage() {
 
                 {/* Available Stock Banner */}
                 {stock && (
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-3" data-tour="usage-stock">
                         {[
                             {
                                 label: t('ownerUsage.cowAvailable'),
@@ -285,7 +320,7 @@ export default function OwnerUsage() {
                 )}
 
                 {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="usage-form">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">{t('ownerUsage.newUsageEntry')}</p>
 
                     <div className="flex items-start gap-4 flex-wrap">
@@ -414,7 +449,7 @@ export default function OwnerUsage() {
                 )}
 
                 {/* Entries Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="usage-table">
 
                     {/* Header */}
                     <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>

@@ -572,7 +572,7 @@ const mr = {
             // Entries
             entries: "नोंदी",
         },
-        
+
         sellerPayments: {
             "pageTitle": "विक्रेता देयके",
             "pageSubtitle": "विक्रेता देयके व्यवस्थापित आणि ट्रॅक करा",
@@ -2056,7 +2056,14 @@ const mr = {
         },
 
         // ── Navigation ────────────────────────────────────────
+        // ── Navigation ────────────────────────────────────────
         nav: {
+            startTour: 'टूर सुरू करा',
+            namedBuyers: 'नामांकित खरेदीदार',
+            administration: 'प्रशासन',
+            milkCollection: 'दूध संकलन',
+            walkinSales: 'थेट विक्री',
+            finance: 'वित्त',
             dashboard: 'डॅशबोर्ड',
             operators: 'ऑपरेटर्स',
             operatorList: 'ऑपरेटर यादी',
@@ -2072,6 +2079,7 @@ const mr = {
             catalogue: 'कॅटलॉग',
             purchase: 'खरेदी',
             sales: 'विक्री',
+            adminList: 'प्रशासक यादी',
             bonusRegister: 'बोनस नोंदणी',
             utpadakBonus: 'उत्पादक बोनस',
             gavaliBonus: 'गवळी बोनस',

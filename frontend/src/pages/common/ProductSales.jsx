@@ -9,6 +9,8 @@ import {
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -568,6 +570,32 @@ export default function ProductSales() {
         setTimeout(() => setFlash(null), 3500);
     };
 
+    const startSalesTour = () => {
+    const driverObj = driver({
+        showProgress: true,
+        allowClose: true,
+        steps: [
+            {
+                element: '[data-tour="sales-header-actions"]',
+                popover: { title: t('productSales.dateLabel'), description: 'Pick a date to view or record sales. Use range buttons to switch between daily, weekly, monthly, or custom — then download a PDF. Use Speed Config to set up quick-tap product buttons.' },
+            },
+            {
+                element: '[data-tour="sales-stats"]',
+                popover: { title: t('productSales.salesToday'), description: 'Live summary of sales count, total revenue, and unique sellers served for the selected period.' },
+            },
+            {
+                element: '[data-tour="sales-form"]',
+                popover: { title: t('productSales.newSaleEntry'), description: 'Search and select a seller, then add product lines using the quick-tap strip or the product search. Each line computes its total automatically.' },
+            },
+            {
+                element: '[data-tour="sales-table"]',
+                popover: { title: t('productSales.colSeller'), description: 'All transactions for the selected period. Print a receipt, edit quantities/rates, or delete a sale — stock is reversed automatically on delete.' },
+            },
+        ],
+    });
+    driverObj.drive();
+};
+    
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
         const day = dt.getDay();
@@ -1030,9 +1058,15 @@ export default function ProductSales() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                            onClick={() => setSpeedConfigOpen(true)}
+                    <div className="flex items-center gap-2 flex-wrap" data-tour="sales-header-actions">
+    <button
+        onClick={startSalesTour}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+    >
+        <BadgeCheck size={13} /> Take a Tour
+    </button>
+    <button
+        onClick={() => setSpeedConfigOpen(true)}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition border border-amber-200">
                             <Settings size={13} /> Speed Config
                         </button>
@@ -1097,8 +1131,8 @@ export default function ProductSales() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
-                    {[
+                <div className="grid grid-cols-3 sm:grid-cols-3 gap-3" data-tour="sales-stats">
+                        {[
                         { label: t('productSales.salesToday'), value: sales.length, icon: <ShoppingCart size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('productSales.totalRevenue'), value: "₹" + totalRevenue.toFixed(2), icon: <TrendingUp size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                         { label: t('productSales.sellersServed'), value: uniqueSellers, icon: <Users size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
@@ -1126,7 +1160,7 @@ export default function ProductSales() {
 
                 {/* Entry Form */}
                 {can('product_sales', 'C') && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="sales-form">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
                             {t('productSales.newSaleEntry')}
                         </p>
@@ -1387,10 +1421,10 @@ export default function ProductSales() {
                 )}
 
                 {/* Sales Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="sales-table">
 
-                    {/* Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+    {/* Header */}
+    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
                             <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
                                 {label}

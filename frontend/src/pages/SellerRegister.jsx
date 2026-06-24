@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
 
@@ -51,8 +53,8 @@ const sellerTypeBadge = (t) =>
         : "bg-orange-50 text-orange-700 border border-orange-100";
 
 // ── Field ─────────────────────────────────────────────────────
-const Field = ({ label, name, type = "text", value, onChange, placeholder, required, children, t }) => (
-    <div className="flex flex-col gap-1">
+const Field = ({ label, name, type = "text", value, onChange, placeholder, required, children, t, ...rest }) => (
+    <div className="flex flex-col gap-1" {...rest}>
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
         </label>
@@ -95,6 +97,32 @@ export default function SellerRegister() {
     const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 3500); };
     const handleFilterChange = (f) => { setFilter(f); setCurrentPage(1); };
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+    const startSellerRegisterTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="add-seller-btn"]',
+                    popover: { title: t('sellerRegister.addSeller'), description: 'Click here to register a new seller.' },
+                },
+                {
+                    element: '[data-tour="seller-stats"]',
+                    popover: { title: t('sellerRegister.totalSellers'), description: 'See your total sellers, broken down by milk type.' },
+                },
+                {
+                    element: '[data-tour="filter-tabs"]',
+                    popover: { title: t('sellerRegister.all'), description: 'Filter the seller list by cow, buffalo, or mixed milk type.' },
+                },
+                {
+                    element: '[data-tour="seller-table"]',
+                    popover: { title: t('sellerRegister.actions'), description: 'Click a seller\'s name to view their profile, or use Edit/Delete here.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
 
     const fetchSellers = async () => {
         setLoading(true);
@@ -218,14 +246,20 @@ export default function SellerRegister() {
                             </p>
                         </div>
                     </div>
-                    <button onClick={openAdd}
-                        className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-black text-white hover:bg-gray-800">
-                        <span className="text-base leading-none">+</span> {t('sellerRegister.addSeller')}
-                    </button>
+                   <div className="flex items-center gap-2">
+                        <button onClick={startSellerRegisterTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200">
+                            <BadgeCheck size={13} /> {t('sellerRegister.startTour') || 'Take a Tour'}
+                        </button>
+                        <button onClick={openAdd} data-tour="add-seller-btn"
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-black text-white hover:bg-gray-800">
+                            <span className="text-base leading-none">+</span> {t('sellerRegister.addSeller')}
+                        </button>
+                    </div>
                 </div>
-
+                
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" data-tour="seller-stats">
                     {[
                         { label: t('sellerRegister.totalSellers'), value: sellers.length, icon: <Users size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <span className="text-sm"></span>, color: "text-amber-600 bg-amber-50 border-amber-100" },
@@ -497,8 +531,8 @@ export default function SellerRegister() {
                     </div>
                 )}
 
-                {/* Filter Tabs */}
-                <div className="flex items-center gap-2 mb-4">
+               {/* Filter Tabs */}
+                <div className="flex items-center gap-2 mb-4" data-tour="filter-tabs">
                     {["all", "cow", "buffalo", "mixed"].map((f) => (
                         <button key={f} onClick={() => handleFilterChange(f)}
                             className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border
@@ -511,7 +545,7 @@ export default function SellerRegister() {
                 </div>
 
                 {/* Table */}
-                <div className="w-full overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+                <div className="w-full overflow-x-auto rounded-2xl border border-gray-200 shadow-sm" data-tour="seller-table">
                     <div className="min-w-[1600px] bg-white">
                         <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
                             {TABLE_COLS.map(({ label, icon }) => (

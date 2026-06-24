@@ -9,6 +9,8 @@ import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -122,6 +124,32 @@ export default function CashAdvance() {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
+
+    const startCashAdvanceTour = () => {
+    const driverObj = driver({
+        showProgress: true,
+        allowClose: true,
+        steps: [
+            {
+                element: '[data-tour="advance-header-actions"]',
+                popover: { title: t('cashAdvance.dateLabel'), description: 'Select a date to view or record transactions. Switch between daily, weekly, monthly, or custom range — then download a PDF report.' },
+            },
+            {
+                element: '[data-tour="advance-stats"]',
+                popover: { title: t('cashAdvance.entriesToday'), description: 'Live summary of total entries, total advance given, and total amount received for the selected period.' },
+            },
+            {
+                element: '[data-tour="advance-form"]',
+                popover: { title: t('cashAdvance.newTransaction'), description: 'Search for a seller, choose Given or Received, enter the amount and optional remarks. The running balance and recent history for the selected seller are shown below.' },
+            },
+            {
+                element: '[data-tour="advance-table"]',
+                popover: { title: t('cashAdvance.colSeller'), description: 'All transactions for the selected period. Filter by seller name, paginate through entries, and (if admin) edit or delete any record.' },
+            },
+        ],
+    });
+    driverObj.drive();
+};
 
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
@@ -739,9 +767,15 @@ export default function CashAdvance() {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.dateLabel')}</span>
+                  <div className="flex items-center gap-2 flex-wrap" data-tour="advance-header-actions">
+    <button
+        onClick={startCashAdvanceTour}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+    >
+        <BadgeCheck size={13} /> Take a Tour
+    </button>
+    <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -821,8 +855,7 @@ export default function CashAdvance() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {[
+<div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-tour="advance-stats">                    {[
                         { label: rangeMode === "daily" ? t('cashAdvance.entriesToday') : t('cashAdvance.entriesInRange'), value: activeData.length, icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('cashAdvance.totalGiven'), value: `₹${fmt(totalGiven)}`, icon: <TrendingDown size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                         { label: t('cashAdvance.totalReceived'), value: `₹${fmt(totalReceived)}`, icon: <TrendingUp size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
@@ -848,8 +881,8 @@ export default function CashAdvance() {
                 )}
 
                 {/* Entry Form */}
-                {can('cash_advance', 'C') && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+               {can('cash_advance', 'C') && (
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="advance-form">
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
                                 {editingEntry ? t('cashAdvance.editEntry') : t('cashAdvance.newTransaction')}
@@ -1070,9 +1103,9 @@ export default function CashAdvance() {
                 )}
 
                 {/* Entries Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="advance-table">
 
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
                         <input
                             type="text" value={searchName}
                             onChange={e => { setSearchName(e.target.value); setCurrentPage(1); }}

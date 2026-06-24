@@ -12,6 +12,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
     "axios": "^1.16.0",
+    "driver.js": "^1.4.0",
     "i18next": "^26.3.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

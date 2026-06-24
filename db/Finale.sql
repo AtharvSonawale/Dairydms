@@ -6,6 +6,7 @@ CREATE TABLE `admins` (
    `password_hash` varchar(255) NOT NULL,
    `mobile` varchar(15) DEFAULT NULL,
    `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   `has_seen_tour` tinyint(1) NOT NULL DEFAULT '1',
    PRIMARY KEY (`admin_id`),
    UNIQUE KEY `email` (`email`),
    KEY `centre_id` (`centre_id`),

@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
-import AccessDenied from '../components/AccessDenied';
-
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 // ── Sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
     return (
@@ -112,10 +112,32 @@ export default function NamedBuyersManagement() {
         setCurrentPage(1);
     }, [searchTerm, buyers]);
 
-    // ── Flash Message ──────────────────────────────────────────
+// ── Flash Message ──────────────────────────────────────────
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startNamedBuyersTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="search-add"]',
+                    popover: { title: t('namedBuyers.addBuyer'), description: 'Search existing buyers by name, mobile, or address — or register a new one.' },
+                },
+                {
+                    element: '[data-tour="buyer-stats"]',
+                    popover: { title: t('namedBuyers.total'), description: 'See your total buyers, and how many are active vs inactive.' },
+                },
+                {
+                    element: '[data-tour="buyers-table"]',
+                    popover: { title: t('namedBuyers.colStatus'), description: 'Click the status badge to toggle active/inactive. Use Edit or Delete to manage a buyer.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     // ── Form Handlers ──────────────────────────────────────────
@@ -254,7 +276,13 @@ export default function NamedBuyersManagement() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
+<div className="flex items-center gap-3 flex-wrap" data-tour="search-add">
+                        <button
+                            onClick={startNamedBuyersTour}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                        >
+                            <CheckCircle2 size={13} /> Take a Tour
+                        </button>
                         <div className="relative">
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                             <input
@@ -302,8 +330,8 @@ export default function NamedBuyersManagement() {
                     </div>
                 )}
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-3 gap-3">
+{/* Stats Cards */}
+                <div className="grid grid-cols-3 gap-3" data-tour="buyer-stats">
                     {[
                         {
                             label: t('namedBuyers.total'),
@@ -458,8 +486,8 @@ export default function NamedBuyersManagement() {
                     </div>
                 )}
 
-                {/* Buyers Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+{/* Buyers Table */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="buyers-table">
                     {/* Table Header */}
                     <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (

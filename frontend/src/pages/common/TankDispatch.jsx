@@ -10,6 +10,8 @@ import { useAuth } from "../../context/AuthContext";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 
 // ── helpers ───────────────────────────────────────────────────
@@ -118,6 +120,37 @@ export default function TankDispatch() {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
+
+    const startDispatchTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="dispatch-header-actions"]',
+                    popover: { title: t('tankDispatch.dateLabel'), description: 'Select a date to view or record dispatches. Switch between daily, weekly, monthly, or custom range. Download a PDF register or print a combined challan for the day.' },
+                },
+                {
+                    element: '[data-tour="dispatch-stats"]',
+                    popover: { title: t('tankDispatch.dispatches'), description: 'Live summary of total dispatches, total milk dispatched, factory revenue earned, and remaining stock available for dispatch.' },
+                },
+                {
+                    element: '[data-tour="dispatch-stock"]',
+                    popover: { title: t('tankDispatch.cowRemaining'), description: 'Click Cow or Buffalo to select the milk type for dispatch. The ready-to-dispatch panel shows the quantity and quality (FAT%, SNF%) available.' },
+                },
+                {
+                    element: '[data-tour="dispatch-form"]',
+                    popover: { title: t('tankDispatch.newDispatchEntry'), description: 'Fill in factory, vehicle, driver, and optional remarks. Enter cow and buffalo quantities and rates per litre — amounts are computed automatically. Add multiple trucks if needed.' },
+                },
+                {
+                    element: '[data-tour="dispatch-table"]',
+                    popover: { title: t('tankDispatch.colFactory'), description: 'All dispatches for the selected date. Print individual challans using the PDF button on each row. Admins can edit any dispatch record.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
+
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
         const day = dt.getDay();
@@ -962,7 +995,13 @@ export default function TankDispatch() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap" data-tour="dispatch-header-actions">
+                        <button
+                            onClick={startDispatchTour}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('tankDispatch.dateLabel')}</span>
                             <input type="date" value={selectedDate}
@@ -1040,8 +1079,7 @@ export default function TankDispatch() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="dispatch-stats">                    {[
                         { label: t('tankDispatch.dispatches'), value: `${dispatches.length} (${[...new Set(dispatches.map(d => d.shift + d.dispatch_date))].length} shifts)`, icon: <Truck size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('tankDispatch.totalDispatched'), value: totalDispatched.toFixed(1) + " L", icon: <Milk size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                         { label: t('tankDispatch.factoryRevenue'), value: "₹" + totalFactoryRev.toFixed(2), icon: <TrendingUp size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
@@ -1071,7 +1109,7 @@ export default function TankDispatch() {
                 )}
 
                 {/* Stock + Dispatch Summary */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2" data-tour="dispatch-stock">
 
                     {/* Cow */}
                     <div onClick={() => setMilkType("cow")} style={{ cursor: "pointer" }}
@@ -1138,7 +1176,7 @@ export default function TankDispatch() {
                 </div>
 
                 {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="dispatch-form">
                     <div className="flex items-center gap-2 mb-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
                             {editingDispatch ? t('tankDispatch.editDispatch') : t('tankDispatch.newDispatchEntry')}
@@ -1421,7 +1459,7 @@ export default function TankDispatch() {
                 </div>
 
                 {/* Dispatch History Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="dispatch-table">
                     {/* Header */}
                     <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (

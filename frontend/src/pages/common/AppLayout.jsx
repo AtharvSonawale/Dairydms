@@ -18,26 +18,68 @@ import {
  * changes — this means nav labels update instantly when language switches.
  */
 const SHARED_NAV = (isAdmin, t) => [
+
+    // ── Dashboard ────────────────────────────────────────────────
     {
         label: t('nav.dashboard'),
         icon: <LayoutDashboard size={16} />,
         to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
     },
-    ...(isAdmin ? [
-        { label: t('nav.operators'), icon: <HardHat size={16} />, to: '/admin/operators/new' },
-        { label: t('nav.operatorList'), icon: <HardHat size={16} />, to: '/admin/operatorlist' },
-        { label: t('nav.settings'), icon: <Settings size={16} />, to: '/admin/settings' },
-        { label: t('nav.premiumRates'), icon: <Star size={16} />, to: '/admin/premiumrates' },
-        { label: t('nav.adminList'), icon: <User2Icon size={16} />, to: '/admin/adminlist' },
 
+    // ── Admin Only ───────────────────────────────────────────────
+    ...(isAdmin ? [
+        {
+            label: t('nav.administration'),
+            icon: <Settings size={16} />,
+            to: null,
+            children: [
+                { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings' },
+                { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates' },
+                { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
+                { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
+                { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
+                { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
+            ],
+        },
     ] : []),
-    { label: t('nav.sellers'), icon: <Users size={16} />, to: '/sellerregister' },
-    { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments' },
-    { label: t('nav.rateChart'), icon: <BarChart2 size={16} />, to: '/rates' },
-    { label: t('nav.milkEntry'), icon: <Milk size={16} />, to: '/milkentries' },
-    { label: t('nav.walkinSale'), icon: <ShoppingCart size={16} />, to: '/walkinsales' },
-    { label: t('nav.walkinPayments'), icon: <ShoppingCart size={16} />, to: '/walkinpayments' },
-    { label: t('nav.namedBuyers'), icon: <User2Icon size={16} />, to: '/namedbuyers'},
+
+    // ── Sellers & Milk ───────────────────────────────────────────
+    {
+        label: t('nav.sellers'),
+        icon: <Users size={16} />,
+        to: null,
+        children: [
+            { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister' },
+            { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates' },
+            { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments' },
+        ],
+    },
+
+    // ── Milk Collection ──────────────────────────────────────────
+    {
+        label: t('nav.milkCollection'),
+        icon: <Milk size={16} />,
+        to: null,
+        children: [
+            { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries' },
+            { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage' },
+            { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch' },
+        ],
+    },
+
+    // ── Walk-in Sales ────────────────────────────────────────────
+    {
+        label: t('nav.walkinSales'),
+        icon: <ShoppingCart size={16} />,
+        to: null,
+        children: [
+            { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales' },
+            { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments' },
+            { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers' },
+        ],
+    },
+
+    // ── Products ─────────────────────────────────────────────────
     {
         label: t('nav.products'),
         icon: <Package size={16} />,
@@ -48,6 +90,19 @@ const SHARED_NAV = (isAdmin, t) => [
             { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales' },
         ],
     },
+
+    // ── Finance ──────────────────────────────────────────────────
+    {
+        label: t('nav.finance'),
+        icon: <Wallet size={16} />,
+        to: null,
+        children: [
+            { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance' },
+            { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit' },
+        ],
+    },
+
+    // ── Bonus Registers ──────────────────────────────────────────
     {
         label: t('nav.bonusRegister'),
         icon: <Star size={16} />,
@@ -57,12 +112,9 @@ const SHARED_NAV = (isAdmin, t) => [
             { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister' },
         ],
     },
-    { label: t('nav.cashAdvance'), icon: <Wallet size={16} />, to: '/cashadvance' },
-    { label: t('nav.cashDeposit'), icon: <Wallet size={16} />, to: '/cashdeposit' },
-    { label: t('nav.tankDispatch'), icon: <Truck size={16} />, to: '/tankdispatch' },
+
+    // ── Reports ──────────────────────────────────────────────────
     { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport' },
-    { label: t('nav.ownerUsage'), icon: <Home size={16} />, to: '/ownerusage' },
-    { label: 'Clear All Data', icon: <Settings size={16} />, to: '/admin/clear-data', adminOnly: true },
 ];
 
 const initials = (name = '') =>
@@ -134,8 +186,9 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                             </button>
 
                             {(expanded[item.label] && (!collapsed || mobile)) && (
-                                <div className={`ml-4 mt-0.5 space-y-0.5 border-l-2 pl-3 border-opacity-40 border-dashed
-                                    ${isAdmin ? 'border-gray-600' : 'border-emerald-500'}`}>
+                                <div className={`ml-5 mt-0.5 space-y-0.5 pl-4 relative
+    before:absolute before:left-0 before:top-0 before:bottom-4 before:w-0.5
+    ${isAdmin ? 'before:bg-gray-700' : 'before:bg-emerald-600'}`}>
                                     {item.children.map(child => (
                                         <NavLink
                                             key={child.to}
@@ -237,7 +290,7 @@ export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [expanded, setExpanded] = useState({ [t('nav.products')]: true });
+    const [expanded, setExpanded] = useState({});
 
     // Re-build nav whenever language (t) or role changes
     const navItems = useMemo(() => SHARED_NAV(isAdmin, t), [isAdmin, t]);

@@ -8,6 +8,8 @@ import {
     TrendingUp, FlaskConical, Pencil, Trash2, Star,
     RefreshCw, ChevronRight, AlertTriangle, BadgeCheck, X
 } from 'lucide-react';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── small helpers ──────────────────────────────────────────
 const badge = (type, t) =>
@@ -107,6 +109,32 @@ export default function RateChart() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startRateChartTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="date-picker"]',
+                    popover: { title: t('rateChart.dateLabel'), description: 'Pick the date to view or add rates for.' },
+                },
+                {
+                    element: '[data-tour="action-buttons"]',
+                    popover: { title: t('rateChart.addRate'), description: 'Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific sellers, or add a single rate manually.' },
+                },
+                {
+                    element: '[data-tour="filter-tabs"]',
+                    popover: { title: t('rateChart.cow'), description: 'Switch between cow and buffalo rate charts.' },
+                },
+                {
+                    element: '[data-tour="rates-table"]',
+                    popover: { title: t('rateChart.ratePerL'), description: 'Each row shows the rate for a specific FAT/SNF combination. Edit or delete rates here.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     const handleChange = (e) => {
@@ -331,7 +359,12 @@ export default function RateChart() {
                         </div>
                     </div>
                     <div className="flex items-end gap-2 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
+                        <button onClick={startRateChartTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
+            bg-gray-100 text-gray-600 hover:bg-gray-200">
+                            <BadgeCheck size={13} /> {t('rateChart.startTour') || 'Take a Tour'}
+                        </button>
+                        <div className="flex flex-col gap-0.5" data-tour="date-picker">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('rateChart.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={e => setSelectedDate(e.target.value)}
@@ -339,6 +372,7 @@ export default function RateChart() {
                 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition" />
                         </div>
 
+                        <div className="flex items-end gap-2 flex-wrap" data-tour="action-buttons">
                         <button onClick={() => { setShowCopyModal(true); setCopyStartDate(''); setCopyEndDate(''); }} disabled={copyingForward}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
     bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50">
@@ -371,6 +405,7 @@ export default function RateChart() {
                                 <Trash2 size={13} /> {t('rateChart.deleteAll')}
                             </button>
                         )}
+                        </div>
                     </div>
                 </div>
 
@@ -473,7 +508,7 @@ export default function RateChart() {
                 )}
 
                 {/* ── Filter tabs ── */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" data-tour="filter-tabs">
                     {['cow', 'buffalo'].map(f => (
                         <button key={f} onClick={() => setFilter(f)}
                             className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border ${filter === f
@@ -487,7 +522,7 @@ export default function RateChart() {
                 </div>
 
                 {/* ── Table ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="rates-table">
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />

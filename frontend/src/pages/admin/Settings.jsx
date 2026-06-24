@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── All pages with their CRUD labels ─────────────────────────
 const ALL_PAGES = [
@@ -103,9 +105,9 @@ const LANGUAGES = [
 const SERVER_DEFAULTS = { appName: 'MilkApp', logoUrl: '', textSize: 'base', language: 'en' };
 
 
-function SectionCard({ title, icon, children }) {
+function SectionCard({ title, icon, children, ...rest }) {
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" {...rest}>
             <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
                 <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
                     {icon}
@@ -148,6 +150,36 @@ export default function AdminSettings() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startSettingsTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="app-identity"]',
+                    popover: { title: t('settings.appIdentity'), description: 'Set your app name and upload a logo — this appears across the whole app.' },
+                },
+                {
+                    element: '[data-tour="text-size"]',
+                    popover: { title: t('settings.textSize'), description: 'Choose how large text appears throughout the app.' },
+                },
+                {
+                    element: '[data-tour="language"]',
+                    popover: { title: t('settings.language'), description: 'Switch the app language for all users.' },
+                },
+                {
+                    element: '[data-tour="operator-access"]',
+                    popover: { title: t('settings.operatorAccess'), description: 'Select an operator below to control exactly what they can create, view, edit, or delete on each page.' },
+                },
+                {
+                    element: '[data-tour="save-btn"]',
+                    popover: { title: t('actions.save'), description: 'Save all changes — app identity, appearance, and operator permissions.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     // ── Load global settings on mount ─────────────────────────
@@ -320,6 +352,12 @@ export default function AdminSettings() {
                     </div>
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={startSettingsTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> {t('settings.startTour') || 'Take a Tour'}
+                        </button>
+                        <button
                             onClick={handleReset}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
                         >
@@ -328,6 +366,7 @@ export default function AdminSettings() {
                         <button
                             onClick={handleSave}
                             disabled={saving}
+                            data-tour="save-btn"
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 transition disabled:opacity-50"
                         >
                             {saving
@@ -353,7 +392,7 @@ export default function AdminSettings() {
                 )}
 
                 {/* ── App Identity ── */}
-                <SectionCard title={t('settings.appIdentity')} icon={<Building2 size={15} className="text-white" />}>
+                <SectionCard title={t('settings.appIdentity')} icon={<Building2 size={15} className="text-white" />} data-tour="app-identity">
                     <div className="flex flex-col lg:flex-row gap-8">
 
                         {/* App Name */}
@@ -453,7 +492,7 @@ export default function AdminSettings() {
                 </SectionCard>
 
                 {/* ── Text Size ── */}
-                <SectionCard title={t('settings.textSize')} icon={<Type size={15} className="text-white" />}>
+                <SectionCard title={t('settings.textSize')} icon={<Type size={15} className="text-white" />} data-tour="text-size">
                     <div className="flex gap-3 flex-wrap">
                         {TEXT_SIZES.map(sz => (
                             <button
@@ -476,7 +515,7 @@ export default function AdminSettings() {
                     <p className="text-[11px] text-gray-400 mt-3">{t('settings.textSizeHint')}</p>
                 </SectionCard>
 
-                <SectionCard title={t('settings.language')} icon={<Languages size={15} className="text-white" />}>
+                <SectionCard title={t('settings.language')} icon={<Languages size={15} className="text-white" />} data-tour="language">
                     <div className="flex gap-3 flex-wrap">
                         {LANGUAGES.map(lang => (
                             <button
@@ -502,6 +541,7 @@ export default function AdminSettings() {
                 <SectionCard
                     title={t('settings.operatorAccess')}
                     icon={<Users size={15} className="text-white" />}
+                    data-tour="operator-access"
                 >
                     <div className="mb-5">
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">

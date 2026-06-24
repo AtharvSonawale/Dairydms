@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
     const [form, setForm] = useState({ name: '', email: '', password: '', mobile: '' });
@@ -118,9 +120,31 @@ export default function AdminList() {
     const [flash, setFlash] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
 
-    const showFlash = (type, msg) => {
+const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startAdminListTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="add-admin-btn"]',
+                    popover: { title: 'Add Admin', description: 'Create a new admin account for your centre.' },
+                },
+                {
+                    element: '[data-tour="search-filter"]',
+                    popover: { title: 'Search & Filter', description: 'Search by name or email, or filter by active/inactive status.' },
+                },
+                {
+                    element: '[data-tour="admin-list"]',
+                    popover: { title: 'Admin List', description: 'Click any admin to view their profile, or use the toggle to deactivate/reactivate their account.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     const fetchAdmins = async () => {
@@ -181,11 +205,18 @@ export default function AdminList() {
                             </p>
                         </div>
                     </div>
-                    <button onClick={() => setCreateOpen(true)}
-                        className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                            bg-blue-600 text-white hover:bg-blue-700 transition self-start sm:self-auto">
-                        <Plus size={14} /> Add Admin
-                    </button>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <button onClick={startAdminListTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+                                bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
+                        <button onClick={() => setCreateOpen(true)} data-tour="add-admin-btn"
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+                                bg-blue-600 text-white hover:bg-blue-700 transition">
+                            <Plus size={14} /> Add Admin
+                        </button>
+                    </div>
                 </div>
 
                 {/* Flash */}
@@ -201,9 +232,9 @@ export default function AdminList() {
                         </button>
                     </div>
                 )}
-
+                
                 {/* Search + Filter */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" data-tour="search-filter">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -221,9 +252,9 @@ export default function AdminList() {
                         ))}
                     </div>
                 </div>
-
+                
                 {/* List */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2" data-tour="admin-list">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />

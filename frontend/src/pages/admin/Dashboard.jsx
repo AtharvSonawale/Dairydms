@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import { useTranslation } from "react-i18next";
 import api from "../../api/axios";
 import {
@@ -197,6 +199,40 @@ export default function AdminDashboard() {
         ownerUsage: true, operators: true,
     });
 
+    useEffect(() => {
+        if (user && user.role === "admin" && user.has_seen_tour === 0) {
+            const driverObj = driver({
+                showProgress: true,
+                allowClose: true,
+                onDestroyed: () => {
+                    api.put("/admin/mark-tour-seen").catch(() => { });
+                },
+                steps: [
+                    {
+                        element: '[data-tour="dashboard-title"]',
+                        popover: { title: "Welcome!", description: "This is your admin dashboard — your home base for everything." },
+                    },
+                    {
+                        element: '[data-tour="period-toggle"]',
+                        popover: { title: "Time Period", description: "Switch between day, week, month, or year views." },
+                    },
+                    {
+                        element: '[data-tour="revenue-overview"]',
+                        popover: { title: "Revenue Overview", description: "Your total profit, sales, and spend at a glance." },
+                    },
+                    {
+                        element: '[data-tour="milk-collection"]',
+                        popover: { title: "Milk Collection", description: "Track total milk collected, payable amount, and fat/SNF averages." },
+                    },
+                ],
+            });
+            driverObj.drive();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
+
+    
+
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
@@ -305,8 +341,7 @@ export default function AdminDashboard() {
                                 <Settings size={10} /> {t('status.admin')}
                             </span>
                         </div>
-                        <h1 className="text-2xl font-bold text-gray-900 leading-tight">{t('dashboard.title')}</h1>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <h1 className="text-2xl font-bold text-gray-900 leading-tight" data-tour="dashboard-title">{t('dashboard.title')}</h1>                        <p className="text-xs text-gray-400 mt-0.5">
                             {new Date().toLocaleDateString("en-IN", {
                                 weekday: "long", day: "numeric", month: "long", year: "numeric",
                             })}
@@ -314,7 +349,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold flex-shrink-0 w-40">
+                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold flex-shrink-0 w-40" data-tour="period-toggle">
                             {['day', 'week', 'month', 'year'].map((p) => (
                                 <button
                                     key={p}
@@ -440,7 +475,7 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Revenue Overview */}
-                <div>
+                <div data-tour="revenue-overview">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{t('dashboard.revenueOverview')}</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <StatCard label={t('dashboard.totalProfit')} value={"₹" + fmt(profits.total_profit)} icon={<Banknote size={15} />} color="emerald" />
@@ -454,7 +489,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Milk Collection */}
-                <div>
+                <div data-tour="milk-collection">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{t('dashboard.milkCollection')}</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="flex flex-col gap-2 px-4 py-4 rounded-2xl border border-amber-100 bg-amber-50 col-span-2 sm:col-span-1">

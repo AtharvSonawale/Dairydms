@@ -34,12 +34,12 @@ exports.createAdmin = async (req, res) => {
         const hash = await bcrypt.hash(password, 10);
 
         const [result] = await pool.query(
-            'INSERT INTO admins (centre_id, name, email, password_hash, mobile) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO admins (centre_id, name, email, password_hash, mobile, has_seen_tour) VALUES (?, ?, ?, ?, ?, 0)',
             [centreId, name.trim(), email.trim(), hash, mobile || null]
         );
 
         const [rows] = await pool.query(
-            'SELECT admin_id, centre_id, name, email, mobile, created_at FROM admins WHERE admin_id = ?',
+            'SELECT admin_id, centre_id, name, email, mobile, created_at, has_seen_tour FROM admins WHERE admin_id = ?',
             [result.insertId]
         );
 
@@ -55,7 +55,7 @@ exports.listAdmins = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
         const [rows] = await pool.query(
-            'SELECT admin_id, centre_id, name, email, mobile, created_at FROM admins WHERE centre_id = ? ORDER BY created_at DESC',
+            'SELECT admin_id, centre_id, name, email, mobile, created_at, has_seen_tour FROM admins WHERE centre_id = ? ORDER BY created_at DESC',
             [centreId]
         );
         res.json(rows);

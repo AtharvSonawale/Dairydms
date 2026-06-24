@@ -11,6 +11,9 @@ import {
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
+
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -183,6 +186,32 @@ export default function WalkinPayments() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startWalkinPaymentsTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="date-filters"]',
+                    popover: { title: t("payments.day"), description: "Pick the period to view payments for, and filter by cash, UPI, or credit." },
+                },
+                {
+                    element: '[data-tour="payment-stats"]',
+                    popover: { title: t("payments.total_received"), description: "Quick totals — total received, cash collected, and total outstanding across all buyers." },
+                },
+                {
+                    element: '[data-tour="payment-form"]',
+                    popover: { title: t("payments.record_new_payment"), description: "Search for a buyer, enter the amount and mode, and record a new payment." },
+                },
+                {
+                    element: '[data-tour="buyer-list"]',
+                    popover: { title: t("payments.outstanding_balance"), description: "Click any buyer to see their full payment history. Use 'Clear Bill' to settle outstanding balances, or 'Save Bill' to generate a bill for the selected period." },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     const generatePreviewBillNo = (buyerId, buyerType, fromDate, toDate) => {
@@ -1279,7 +1308,13 @@ ${entries.length > 0 ? `
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
+                   <div className="flex items-center gap-3 flex-wrap">
+                        <button
+                            onClick={startWalkinPaymentsTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
                         <button
                             onClick={() => { setBillSearchOpen(true); searchBills(""); }}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition"
@@ -1296,8 +1331,8 @@ ${entries.length > 0 ? `
                     </div>
                 </div>
 
-                {/* Date Range */}
-                <div className="flex items-center gap-3 flex-wrap">
+               {/* Date Range */}
+                <div className="flex items-center gap-3 flex-wrap" data-tour="date-filters">
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                         {[
                             { v: "daily", l: t("payments.day") },
@@ -1380,7 +1415,7 @@ ${entries.length > 0 ? `
                 )}
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3" data-tour="payment-stats">
                     <StatCard
                         label={t("payments.total_received")}
                         value={fmt(summary.total_received)}
@@ -1403,7 +1438,7 @@ ${entries.length > 0 ? `
                 </div>
 
                 {/* Payment Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6" data-tour="payment-form">
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
                             {t("payments.record_new_payment")}
@@ -1625,8 +1660,8 @@ ${entries.length > 0 ? `
                     </span>
                 </div>
 
-                {/* Buyer Cards */}
-                <div className="flex flex-col gap-3">
+              {/* Buyer Cards */}
+                <div className="flex flex-col gap-3" data-tour="buyer-list">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />

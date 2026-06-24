@@ -12,6 +12,9 @@ import { useAuth } from "../context/AuthContext";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
 
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
+
 
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
@@ -101,6 +104,41 @@ export default function GavaliBonusRegister() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+
+    const startGavaliBonusTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="gavali-header-actions"]',
+                    popover: { title: t('gavaliBonus.bonusEvent'), description: 'Select an existing bonus event or create a new one. Edit or delete events, and print the full register as an A3 PDF with monthly breakdown columns.' },
+                },
+                {
+                    element: '[data-tour="gavali-stats"]',
+                    popover: { title: t('gavaliBonus.totalSellers'), description: 'Summary of total gavali sellers, total milk quantity, total bonus amount to pay, and the current cow/buffalo bonus rates.' },
+                },
+                {
+                    element: '[data-tour="gavali-progress"]',
+                    popover: { title: t('gavaliBonus.paymentProgress'), description: 'Payment progress bar showing how many sellers have been marked as paid for the selected event.' },
+                },
+                {
+                    element: '[data-tour="gavali-config"]',
+                    popover: { title: t('gavaliBonus.bonusConfig'), description: 'Configure the bonus rate per litre for cow and buffalo milk separately. Click Edit Rates to update them.' },
+                },
+                {
+                    element: '[data-tour="gavali-search"]',
+                    popover: { title: t('gavaliBonus.searchPlaceholder'), description: 'Search sellers by name or code, and filter by payment status — All, Unpaid, or Paid.' },
+                },
+                {
+                    element: '[data-tour="gavali-sellers"]',
+                    popover: { title: t('gavaliBonus.totalSellers'), description: 'Each card shows a seller\'s cow and buffalo quantities, bonus amount, and year-over-year growth. Click to expand for a full breakdown. Use the Pay button (when an event is selected) to mark as paid.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     // ── Fetch Events ────────────────────────────────────────────
@@ -649,13 +687,15 @@ export default function GavaliBonusRegister() {
                                 {t('gavaliBonus.pageSubtitle')}
                             </p>
                         </div>
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium ml-1">
-                            <Sparkles size={10} />
-                            {t('gavaliBonus.gavaliBonus')}
-                        </span>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap" data-tour="gavali-header-actions">
+                        <button
+                            onClick={startGavaliBonusTour}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition mt-4"
+                        >
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
                         {/* Event selector */}
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.bonusEvent')}</span>
@@ -863,7 +903,7 @@ export default function GavaliBonusRegister() {
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-tour="gavali-stats">
                     <StatCard label={t('gavaliBonus.totalSellers')} value={rows.length}
                         icon={<Users size={14} />}
                         color="text-blue-600 bg-blue-50 border-blue-100" />
@@ -879,7 +919,7 @@ export default function GavaliBonusRegister() {
                 </div>
 
                 {/* ── Progress bar ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center gap-4 no-print">
+                <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center gap-4 no-print" data-tour="gavali-progress">
                     <div className="flex flex-col gap-1 flex-1">
                         <div className="flex justify-between text-xs font-medium text-gray-500 mb-1">
                             <span>{t('gavaliBonus.paymentProgress')}</span>
@@ -911,7 +951,7 @@ export default function GavaliBonusRegister() {
                 )}
 
                 {/* ── Slab Config ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden no-print">
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden no-print" data-tour="gavali-config">
                     <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                         <div className="flex items-center gap-2">
                             <Settings size={14} className="text-gray-400" />
@@ -985,7 +1025,7 @@ export default function GavaliBonusRegister() {
                 </div>
 
                 {/* ── Search + Filter ── */}
-                <div className="flex items-center gap-2 no-print">
+                <div className="flex items-center gap-2 no-print" data-tour="gavali-search">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -1005,7 +1045,7 @@ export default function GavaliBonusRegister() {
                 </div>
 
                 {/* ── Seller Cards ── */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3" data-tour="gavali-sellers">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />

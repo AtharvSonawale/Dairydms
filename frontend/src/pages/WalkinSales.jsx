@@ -9,6 +9,8 @@ import {
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── helpers ───────────────────────────────────────────────────
 const getShiftByTime = () => {
@@ -146,7 +148,38 @@ export default function WalkinSales() {
     const [pageSize, setPageSize] = useState(5);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchName, setSearchName] = useState("");
-    const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+    const startWalkinSalesTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="buyer-modes"]',
+                    popover: { title: t('walkinSale.anon'), description: 'Choose who is buying — an anonymous walk-in, a named regular buyer, or a registered seller buying milk back.' },
+                },
+                {
+                    element: '[data-tour="payment-toggle"]',
+                    popover: { title: 'Pay Now / Pay After', description: 'Pay Now records the payment immediately. Pay After tracks it as credit owed.' },
+                },
+                {
+                    element: '[data-tour="save-btn"]',
+                    popover: { title: t('walkinSale.recordSale'), description: 'Click here to record the sale.' },
+                },
+                {
+                    element: '[data-tour="sales-stats"]',
+                    popover: { title: t('walkinSale.salesToday'), description: 'Quick totals for today — cow and buffalo sold, plus total revenue.' },
+                },
+                {
+                    element: '[data-tour="sales-table"]',
+                    popover: { title: t('walkinSale.colBuyer'), description: 'All sales for the selected date. Filter by buyer type, or edit/delete any row.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
+
     const [rangeMode, setRangeMode] = useState("daily");
     const [fromDate, setFromDate] = useState(today());
     const [toDate, setToDate] = useState(today());
@@ -1175,13 +1208,17 @@ export default function WalkinSales() {
                             <Milk size={13} /> Products
                         </button>
 
-                        {/* AFTER the Products button */}
+                       {/* AFTER the Products button */}
                         {namedBuyerSummaries.filter(b => b.outstanding > 0).length > 0 && (
                             <button onClick={() => setShowClearBillModal(true)}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-rose-500 text-white hover:bg-rose-600 mt-4">
                                 <Banknote size={13} /> Clear Bills ({namedBuyerSummaries.filter(b => b.outstanding > 0).length})
                             </button>
                         )}
+                        <button onClick={startWalkinSalesTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200 mt-4">
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
                     </div>
                 </div>
 
@@ -1429,7 +1466,7 @@ export default function WalkinSales() {
                 )}
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="sales-stats">
                     {[
                         { label: t('walkinSale.salesToday'), value: sales.length, icon: <ShoppingCart size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('walkinSale.cowSold'), value: `${sales.filter(s => s.milk_type === "cow").reduce((a, s) => a + parseFloat(s.quantity || 0), 0).toFixed(1)} L`, icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
@@ -1478,8 +1515,8 @@ export default function WalkinSales() {
                         </div>
                     </div>
 
-                    {/* Buyer Mode Selector */}
-                    <div className="flex gap-2 mb-5">
+                  {/* Buyer Mode Selector */}
+                    <div className="flex gap-2 mb-5" data-tour="buyer-modes">
                         {BUYER_MODES.map(({ val, label, emoji, desc }) => (
                             <button
                                 key={val}
@@ -1804,7 +1841,7 @@ export default function WalkinSales() {
                         )}
                         {/* Pay Now / Pay After toggle — show for all modes */}
                         <Field label="Payment" icon={<Banknote size={12} />}>
-                            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold" data-tour="payment-toggle">
                                 <button
                                     type="button"
                                     onClick={() => { set("pay_now", true); set("payment_mode", "cash"); }}
@@ -1879,6 +1916,7 @@ export default function WalkinSales() {
                                 type="button"
                                 onClick={handleSave}
                                 disabled={saving}
+                                data-tour="save-btn"
                                 className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
                 ${saving ? "bg-gray-300 cursor-not-allowed"
                                         : editingSaleId ? "bg-amber-500 hover:bg-amber-600 active:scale-95"
@@ -1892,7 +1930,7 @@ export default function WalkinSales() {
                 </div>
 
                 {/* Sales Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="sales-table">
                     {/* Search + filter bar */}
                     <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60 flex-wrap">
                         <input

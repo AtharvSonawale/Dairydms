@@ -9,6 +9,8 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -120,6 +122,32 @@ export default function CashDeposit() {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
+
+    const startDepositTour = () => {
+    const driverObj = driver({
+        showProgress: true,
+        allowClose: true,
+        steps: [
+            {
+                element: '[data-tour="deposit-header-actions"]',
+                popover: { title: t('cashDeposit.dateLabel'), description: 'Select a date to view or record deposit transactions. Switch between daily, weekly, monthly, or custom range — then download a PDF report.' },
+            },
+            {
+                element: '[data-tour="deposit-stats"]',
+                popover: { title: t('cashDeposit.entriesToday'), description: 'Live summary of total entries, total credited, total debited, and net balance for the selected period or seller.' },
+            },
+            {
+                element: '[data-tour="deposit-form"]',
+                popover: { title: t('cashDeposit.newDepositEntry'), description: 'Search for a seller, choose Credit or Debit, enter the amount and optional remarks. The seller\'s running deposit balance is shown below once selected.' },
+            },
+            {
+                element: '[data-tour="deposit-table"]',
+                popover: { title: t('cashDeposit.colSeller'), description: 'All deposit entries for the selected period. Filter by seller name, paginate through entries, and (if admin) edit or delete any record. Select a seller to see their full history with running balance.' },
+            },
+        ],
+    });
+    driverObj.drive();
+};
 
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
@@ -535,9 +563,15 @@ export default function CashDeposit() {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashDeposit.dateLabel')}</span>
+                    <div className="flex items-center gap-2 flex-wrap" data-tour="deposit-header-actions">
+    <button
+        onClick={startDepositTour}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+    >
+        <BadgeCheck size={13} /> Take a Tour
+    </button>
+    <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashDeposit.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -598,8 +632,8 @@ export default function CashDeposit() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="deposit-stats">
+                        {[
                         { label: rangeMode === "daily" ? t('cashDeposit.entriesToday') : t('cashDeposit.entriesInRange'), value: activeData.length, icon: <PiggyBank size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('cashDeposit.totalCredited'), value: `₹${fmt(totalCredit)}`, icon: <TrendingUp size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                         { label: t('cashDeposit.totalDebited'), value: `₹${fmt(totalDebit)}`, icon: <TrendingDown size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
@@ -632,7 +666,7 @@ export default function CashDeposit() {
 
                 {/* Entry Form */}
                 {can('cash_advance', 'C') && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="deposit-form">
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
                                 {editingEntry ? t('cashDeposit.editEntry') || "Edit Entry" : t('cashDeposit.newDepositEntry')}
@@ -840,7 +874,7 @@ export default function CashDeposit() {
                 )}
 
                 {/* Entries Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="deposit-table">
 
                     <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
                         <input

@@ -8,6 +8,8 @@ import {
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -128,6 +130,32 @@ export default function ProductPurchase() {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
+
+    const startPurchaseTour = () => {
+    const driverObj = driver({
+        showProgress: true,
+        allowClose: true,
+        steps: [
+            {
+                element: '[data-tour="purchase-date"]',
+                popover: { title: t('productPurchase.dateLabel'), description: 'Select a date to view or record purchases. Use the range buttons to switch between daily, weekly, monthly, or custom views — then download a PDF report.' },
+            },
+            {
+                element: '[data-tour="purchase-stats"]',
+                popover: { title: t('productPurchase.purchasesToday'), description: 'See total purchase entries and the total amount spent for the selected date or range.' },
+            },
+            {
+                element: '[data-tour="purchase-form"]',
+                popover: { title: t('productPurchase.newPurchaseEntry'), description: 'Select a product, enter the supplier, quantity, rate and MRP. The total is computed automatically. Hit Record Purchase to save.' },
+            },
+            {
+                element: '[data-tour="purchases-table"]',
+                popover: { title: t('productPurchase.colProduct'), description: 'All purchases for the selected period are listed here. Use the edit or delete buttons on each row to make corrections — stock is adjusted automatically.' },
+            },
+        ],
+    });
+    driverObj.drive();
+};
 
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
@@ -492,9 +520,15 @@ export default function ProductPurchase() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.dateLabel')}</span>
+<div className="flex items-center gap-2 flex-wrap">
+    <button
+        onClick={startPurchaseTour}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+    >
+        <BadgeCheck size={13} /> Take a Tour
+    </button>
+    <div className="flex flex-col gap-0.5" data-tour="purchase-date">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -508,8 +542,10 @@ export default function ProductPurchase() {
                                     focus:outline-none focus:ring-2 focus:ring-black transition" />
                         </div>
 
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.downloadPDF')}</span>
+                        </div>
+
+    <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.downloadPDF')}</span>
 
                             <div className="flex flex-wrap items-center gap-1.5">
                                 <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
@@ -553,11 +589,10 @@ export default function ProductPurchase() {
                             </div>
                         </div>
                     </div>
-                </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-                    {[
+<div className="grid grid-cols-2 sm:grid-cols-2 gap-3" data-tour="purchase-stats">
+                        {[
                         { label: rangeMode === "daily" ? t('productPurchase.purchasesToday') : t('productPurchase.purchasesInRange'), value: activeData.length, icon: <Package size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('productPurchase.totalSpent'), value: "₹" + totalSpent.toFixed(2), icon: <Banknote size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                     ].map(({ label, value, icon, color }) => (
@@ -583,7 +618,7 @@ export default function ProductPurchase() {
                 )}
 
                 {/* Entry Form */}
-                {can('product_purchases', 'C') && <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+               {can('product_purchases', 'C') && <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="purchase-form">
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{t('productPurchase.newPurchaseEntry')}</p>
                         {can('products', 'C') && (
@@ -765,10 +800,10 @@ export default function ProductPurchase() {
                 </div>}
 
                 {/* Purchases Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="purchases-table">
 
-                    {/* Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                {/* Header */}
+                <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
                             <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
                                 {label}

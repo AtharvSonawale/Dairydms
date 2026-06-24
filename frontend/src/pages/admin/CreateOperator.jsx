@@ -6,6 +6,8 @@ import {
     Mail, Phone, Lock, Eye, EyeOff, X,
 } from 'lucide-react';
 import api from '../../api/axios';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── Field ─────────────────────────────────────────────────────
 const Field = ({ label, name, type = 'text', value, onChange, placeholder, hint, required, maxLength, error, t }) => (
@@ -44,6 +46,28 @@ export default function CreateOperator() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         if (type === 'error') setTimeout(() => setFlash(null), 4000);
+    };
+
+    const startCreateOperatorTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="basic-info"]',
+                    popover: { title: t('createOperator.pageTitle'), description: 'Enter the operator\'s name, email, and mobile number.' },
+                },
+                {
+                    element: '[data-tour="password-section"]',
+                    popover: { title: t('createOperator.loginCredentials'), description: 'Set a password the operator will use to log in.' },
+                },
+                {
+                    element: '[data-tour="submit-btn"]',
+                    popover: { title: t('createOperator.createOperator'), description: 'Click here to create the new operator account.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     const handleChange = (e) => {
@@ -111,12 +135,21 @@ export default function CreateOperator() {
                             </p>
                         </div>
                     </div>
-                    <Link
-                        to="/admin/operatorlist"
-                        className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition self-start sm:self-auto"
-                    >
-                        <ArrowLeft size={13} /> {t('createOperator.backToOperators')}
-                    </Link>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={startCreateOperatorTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> {t('createOperator.startTour') || 'Take a Tour'}
+                        </button>
+                        <Link
+                            to="/admin/operatorlist"
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+                        >
+                            <ArrowLeft size={13} /> {t('createOperator.backToOperators')}
+                        </Link>
+                    </div>
                 </div>
 
                 {/* ── Flash ── */}
@@ -142,7 +175,7 @@ export default function CreateOperator() {
                 <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
                     {/* Section: Basic Info */}
-                    <div className="px-6 py-5 border-b border-gray-100">
+                    <div className="px-6 py-5 border-b border-gray-100" data-tour="basic-info">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">{t('createOperator.basicInfo')}</p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <Field
@@ -183,7 +216,7 @@ export default function CreateOperator() {
                     </div>
 
                     {/* Section: Password */}
-                    <div className="px-6 py-5 border-b border-gray-100">
+                    <div className="px-6 py-5 border-b border-gray-100" data-tour="password-section">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">{t('createOperator.loginCredentials')}</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -248,7 +281,7 @@ export default function CreateOperator() {
                         <Link to="/admin/operatorlist" className="text-sm text-gray-500 hover:text-gray-700 transition">
                             ← {t('createOperator.cancel')}
                         </Link>
-                        <button type="submit" disabled={loading}
+                        <button type="submit" disabled={loading} data-tour="submit-btn"
                             className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed">
                             {loading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                             <UserPlus size={13} />

@@ -8,6 +8,7 @@ const en = {
 
         // ── Dashboard ────────────────────────────────────────
         dashboard: {
+            startTour: 'Start a Tour',
             spent: 'Spent',
             today: 'Today',
             products: 'Products',
@@ -121,10 +122,9 @@ const en = {
 
         // ── Milk Entry Page (Detailed) ────────────────────────
         milkEntry: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Milk Collection Entry',
             pageSubtitle: 'Record daily milk',
-            // Form labels
             newEntry: 'New Entry',
             editEntry: 'Edit Entry',
             cancelEdit: 'Cancel Edit',
@@ -139,18 +139,14 @@ const en = {
             waterLabel: 'Water %',
             rateLabel: 'Rate (₹/L)',
             amountLabel: 'Amount (₹)',
-            // Shift
             morning: 'Morning',
             evening: 'Evening',
-            // Milk type
             cow: 'Cow',
             buffalo: 'Buffalo',
-            // Seller search
             searchPlaceholder: 'Search name / code…',
             sellersAZ: 'Sellers A–Z (top 5)',
             matches: 'match',
             matchesPlural: 'matches',
-            // Save / update
             saveEntry: 'Save Entry',
             updateEntry: 'Update Entry',
             saving: 'Saving…',
@@ -158,7 +154,6 @@ const en = {
             entriesOn: 'entries on',
             entry: 'entry',
             entries: 'entries',
-            // Flash messages
             selectSeller: 'Please select a seller.',
             qtyRequired: 'Quantity (litres) is required.',
             fatRequired: 'FAT % is required.',
@@ -177,7 +172,6 @@ const en = {
             rangeLoadError: 'Failed to load entries for selected range.',
             rateAutoFilled: 'Rate auto-filled: ₹{{rate}}/L',
             premiumAutoFilled: 'Premium rate auto-filled: ₹{{rate}}/L',
-            // Stats bar
             entriesToday: 'Entries Today',
             totalEntries: 'Total Entries',
             cowMilk: 'Cow Milk (L)',
@@ -186,15 +180,12 @@ const en = {
             remainingMorning: 'Remaining (Morning)',
             remainingEvening: 'Remaining (Evening)',
             sellers: 'sellers',
-            // Date picker
             dateLabel: 'Date',
             downloadPDF: 'Download PDF',
-            // Range mode
             day: 'Day',
             week: 'Week',
             month: 'Month',
             custom: 'Custom',
-            // Table columns
             colNo: '#',
             colSeller: 'Seller',
             colCode: 'Code',
@@ -209,7 +200,6 @@ const en = {
             colTime: 'Time',
             colPremium: 'Premium',
             colActions: 'Actions',
-            // Table body
             noEntries: 'No entries for this date',
             filterPlaceholder: 'Filter by seller name…',
             matching: 'matching',
@@ -218,12 +208,10 @@ const en = {
             edit: 'Edit',
             editing: 'Editing',
             delete: 'Delete',
-            // Pagination
             prev: '← Prev',
             next: 'Next →',
             rowsPerPage: 'Rows per page:',
             of: 'of',
-            // PDF labels
             pdfMilkCollection: 'Milk Collection Register',
             pdfGenerated: 'Generated:',
             pdfCowMilk: 'Cow Milk',
@@ -256,7 +244,6 @@ const en = {
             pdfWeekly: 'Weekly',
             pdfMonthly: 'Monthly',
             pdfCustom: 'Custom Range',
-            // Delete modal
             confirmDeletion: 'Confirm Deletion',
             cannotUndo: 'This action cannot be undone',
             deleteWarning: 'Are you sure you want to delete this milk entry? All associated data will be permanently removed.',
@@ -269,24 +256,19 @@ const en = {
             detailAmount: 'Amount',
             cancel: 'Cancel',
             deleteEntry: 'Delete Entry',
-            // Water risk
             waterRisk: 'High water',
         },
 
         walkinSale: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Walk-in Counter Sale',
             pageSubtitle: 'Record Local Milk Purchase',
-
-            // Buyer modes
             anon: 'Anonymous',
             anonDesc: 'Local walk-in buyer',
             named: 'Named Buyer',
             namedDesc: 'Known local customer',
             sellerBuys: 'Seller Buys',
             sellerDesc: 'Registered seller is purchasing',
-
-            // Form labels
             newSale: 'New Sale',
             buyer: 'Buyer',
             buyerName: 'Buyer Name',
@@ -297,35 +279,23 @@ const en = {
             mrpLabel: 'MRP',
             paymentLabel: 'Payment',
             amountLabel: 'Amount',
-
-            // Milk types
             cow: 'Cow',
             buffalo: 'Buffalo',
-
-            // Shift
             morning: 'Morning',
             evening: 'Evening',
-
-            // Payment modes
             cash: 'Cash',
             upi: 'UPI',
             credit: 'Credit',
-
-            // Seller search
             searchPlaceholder: 'Search by code or name…',
             sellersAZ: 'Sellers A–Z (first 5)',
             matches: 'match',
             matchesPlural: 'matches',
-
-            // Save / update
             recordSale: 'Record Sale',
             saving: 'Saving…',
             on: 'on',
             sale: 'Sale',
             sales: 'Sales',
             total: 'Total',
-
-            // Flash messages
             loadError: 'Failed to load sales.',
             qtyRequired: 'Quantity is required.',
             mrpRequired: 'MRP is required.',
@@ -337,8 +307,6 @@ const en = {
             rangeLoadError: 'Failed to load sales for selected range.',
             mrpSaved: 'MRP rates saved successfully!',
             mrpSaveError: 'Failed to save MRP rates.',
-
-            // MRP Modal
             mrpRates: 'MRP Rates',
             mrpSettings: 'MRP Rate Settings',
             mrpDesc: 'Set walk-in sale rates for cow and buffalo milk',
@@ -346,15 +314,11 @@ const en = {
             buffaloMrp: 'Buffalo Milk MRP',
             cancel: 'Cancel',
             saveRates: 'Save Rates',
-
-            // Stats bar
             salesToday: "Today's Sales",
             cowSold: 'Cow Sold (L)',
             buffaloSold: 'Buffalo Sold (L)',
             totalRevenue: 'Total Revenue',
             left: 'Remaining',
-
-            // Table columns
             colBuyer: 'Buyer',
             colMilk: 'Milk',
             colQty: 'Quantity (L)',
@@ -363,20 +327,14 @@ const en = {
             colPayment: 'Payment',
             colShift: 'Shift',
             colTime: 'Time',
-
-            // Table body
             noSales: 'No walk-in sales for this date',
             filterPlaceholder: 'Filter by buyer name…',
             matching: 'matching',
             anonymous: 'Anonymous',
-
-            // Pagination
             prev: '← Previous',
             next: 'Next →',
             rowsPerPage: 'Rows per page:',
             of: 'of',
-
-            // PDF labels (Register)
             pdfTitle: 'Walk-in Counter Sales Register',
             pdfReport: 'Report',
             pdfDaily: 'Daily',
@@ -405,8 +363,6 @@ const en = {
             dateTime: 'Date & Time',
             amount: 'Amount ₹',
             revenue: 'Revenue',
-
-            // PDF additional labels (for the detailed register)
             customerName: 'Customer Name',
             milkTotal: 'Milk Total',
             billingSection: 'Billing Section',
@@ -419,418 +375,358 @@ const en = {
             receiptDate: 'Receipt Date',
             balance: 'Balance',
             grandTotal: 'Grand Total',
-
-            // Totals footer
             totalQty: 'Total Quantity',
-
-            // Legend
             recordedToday: 'Sales recorded today',
             legendAnonymous: 'Anonymous = local walk-in buyer, name not required',
             legendSellerBuys: 'Seller Buys = registered seller purchasing milk for personal use',
-
-            // Date picker
             dateLabel: 'Date',
             downloadPDF: 'Download PDF',
             day: 'Day',
             week: 'Week',
             month: 'Month',
             custom: 'Custom',
-            customerName: 'Customer Name',
-
-            // Filter
             all: 'All',
         },
 
-        "namedBuyers": {
-            "pageTitle": "Named Buyers",
-            "pageSubtitle": "Manage registered buyers for walk-in sales",
-            "totalBuyers": "total buyers",
-            "addBuyer": "Add Buyer",
-            "editBuyer": "Edit Buyer",
-            "addDesc": "Register a new buyer for walk-in sales",
-            "editDesc": "Update buyer information",
-            "searchPlaceholder": "Search by name, mobile, address...",
-            "nameRequired": "Buyer name is required",
-            "createSuccess": "Buyer created successfully",
-            "updateSuccess": "Buyer updated successfully",
-            "deleteSuccess": "Buyer deleted successfully",
-            "deleteError": "Failed to delete buyer",
-            "saveError": "Failed to save buyer",
-            "loadError": "Failed to load buyers",
-            "statusError": "Failed to update status",
-            "activated": "Buyer activated",
-            "deactivated": "Buyer deactivated",
-            "confirmDelete": "Delete Buyer?",
-            "deleteWarning": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
-            "noBuyers": "No buyers registered yet",
-            "noMatches": "No buyers match your search",
-            "total": "Total",
-            "active": "Active",
-            "inactive": "Inactive",
-            "colName": "Name",
-            "colMobile": "Mobile",
-            "colAddress": "Address",
-            "colStatus": "Status",
-            "colCreated": "Created",
-            "colActions": "Actions",
-            "buyerName": "Buyer Name",
-            "mobile": "Mobile Number",
-            "address": "Address",
-            "namePlaceholder": "e.g. Rajesh Kumar",
-            "mobilePlaceholder": "Enter mobile number",
-            "addressPlaceholder": "Enter address",
-            "create": "Create",
-            "update": "Update",
-            "saving": "Saving...",
-            "cancel": "Cancel",
-            "delete": "Delete",
-            "edit": "Edit",
-            "prev": "Previous",
-            "next": "Next",
-            "of": "of",
-            "rowsPerPage": "Rows per page:"
+        namedBuyers: {
+            startTour: 'Start a Tour',
+            pageTitle: 'Named Buyers',
+            pageSubtitle: 'Manage registered buyers for walk-in sales',
+            totalBuyers: 'total buyers',
+            addBuyer: 'Add Buyer',
+            editBuyer: 'Edit Buyer',
+            addDesc: 'Register a new buyer for walk-in sales',
+            editDesc: 'Update buyer information',
+            searchPlaceholder: 'Search by name, mobile, address...',
+            nameRequired: 'Buyer name is required',
+            createSuccess: 'Buyer created successfully',
+            updateSuccess: 'Buyer updated successfully',
+            deleteSuccess: 'Buyer deleted successfully',
+            deleteError: 'Failed to delete buyer',
+            saveError: 'Failed to save buyer',
+            loadError: 'Failed to load buyers',
+            statusError: 'Failed to update status',
+            activated: 'Buyer activated',
+            deactivated: 'Buyer deactivated',
+            confirmDelete: 'Delete Buyer?',
+            deleteWarning: 'Are you sure you want to delete "{{name}}"? This action cannot be undone.',
+            noBuyers: 'No buyers registered yet',
+            noMatches: 'No buyers match your search',
+            total: 'Total',
+            active: 'Active',
+            inactive: 'Inactive',
+            colName: 'Name',
+            colMobile: 'Mobile',
+            colAddress: 'Address',
+            colStatus: 'Status',
+            colCreated: 'Created',
+            colActions: 'Actions',
+            buyerName: 'Buyer Name',
+            mobile: 'Mobile Number',
+            address: 'Address',
+            namePlaceholder: 'e.g. Rajesh Kumar',
+            mobilePlaceholder: 'Enter mobile number',
+            addressPlaceholder: 'Enter address',
+            create: 'Create',
+            update: 'Update',
+            saving: 'Saving...',
+            cancel: 'Cancel',
+            delete: 'Delete',
+            edit: 'Edit',
+            prev: 'Previous',
+            next: 'Next',
+            of: 'of',
+            rowsPerPage: 'Rows per page:'
         },
 
         payments: {
-            // Main headings
-            walkin_payments: "Walk-in Payments",
-            walkin_payments_subtitle: "Record and manage payments from named buyers & sellers",
-
-            // Payment modes
-            cash: "Cash",
-            upi: "UPI",
-            credit: "Credit",
-
-            // Stats
-            total_received: "Total Received",
-            total_outstanding: "Total Outstanding",
-
-            // Buttons & Actions
-            export_pdf: "Export PDF",
-            record_new_payment: "Record New Payment",
-            register_new_buyer: "Register New Buyer",
-            clear_bill: "Clear Bill",
-            undo: "Undo",
-            pdf: "PDF",
-
-            // Form labels
-            select_buyer: "Select Buyer",
-            payment_date: "Payment Date",
-            amount: "Amount",
-            mode: "Mode",
-            remarks: "Remarks",
-            optional_notes: "Optional notes...",
-            record_payment: "Record Payment",
-            saving: "Saving...",
-
-            // Buyer types
-            named: "Named",
-            seller: "Seller",
-            named_buyer: "Named Buyer",
-
-            // Status
-            outstanding: "Outstanding",
-            cleared: "Cleared",
-            nil: "Nil",
-
-            // Search & Filter
-            search_buyers: "Search buyers...",
-            search_by_name_mobile: "Search by name or mobile...",
-            all_types: "All Types",
-            all: "All",
-            no_buyers_found: "No buyers found",
-
-            // Table headers (PDF)
-            customer: "CUSTOMER",
-            attributes: "ATTRIBUTES",
-            daily_qty_litres: "Daily Qty (Litres)",
-            sales_summary: "SALES SUMMARY",
-            billing_and_payment: "BILLING & PAYMENT",
-            customer_name: "Customer Name",
-            type: "Type",
-            milk: "Milk",
-            shift: "Shift",
-            ltr: "Ltr",
-            rate: "Rate",
-            amount_col: "Amount",
-            bill_no: "Bill #",
-            prev_bal: "Prev Bal",
-            total_amt: "Total Amt",
-            paid: "Paid",
-            receipt_date: "Rcpt Date",
-            balance: "Balance",
-
-            // Date ranges
-            day: "Day",
-            week: "Week",
-            month: "Month",
-            daily: "Daily",
-            weekly: "Weekly",
-            monthly: "Monthly",
-            custom: "Custom",
-
-            // Payment modes (filter)
-            all_modes: "All Modes",
-            cash_only: "Cash Only",
-            upi_only: "UPI Only",
-            credit_only: "Credit Only",
-
-            // PDF text
-            walkin_payments_register: "Walk-in Payments Register",
-            report: "Report",
-            generated: "Generated",
-            printed: "Printed",
-            authorised_signatory: "Authorised Signatory",
-            grand_total: "Grand Total",
-
-            // Messages
-            fetch_payments_failed: "Failed to fetch payments",
-            buyer_name_required: "Buyer name is required",
-            buyer_registered_success: "Buyer \"{{name}}\" registered successfully",
-            register_buyer_failed: "Failed to register buyer",
-            select_buyer_error: "Please select a buyer",
-            valid_amount: "Please enter a valid amount",
-            payment_recorded_success: "Payment of ₹{{amount}} recorded",
-            save_payment_failed: "Failed to save payment",
-            bill_cleared_success: "Bill cleared for {{name}}",
-            clear_bill_failed: "Failed to clear bill",
-            undo_payment_confirm: "Undo this payment? The amount will be removed and balances recalculated.",
-            payment_undone_success: "Payment undone successfully",
-            undo_payment_failed: "Failed to undo payment",
-
-            // Buyers list
-            buyers: "buyers",
-            buyer: "buyer",
-            total_purchases: "Total Purchases",
-            total_paid: "Total Paid",
-            outstanding_balance: "Outstanding Balance",
-            amount_paid: "Amount Paid",
-            will_remain_as_balance: "will remain as balance",
-            processing: "Processing...",
-            registering: "Registering...",
-            register_buyer: "Register Buyer",
-
-            // Register buyer modal
-            full_name: "Full Name",
-            enter_buyer_name: "Enter buyer name",
-            mobile_number: "Mobile Number",
-            address: "Address",
-            optional: "Optional",
-            cancel: "Cancel",
-            add_new_named_buyer: "Add a new named buyer to the system",
-
-            // Payment history
-            payment_history: "Payment History",
-            no_payments_recorded: "No payments recorded yet",
-            date: "Date",
-
-            // Pagination
-            prev: "Prev",
-            next: "Next",
-            page: "Page",
-            of: "of",
-            rows_per_page: "Rows per page",
-
-            // Buyer statement
-            statement: "Statement",
-            buyer_statement: "Buyer Statement",
-            total: "Total",
-            bal: "Bal",
-
-            // Entries
-            entries: "Entries",
+            startTour: 'Start a Tour',
+            walkin_payments: 'Walk-in Payments',
+            walkin_payments_subtitle: 'Record and manage payments from named buyers & sellers',
+            cash: 'Cash',
+            upi: 'UPI',
+            credit: 'Credit',
+            total_received: 'Total Received',
+            total_outstanding: 'Total Outstanding',
+            export_pdf: 'Export PDF',
+            record_new_payment: 'Record New Payment',
+            register_new_buyer: 'Register New Buyer',
+            clear_bill: 'Clear Bill',
+            undo: 'Undo',
+            pdf: 'PDF',
+            select_buyer: 'Select Buyer',
+            payment_date: 'Payment Date',
+            amount: 'Amount',
+            mode: 'Mode',
+            remarks: 'Remarks',
+            optional_notes: 'Optional notes...',
+            record_payment: 'Record Payment',
+            saving: 'Saving...',
+            named: 'Named',
+            seller: 'Seller',
+            named_buyer: 'Named Buyer',
+            outstanding: 'Outstanding',
+            cleared: 'Cleared',
+            nil: 'Nil',
+            search_buyers: 'Search buyers...',
+            search_by_name_mobile: 'Search by name or mobile...',
+            all_types: 'All Types',
+            all: 'All',
+            no_buyers_found: 'No buyers found',
+            customer: 'CUSTOMER',
+            attributes: 'ATTRIBUTES',
+            daily_qty_litres: 'Daily Qty (Litres)',
+            sales_summary: 'SALES SUMMARY',
+            billing_and_payment: 'BILLING & PAYMENT',
+            customer_name: 'Customer Name',
+            type: 'Type',
+            milk: 'Milk',
+            shift: 'Shift',
+            ltr: 'Ltr',
+            rate: 'Rate',
+            amount_col: 'Amount',
+            bill_no: 'Bill #',
+            prev_bal: 'Prev Bal',
+            total_amt: 'Total Amt',
+            paid: 'Paid',
+            receipt_date: 'Rcpt Date',
+            balance: 'Balance',
+            day: 'Day',
+            week: 'Week',
+            month: 'Month',
+            daily: 'Daily',
+            weekly: 'Weekly',
+            monthly: 'Monthly',
+            custom: 'Custom',
+            all_modes: 'All Modes',
+            cash_only: 'Cash Only',
+            upi_only: 'UPI Only',
+            credit_only: 'Credit Only',
+            walkin_payments_register: 'Walk-in Payments Register',
+            report: 'Report',
+            generated: 'Generated',
+            printed: 'Printed',
+            authorised_signatory: 'Authorised Signatory',
+            grand_total: 'Grand Total',
+            fetch_payments_failed: 'Failed to fetch payments',
+            buyer_name_required: 'Buyer name is required',
+            buyer_registered_success: 'Buyer "{{name}}" registered successfully',
+            register_buyer_failed: 'Failed to register buyer',
+            select_buyer_error: 'Please select a buyer',
+            valid_amount: 'Please enter a valid amount',
+            payment_recorded_success: 'Payment of ₹{{amount}} recorded',
+            save_payment_failed: 'Failed to save payment',
+            bill_cleared_success: 'Bill cleared for {{name}}',
+            clear_bill_failed: 'Failed to clear bill',
+            undo_payment_confirm: 'Undo this payment? The amount will be removed and balances recalculated.',
+            payment_undone_success: 'Payment undone successfully',
+            undo_payment_failed: 'Failed to undo payment',
+            buyers: 'buyers',
+            buyer: 'buyer',
+            total_purchases: 'Total Purchases',
+            total_paid: 'Total Paid',
+            outstanding_balance: 'Outstanding Balance',
+            amount_paid: 'Amount Paid',
+            will_remain_as_balance: 'will remain as balance',
+            processing: 'Processing...',
+            registering: 'Registering...',
+            register_buyer: 'Register Buyer',
+            full_name: 'Full Name',
+            enter_buyer_name: 'Enter buyer name',
+            mobile_number: 'Mobile Number',
+            address: 'Address',
+            optional: 'Optional',
+            cancel: 'Cancel',
+            add_new_named_buyer: 'Add a new named buyer to the system',
+            payment_history: 'Payment History',
+            no_payments_recorded: 'No payments recorded yet',
+            date: 'Date',
+            prev: 'Prev',
+            next: 'Next',
+            page: 'Page',
+            of: 'of',
+            rows_per_page: 'Rows per page',
+            statement: 'Statement',
+            buyer_statement: 'Buyer Statement',
+            total: 'Total',
+            bal: 'Bal',
+            entries: 'Entries',
         },
 
         sellerPayments: {
-            "pageTitle": "Seller Payments",
-            "pageSubtitle": "Manage and track seller payments",
-
-            "configureCycle": "Configure Payment Cycle",
-            "cycleConfigDesc": "Set seed date — all future cycles auto-generate",
-            "cycleInfo": "The <strong>Pay button</strong> is only active on the last day of each cycle. Today is <strong>{{date}}</strong>.",
-            "seedStartDate": "Seed Start Date",
-            "daysPerCycle": "Days Per Cycle",
-            "cancel": "Cancel",
-            "upcomingCycles": "Upcoming Cycles Preview",
-            "cycle": "Cycle",
-            "current": "current",
-            "paymentDay": "Payment Day — Today!",
-            "payOn": "Pay on {{date}}",
-            "past": "Past",
-            "upcoming": "Upcoming",
-            "saveCycleConfig": "Save Cycle Config",
-
-            "paymentDate": "Payment Date",
-            "from": "From",
-            "to": "To",
-
-            "totalSellers": "Total Sellers",
-            "milkAmount": "Milk Amount",
-            "advanceTaken": "Advance Taken",
-            "infoOnly": "Info Only",
-            "productDeduction": "Product Deduction",
-            "productSalesCut": "Product Sales Cut",
-
-            "paymentProgress": "Payment Progress",
-            "paid": "Paid",
-            "done": "Done",
-
-            "searchPlaceholder": "Search by name or code...",
-            "all": "All",
-            "unpaid": "Unpaid",
-
-            "noSellersFound": "No sellers found for this period",
-            "milk": "Milk",
-            "advPending": "Adv. Pending",
-            "advInstCut": "Adv. Inst. Cut",
-            "depositCut": "Deposit Cut",
-            "milkBought": "Milk Bought",
-            "products": "Products",
-            "cashToPay": "Cash to Pay",
-            "adv": "Adv",
-            "dep": "Dep",
-            "bought": "Bought",
-            "cash": "Cash",
-            "pdf": "PDF",
-            "pay": "Pay",
-            "undo": "Undo",
-
-            "dailyMilkEntries": "Daily Milk Entries",
-            "date": "Date",
-            "shift": "Shift",
-            "qtyL": "Qty (L)",
-            "fat": "Fat",
-            "snf": "SNF",
-            "amount": "Amount",
-            "entries": "entries",
-            "morning": "Morning",
-            "evening": "Evening",
-
-            "milkPayable": "Milk Payable",
-            "advancePendingBefore": "Advance pending before",
-            "advanceAfterInstallment": "Advance after installment",
-            "remaining": "remaining",
-            "reducesAdvancePending": "reduces advance pending",
-            "creditedToDeposit": "credited to deposit",
-            "productSalesDeducted": "Product sales deducted",
-            "milkBoughtWalkin": "Milk bought (walk-in)",
-            "netCashToHand": "Net Cash to Hand",
-            "cashPaidOn": "Cash paid on",
-            "cycle": "Cycle",
-
-            "milkTotal": "Milk Total",
-            "totalAdvanceTaken": "Total Advance Taken",
-            "productDeductions": "Product Deductions",
-            "totalCashToHand": "Total Cash to Hand",
-
-            "billRegistry": "Bill Registry",
-            "billRegistryDesc": "Search and manage all payment bills",
-            "billSearchPlaceholder": "Search by bill no, seller name, or code...",
-            "showAll": "Show All",
-            "bills": "bills",
-            "bill": "bill",
-            "noBillsFound": "No bills found",
-            "period": "Period",
-            "billNo": "Bill No.",
-            "seller": "Seller",
-
-            "deleteBill": "Delete Bill",
-            "deleteWarning": "This action cannot be undone",
-            "deleteConfirmMessage": "Are you sure you want to delete bill",
-            "willBeReversed": "This will be reversed:",
-            "reversalPaymentRecord": "Payment record will be removed",
-            "reversalAdvanceCut": "Advance cut will be reversed",
-            "reversalDepositCredit": "Deposit credit will be reversed",
-            "reversalSellerStatus": "Seller will be marked as unpaid",
-            "deleting": "Deleting...",
-            "yesDeleteBill": "Yes, Delete Bill",
-
-            "printFullPDF": "Print Full PDF",
-            "code": "Code",
-            "totalQty": "Total Qty",
-            "netCashPaid": "Net Cash Paid",
-            "milkCollectionEntries": "Milk Collection Entries",
-            "paymentBreakdown": "Payment Breakdown",
-            "advanceTransactions": "Advance Transactions",
-            "given": "Given",
-            "received": "Received",
-            "productSales": "Product Sales",
-            "walkinSales": "Walk-in Sales",
-            "milkCollectionReceipt": "Milk Collection Receipt",
-            "accountSummary": "Account Summary",
-            "billNoLabel": "Bill No",
-            "computerGenerated": "Computer-generated report",
-            "paidOn": "Paid on",
-            "sellerName": "Seller Name",
-            "sellerCode": "Seller Code",
-            "totalEntries": "Total Entries",
-            "status": "Status",
-            "pending": "Pending",
-            "on": "on",
-            "cowBuffalo": "Cow / Buffalo",
-            "avgFat": "Avg Fat",
-            "avgSnf": "Avg SNF",
-            "morningShort": "M",
-            "eveningShort": "E",
-            "dailyEntryBreakdown": "Daily Entry Breakdown",
-            "morningShift": "Morning Shift",
-            "eveningShift": "Evening Shift",
-            "dayTotal": "Day Total",
-            "advanceAccount": "Advance Account",
-            "openingBalance": "Opening Balance",
-            "givenThisCycle": "Given This Cycle",
-            "installmentCut": "Installment Cut",
-            "closingBalance": "Closing Balance",
-            "depositAccount": "Deposit Account",
-            "addedThisCycle": "Added This Cycle",
-            "formula": "formula",
-            "paymentSummary": "Payment Summary",
-            "milkAmountPayable": "Milk Amount Payable",
-            "depositCut": "Deposit Cut",
-            "advInstallment": "Adv. Installment",
-            "products": "Products",
-            "milkBought": "Milk Bought",
-            "detailedBreakdown": "Detailed Breakdown",
-            "openingAdvanceBalance": "Opening Advance Balance",
-            "advanceInstallmentCut": "Advance Installment Cut",
-            "depositDeducted": "Deposit Deducted",
-            "balance": "Balance",
-            "productSalesDeduction": "Product Sales Deduction",
-            "milkBoughtBySellerWalkin": "Milk Bought by Seller (Walk-in)",
-            "netCashToHand": "Net Cash to Hand",
-            "productSalesDeductions": "Product Sales Deductions",
-            "product": "Product",
-            "qty": "Qty",
-            "rate": "Rate",
-            "total": "Total",
-            "milkBoughtBySeller": "Milk Bought by Seller",
-            "popupBlocked": "Popup blocked. Please allow popups for this site.",
-            "printLoadError": "Failed to load bill details for printing.",
-            "paymentReceipt": "Payment Receipt",
-            "generated": "Generated",
-
-            "paymentRegister": "Payment Register",
-            "printRegister": "Print Register",
-            "authorisedSignatory": "Authorised Signatory",
-            "sellerPaymentSummary": "Seller Payment Summary",
-            "searchBills": "Search Bills",
-
+            startTour: 'Start a Tour',
+            pageTitle: 'Seller Payments',
+            pageSubtitle: 'Manage and track seller payments',
+            configureCycle: 'Configure Payment Cycle',
+            cycleConfigDesc: 'Set seed date — all future cycles auto-generate',
+            cycleInfo: 'The <strong>Pay button</strong> is only active on the last day of each cycle. Today is <strong>{{date}}</strong>.',
+            seedStartDate: 'Seed Start Date',
+            daysPerCycle: 'Days Per Cycle',
+            cancel: 'Cancel',
+            upcomingCycles: 'Upcoming Cycles Preview',
+            cycle: 'Cycle',
+            current: 'current',
+            paymentDay: 'Payment Day — Today!',
+            payOn: 'Pay on {{date}}',
+            past: 'Past',
+            upcoming: 'Upcoming',
+            saveCycleConfig: 'Save Cycle Config',
+            paymentDate: 'Payment Date',
+            from: 'From',
+            to: 'To',
+            totalSellers: 'Total Sellers',
+            milkAmount: 'Milk Amount',
+            advanceTaken: 'Advance Taken',
+            infoOnly: 'Info Only',
+            productDeduction: 'Product Deduction',
+            productSalesCut: 'Product Sales Cut',
+            paymentProgress: 'Payment Progress',
+            paid: 'Paid',
+            done: 'Done',
+            searchPlaceholder: 'Search by name or code...',
+            all: 'All',
+            unpaid: 'Unpaid',
+            noSellersFound: 'No sellers found for this period',
+            milk: 'Milk',
+            advPending: 'Adv. Pending',
+            advInstCut: 'Adv. Inst. Cut',
+            depositCut: 'Deposit Cut',
+            milkBought: 'Milk Bought',
+            products: 'Products',
+            cashToPay: 'Cash to Pay',
+            adv: 'Adv',
+            dep: 'Dep',
+            bought: 'Bought',
+            cash: 'Cash',
+            pdf: 'PDF',
+            pay: 'Pay',
+            undo: 'Undo',
+            dailyMilkEntries: 'Daily Milk Entries',
+            date: 'Date',
+            shift: 'Shift',
+            qtyL: 'Qty (L)',
+            fat: 'Fat',
+            snf: 'SNF',
+            amount: 'Amount',
+            entries: 'entries',
+            morning: 'Morning',
+            evening: 'Evening',
+            milkPayable: 'Milk Payable',
+            advancePendingBefore: 'Advance pending before',
+            advanceAfterInstallment: 'Advance after installment',
+            remaining: 'remaining',
+            reducesAdvancePending: 'reduces advance pending',
+            creditedToDeposit: 'credited to deposit',
+            productSalesDeducted: 'Product sales deducted',
+            milkBoughtWalkin: 'Milk bought (walk-in)',
+            netCashToHand: 'Net Cash to Hand',
+            cashPaidOn: 'Cash paid on',
+            cycle: 'Cycle',
+            milkTotal: 'Milk Total',
+            totalAdvanceTaken: 'Total Advance Taken',
+            productDeductions: 'Product Deductions',
+            totalCashToHand: 'Total Cash to Hand',
+            billRegistry: 'Bill Registry',
+            billRegistryDesc: 'Search and manage all payment bills',
+            billSearchPlaceholder: 'Search by bill no, seller name, or code...',
+            showAll: 'Show All',
+            bills: 'bills',
+            bill: 'bill',
+            noBillsFound: 'No bills found',
+            period: 'Period',
+            billNo: 'Bill No.',
+            seller: 'Seller',
+            deleteBill: 'Delete Bill',
+            deleteWarning: 'This action cannot be undone',
+            deleteConfirmMessage: 'Are you sure you want to delete bill',
+            willBeReversed: 'This will be reversed:',
+            reversalPaymentRecord: 'Payment record will be removed',
+            reversalAdvanceCut: 'Advance cut will be reversed',
+            reversalDepositCredit: 'Deposit credit will be reversed',
+            reversalSellerStatus: 'Seller will be marked as unpaid',
+            deleting: 'Deleting...',
+            yesDeleteBill: 'Yes, Delete Bill',
+            printFullPDF: 'Print Full PDF',
+            code: 'Code',
+            totalQty: 'Total Qty',
+            netCashPaid: 'Net Cash Paid',
+            milkCollectionEntries: 'Milk Collection Entries',
+            paymentBreakdown: 'Payment Breakdown',
+            advanceTransactions: 'Advance Transactions',
+            given: 'Given',
+            received: 'Received',
+            productSales: 'Product Sales',
+            walkinSales: 'Walk-in Sales',
+            milkCollectionReceipt: 'Milk Collection Receipt',
+            accountSummary: 'Account Summary',
+            billNoLabel: 'Bill No',
+            computerGenerated: 'Computer-generated report',
+            paidOn: 'Paid on',
+            sellerName: 'Seller Name',
+            sellerCode: 'Seller Code',
+            totalEntries: 'Total Entries',
+            status: 'Status',
+            pending: 'Pending',
+            on: 'on',
+            cowBuffalo: 'Cow / Buffalo',
+            avgFat: 'Avg Fat',
+            avgSnf: 'Avg SNF',
+            morningShort: 'M',
+            eveningShort: 'E',
+            dailyEntryBreakdown: 'Daily Entry Breakdown',
+            morningShift: 'Morning Shift',
+            eveningShift: 'Evening Shift',
+            dayTotal: 'Day Total',
+            advanceAccount: 'Advance Account',
+            openingBalance: 'Opening Balance',
+            givenThisCycle: 'Given This Cycle',
+            installmentCut: 'Installment Cut',
+            closingBalance: 'Closing Balance',
+            depositAccount: 'Deposit Account',
+            addedThisCycle: 'Added This Cycle',
+            formula: 'formula',
+            paymentSummary: 'Payment Summary',
+            milkAmountPayable: 'Milk Amount Payable',
+            depositCut: 'Deposit Cut',
+            advInstallment: 'Adv. Installment',
+            products: 'Products',
+            milkBought: 'Milk Bought',
+            detailedBreakdown: 'Detailed Breakdown',
+            openingAdvanceBalance: 'Opening Advance Balance',
+            advanceInstallmentCut: 'Advance Installment Cut',
+            depositDeducted: 'Deposit Deducted',
+            balance: 'Balance',
+            productSalesDeduction: 'Product Sales Deduction',
+            milkBoughtBySellerWalkin: 'Milk Bought by Seller (Walk-in)',
+            netCashToHand: 'Net Cash to Hand',
+            productSalesDeductions: 'Product Sales Deductions',
+            product: 'Product',
+            qty: 'Qty',
+            rate: 'Rate',
+            total: 'Total',
+            milkBoughtBySeller: 'Milk Bought by Seller',
+            popupBlocked: 'Popup blocked. Please allow popups for this site.',
+            printLoadError: 'Failed to load bill details for printing.',
+            paymentReceipt: 'Payment Receipt',
+            generated: 'Generated',
+            paymentRegister: 'Payment Register',
+            printRegister: 'Print Register',
+            authorisedSignatory: 'Authorised Signatory',
+            sellerPaymentSummary: 'Seller Payment Summary',
+            searchBills: 'Search Bills',
         },
 
         rateChart: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Rate Chart',
             pageSubtitle: 'FAT × SNF combinations',
-            // Buttons
             addRate: 'Add Rate',
             deleteAll: 'Delete All',
             generateRates: 'Generate Rates',
             premiumRates: 'Premium Rates',
             carryForward: 'Carry Forward',
             copying: 'Copying…',
-            // Date
             dateLabel: 'Date',
-            // Form labels
             milkType: 'Milk Type',
             fatPercent: 'FAT (%)',
             snfPercent: 'SNF (%)',
@@ -843,7 +739,6 @@ const en = {
             edit: 'Edit',
             del: 'Del',
             active: 'Active',
-            // Form modal
             editRate: 'Edit Rate Entry',
             addNewRate: 'Add New Rate',
             editDesc: 'Update the rate values below',
@@ -851,7 +746,6 @@ const en = {
             saving: 'Saving...',
             updateRate: 'Update Rate',
             cancel: 'Cancel',
-            // Flash messages
             loadError: 'Failed to load rates',
             updateSuccess: 'Rate updated successfully',
             addSuccess: 'Rate added successfully',
@@ -861,7 +755,6 @@ const en = {
             deleteError: 'Failed to delete',
             deleteAllConfirm: 'Delete ALL {{filter}} rates for {{date}}? This cannot be undone.',
             deleteAllSuccess: 'All {{filter}} rates for {{date}} deleted.',
-            // Copy modal
             carryRatesForward: 'Carry Rates Forward',
             copyDesc: 'Copy all {{filter}} rates from a start date to every date up to an end date.',
             sourceDate: 'Source Date',
@@ -873,7 +766,6 @@ const en = {
             copySuccess: '{{filter}} rates from {{sourceDate}} copied to {{count}} date(s)',
             copyError: 'Failed to copy rates forward',
             copyPreview: 'date(s) — {{start}} → {{end}}',
-            // Premium modal
             assignPremiumRate: 'Assign Premium Rate',
             premiumDesc: 'Manually assign a special rate to high-quality milk sellers',
             premiumRatePerLitre: 'Premium Rate / Litre (₹)',
@@ -892,7 +784,6 @@ const en = {
             sellerLoadError: 'Failed to load sellers',
             assigning: 'Assigning…',
             assignToSellers: 'Assign to {{count}} Seller(s)',
-            // Generate modal
             generateRateChart: 'Generate Rate Chart',
             generateFormulaDesc: 'Formula: ',
             fatRange: 'FAT Range',
@@ -916,7 +807,6 @@ const en = {
             ratesWillBeSaved: 'rates will be saved to generated_rates and added to rate chart',
             fillAllFieldsToPreview: 'Fill in all fields to preview generated rates',
             saveRates: 'Save {{count}} Rates',
-            // Table headers
             type: 'Type',
             fat: 'FAT',
             snf: 'SNF',
@@ -926,30 +816,25 @@ const en = {
             to: 'To',
             actions: 'Actions',
             entries: 'entries',
-            // Pagination
             prev: '← Prev',
             next: 'Next →',
             of: 'of',
             rowsPerPage: 'Rows per page:',
-            // Empty states
             noRatesFound: 'No rates found',
             addFirstRate: 'Add your first rate entry using the button above',
             activeDesc: 'no end date',
             hoverTip: 'Hover row to edit/delete',
             contactAdminTip: 'Contact admin to edit rates',
         },
+
         operators: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Operators',
             pageSubtitle: 'Manage operator accounts',
             newOperator: 'New Operator',
-
-            // Stats
             totalOperators: 'Total Operators',
             active: 'Active',
             inactive: 'Inactive',
-
-            // Flash messages
             loadError: 'Failed to load operators.',
             updateSuccess: 'Operator updated successfully!',
             updateError: 'Failed to update.',
@@ -957,8 +842,6 @@ const en = {
             deleteError: 'Failed to delete.',
             passwordMismatch: 'Passwords do not match.',
             passwordMinLength: 'Password must be at least 6 characters.',
-
-            // Edit form
             editOperator: 'Edit Operator',
             editDesc: 'Update operator details below',
             fullName: 'Full Name',
@@ -976,106 +859,74 @@ const en = {
             saving: 'Saving…',
             updateOperator: 'Update Operator',
             cancel: 'Cancel',
-
-            // Placeholders
             namePlaceholder: 'e.g. Ramesh Patil',
             emailPlaceholder: 'operator@dairy.local',
             mobilePlaceholder: '10-digit number',
             passwordPlaceholder: 'Min. 6 characters',
             confirmPlaceholder: 'Repeat password',
-
-            // Search
             searchPlaceholder: 'Search name, email or mobile…',
             operator: 'operator',
             operators: 'operators',
-
-            // Operator card
             activeBadge: '● Active',
             inactiveBadge: '○ Inactive',
             roleOperator: 'Operator',
             joined: 'Joined',
             edit: 'Edit',
             delete: 'Delete',
-
-            // Empty state
             noOperatorsFound: 'No operators found',
-
-            // Footer
             footerNote: '• Hover a card to see edit / delete actions · Changes take effect immediately',
-
-            // Delete modal
             deleteModalTitle: 'Delete Operator?',
             deleteModalWarning: 'This will permanently remove the operator and all their associated access. This cannot be undone.',
             yesDelete: 'Yes, Delete',
         },
 
         createOperator: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'New Operator',
             pageSubtitle: 'Register a new operator account',
             backToOperators: 'Back to Operators',
-
-            // Form sections
             basicInfo: 'Basic Information',
             loginCredentials: 'Login Credentials',
-
-            // Field labels
             fullName: 'Full Name',
             emailAddress: 'Email Address',
             mobileNumber: 'Mobile Number',
             password: 'Password',
             confirmPassword: 'Confirm Password',
-
-            // Placeholders
             namePlaceholder: 'e.g. Ramesh Patil',
             emailPlaceholder: 'operator@dairy.local',
             mobilePlaceholder: 'e.g. 9876543210',
             passwordPlaceholder: 'Min. 6 characters',
             confirmPlaceholder: 'Repeat password',
-
-            // Hints
             emailHint: 'Used to login to the operator portal',
             mobileHint: 'Optional but recommended',
-
-            // Validation errors
             nameMinLength: 'Name must be at least 2 characters',
             emailRequired: 'Email is required',
             invalidMobile: 'Enter a valid 10-digit Indian mobile number',
             passwordRequired: 'Password is required',
             passwordMinLength: 'Password must be at least 6 characters',
             passwordMismatch: "Passwords don't match",
-
-            // Flash messages
             createSuccess: 'Operator "{{name}}" created successfully!',
             createError: 'Failed to create operator',
             viewAllOperators: 'View all operators',
-
-            // Buttons
             cancel: 'Cancel',
             createOperator: 'Create Operator',
             creating: 'Creating…',
             note: 'Note',
-
-            // Info notes
             infoNote: 'The operator will use this email and password to log in at the operator portal. Share these credentials securely.',
             operatorPermissions: 'Operator permissions',
             permissionsNote: 'Can create milk entries, register sellers, log product sales & purchases, manage cash advances, and log tank dispatch. Cannot read, edit or delete records — that\'s admin only.',
         },
 
         premiumRates: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Premium Rates',
             pageSubtitle: 'Special rates assigned to high-quality milk sellers',
             assignPremium: 'Assign Premium',
             activeCount: 'active',
-
-            // Stats
             totalAssigned: 'Total Assigned',
             activeNow: 'Active Now',
             uniqueSellers: 'Unique Sellers',
             cowBuffalo: 'Cow / Buffalo',
-
-            // Flash messages
             loadError: 'Failed to load premium rates.',
             updateSuccess: 'Premium rate updated!',
             assignSuccess: 'Premium rate assigned!',
@@ -1086,8 +937,6 @@ const en = {
             deleteConfirm: 'Delete this premium rate permanently?',
             deleteSuccess: 'Rate deleted.',
             deleteError: 'Failed to delete.',
-
-            // Form labels
             seller: 'Seller',
             milkType: 'Milk Type',
             premiumRate: 'Premium Rate / Litre (₹)',
@@ -1104,25 +953,17 @@ const en = {
             assignDesc: 'Assign a special rate to a seller',
             cow: 'Cow',
             buffalo: 'Buffalo',
-
-            // Validation errors
             selectSellerError: 'Please select a seller.',
             rateRequiredError: 'Rate is required.',
             fromDateRequiredError: 'Effective from date is required.',
-
-            // Placeholders
             searchPlaceholder: 'Search seller or reason…',
             reasonPlaceholder: 'e.g. FAT consistently above 6.5%, special agreement…',
-
-            // Status
             active: 'Active',
             upcoming: 'Upcoming',
             expired: 'Expired',
             inactive: 'Inactive',
             ongoing: 'Ongoing',
             all: 'All',
-
-            // Table headers
             seller: 'Seller',
             milk: 'Milk',
             rateL: 'Rate/L',
@@ -1131,50 +972,36 @@ const en = {
             status: 'Status',
             actions: 'Actions',
             entries: 'entries',
-
-            // Action buttons
             edit: 'Edit',
             off: 'Off',
             del: 'Del',
-
-            // Expanded view
             reason: 'Reason',
             noReason: 'No reason provided.',
             assignedOn: 'Assigned on',
-
-            // Legend
             activeDesc: 'currently in use',
             upcomingDesc: 'starts in the future',
             expiredDesc: 'end date passed',
             inactiveDesc: 'manually deactivated',
             contactAdmin: 'Contact admin to edit or remove rates',
-
-            // Empty state
             noRatesFound: 'No premium rates found',
         },
 
         sellerRegister: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Seller Register',
             advance: 'Advance',
             pageSubtitle: 'Manage all registered milk sellers',
             addSeller: 'Add Seller',
-
-            // Stats
             totalSellers: 'Total Sellers',
             cowSellers: 'Cow Sellers',
             buffaloSellers: 'Buffalo Sellers',
             mixedSellers: 'Mixed Sellers',
-
-            // Flash messages
             loadError: 'Failed to load sellers.',
             updateSuccess: 'Seller updated successfully!',
             createSuccess: 'Seller registered successfully!',
             saveError: 'Failed to save. Try again.',
             deleteSuccess: 'Seller deleted.',
             deleteError: 'Failed to delete seller.',
-
-            // Validation errors
             nameFullNameError: 'Full name must include first name and surname.',
             nameNoNumbersError: 'Name must not contain numbers.',
             mobileInvalidError: 'Mobile must be 10–12 digits (optional leading +).',
@@ -1183,8 +1010,6 @@ const en = {
             addressMinError: 'Address must be at least 10 characters.',
             addressMaxError: 'Address must not exceed 200 characters.',
             accountMismatch: 'Account numbers do not match',
-
-            // Form labels
             fullName: 'Full Name',
             sellerCode: 'Seller Code',
             mobile: 'Mobile',
@@ -1204,8 +1029,6 @@ const en = {
             depositRate: 'Deposit Rate (₹/litre)',
             productSale: 'Product Sale',
             sellerStatus: 'Seller Status',
-
-            // Placeholders
             namePlaceholder: 'e.g. Ramesh Patil',
             codeAutoGenerated: 'Auto-generated',
             bankAccountPlaceholder: 'Min 10 digits',
@@ -1214,25 +1037,17 @@ const en = {
             addressPlaceholder: 'Village / City / District (10–200 chars)',
             advanceRecoveryPlaceholder: 'e.g. 500 — deducted each cycle',
             depositRatePlaceholder: 'e.g. 2.00',
-
-            // Toggle labels
             enabled: '✓ Enabled',
             disabled: '✗ Disabled',
             active: 'Active',
             inactive: 'Inactive',
             on: 'On',
             off: 'Off',
-
-            // Milk types
             cow: 'Cow',
             buffalo: 'Buffalo',
             mixed: 'Mixed',
-
-            // Seller types
             utpadak: 'Utpadak',
             gavali: 'Gavali',
-
-            // Form modal
             editSeller: 'Edit Seller',
             registerNewSeller: 'Register New Seller',
             editDesc: 'Update seller details below',
@@ -1241,17 +1056,11 @@ const en = {
             updateSeller: 'Update Seller',
             registerSeller: 'Register Seller',
             cancel: 'Cancel',
-
-            // Deposit hints
             depositPreview: 'Preview:',
             depositPerLitreCollected: 'deducted per litre collected',
             depositHint: 'e.g. ₹2.00/litre will be deducted from milk payable',
-
-            // Filter tabs
             all: 'All',
             sellers: 'sellers',
-
-            // Table headers
             seller: 'Seller',
             code: 'Code',
             type: 'Type',
@@ -1262,44 +1071,29 @@ const en = {
             status: 'Status',
             registered: 'Registered',
             actions: 'Actions',
-
-            // Table action buttons
             edit: 'Edit',
             del: 'Del',
-
-            // Empty state
             noSellersFound: 'No sellers registered yet',
             addFirstSeller: 'Click "Add Seller" to register your first seller',
-
-            // Pagination
             prev: '← Prev',
             next: 'Next →',
             of: 'of',
             rowsPerPage: 'Rows per page:',
-            seller: 'seller',
-
-            // Tips
             clickNameTip: 'Click name to view profile',
-
-            // Delete modal
             deleteModalTitle: 'Delete Seller?',
             deleteModalWarning: 'This action is permanent and cannot be undone. The seller record will be removed from the database.',
             yesDelete: 'Yes, Delete',
         },
 
         products: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Product Catalogue',
             pageSubtitle: 'Manage all products, units, stock, supplier info, and pricing',
             addProduct: 'Add Product',
-
-            // Stats
             totalProducts: 'Total Products',
             lowStock: 'Low Stock',
             outOfStock: 'Out of Stock',
             totalStock: 'Total Stock',
-
-            // Flash messages
             loadError: 'Failed to load products.',
             addSuccess: '"{{name}}" added to catalogue.',
             addError: 'Failed to add product.',
@@ -1307,8 +1101,6 @@ const en = {
             updateError: 'Failed to update product.',
             deleteSuccess: '"{{name}}" removed.',
             deleteError: 'Failed to delete product.',
-
-            // Table headers
             productName: 'Product Name',
             unit: 'Unit',
             stock: 'Stock',
@@ -1317,34 +1109,22 @@ const en = {
             mrp: 'MRP',
             status: 'Status',
             actions: 'Actions',
-
-            // Status labels
             low: 'Low',
             out: 'Out',
             ok: 'OK',
-
-            // Buttons
             edit: 'Edit',
             save: 'Save',
             saving: '…',
             cancel: 'Cancel',
-
-            // Search
             searchPlaceholder: 'Search by name, unit, supplier, or ID...',
             of: 'of',
-
-            // Empty states
             noMatch: 'No products match your search',
             noProducts: 'No products in catalogue yet',
             addFirstProduct: 'Add your first product',
-
-            // Footer legend
             legendClickEdit: 'Click Edit on any row to update product details inline',
             lowDesc: 'stock below 5 units',
             outDesc: 'zero stock',
             legendStockUpdate: 'Stock updates automatically from purchases and sales',
-
-            // Add modal
             addNewProduct: 'Add New Product',
             addDesc: 'Add to the product catalogue with supplier and pricing info',
             productNameRequired: 'Product Name *',
@@ -1357,16 +1137,12 @@ const en = {
             purchaseRate: 'Purchase Rate',
             mrp: 'MRP',
             adding: 'Adding…',
-
-            // Delete modal
             removeProduct: 'Remove Product?',
             deleteWarning: '" will be permanently removed from the catalogue. This cannot be undone.',
             permanentlyRemoved: 'will be permanently removed from the catalogue. This cannot be undone.',
             stockWarning: 'This product has {{stock}} {{unit}} in stock.',
             removing: 'Removing…',
             yesRemove: 'Yes, Remove',
-
-            // Additional
             product: 'product',
             products: 'products',
             total: 'total',
@@ -1374,21 +1150,18 @@ const en = {
         },
 
         productPurchase: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Product Purchase',
             pageSubtitle: 'Record supplier purchases',
-            // Stats
             purchasesToday: 'Purchases Today',
             purchasesInRange: 'Purchases in Range',
             totalSpent: 'Total Spent',
-            // Flash messages
             loadError: 'Failed to load purchases.',
             saveSuccess: 'Purchase recorded successfully!',
             saveError: 'Failed to save. Try again.',
             rangeLoadError: 'Failed to load purchases for selected range.',
             addProductSuccess: 'Product "{{name}}" added!',
             addProductError: 'Failed to add product.',
-            // Form
             newPurchaseEntry: 'New Purchase Entry',
             newProduct: 'New Product',
             product: 'Product',
@@ -1399,15 +1172,12 @@ const en = {
             total: 'Total (₹)',
             searchProductPlaceholder: 'Search product…',
             supplierPlaceholder: 'Supplier name',
-            // Validation
             selectProductError: 'Please select a product.',
             supplierRequired: 'Supplier name is required.',
             qtyRequired: 'Quantity is required.',
             rateRequired: 'Rate is required.',
-            // Buttons
             recordPurchase: 'Record Purchase',
             saving: 'Saving…',
-            // Table columns
             colProduct: 'Product',
             colSupplier: 'Supplier',
             colQty: 'Qty',
@@ -1415,14 +1185,12 @@ const en = {
             colMrp: 'MRP',
             colTotal: 'Total',
             colTime: 'Time',
-            // Product selector
             products: 'Products',
             stock: 'Stock',
             unit: 'Unit',
             pastSuppliers: 'Past suppliers for this product',
             lastRate: 'Last rate',
             autofill: 'autofill',
-            // New product modal
             addNewProduct: 'Add New Product',
             addProductDesc: 'Added to catalogue + first purchase recorded',
             productName: 'Product Name',
@@ -1431,14 +1199,12 @@ const en = {
             firstPurchaseOptional: 'First Purchase (optional)',
             supplierName: 'Supplier Name',
             totalAmount: 'Total Amount',
-            // Date picker
             dateLabel: 'Date',
             downloadPDF: 'Download PDF',
             day: 'Day',
             week: 'Week',
             month: 'Month',
             custom: 'Custom',
-            // Table footer
             purchase: 'purchase',
             purchases: 'purchases',
             on: 'on',
@@ -1446,10 +1212,8 @@ const en = {
             entry: 'entry',
             entries: 'entries',
             recordedToday: 'recorded today',
-            // Legend
             stockUpdateNote: 'Product stock updates automatically after each purchase',
             rateNote: 'Rate is per unit as defined in the product catalogue',
-            // PDF labels
             pdfTitle: 'Purchase Register',
             pdfReport: 'Report',
             pdfDaily: 'Daily',
@@ -1472,25 +1236,21 @@ const en = {
             pdfGrandTotal: 'Grand Total',
             pdfFooter: 'Computer-generated report. All amounts in Indian Rupees (₹).',
             pdfSignatory: 'Authorised Signatory: ___________________________',
-            // Empty states
             noPurchasesDaily: 'No purchases recorded for this date',
             noPurchasesRange: 'No purchases found for this range',
-            // Cancel
             cancel: 'Cancel',
             addProduct: 'Add Product',
         },
 
         productSales: {
+            startTour: 'Start a Tour',
             sellersAZ: 'Sellers A–Z (top 5)',
-            // Page header
             pageTitle: 'Product Sales',
             products: 'Products',
             pageSubtitle: 'Sell products to registered sellers',
-            // Stats
             salesToday: 'Sales Today',
             totalRevenue: 'Total Revenue',
             sellersServed: 'Sellers Served',
-            // Flash messages
             loadError: 'Failed to load sales.',
             rangeLoadError: 'Failed to load sales for selected range.',
             saveSuccess: 'Sale recorded successfully!',
@@ -1500,7 +1260,6 @@ const en = {
             qtyRequired: 'Quantity is required.',
             rateRequired: 'Rate is required.',
             insufficientStock: 'Only {{stock}} {{unit}} in stock.',
-            // Form
             newSaleEntry: 'New Sale Entry',
             seller: 'Seller',
             product: 'Product',
@@ -1515,14 +1274,12 @@ const en = {
             mrp: 'MRP',
             outOfStock: 'Out of stock',
             exceedsStock: 'Exceeds stock',
-            // Table columns
             colSeller: 'Seller',
             colProduct: 'Product',
             colQty: 'Qty',
             colRate: 'Rate',
             colTotal: 'Total',
             colTime: 'Time',
-            // Buttons
             recordSale: 'Record Sale',
             saving: 'Saving…',
             sale: 'sale',
@@ -1530,19 +1287,16 @@ const en = {
             on: 'on',
             entry: 'entry',
             entries: 'entries',
-            // Date picker
             dateLabel: 'Date',
             downloadPDF: 'Download PDF',
             day: 'Day',
             week: 'Week',
             month: 'Month',
             custom: 'Custom',
-            // Legend
             salesRecordedToday: 'sales recorded today',
             salesInRange: 'sales in selected range',
             stockUpdateNote: 'Stock updates automatically after each sale',
             clickProductCardTip: 'Click a product card above to quick-select it',
-            // Receipt
             cashMemo: 'Cash Memo',
             billNo: 'Bill No',
             date: 'Date',
@@ -1553,7 +1307,6 @@ const en = {
             amount: 'Amount',
             sign: 'Sign',
             printReceipt: 'Print receipt',
-            // PDF labels
             pdfTitle: 'Product Sales Register',
             pdfReport: 'Report',
             pdfDaily: 'Daily',
@@ -1575,35 +1328,31 @@ const en = {
             pdfEntries: 'entries',
             pdfFooter: 'Computer-generated report. All amounts in Indian Rupees (₹).',
             pdfSignatory: 'Authorised Signatory: ___________________________',
-            // Empty states
             noSalesDaily: 'No product sales for this date',
             noSalesRange: 'No sales found for this range',
         },
 
         utpadakBonus: {
-            deleteEventWarning: "This action cannot be undone.",
-            willBeDeleted: "The following will be permanently removed",
-            deleteSlabs: "All bonus slabs for this event",
-            deletePayments: "All payment records for this event",
-            deleteEventRecord: "The event itself",
-            cancel: "Cancel",
-            yesDelete: "Yes, Delete Event",
-            deleting: "Deleting...",
+            startTour: 'Start a Tour',
+            deleteEventWarning: 'This action cannot be undone.',
+            willBeDeleted: 'The following will be permanently removed',
+            deleteSlabs: 'All bonus slabs for this event',
+            deletePayments: 'All payment records for this event',
+            deleteEventRecord: 'The event itself',
+            cancel: 'Cancel',
+            yesDelete: 'Yes, Delete Event',
+            deleting: 'Deleting...',
             amt: 'Amount',
-            // Page header
             pageTitle: 'Utpadak Bonus Register',
             pageSubtitle: 'FAT-slab bonus · Vahatuk & Rate calculation',
-            // Stats
             totalSellers: 'Total Sellers',
             totalQty: 'Total Qty',
             totalBonusAmt: 'Total Bonus Amt',
             activeSlabs: 'Active Slabs',
             fatBased: 'FAT-based',
-            // Payment progress
             paymentProgress: 'Payment Progress',
             paid: 'paid',
             done: 'done',
-            // Slab config
             slabConfig: 'FAT Slab Configuration',
             editSlabs: 'Edit Slabs',
             addSlab: 'Add Slab',
@@ -1618,7 +1367,6 @@ const en = {
             vahatuk: 'Vahatuk',
             rate: 'Rate',
             fatRange: 'FAT {{min}}–{{max}}',
-            // Event management
             bonusEvent: 'Bonus Event',
             noEvent: 'No Event',
             period: 'Period',
@@ -1635,7 +1383,6 @@ const en = {
             editEventTitle: 'Edit Bonus Event',
             saveChanges: 'Save Changes',
             eventSlabNote: 'Current FAT slabs ({count} slabs) will be saved with this event.',
-            // Flash messages
             saveSuccess: 'Bonus register saved to database!',
             saveError: 'Failed to save register.',
             eventLoadError: 'Failed to load bonus events.',
@@ -1653,27 +1400,21 @@ const en = {
             deleteEventSuccess: 'Bonus event deleted.',
             deleteEventError: 'Failed to delete event.',
             slabUpdateSuccess: 'Slabs updated successfully!',
-            // Search & filter
             searchPlaceholder: 'Search seller name or code…',
             all: 'All',
             unpaid: 'Unpaid',
-            // Status badges
             pending: 'Pending',
-            // Buttons
             print: 'Print',
             pay: 'Pay',
             undo: 'Undo',
             selectEventToPay: 'Select event to pay',
-            // Date range
             from: 'From',
             to: 'To',
             go: 'Go',
             noEventSelected: 'No event selected · using local slabs for bonus',
-            // Mobile totals
             qty: 'Qty',
             amount: 'Amount',
             totalBonus: 'Total Bonus',
-            // Expanded view
             cowFatSlab: 'Cow FAT Slab Breakdown',
             buffaloFatSlab: 'Buffalo FAT Slab Breakdown',
             qtyL: 'Qty (L)',
@@ -1684,7 +1425,6 @@ const en = {
             buffalo: 'Buffalo',
             netBonus: 'Net Bonus',
             bonusPaidOn: 'Bonus paid on',
-            // PDF labels
             pdfTitle: 'Utpadak Bonus Register',
             pdfSubtitle: 'Utpadak Bonus Register',
             pdfGenerated: 'Generated',
@@ -1699,43 +1439,34 @@ const en = {
             sellers: 'sellers',
             pdfFooter: 'This is a computer-generated register. Only Utpadak sellers included.',
             pdfSignatory: 'Authorised Signatory: ___________________________',
-            // Print-only headers
-            // Milk type labels
             cowAndBuffalo: 'Cow & Buffalo',
-            // Empty state
             noSellersFound: 'No sellers found for this period',
-            // Slab edit labels
-            // Payment buttons
         },
 
         gavaliBonus: {
-            // en.json
-            deleteEventWarning: "This action cannot be undone.",
-            willBeDeleted: "The following will be permanently removed",
-            deletePayments: "All payment records for this event",
-            deleteEventRecord: "The event itself",
-            cancel: "Cancel",
-            yesDelete: "Yes, Delete Event",
-            deleting: "Deleting...",
+            startTour: 'Start a Tour',
+            deleteEventWarning: 'This action cannot be undone.',
+            willBeDeleted: 'The following will be permanently removed',
+            deletePayments: 'All payment records for this event',
+            deleteEventRecord: 'The event itself',
+            cancel: 'Cancel',
+            yesDelete: 'Yes, Delete Event',
+            deleting: 'Deleting...',
             yearOverYearComparison: 'Year over Year Comparison',
             lastYearQty: 'Last Year Quantity',
             growth: 'Growth',
             currentYearQty: 'Current Year Quantity',
-            // Page header
             pageTitle: 'Gavali Bonus Register',
             pageSubtitle: 'Flat bonus for Cow & Buffalo · Gavali sellers only',
             gavaliBonus: 'Gavali Bonus',
-            // Stats
             totalSellers: 'Total Sellers',
             totalQty: 'Total Qty',
             totalBonusAmt: 'Total Bonus Amt',
             bonusRates: 'Bonus Rates',
             ratesValue: 'Cow: ₹0.25, Buffalo: ₹0.50',
-            // Payment progress
             paymentProgress: 'Payment Progress',
             paid: 'paid',
             done: 'done',
-            // Bonus config
             bonusConfig: 'Bonus Rate Configuration',
             ratesCount: '2 rates',
             editRates: 'Edit Rates',
@@ -1743,11 +1474,9 @@ const en = {
             milkType: 'Milk Type',
             bonusPerL: 'Bonus ₹/L',
             bonus: 'Bonus',
-            // Milk types
             cow: 'Cow',
             buffalo: 'Buffalo',
             cowAndBuffalo: 'Cow & Buffalo',
-            // Event management
             bonusEvent: 'Bonus Event',
             noEvent: 'No Event',
             period: 'Period',
@@ -1764,7 +1493,6 @@ const en = {
             editEventTitle: 'Edit Bonus Event',
             saveChanges: 'Save Changes',
             defaultRatesNote: 'Default bonus rates: Cow (₹0.25/L), Buffalo (₹0.50/L)',
-            // Flash messages
             eventLoadError: 'Failed to load bonus events.',
             eventRequired: 'Event name, from date and to date are required.',
             eventCreateSuccess: 'Bonus event created!',
@@ -1780,26 +1508,20 @@ const en = {
             deleteEventSuccess: 'Bonus event deleted.',
             deleteEventError: 'Failed to delete event.',
             slabUpdateSuccess: 'Rates updated successfully!',
-            // Search & filter
             searchPlaceholder: 'Search seller name or code…',
             all: 'All',
             unpaid: 'Unpaid',
-            // Status badges
             pending: 'Pending',
-            // Buttons
             print: 'Print',
             pay: 'Pay',
             undo: 'Undo',
             selectEventToPay: 'Select event to pay',
-            // Date range
             from: 'From',
             to: 'To',
             go: 'Go',
             noEventSelected: 'No event selected · using local rates for bonus',
-            // Mobile totals
             qty: 'Qty',
             totalBonus: 'Total Bonus',
-            // Expanded view
             cowBonusBreakdown: 'Cow Bonus Breakdown',
             buffaloBonusBreakdown: 'Buffalo Bonus Breakdown',
             qtyL: 'Qty (L)',
@@ -1809,7 +1531,6 @@ const en = {
             vsLastYear: 'vs last year',
             netBonus: 'Net Bonus',
             bonusPaidOn: 'Bonus paid on',
-            // PDF labels
             pdfTitle: 'Gavali Bonus Register',
             pdfSubtitle: 'Gavali Bonus Register',
             pdfGenerated: 'Generated',
@@ -1824,17 +1545,14 @@ const en = {
             sellers: 'sellers',
             pdfFooter: 'This is a computer-generated register. Only Gavali sellers with 1+ year of sales included.',
             pdfSignatory: 'Authorised Signatory: ___________________________',
-            // Print-only headers
-            // Empty state
             noSellersFound: 'No Gavali sellers found for this period',
-            // Totals footer
             cowQty: 'Cow Qty',
             buffaloQty: 'Buffalo Qty',
             totalBonusToPay: 'Total Bonus to Pay',
         },
 
         cashAdvance: {
-            // Register/Statement PDF specific
+            startTour: 'Start a Tour',
             registerTitle: 'Seller Statement',
             registerModalTitle: 'Seller Statement',
             registerFrom: 'From Date',
@@ -1859,8 +1577,6 @@ const en = {
             closingDepositBalance: 'Closing Deposit Balance',
             productPurchase: 'Product Purchase',
             noTransactions: 'No transactions found for the selected period',
-
-            // Column headers for register
             colName: 'Name',
             colNumber: 'Number',
             colHeaderDate: 'Date',
@@ -1869,18 +1585,12 @@ const en = {
             colHeaderDeposit: 'Received',
             colHeaderClosing: 'Closing Balance',
             colHeaderDepositBal: 'Deposit Balance',
-
-            // Page header
             pageTitle: 'Cash Advance',
             pageSubtitle: 'Manage seller advances',
-
-            // Stats
             entriesToday: 'Entries Today',
             entriesInRange: 'Entries in Range',
             totalGiven: 'Total Given',
             totalReceived: 'Total Received',
-
-            // Form
             newTransaction: 'New Transaction',
             editEntry: 'Edit Entry',
             cancelEdit: 'Cancel Edit',
@@ -1895,21 +1605,15 @@ const en = {
             runningBalance: 'Running Balance',
             netBalance: 'Net Balance',
             recentHistory: 'Recent History',
-
-            // Buttons
             recordAdvanceGiven: 'Record Advance Given',
             recordPaymentReceived: 'Record Payment Received',
             updateEntry: 'Update Entry',
             saving: 'Saving…',
             updating: 'Updating…',
             printRegister: 'Print Register',
-
-            // Validation
             selectSellerError: 'Please select a seller.',
             amountError: 'Amount must be greater than 0.',
             advanceDisabled: 'Advance Disabled',
-
-            // Flash messages
             loadError: 'Failed to load entries.',
             rangeLoadError: 'Failed to load entries for selected range.',
             advanceGivenSuccess: 'Advance given recorded!',
@@ -1919,15 +1623,11 @@ const en = {
             updateError: 'Failed to update.',
             deleteSuccess: 'Entry deleted successfully.',
             registerLoadError: 'Failed to load seller register.',
-
-            // Search
             searchPlaceholder: 'Search name / code…',
             filterPlaceholder: 'Filter by seller name…',
             matches: 'match',
             matchesPlural: 'matches',
             sellersAZ: 'Sellers A–Z (top 5)',
-
-            // Table columns
             colSeller: 'Seller',
             colCode: 'Code',
             colType: 'Type',
@@ -1936,22 +1636,16 @@ const en = {
             colDate: 'Date',
             colTime: 'Time',
             colEdit: 'Edit',
-
-            // Table status
             given: 'Given',
             received: 'Received',
             editing: 'Editing',
             edit: 'Edit',
-
-            // Table footer
             transaction: 'transaction',
             transactions: 'transactions',
             on: 'on',
             entry: 'entry',
             entries: 'entries',
             matching: 'matching',
-
-            // Date picker
             dateLabel: 'Date',
             downloadPDF: 'Download PDF',
             day: 'Day',
@@ -1959,19 +1653,13 @@ const en = {
             month: 'Month',
             custom: 'Custom',
             fetch: 'Fetch',
-
-            // Pagination
             prev: '← Prev',
             next: 'Next →',
             of: 'of',
             rowsPerPage: 'Rows per page:',
-
-            // Empty states
             noTransactionsDaily: 'No transactions for this date',
             noEntriesRange: 'No entries found for this range',
             fetchToLoad: 'Click Fetch to load entries for the selected range',
-
-            // PDF labels
             pdfTitle: 'Cash Advance Register',
             pdfReport: 'Report',
             pdfDaily: 'Daily',
@@ -1995,8 +1683,6 @@ const en = {
             pdfFooter: 'Computer-generated report. All amounts in Indian Rupees (₹).',
             pdfSignatory: 'Authorised Signatory: ___________________________',
             seller: 'seller',
-
-            // Delete modal
             confirmDelete: 'Delete Entry?',
             deleteWarning: 'This will permanently delete the entry for',
             cancel: 'Cancel',
@@ -2004,18 +1690,16 @@ const en = {
         },
 
         cashDeposit: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Seller Deposit',
             edit: 'Edit',
             pageSubtitle: 'Per-litre milk deposit deductions',
-            // Stats
             entriesToday: 'Entries Today',
             entriesInRange: 'Entries in Range',
             totalCredited: 'Total Credited',
             totalDebited: 'Total Debited',
             netBalance: 'Net Balance',
             netPage: 'Net (page)',
-            // Form
             newDepositEntry: 'New Deposit Entry',
             seller: 'Seller',
             transactionType: 'Transaction Type',
@@ -2031,16 +1715,13 @@ const en = {
             litre: 'litre',
             creditDeposit: 'Credit Deposit',
             debitDeposit: 'Debit Deposit',
-            // Validation
             selectSellerError: 'Please select a seller.',
             amountError: 'Amount must be greater than 0.',
-            // Flash messages
             loadError: 'Failed to load deposit entries.',
             rangeLoadError: 'Failed to load entries for selected range.',
             creditSuccess: 'Deposit credited successfully!',
             debitSuccess: 'Deposit debited successfully!',
             saveError: 'Failed to save. Try again.',
-            // Search
             searchPlaceholder: 'Search name / code…',
             filterPlaceholder: 'Filter by seller name…',
             matches: 'match',
@@ -2049,7 +1730,6 @@ const en = {
             noDeposit: 'no deposit',
             noDepositRate: 'no deposit rate set',
             deposit: 'deposit',
-            // Table columns
             colSeller: 'Seller',
             colCode: 'Code',
             colType: 'Type',
@@ -2058,10 +1738,8 @@ const en = {
             colDate: 'Date',
             colTime: 'Time',
             colRunningBal: 'Running Bal',
-            // Table status
             credit: 'Credit',
             debit: 'Debit',
-            // Table footer
             transaction: 'transaction',
             transactions: 'transactions',
             for: 'for',
@@ -2070,29 +1748,24 @@ const en = {
             entries: 'entries',
             matching: 'matching',
             net: 'Net',
-            // Date picker
             dateLabel: 'Date',
             downloadPDF: 'Download PDF',
             day: 'Day',
             week: 'Week',
             month: 'Month',
             custom: 'Custom',
-            // Pagination
             prev: '← Prev',
             next: 'Next →',
             of: 'of',
             rowsPerPage: 'Rows per page:',
-            // Empty states
             noDepositTransactions: 'No deposit transactions for',
             noDepositEntriesDaily: 'No deposit entries for this date',
             noEntriesRange: 'No entries found for this range',
             showingFullHistory: 'Showing full history for',
-            // Legend
             creditDesc: 'deposit added (from milk deduction or manual)',
             debitDesc: 'deposit returned',
             selectSellerTip: 'Select a seller to see their full deposit history with running balance',
             autoFillTip: 'Auto-fill computes today\'s milk × deposit rate automatically',
-            // PDF labels
             pdfTitle: 'Seller Deposit Register',
             pdfReport: 'Report',
             pdfDaily: 'Daily',
@@ -2118,17 +1791,15 @@ const en = {
             pdfSignatory: 'Authorised Signatory: ___________________________',
             seller: 'seller',
             netBalanceHeld: 'Net Balance (Held by Dairy)',
-            // Warning box
             noDepositRateWarning: 'No deposit rate configured for this seller. Go to ',
             sellerRegisterEdit: 'Seller Register → Edit',
             autoFillPrefix: 'Auto',
             saving: 'Saving…',
             deleteSuccess: 'Deleting entry successful',
-
         },
 
         tankDispatch: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Tank Dispatch',
             pageSubtitle: 'Send remaining milk to factory',
             dateLabel: 'Date',
@@ -2140,14 +1811,10 @@ const en = {
             fetch: 'Fetch',
             combined: 'Combined',
             challan: 'Challan',
-
-            // Stats
             dispatches: 'Dispatches',
             totalDispatched: 'Total Dispatched',
             factoryRevenue: 'Factory Revenue',
             remainingStock: 'Remaining Stock',
-
-            // Stock cards
             cowRemaining: 'Cow Remaining',
             buffaloRemaining: 'Buffalo Remaining',
             readyToDispatch: 'Ready to Dispatch',
@@ -2156,8 +1823,6 @@ const en = {
             buf: 'Buf',
             fat: 'FAT',
             snf: 'SNF',
-
-            // Form
             newDispatchEntry: 'New Dispatch Entry',
             editDispatch: 'Edit Dispatch',
             cancelEdit: 'Cancel Edit',
@@ -2180,19 +1845,13 @@ const en = {
             updateDispatch: 'Update Dispatch',
             on: 'on',
             total: 'total',
-
-            // Placeholders
             factoryPlaceholder: 'e.g. Amul, Mother Dairy',
             vehiclePlaceholder: 'MH-12 AB 1234',
             driverPlaceholder: 'Driver name',
             remarksPlaceholder: 'Optional note',
-
-            // Suggestions dropdowns
             recentFactories: 'Recent Factories',
             vehicles: 'Vehicles',
             drivers: 'Drivers',
-
-            // Flash messages
             rangeLoadError: 'Failed to load dispatches for selected range.',
             loadError: 'Failed to load dispatches.',
             factoryRequired: 'Factory name is required for at least one truck.',
@@ -2202,8 +1861,6 @@ const en = {
             saveError: 'Failed to save dispatch.',
             updateSuccess: 'Dispatch updated successfully!',
             updateError: 'Failed to update dispatch.',
-
-            // Table columns
             colFactory: 'Factory',
             colType: 'Type',
             colVehicle: 'Vehicle',
@@ -2216,20 +1873,12 @@ const en = {
             colRemarks: 'Remarks',
             colTime: 'Time',
             colEdit: 'Edit',
-
-            // Table status
             editing: 'Editing',
             edit: 'Edit',
-
-            // Empty state
             noDispatches: 'No dispatches recorded for this date',
-
-            // Legend
             legendRemaining: 'Remaining milk = collected − walk-in sales − owner usage',
             legendClickStock: 'Click a stock card to dispatch only that milk type',
             legendFatSnf: 'FAT and SNF are weighted averages from milk entries',
-
-            // PDF labels (Register)
             pdfTitle: 'Tank Dispatch Register',
             pdfReport: 'Report',
             pdfDaily: 'Daily',
@@ -2248,8 +1897,6 @@ const en = {
             cowShort: 'Cow',
             bufShort: 'Buf',
             revenue: 'Revenue',
-
-            // Challan PDF
             milkDeliveryChallan: 'Milk Delivery Challan',
             tankerNo: 'Tanker No.',
             driverLabel: 'Driver',
@@ -2277,143 +1924,8 @@ const en = {
             totalTrucks: 'Total Trucks',
             generated: 'Generated',
             dispatchDetails: 'Dispatch Details',
-            vehicleNo: 'Vehicle No.',
-            date: 'Date',
-            factory: 'Factory',
             vehicle: 'Vehicle',
-            rate: 'Rate',
-            acidity: 'Acidity',
-            temp: 'Temp °C',
-            milkLtr: 'Milk Ltr.',
-            milkType: 'Milk Type',
-            dispatchDetails: 'Dispatch Details',
-            vehicleNo: 'Vehicle No.',
-            driverLabel: 'Driver',
-            shiftLabel: 'Shift',
-            dispatchTime: 'Dispatch Time',
-            challanNo: 'Challan No.',
-            factoryLabel: 'Factory',
-            milkDetails: 'Milk Details',
-            factoryRate: 'Factory Rate',
-            totalAmount: 'Total Amount',
-            driverSignature: 'Signature of Driver',
-            authoritySignature: 'Authority Signature',
-            tankerNo: 'Tanker No.',
-            combinedChallan: 'Combined Milk Delivery Challan',
-            shift: 'Shift',
-            totalTrucks: 'Total Trucks',
-            generated: 'Generated',
             date: 'Date',
-            remarks: 'Remarks',
-            cowMilk: 'Cow Milk',
-            buffaloMilk: 'Buffalo Milk',
-            morningShift: 'Morning Shift',
-            eveningShift: 'Evening Shift',
-
-            // Form labels
-            factoryName: 'Factory Name',
-            vehicleNo: 'Vehicle No.',
-            ratePerL: 'Rate (₹/L)',
-            qtyL: 'Qty (L)',
-            addAnotherTruck: 'Add Another Truck',
-            record: 'Record',
-            trucks: 'Trucks',
-            dispatch: 'Dispatch',
-            updating: 'Updating…',
-            saving: 'Saving…',
-            updateDispatch: 'Update Dispatch',
-            cancelEdit: 'Cancel Edit',
-            editingDispatchTo: 'Editing dispatch to',
-            truck: 'Truck',
-            remove: 'Remove',
-
-            // Placeholders
-            factoryPlaceholder: 'e.g. Amul, Mother Dairy',
-            vehiclePlaceholder: 'MH-12 AB 1234',
-            driverPlaceholder: 'Driver name',
-            remarksPlaceholder: 'Optional note',
-
-            // Dropdown titles
-            recentFactories: 'Recent Factories',
-            vehicles: 'Vehicles',
-            drivers: 'Drivers',
-
-            // Stats
-            dispatches: 'Dispatches',
-            totalDispatched: 'Total Dispatched',
-            factoryRevenue: 'Factory Revenue',
-            remainingStock: 'Remaining Stock',
-            cowRemaining: 'Cow Remaining',
-            buffaloRemaining: 'Buffalo Remaining',
-            readyToDispatch: 'Ready to Dispatch',
-            cow: 'Cow',
-            buffalo: 'Buffalo',
-            buf: 'Buf',
-            fat: 'FAT',
-            snf: 'SNF',
-            total: 'total',
-
-            // Buttons
-            fetch: 'Fetch',
-            combined: 'Combined',
-            challan: 'Challan',
-
-            // Table columns
-            colFactory: 'Factory',
-            colType: 'Type',
-            colVehicle: 'Vehicle',
-            colDriver: 'Driver',
-            colQtyL: 'Qty (L)',
-            colAvgFat: 'Avg FAT',
-            colAvgSnf: 'Avg SNF',
-            colRate: 'Rate',
-            colAmount: 'Amount',
-            colRemarks: 'Remarks',
-            colTime: 'Time',
-            colEdit: 'Edit',
-            editing: 'Editing',
-            edit: 'Edit',
-
-            // Flash messages
-            rangeLoadError: 'Failed to load dispatches for selected range.',
-            loadError: 'Failed to load dispatches.',
-            factoryRequired: 'Factory name is required for at least one truck.',
-            noMilkRemaining: 'No milk remaining to dispatch.',
-            noMilkRemainingWarning: 'No remaining milk for the selected type and date.',
-            saveSuccess: '{{count}} truck dispatches recorded successfully!',
-            saveError: 'Failed to save dispatch.',
-            updateSuccess: 'Dispatch updated successfully!',
-            updateError: 'Failed to update dispatch.',
-
-            // Empty state
-            noDispatches: 'No dispatches recorded for this date',
-
-            // Legend
-            legendRemaining: 'Remaining milk = collected − walk-in sales − owner usage',
-            legendClickStock: 'Click a stock card to dispatch only that milk type',
-            legendFatSnf: 'FAT and SNF are weighted averages from milk entries',
-
-            // PDF Register
-            pdfTitle: 'Tank Dispatch Register',
-            pdfReport: 'Report',
-            pdfDaily: 'Daily',
-            pdfWeekly: 'Weekly',
-            pdfMonthly: 'Monthly',
-            pdfCustom: 'Custom Range',
-            pdfTo: 'to',
-            pdfGenerated: 'Generated',
-            pdfDispatches: 'Dispatches',
-            pdfDate: 'Date',
-            pdfTime: 'Time',
-            pdfType: 'Type',
-            pdfGrandTotal: 'Grand Total',
-            pdfFooter: 'Computer-generated report. All amounts in Indian Rupees (₹).',
-            pdfSignatory: 'Authorised Signatory: ___________________________',
-            cowShort: 'Cow',
-            bufShort: 'Buf',
-            revenue: 'Revenue',
-
-            // Dairy info
             dairyAddress: 'Tal. Tasgaon, Dist. Sangli',
             fssaiLicense: 'FSSAI Lic. No.: 11521040000016',
             industrialNotice: 'Industrial raw milk under process — Not for Sale. Not for direct human consumption.',
@@ -2421,24 +1933,18 @@ const en = {
         },
 
         ownerUsage: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Owner Usage',
             pageSubtitle: 'Record personal milk consumption',
             dateLabel: 'Date',
-
-            // Stats
             totalUsed: 'Total Used',
             cowUsed: 'Cow Used',
             buffaloUsed: 'Buffalo Used',
             entriesToday: 'Entries Today',
-
-            // Stock cards
             cowAvailable: 'Cow Available',
             buffaloAvailable: 'Buffalo Available',
             totalAvailable: 'Total Available',
             afterWalkinAndUsage: 'After walkin sales & previous usage',
-
-            // Form
             newUsageEntry: 'New Usage Entry',
             shift: 'Shift',
             milkType: 'Milk Type',
@@ -2452,85 +1958,53 @@ const en = {
             available: 'Available',
             noneLeft: 'None left',
             exceedsStock: 'Exceeds stock',
-
-            // Buttons
             recordUsage: 'Record Usage',
             saving: 'Saving…',
-
-            // Flash messages
             loadError: 'Failed to load entries.',
             quantityError: 'Quantity must be greater than 0.',
             insufficientStock: 'Only {{qty}} L of {{type}} milk available.',
             saveSuccess: 'Owner usage recorded successfully!',
             saveError: 'Failed to save. Try again.',
-
-            // Table columns
             colShift: 'Shift',
             colMilkType: 'Milk Type',
             colQuantity: 'Quantity',
             colPurpose: 'Purpose',
             colTime: 'Time',
-
-            // Table footer
             entry: 'entry',
             entries: 'entries',
             on: 'on',
-
-            // Shift summary
             morningUsage: 'Morning Usage',
             eveningUsage: 'Evening Usage',
-
-            // Empty state
             noEntries: 'No owner usage recorded for this date',
-
-            // Legend
             legendSubtraction: 'Owner usage is subtracted from available stock before tank dispatch',
             legendStockUpdate: 'Available stock shown above updates after each entry',
             legendPurposeDefault: 'Purpose defaults to "Personal use" if left blank',
-
-            // Default purpose
             personalUse: 'Personal use',
         },
 
         sumReport: {
-            // Page header
+            startTour: 'Start a Tour',
             pageTitle: 'Sum Report',
             pageSubtitle: 'Seller payment summary · milk, deductions & net payable',
             printReport: 'Print Report',
-
-            // Date range
             from: 'From',
             to: 'To',
-
-            // Stats
             utpadakSellers: 'Utpadak Sellers',
             totalNetBalance: 'Total Net Balance',
             totalBonus: 'Total Bonus',
-
-            // Search & filter
             searchPlaceholder: 'Search seller name or code…',
             utpadak: 'Utpadak',
             gavali: 'Gavali',
             all: 'All',
-
-            // Table headers
             sellerName: 'Seller Name',
             deposit: 'Deposit',
             bonus: 'Bonus',
             total: 'Total',
-
-            // Table footer
             totalLabel: 'Total',
-
-            // Flash messages
             loadError: 'Failed to load report data.',
             noDataToPrint: 'No data to print.',
             popupBlocked: 'Popup blocked by browser.',
-
-            // Empty state
             noData: 'No data for selected period',
-
-            // PDF labels
             pdfTitle: 'Sum Report',
             pdfSubtitle: 'Seller Payment Sum Report',
             pdfGenerated: 'Generated',
@@ -2542,14 +2016,17 @@ const en = {
             signature: 'Signature',
             pdfFooter: 'This is a computer-generated report.',
             pdfSignatory: 'Authorised Signatory: ___________________________',
-
-            // Seller types
             sellerType: 'Seller Type',
         },
 
         // ── Navigation ────────────────────────────────────────
         nav: {
+            startTour: 'Start a Tour',
             namedBuyers: 'Named Buyers',
+            administration: 'Administration',
+            milkCollection: 'Milk Collection',
+            walkinSales: 'Walkin-Sales',
+            finance: 'Finance',
             dashboard: 'Dashboard',
             operators: 'Operators',
             operatorList: 'Operator List',
@@ -2565,6 +2042,7 @@ const en = {
             catalogue: 'Catalogue',
             purchase: 'Purchase',
             sales: 'Sales',
+            adminList: 'Admin List',
             bonusRegister: 'Bonus Register',
             utpadakBonus: 'Utpadak Bonus',
             gavaliBonus: 'Gavali Bonus',
@@ -2575,7 +2053,6 @@ const en = {
             ownerUsage: 'Owner Usage',
         },
 
-        
         // ── Common Actions ────────────────────────────────────
         actions: {
             save: 'Save',
@@ -2612,6 +2089,7 @@ const en = {
         // ── Settings Page ─────────────────────────────────────
         settings: {
             title: 'Settings',
+            startTour: 'Start a Tour',
             subtitle: 'App identity · Preferences · Operator access rights',
             adminOnly: 'Admin only',
             appIdentity: 'App Identity',

@@ -12,6 +12,8 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
@@ -402,9 +404,35 @@ export default function SellerPayments() {
         finally { setBillDetailLoading(false); }
     };
 
-    const showFlash = (type, msg) => {
+const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startSellerPaymentsTour = () => {
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="header-actions"]',
+                    popover: { title: t('sellerPayments.pageTitle'), description: 'Search past bills, configure your payment cycle, or export everything to Excel from here.' },
+                },
+                {
+                    element: '[data-tour="date-range"]',
+                    popover: { title: t('sellerPayments.from'), description: 'This is the active payment cycle. The payment date controls when "Pay" buttons unlock.' },
+                },
+                {
+                    element: '[data-tour="payment-stats"]',
+                    popover: { title: t('sellerPayments.totalSellers'), description: 'Quick totals for this cycle — milk amount, advances, and product deductions.' },
+                },
+                {
+                    element: '[data-tour="seller-list"]',
+                    popover: { title: t('sellerPayments.cashToPay'), description: 'Click a seller to expand their full breakdown. Use "Pay" to settle, or "PDF" to print a receipt after payment.' },
+                },
+            ],
+        });
+        driverObj.drive();
     };
 
     // fetch
@@ -1322,7 +1350,12 @@ ${walkinTotal}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap" data-tour="header-actions">
+                        <button onClick={startSellerPaymentsTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+                                bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                            <BadgeCheck size={13} /> {t('sellerPayments.startTour') || 'Take a Tour'}
+                        </button>
                         <button onClick={() => { setBillSearchOpen(true); searchBills(""); }}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                                 bg-violet-600 text-white hover:bg-violet-700 transition">
@@ -1380,8 +1413,7 @@ ${walkinTotal}
                 </div>
 
                 {/* Date Range */}
-                {/* Date Range */}
-                <div className="flex items-center gap-3 flex-wrap no-print">
+                <div className="flex items-center gap-3 flex-wrap no-print" data-tour="date-range">
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.from')}</span>
                         <input type="date" value={customFrom || ''}
@@ -1412,7 +1444,7 @@ ${walkinTotal}
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-tour="payment-stats">
                     <StatCard label={t('sellerPayments.totalSellers')} value={activeSellers.length}
                         icon={<Users size={14} />}
                         color="text-blue-600 bg-blue-50 border-blue-100" />
@@ -1486,7 +1518,7 @@ ${walkinTotal}
                 </div>
 
                 {/* Seller Cards */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3" data-tour="seller-list">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />

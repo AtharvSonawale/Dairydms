@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import api from "../../api/axios";
-import {
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css"; import {
     Star, Plus, Pencil, Trash2, RefreshCw, X,
     AlertTriangle, BadgeCheck, Search, Users,
     ChevronDown, ChevronUp, Milk, Calendar,
@@ -25,9 +26,9 @@ const EMPTY_FORM = {
 };
 
 // ── sub-components ────────────────────────────────────────────
-function Field({ label, required, children }) {
+function Field({ label, required, children, ...rest }) {
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1" {...rest}>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
             </label>
@@ -35,7 +36,6 @@ function Field({ label, required, children }) {
         </div>
     );
 }
-
 function TinyInput({ className = "", ...props }) {
     return (
         <input
@@ -114,6 +114,29 @@ export default function PremiumRates() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const startPremiumRatesTour = () => {
+        const steps = [
+            {
+                element: '[data-tour="assign-btn"]',
+                popover: { title: t('premiumRates.assignPremium'), description: 'Click here to assign a premium rate to a seller.' },
+            },
+            {
+                element: '[data-tour="stats"]',
+                popover: { title: t('premiumRates.totalAssigned'), description: 'See how many premium rates are assigned, active, and split by milk type.' },
+            },
+            {
+                element: '[data-tour="filters"]',
+                popover: { title: t('premiumRates.searchPlaceholder'), description: 'Search by seller name, or filter by milk type and status.' },
+            },
+            {
+                element: '[data-tour="rates-table"]',
+                popover: { title: t('premiumRates.status'), description: 'Click any row to expand and see the reason for the premium. Edit or deactivate rates here.' },
+            },
+        ];
+        const driverObj = driver({ showProgress: true, allowClose: true, steps });
+        driverObj.drive();
     };
 
     // ── fetch ──
@@ -292,7 +315,13 @@ export default function PremiumRates() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button onClick={openAdd}
+                        <button
+                            onClick={startPremiumRatesTour}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> {t('premiumRates.startTour') || 'Take a Tour'}
+                        </button>
+                        <button onClick={openAdd} data-tour="assign-btn"
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                                 bg-amber-500 text-white hover:bg-amber-600 transition shadow-sm shadow-amber-200">
                             <Plus size={14} /> {t('premiumRates.assignPremium')}
@@ -301,7 +330,7 @@ export default function PremiumRates() {
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="stats">
                     <StatCard label={t('premiumRates.totalAssigned')} value={rates.length}
                         icon={<Star size={14} />}
                         color="text-amber-600 bg-amber-50 border-amber-100" t={t} />
@@ -472,9 +501,9 @@ export default function PremiumRates() {
                         </form>
                     </div>
                 )}
-
+                
                 {/* ── Filters ── */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap" data-tour="filters">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -507,9 +536,9 @@ export default function PremiumRates() {
 
                     <span className="ml-auto text-xs text-gray-400">{filtered.length} {t('premiumRates.entries')}</span>
                 </div>
-
+                
                 {/* ── Rates List ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="rates-table">
 
                     {/* Table header */}
                     {/* Scrollable table area */}
