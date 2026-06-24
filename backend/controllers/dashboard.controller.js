@@ -11,6 +11,7 @@ const pool = require('../config/db');
 exports.getDashboard = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
+        console.log('[getDashboard] req.user:', req.user, '| resolved centreId:', centreId);
         const today = new Date().toISOString().split('T')[0];
         const from = req.query.from || req.query.date || today;
         const to = req.query.to || req.query.date || today;
@@ -139,18 +140,27 @@ exports.getDashboard = async (req, res) => {
 
         const walkinProfit = walkinCowProfit + walkinBuffaloProfit;
 
-        // 3. Tank Dispatch Profit (by milk type)
-        const cowDispatches = dispatches.filter(d => d.milk_type === 'cow' || !d.milk_type);
-        const buffaloDispatches = dispatches.filter(d => d.milk_type === 'buffalo');
-
-        const cowDispatchProfit = cowDispatches.reduce((sum, d) => {
-            const profitPerLiter = parseFloat(d.factory_rate || 0) - avgCowRate;
-            return sum + profitPerLiter * parseFloat(d.cow_liters || d.total_liters || 0);
+        // 3. Tank Dispatch Profit (by milk type) — milk_type is 'cow' | 'buffalo' | 'mixed', NOT NULL
+        const cowDispatchProfit = dispatches.reduce((sum, d) => {
+            const factoryRate = parseFloat(d.factory_rate || 0);
+            let cowLiters = 0;
+            if (d.milk_type === 'cow') {
+                cowLiters = parseFloat(d.total_liters || 0);
+            } else if (d.milk_type === 'mixed') {
+                cowLiters = parseFloat(d.cow_liters || 0);
+            }
+            return sum + (factoryRate - avgCowRate) * cowLiters;
         }, 0);
 
-        const buffaloDispatchProfit = buffaloDispatches.reduce((sum, d) => {
-            const profitPerLiter = parseFloat(d.factory_rate || 0) - avgBuffaloRate;
-            return sum + profitPerLiter * parseFloat(d.buffalo_liters || d.total_liters || 0);
+        const buffaloDispatchProfit = dispatches.reduce((sum, d) => {
+            const factoryRate = parseFloat(d.factory_rate || 0);
+            let bufLiters = 0;
+            if (d.milk_type === 'buffalo') {
+                bufLiters = parseFloat(d.total_liters || 0);
+            } else if (d.milk_type === 'mixed') {
+                bufLiters = parseFloat(d.buffalo_liters || 0);
+            }
+            return sum + (factoryRate - avgBuffaloRate) * bufLiters;
         }, 0);
 
         const dispatchProfit = cowDispatchProfit + buffaloDispatchProfit;
@@ -307,11 +317,30 @@ exports.getSummary = async (req, res) => {
                     COALESCE(SUM(total_liters), 0) AS total_liters,
                     COALESCE(SUM(total_amount), 0) AS total_amount,
                     COALESCE(AVG(factory_rate), 0) AS avg_factory_rate,
-                    COALESCE(SUM(CASE WHEN milk_type = 'cow' OR milk_type IS NULL THEN (factory_rate - ?) * (cow_liters + total_liters) ELSE 0 END), 0) AS cow_dispatch_profit,
-                    COALESCE(SUM(CASE WHEN milk_type = 'buffalo' THEN (factory_rate - ?) * buffalo_liters ELSE 0 END), 0) AS buffalo_dispatch_profit
+                    COALESCE(SUM(
+                        CASE
+                            WHEN milk_type = 'cow' THEN (factory_rate - ?) * total_liters
+                            WHEN milk_type = 'mixed' THEN (factory_rate - ?) * cow_liters
+                            ELSE 0
+                        END
+                    ), 0) AS cow_dispatch_profit,
+                    COALESCE(SUM(
+                        CASE
+                            WHEN milk_type = 'buffalo' THEN (factory_rate - ?) * total_liters
+                            WHEN milk_type = 'mixed' THEN (factory_rate - ?) * buffalo_liters
+                            ELSE 0
+                        END
+                    ), 0) AS buffalo_dispatch_profit
                  FROM tank_dispatch
                       WHERE centre_id = ? AND dispatch_date = ?`,
-                [milkAgg[0]?.avg_cow_rate || 0, milkAgg[0]?.avg_buffalo_rate || 0, centreId, date]
+                [
+                    milkAgg[0]?.avg_cow_rate || 0,
+                    milkAgg[0]?.avg_cow_rate || 0,
+                    milkAgg[0]?.avg_buffalo_rate || 0,
+                    milkAgg[0]?.avg_buffalo_rate || 0,
+                    centreId,
+                    date,
+                ]
             ),
 
             // Owner usage aggregation (by type)
