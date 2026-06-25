@@ -808,6 +808,28 @@ export default function ProductSales() {
         }
     };
 
+    const isFormReady = () => {
+        if (!form.seller_id) return false;
+        const validLines = lines.filter(l => l.product_id && l.quantity && l.rate);
+        if (validLines.length === 0) return false;
+        for (const l of validLines) {
+            const product = products.find(p => String(p.product_id) === String(l.product_id));
+            if (product && parseFloat(l.quantity) > parseFloat(product.current_stock || 0)) return false;
+        }
+        return true;
+    };
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        // Let seller / product-line autocomplete dropdowns handle their own Enter
+        if (showSellerDrop) return;
+        if (Object.values(showProductDrop).some(Boolean)) return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        if (saving || !isFormReady()) return;
+        handleSave();
+    };
+
     const handleDownloadPDF = () => {
         const baseData = rangeMode === "daily" ? sales : (pdfReady ? rangeEntries : sales);
         const win = window.open("", "_blank", "width=1200,height=900");
@@ -1160,7 +1182,7 @@ export default function ProductSales() {
 
                 {/* Entry Form */}
                 {can('product_sales', 'C') && (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="sales-form">
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="sales-form" onKeyDown={handleFormKeyDown}>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
                             {t('productSales.newSaleEntry')}
                         </p>

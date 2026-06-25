@@ -195,6 +195,17 @@ export default function OwnerUsage() {
         }
     };
 
+    const isFormReady = () =>
+        form.quantity && parseFloat(form.quantity) > 0 && !exceedsStock && availableQty > 0;
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        if (saving || !isFormReady()) return;
+        handleSave();
+    };
+
     // stats
     const totalUsed = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
     const cowUsed = entries.filter((e) => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
@@ -323,7 +334,7 @@ export default function OwnerUsage() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="usage-form">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">{t('ownerUsage.newUsageEntry')}</p>
 
-                    <div className="flex items-start gap-4 flex-wrap">
+                    <div className="flex items-start gap-4 flex-wrap" onKeyDown={handleFormKeyDown}>
 
                         {/* Shift toggle */}
                         <Field label={t('ownerUsage.shift')} icon={<Clock size={12} />}>

@@ -42,6 +42,7 @@ import WalkinPayments from './pages/WalkinPayments';
 import NamedBuyers from './pages/NamedBuyers';
 import AdminList from './pages/admin/AdminList';
 import AdminProfile from './pages/admin/AdminProfile';
+import PortSettings from './pages/admin/PortSettings';
 
 
 // AFTER
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="/admin/adminlist" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins/:id" element={<ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>} />
+        <Route path="/admin/portsettings" element={<ProtectedRoute role="aadmin"><PortSettings /></ProtectedRoute>} />
 
         {/* ── Operator ── */}
         <Route path="/operator/dashboard" element={<ProtectedRoute role="operator"><OperatorDashboard /></ProtectedRoute>} />

@@ -26,6 +26,7 @@ const depositRoutes = require("./routes/deposit.routes");
 const gavaliBonusRoutes = require("./routes/gavaliBonus.routes");
 const walkinPaymentRoutes = require("./routes/walkinpayment.routes");
 const adminManagementRoutes = require('./routes/adminmanagement.routes');
+const portsRouter = require('./routes/ports.routes');
 
 const tourRoutes = require('./routes/tour.routes');
 
@@ -59,6 +60,7 @@ app.use("/api/walkin-payments", walkinPaymentRoutes);
 app.use('/api/admin-management', adminManagementRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/admin', tourRoutes);
+app.use('/api/settings/ports', portsRouter);
 
 setInterval(async () => {
     try {

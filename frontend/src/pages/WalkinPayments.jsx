@@ -129,7 +129,6 @@ export default function WalkinPayments() {
     const [deletingBill, setDeletingBill] = useState(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    const [savingBill, setSavingBill] = useState(null);    
 
     const fetchSalesQtyForRange = async (from, to) => {
         try {
@@ -274,30 +273,6 @@ export default function WalkinPayments() {
     const cancelDeleteBill = () => {
         setDeleteConfirmOpen(false);
         setDeletingBill(null);
-    };
-
-    const handleSaveBill = async (e, buyer) => {
-        e.stopPropagation();
-        const key = buyerKey(buyer);
-        if (savingBill) return;
-        setSavingBill(key);
-        try {
-            const { data } = await api.post('/walkin-payments/bills/save', {
-                buyer_id: buyer.buyer_type === 'named' ? buyer.buyer_id : null,
-                seller_id: buyer.buyer_type === 'seller' ? buyer.seller_id : null,
-                buyer_type: buyer.buyer_type,
-                from_date: dateRange.from,
-                to_date: dateRange.to,
-                amount_paid: parseFloat(buyer.outstanding_balance || 0),
-            });
-            showFlash('success', `Bill ${data.bill_no} saved! Remaining: ₹${parseFloat(data.remaining_balance).toFixed(2)}`);
-            await fetchBuyers();
-            await fetchPayments(dateRange.from, dateRange.to);
-        } catch (err) {
-            showFlash('error', err.response?.data?.error || 'Failed to save bill.');
-        } finally {
-            setSavingBill(null);
-        }
     };
 
     const printWalkinBillReceipt = async (billDetailOrSummary) => {
@@ -1742,19 +1717,6 @@ ${entries.length > 0 ? `
                                             }}
                                             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition shadow-sm shadow-rose-200">
                                             <Banknote size={11} /> {t("payments.clear_bill")}
-                                        </button>
-                                    )}
-
-                                    {can('walkin_payments', 'W') && (
-                                        <button
-                                            onClick={(e) => handleSaveBill(e, buyer)}
-                                            disabled={savingBill === buyerKey(buyer)}
-                                            title={`Save bill for ${dateRange.from} → ${dateRange.to}`}
-                                            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition shadow-sm disabled:opacity-50">
-                                            {savingBill === buyerKey(buyer)
-                                                ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                : <FileText size={11} />}
-                                            Save Bill
                                         </button>
                                     )}
 

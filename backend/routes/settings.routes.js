@@ -10,6 +10,8 @@ const {
     saveGlobalSettings,
     clearAllData,
 } = require('../controllers/settings.controller');
+const { getPortSettings, savePortSettings, testPortConnection } = require('../controllers/ports.controller');
+
 
 router.use(protect);
 
@@ -25,5 +27,9 @@ router.post('/app', saveAppSettings);
 router.get('/permissions/:operatorId', getPermissions);
 router.post('/permissions/:operatorId', savePermissions);
 router.post('/clear-all-data', clearAllData);
+
+router.get('/ports', getPortSettings);
+router.post('/ports', savePortSettings);
+router.post('/ports/test', testPortConnection);
 
 module.exports = router;

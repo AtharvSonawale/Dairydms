@@ -15,6 +15,10 @@ import AccessDenied from '../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+// Import for PDF generation
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
 const fmtDate = (d) =>
@@ -44,6 +48,33 @@ const getActiveCycle = (seedFrom, daysPerCycle) => {
         const e = new Date(c.to + 'T00:00:00');
         return today >= s && today <= e;
     }) || null;
+};
+
+// ── Fixed monthly cycles: 1–10, 11–20, 21–end of month ─────────
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const getFixedMonthCycles = (refDate) => {
+    const y = refDate.getFullYear();
+    const m = refDate.getMonth(); // 0-indexed
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const ymd = (yr, mo, day) => `${yr}-${pad2(mo + 1)}-${pad2(day)}`;
+    return [
+        { label: "1–10", from: ymd(y, m, 1), to: ymd(y, m, 10) },
+        { label: "11–20", from: ymd(y, m, 11), to: ymd(y, m, 20) },
+        { label: `21–${lastDay}`, from: ymd(y, m, 21), to: ymd(y, m, lastDay) },
+    ];
+};
+
+// Returns the fixed cycle (of the 3) that contains the given date
+const getActiveFixedCycle = (refDate = new Date()) => {
+    const today = new Date(refDate);
+    today.setHours(0, 0, 0, 0);
+    const cycles = getFixedMonthCycles(today);
+    return cycles.find(c => {
+        const s = new Date(c.from + 'T00:00:00');
+        const e = new Date(c.to + 'T00:00:00');
+        return today >= s && today <= e;
+    }) || cycles[0];
 };
 
 // ── StatCard ──────────────────────────────────────────────────
@@ -97,7 +128,8 @@ function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, com
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.seedStartDate')}</label>                            <input type="date" value={localSeed} onChange={e => setLocalSeed(e.target.value)}
+                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.seedStartDate')}</label>
+                            <input type="date" value={localSeed} onChange={e => setLocalSeed(e.target.value)}
                                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
                         </div>
                         <div className="flex flex-col gap-1.5">
@@ -129,7 +161,7 @@ function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, com
                                             : isCurrent ? <span className="text-[10px] text-violet-500">{t('sellerPayments.payOn', { date: e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) })}</span>
                                                 : isPast ? <span className="text-[10px] text-gray-400">{t('sellerPayments.past')}</span>
                                                     : <span className="text-[10px] text-gray-400">{t('sellerPayments.upcoming')}</span>
-}
+                                        }
                                     </div>
                                 );
                             })}
@@ -167,7 +199,7 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
                     setConfig(data);
                     setIsEditing(false);
                 } else {
-                    setIsEditing(true); // no config yet, open in edit mode
+                    setIsEditing(true);
                 }
             } catch {
                 setIsEditing(true);
@@ -299,17 +331,17 @@ export default function SellerPayments() {
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
     const { can, loading: permLoading } = usePermission();
-   
+
     const { appName } = useAppConfig();
 
     // AFTER
     const [customFrom, setCustomFrom] = useState(null);
     const [customTo, setCustomTo] = useState(null);
-    
+
     const [billListExpanded, setBillListExpanded] = useState(true);
 
-    
 
+    const [combinedDownloading, setCombinedDownloading] = useState(false);
     const cycle = { from: customFrom, to: customTo };
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
@@ -340,7 +372,26 @@ export default function SellerPayments() {
     const [cycleDaysPerCycle, setCycleDaysPerCycle] = useState(10);
     const [cycleConfigLoaded, setCycleConfigLoaded] = useState(false);
 
-    // Fetch cycle config from DB on mount
+    // Fixed monthly cycles (1-10 / 11-20 / 21-end) are the default.
+    // The custom/rolling seed+days cycle is an optional override.
+    const [useCustomCycle, setUseCustomCycle] = useState(false);
+    const fixedCycles = getFixedMonthCycles(new Date());
+    const [activeFixedIdx, setActiveFixedIdx] = useState(() => {
+        const active = getActiveFixedCycle();
+        const idx = getFixedMonthCycles(new Date()).findIndex(c => c.from === active.from && c.to === active.to);
+        return idx >= 0 ? idx : 0;
+    });
+
+    const selectFixedCycle = (idx) => {
+        const cycles = getFixedMonthCycles(new Date());
+        const c = cycles[idx];
+        if (!c) return;
+        setActiveFixedIdx(idx);
+        setCustomFrom(c.from);
+        setCustomTo(c.to);
+    };
+
+    // Fetch cycle config from DB on mount (only applied if user later enables custom mode)
     useEffect(() => {
         const fetchCycleConfig = async () => {
             try {
@@ -350,29 +401,39 @@ export default function SellerPayments() {
                     const days = data.days_per_cycle;
                     setCycleSeedFrom(seed);
                     setCycleDaysPerCycle(days);
-                    const active = getActiveCycle(seed, days);
-                    if (active) {
-                        setCustomFrom(active.from);
-                        setCustomTo(active.to);
-                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch cycle config:", err);
             } finally {
+                const active = getActiveFixedCycle();
+                setCustomFrom(active.from);
+                setCustomTo(active.to);
                 setCycleConfigLoaded(true);
             }
         };
         fetchCycleConfig();
     }, []);
 
-    // When cycle config changes, jump to current active cycle
+    // When custom cycle config changes WHILE custom mode is on, jump to its active cycle
     useEffect(() => {
+        if (!useCustomCycle) return;
         const active = getActiveCycle(cycleSeedFrom, cycleDaysPerCycle);
         if (active) {
             setCustomFrom(active.from);
             setCustomTo(active.to);
         }
-    }, [cycleSeedFrom, cycleDaysPerCycle]);
+    }, [cycleSeedFrom, cycleDaysPerCycle, useCustomCycle]);
+
+    // Toggling the mode switches the active date range accordingly
+    const handleCycleModeToggle = (toCustom) => {
+        setUseCustomCycle(toCustom);
+        if (toCustom) {
+            const active = getActiveCycle(cycleSeedFrom, cycleDaysPerCycle);
+            if (active) { setCustomFrom(active.from); setCustomTo(active.to); }
+        } else {
+            selectFixedCycle(activeFixedIdx);
+        }
+    };
 
     const isTodayPaymentDay = (cycleFrom, cycleTo) => {
         const today = new Date(simulatedToday + 'T00:00:00');
@@ -381,7 +442,7 @@ export default function SellerPayments() {
         return today.getTime() === end.getTime();
     };
 
-    
+
     const searchBills = async (q) => {
         setBillLoading(true);
         try {
@@ -404,7 +465,7 @@ export default function SellerPayments() {
         finally { setBillDetailLoading(false); }
     };
 
-const showFlash = (type, msg) => {
+    const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
@@ -520,7 +581,763 @@ const showFlash = (type, msg) => {
     const toggleExpand = (id) =>
         setExpanded(p => ({ ...p, [id]: !p[id] }));
 
-    // print receipt (Bill PDF)
+    // ── PDF Generation Functions ──────────────────────────────────
+
+    // Generate PDF from HTML content
+    const generateReceiptPDF = async (htmlContent, fileName) => {
+        try {
+            // Create a temporary container with exact A4 dimensions
+            const container = document.createElement('div');
+            container.innerHTML = htmlContent;
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            container.style.width = '794px'; // A4 width in pixels at 96dpi
+            container.style.background = 'white';
+            container.style.padding = '20px';
+            container.style.zIndex = '-9999';
+            container.style.fontSize = '11px';
+            container.style.fontFamily = 'Arial, sans-serif';
+            container.style.color = '#000000'; // Force black text for B&W
+            document.body.appendChild(container);
+
+            // Wait for fonts/layout to settle
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            // Render to canvas with high quality
+            const canvas = await html2canvas(container, {
+                scale: 2.5, // Higher quality
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                width: 794,
+                height: container.scrollHeight,
+                onclone: (clonedDoc) => {
+                    // Force all text to be black in the cloned document
+                    const allElements = clonedDoc.querySelectorAll('*');
+                    allElements.forEach(el => {
+                        const computedStyle = window.getComputedStyle(el);
+                        const color = computedStyle.color;
+                        // Only override if it's not white or transparent
+                        if (color !== 'rgb(255, 255, 255)' && color !== 'transparent') {
+                            el.style.color = '#000000';
+                        }
+                    });
+                }
+            });
+
+            // Remove container
+            document.body.removeChild(container);
+
+            // Create PDF with exact A4 dimensions
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            // Add first page
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            // Add subsequent pages if needed
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            // Save PDF
+            pdf.save(fileName);
+            return true;
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            return false;
+        }
+    };
+
+    // ── Add this function after generateReceiptPDF (around line 530) ──
+    // Generate combined PDF with all receipts
+    const generateCombinedPDF = async (sellersList) => {
+        try {
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+
+            let isFirstPage = true;
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let index = 0; index < sellersList.length; index++) {
+                const seller = sellersList[index];
+
+                // Update progress every 5 sellers
+                if (index % 5 === 0 && index > 0) {
+                    showFlash("info", `Processing ${index + 1}/${sellersList.length} receipts...`);
+                }
+
+                try {
+                    // Generate HTML for this seller
+                    const html = await buildReceiptHtml(seller);
+                    if (!html) {
+                        failCount++;
+                        continue;
+                    }
+
+                    // Create temporary container
+                    const container = document.createElement('div');
+                    container.innerHTML = html;
+                    container.style.position = 'fixed';
+                    container.style.left = '-9999px';
+                    container.style.top = '0';
+                    container.style.width = '794px';
+                    container.style.background = 'white';
+                    container.style.padding = '20px';
+                    container.style.zIndex = '-9999';
+                    container.style.fontSize = '11px';
+                    container.style.fontFamily = 'Arial, sans-serif';
+                    container.style.color = '#000000';
+                    document.body.appendChild(container);
+
+                    // Wait for layout
+                    await new Promise(resolve => setTimeout(resolve, 800));
+
+                    // Render to canvas
+                    const canvas = await html2canvas(container, {
+                        scale: 2.5,
+                        useCORS: true,
+                        logging: false,
+                        backgroundColor: '#ffffff',
+                        width: 794,
+                        height: container.scrollHeight,
+                        onclone: (clonedDoc) => {
+                            const allElements = clonedDoc.querySelectorAll('*');
+                            allElements.forEach(el => {
+                                const computedStyle = window.getComputedStyle(el);
+                                const color = computedStyle.color;
+                                if (color !== 'rgb(255, 255, 255)' && color !== 'transparent') {
+                                    el.style.color = '#000000';
+                                }
+                            });
+                        }
+                    });
+
+                    // Remove container
+                    document.body.removeChild(container);
+
+                    // Calculate image dimensions
+                    const imgWidth = pageWidth - 20; // 10mm margins on each side
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                    // Add new page if not first page
+                    if (!isFirstPage) {
+                        pdf.addPage();
+                    }
+                    isFirstPage = false;
+
+                    // Add image to PDF
+                    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+                    pdf.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
+
+                    successCount++;
+
+                } catch (err) {
+                    console.error(`Error processing seller ${seller.seller_id}:`, err);
+                    failCount++;
+                }
+            }
+
+            // Save the combined PDF
+            if (successCount > 0) {
+                const fromDate = cycle.from ? new Date(cycle.from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
+                const toDate = cycle.to ? new Date(cycle.to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
+                const fileName = `Combined_Receipts_${fromDate}_to_${toDate}.pdf`;
+                pdf.save(fileName);
+                return { successCount, failCount };
+            } else {
+                return { successCount: 0, failCount: sellersList.length };
+            }
+
+        } catch (error) {
+            console.error('Combined PDF generation error:', error);
+            return { successCount: 0, failCount: sellersList.length };
+        }
+    };
+
+    // Build receipt HTML (returns HTML string)
+    const buildReceiptHtml = async (seller, overrideCycle) => {
+        const activeCycle = overrideCycle || cycle;
+
+        let billData;
+        if (seller.bill_no) {
+            try {
+                const { data } = await api.get(`/payments/bill/${seller.bill_no}`);
+                billData = data;
+            } catch {
+                return null;
+            }
+        }
+
+        const entries = billData?.entries || seller.entries || [];
+        const productSales = billData?.productSales || [];
+        const walkinSales = billData?.walkinSales || [];
+
+        const sellerObj = {
+            ...seller,
+            entries,
+            product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
+            walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+            installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
+            deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
+            deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+            total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
+            advance_given: billData?.depositSnapshot?.[0] != null
+                ? (billData?.payment?.advance_given ?? seller.advance_given)
+                : seller.advance_given,
+            opening_deposit: seller.bill_no
+                ? (billData?.depositSnapshot?.[0]?.deposit_balance_before ?? 0)
+                : (seller.deposit_balance ?? 0),
+            final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
+            cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
+            is_paid: true,
+            paid_at: billData?.payment?.paid_at || seller.paid_at,
+            bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, activeCycle.from, activeCycle.to),
+        };
+
+        const milkAmt = parseFloat(sellerObj.milk_amount || 0);
+        const depositAmt = parseFloat(sellerObj.deposit_amount || 0);
+        const installmentCut = parseFloat(sellerObj.installment_cut || 0);
+        const productDed = parseFloat(sellerObj.product_deduction || 0);
+        const walkinDed = parseFloat(sellerObj.walkin_deduction || 0);
+        const advGiven = parseFloat(sellerObj.advance_given || 0);
+        const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
+        const finalPayable = parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0);
+
+        const closingAdvance = Math.max(0, advGiven - installmentCut);
+        const closingDeposit = openingDeposit + depositAmt;
+
+        const totalQty = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const cowQty = entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const buffaloQty = entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const avgFat = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.length).toFixed(2) : "0.00";
+        const avgSnf = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.length).toFixed(2) : "0.00";
+
+        const morningEntries = entries.filter(e => e.shift === "morning");
+        const eveningEntries = entries.filter(e => e.shift === "evening");
+        const allDates = [...new Set(entries.map(e => e.entry_date?.split("T")[0]))].sort();
+
+        const mQty = morningEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const eQty = eveningEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const mAmt = morningEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
+        const eAmt = eveningEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
+        const mFat = morningEntries.length ? morningEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / morningEntries.length : 0;
+        const eFat = eveningEntries.length ? eveningEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / eveningEntries.length : 0;
+        const mSnf = morningEntries.length ? morningEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / morningEntries.length : 0;
+        const eSnf = eveningEntries.length ? eveningEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / eveningEntries.length : 0;
+
+        const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+
+        const buildRow = (date) => {
+            const m = morningEntries.find(e => e.entry_date?.startsWith(date));
+            const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
+            const rowAmt = parseFloat(m?.total_amount || 0) + parseFloat(ev?.total_amount || 0);
+            const dayStr = new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit" });
+
+            const cell = (e) => e
+                ? `<td style="text-align:center">${parseFloat(e.quantity || 0).toFixed(2)}</td>
+               <td style="text-align:center">${parseFloat(e.fat || 0).toFixed(1)}</td>
+               <td style="text-align:center">${parseFloat(e.snf || 0).toFixed(1)}</td>
+               <td style="text-align:center">${parseFloat(e.rate_applied || 0).toFixed(2)}</td>
+               <td style="font-weight:600;text-align:right">${parseFloat(e.total_amount || 0).toFixed(2)}</td>`
+                : `<td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:right">—</td>`;
+
+            return `<tr>
+            <td style="font-weight:600;background:#f8f8f8;text-align:center">${dayStr}</td>
+            ${cell(m)}
+            ${cell(ev)}
+            <td style="font-weight:700;background:#f0f4ff;text-align:right">${rowAmt > 0 ? rowAmt.toFixed(2) : "—"}</td>
+          </tr>`;
+        };
+
+        const productSalesTable = productSales.length > 0 ? `
+    <div class="section-title">${t('sellerPayments.productSalesDeductions')}</div>
+    <table style="margin-bottom:10px">
+        <thead>
+            <tr>
+                <th style="text-align:left">${t('sellerPayments.product')}</th>
+                <th>${t('sellerPayments.qty')}</th>
+                <th>${t('sellerPayments.rate')}</th>
+                <th>${t('sellerPayments.amount')}</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${productSales.map((p, i) => `
+                <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
+                    <td style="text-align:left">${p.product_name || t('sellerPayments.unknown')}</td>
+                    <td style="text-align:center">${parseFloat(p.quantity || 0).toFixed(2)} ${p.unit || ''}</td>
+                    <td style="text-align:center">Rs.${parseFloat(p.rate || 0).toFixed(2)}</td>
+                    <td style="font-weight:600;text-align:right">${fmtR(p.total_amount)}</td>
+                  </tr>`).join('')}
+            <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
+                <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
+                <td style="text-align:right">${fmtR(productDed)}</td>
+              </tr>
+        </tbody>
+      </table>` : "";
+
+        const walkinTotal = walkinDed > 0 ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:8px 12px; background:#f0f0f0; border:1px solid #000; 
+                border-radius:6px; margin-bottom:10px">
+        <span style="font-weight:600; color:#000">${t('sellerPayments.milkBoughtBySeller')}</span>
+        <span style="font-weight:700; font-size:13px; color:#000">${fmtR(walkinDed)}</span>
+    </div>` : "";
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <title>${t('sellerPayments.paymentReceipt')} - ${sellerObj.name}</title>
+    <style>
+        * { 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+            color-adjust: exact !important;
+            box-sizing: border-box;
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 11px; 
+            color: #000000 !important;
+            margin: 0; 
+            padding: 16px;
+            background: #ffffff;
+        }
+        h1 { margin: 0; font-size: 16px; color: #000000 !important; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { 
+            border: 1px solid #000000 !important;
+            padding: 4px 6px; 
+            text-align: center; 
+            font-size: 10px;
+            color: #000000 !important;
+        }
+        th { 
+            background: #e0e0e0 !important;
+            color: #000000 !important; 
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .section-title {
+            font-size: 10px; 
+            font-weight: bold; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px; 
+            color: #000000 !important;
+            margin: 14px 0 4px; 
+            border-bottom: 2px solid #000000 !important; 
+            padding-bottom: 3px;
+        }
+        .info-grid {
+            display: grid; 
+            grid-template-columns: repeat(4,1fr); 
+            gap: 6px 16px;
+            background: #f0f0f0 !important;
+            padding: 10px; 
+            border-radius: 4px; 
+            margin-bottom: 10px;
+            border: 1px solid #000000 !important;
+        }
+        .info-item .lbl { 
+            font-size: 9px; 
+            color: #333333 !important; 
+            text-transform: uppercase; 
+        }
+        .info-item .val { 
+            font-size: 12px; 
+            font-weight: bold; 
+            color: #000000 !important;
+            margin-top: 1px; 
+        }
+        .summary-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4,1fr); 
+            gap: 6px; 
+            margin-bottom: 10px; 
+        }
+        .summary-box { 
+            border: 1px solid #000000 !important; 
+            border-radius: 4px; 
+            padding: 6px 8px;
+            background: #fafafa !important;
+        }
+        .summary-box .lbl { 
+            font-size: 9px; 
+            color: #333333 !important; 
+            text-transform: uppercase; 
+        }
+        .summary-box .val { 
+            font-size: 13px; 
+            font-weight: bold; 
+            color: #000000 !important;
+            margin-top: 2px; 
+        }
+        .summary-box .sub { 
+            font-size: 9px; 
+            color: #555555 !important; 
+            margin-top: 2px; 
+        }
+        .bottom-summary {
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            gap: 0;
+            border: 1px solid #000000 !important; 
+            border-radius: 6px; 
+            overflow: hidden; 
+            margin-bottom: 10px;
+        }
+        .bs-col { padding: 0; }
+        .bs-col-header {
+            background: #d0d0d0 !important;
+            color: #000000 !important; 
+            font-size: 10px; 
+            font-weight: bold;
+            text-align: center; 
+            padding: 5px 8px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.4px;
+            border-bottom: 1px solid #000000 !important;
+        }
+        .bs-row {
+            display: flex; 
+            justify-content: space-between;
+            padding: 4px 10px; 
+            border-bottom: 1px solid #cccccc !important; 
+            font-size: 10px;
+        }
+        .bs-row:last-child { border-bottom: none; }
+        .bs-row .key { color: #333333 !important; }
+        .bs-row .val { 
+            font-weight: 600; 
+            font-family: monospace;
+            color: #000000 !important;
+        }
+        .bs-col + .bs-col { border-left: 1px solid #000000 !important; }
+        .bs-total-row {
+            display: flex; 
+            justify-content: space-between;
+            padding: 6px 10px; 
+            font-size: 11px; 
+            font-weight: bold;
+            border-top: 2px solid #000000 !important; 
+            background: #e8e8e8 !important;
+        }
+        .bs-total-row span { color: #000000 !important; }
+        .deduction-row {
+            display: flex; 
+            justify-content: space-between;
+            padding: 5px 10px; 
+            border-bottom: 1px solid #cccccc !important; 
+            font-size: 11px;
+        }
+        .deduction-row span { color: #000000 !important; }
+        .net-row {
+            display: flex; 
+            justify-content: space-between; 
+            padding: 10px 12px;
+            background: #333333 !important;
+            color: #ffffff !important;
+            font-size: 13px; 
+            font-weight: bold;
+            border: 1px solid #000000 !important;
+        }
+        .net-row span { color: #ffffff !important; }
+        @media print {
+            body { padding: 8px; }
+            .no-print { display: none; }
+            @page { size: A4 portrait; margin: 8mm; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;
+            border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
+    <div>
+        <h1>${appName}</h1>
+        <div style="font-size:10px;color:#333;margin-top:2px;">${t('sellerPayments.milkCollectionReceipt')}</div>
+    </div>
+    <div style="text-align:right;font-size:10px;color:#333">
+        <div style="font-weight:bold;font-size:12px;color:#000">
+            ${fmtD(activeCycle.from)} – ${fmtD(activeCycle.to)}
+        </div>
+        <div>${t('sellerPayments.billNo')}: <strong style="font-family:monospace;color:#000">${sellerObj.bill_no}</strong></div>
+        <div>${t('sellerPayments.generated')}: ${fmtD(new Date().toISOString())}</div>
+    </div>
+</div>
+
+<!-- Seller Info -->
+<div class="info-grid">
+    <div class="info-item">
+        <div class="lbl">${t('sellerPayments.sellerName')}</div>
+        <div class="val">${sellerObj.name}</div>
+    </div>
+    <div class="info-item">
+        <div class="lbl">${t('sellerPayments.sellerCode')}</div>
+        <div class="val" style="font-family:monospace">${sellerObj.seller_code}</div>
+    </div>
+    <div class="info-item">
+        <div class="lbl">${t('sellerPayments.totalEntries')}</div>
+        <div class="val">${entries.length} ${t('sellerPayments.entries')}</div>
+    </div>
+    <div class="info-item">
+        <div class="lbl">${t('sellerPayments.status')}</div>
+        <div class="val" style="color:#000">
+            ${sellerObj.is_paid ? t('sellerPayments.paid') : t('sellerPayments.pending')}
+            ${sellerObj.paid_at
+                ? `<span style="font-size:9px;font-weight:normal;color:#333;display:block">${t('sellerPayments.on')} ${fmtD(sellerObj.paid_at)}</span>`
+                : ""}
+        </div>
+    </div>
+</div>
+
+<!-- Top Summary Cards -->
+<div class="summary-grid">
+    <div class="summary-box">
+        <div class="lbl">${t('sellerPayments.totalQty')}</div>
+        <div class="val">${totalQty.toFixed(2)} L</div>
+        <div class="sub">${t('sellerPayments.morning')}: ${mQty.toFixed(2)} L &nbsp;|&nbsp; ${t('sellerPayments.evening')}: ${eQty.toFixed(2)} L</div>
+    </div>
+    <div class="summary-box">
+        <div class="lbl">${t('sellerPayments.cowBuffalo')}</div>
+        <div class="val">${cowQty.toFixed(2)} / ${buffaloQty.toFixed(2)} L</div>
+    </div>
+    <div class="summary-box">
+        <div class="lbl">${t('sellerPayments.avgFat')}</div>
+        <div class="val">${avgFat}%</div>
+        <div class="sub">${t('sellerPayments.morningShort')}: ${mFat.toFixed(1)} &nbsp;|&nbsp; ${t('sellerPayments.eveningShort')}: ${eFat.toFixed(1)}</div>
+    </div>
+    <div class="summary-box">
+        <div class="lbl">${t('sellerPayments.avgSnf')}</div>
+        <div class="val">${avgSnf}</div>
+        <div class="sub">${t('sellerPayments.morningShort')}: ${mSnf.toFixed(1)} &nbsp;|&nbsp; ${t('sellerPayments.eveningShort')}: ${eSnf.toFixed(1)}</div>
+    </div>
+</div>
+
+<!-- Day-wise Entry Table -->
+${entries.length > 0 ? `
+<div class="section-title">${t('sellerPayments.dailyEntryBreakdown')}</div>
+<table style="margin-bottom:10px">
+    <thead>
+        <tr>
+            <th rowspan="2" style="width:48px">${t('sellerPayments.date')}</th>
+            <th colspan="5" style="background:#d0d0d0">${t('sellerPayments.morningShift')}</th>
+            <th colspan="5" style="background:#c0c0c0">${t('sellerPayments.eveningShift')}</th>
+            <th rowspan="2" style="background:#b0b0b0;width:64px">${t('sellerPayments.dayTotal')}</th>
+          </tr>
+          <tr>
+            <th style="background:#d0d0d0">${t('sellerPayments.qtyL')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.fat')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.snf')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.rate')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.amt')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.qtyL')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.fat')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.snf')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.rate')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.amt')}</th>
+          </tr>
+    </thead>
+    <tbody>
+        ${allDates.map(buildRow).join("")}
+        <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
+            <td style="background:#e8e8e8">${t('sellerPayments.total')}</td>
+            <td style="text-align:center">${mQty.toFixed(2)}</td>
+            <td style="text-align:center">${mFat.toFixed(1)}</td>
+            <td style="text-align:center">${mSnf.toFixed(1)}</td>
+            <td style="text-align:center">—</td>
+            <td style="color:#000;text-align:right">${mAmt.toFixed(2)}</td>
+            <td style="text-align:center">${eQty.toFixed(2)}</td>
+            <td style="text-align:center">${eFat.toFixed(1)}</td>
+            <td style="text-align:center">${eSnf.toFixed(1)}</td>
+            <td style="text-align:center">—</td>
+            <td style="color:#000;text-align:right">${eAmt.toFixed(2)}</td>
+            <td style="color:#000;background:#d0d0d0;text-align:right">${milkAmt.toFixed(2)}</td>
+          </tr>
+    </tbody>
+</table>` : ""}
+
+${productSalesTable}
+${walkinTotal}
+
+<div class="section-title">${t('sellerPayments.accountSummary')}</div>
+<div class="bottom-summary">
+
+    <!-- Column 1: Advance Account -->
+    <div class="bs-col">
+        <div class="bs-col-header">${t('sellerPayments.advanceAccount')}</div>
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.openingBalance')}</span>
+            <span class="val">${fmtR(advGiven)}</span>
+        </div>
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.givenThisCycle')}</span>
+            <span class="val">Rs.0.00</span>
+        </div>
+        <div class="bs-row" style="background:#f5f5f5">
+            <span class="key">${t('sellerPayments.installmentCut')}</span>
+            <span class="val">− ${fmtR(installmentCut)}</span>
+        </div>
+        <div class="bs-total-row">
+            <span>${t('sellerPayments.closingBalance')}</span>
+            <span>${fmtR(closingAdvance)}</span>
+        </div>
+    </div>
+
+    <!-- Column 2: Deposit Account -->
+    <div class="bs-col">
+        <div class="bs-col-header">${t('sellerPayments.depositAccount')}</div>
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.openingBalance')}</span>
+            <span class="val">${fmtR(openingDeposit)}</span>
+        </div>
+        <div class="bs-row" style="background:#f0f0f0">
+            <span class="key">${t('sellerPayments.addedThisCycle')}</span>
+            <span class="val">+ ${fmtR(depositAmt)}</span>
+        </div>
+        <div class="bs-row">
+            <span class="key">${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L</span>
+            <span class="val" style="font-size:9px;color:#666">${t('sellerPayments.formula')}</span>
+        </div>
+        <div class="bs-total-row">
+            <span>${t('sellerPayments.closingBalance')}</span>
+            <span>${fmtR(closingDeposit)}</span>
+        </div>
+    </div>
+
+    <!-- Column 3: Payment Summary -->
+    <div class="bs-col">
+        <div class="bs-col-header">${t('sellerPayments.paymentSummary')}</div>
+        <div class="bs-row" style="background:#f0fdf4">
+            <span class="key">${t('sellerPayments.milkAmount')}</span>
+            <span class="val">+ ${fmtR(milkAmt)}</span>
+        </div>
+        ${depositAmt > 0 ? `
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.depositCut')}</span>
+            <span class="val">− ${fmtR(depositAmt)}</span>
+        </div>` : ""}
+        ${installmentCut > 0 ? `
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.advInstallment')}</span>
+            <span class="val">− ${fmtR(installmentCut)}</span>
+        </div>` : ""}
+        ${productDed > 0 ? `
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.products')}</span>
+            <span class="val">− ${fmtR(productDed)}</span>
+        </div>` : ""}
+        ${walkinDed > 0 ? `
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.milkBought')}</span>
+            <span class="val">− ${fmtR(walkinDed)}</span>
+        </div>` : ""}
+        <div class="bs-total-row" style="background:#333;color:#fff">
+            <span style="color:#fff;font-weight:bold">${t('sellerPayments.netCashToHand')}</span>
+            <span style="color:#fff;font-family:monospace;font-size:12px">${fmtR(finalPayable)}</span>
+        </div>
+    </div>
+
+</div>
+
+<div class="section-title">${t('sellerPayments.detailedBreakdown')}</div>
+<div style="border:1px solid #000;border-radius:6px;overflow:hidden;margin-bottom:10px">
+    <div class="deduction-row" style="background:#f0fdf4">
+        <span>${t('sellerPayments.milkAmountPayable')}</span>
+        <span style="font-weight:700;font-family:monospace;">+ ${fmtR(milkAmt)}</span>
+    </div>
+    ${advGiven > 0 ? `
+    <div class="deduction-row" style="background:#faf5ff">
+        <span>${t('sellerPayments.openingAdvanceBalance')}</span>
+        <span style="font-family:monospace">${fmtR(advGiven)}</span>
+    </div>` : ""}
+    ${installmentCut > 0 ? `
+    <div class="deduction-row" style="background:#fff5f5">
+        <span>${t('sellerPayments.advanceInstallmentCut')} &nbsp;
+            <span style="font-size:9px;color:#666">(${fmtR(advGiven)} → ${fmtR(closingAdvance)} ${t('sellerPayments.remaining')})</span>
+        </span>
+        <span style="font-family:monospace;font-weight:600">− ${fmtR(installmentCut)}</span>
+    </div>` : ""}
+    ${depositAmt > 0 ? `
+    <div class="deduction-row" style="background:#eff6ff">
+        <span>${t('sellerPayments.depositDeducted')} &nbsp;
+            <span style="font-size:9px;color:#666">
+                (${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L
+                · ${t('sellerPayments.balance')}: ${fmtR(openingDeposit)} → ${fmtR(closingDeposit)})
+            </span>
+        </span>
+        <span style="font-family:monospace;font-weight:600">− ${fmtR(depositAmt)}</span>
+    </div>` : ""}
+    ${productDed > 0 ? `
+    <div class="deduction-row" style="background:#fffbeb">
+        <span>${t('sellerPayments.productSalesDeduction')}</span>
+        <span style="font-family:monospace;font-weight:600">− ${fmtR(productDed)}</span>
+    </div>` : ""}
+    ${walkinDed > 0 ? `
+    <div class="deduction-row" style="background:#fff7ed">
+        <span>${t('sellerPayments.milkBoughtBySellerWalkin')}</span>
+        <span style="font-family:monospace;font-weight:600">− ${fmtR(walkinDed)}</span>
+    </div>` : ""}
+    <div class="net-row">
+        <span>${t('sellerPayments.netCashToHand')}</span>
+        <span style="font-family:monospace">${fmtR(finalPayable)}</span>
+    </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;font-size:9px;color:#666;
+            border-top:1px solid #eee;padding-top:8px;margin-top:4px">
+    <span>${t('sellerPayments.computerGenerated')} · ${appName}</span>
+    ${sellerObj.is_paid && sellerObj.paid_at
+                ? `<span>${t('sellerPayments.paidOn')}: ${fmtD(sellerObj.paid_at)}</span>`
+                : ""}
+</div>
+
+</body>
+</html>`;
+    };
+
+    // Downloads one receipt as PDF
+    const downloadReceiptPDF = async (seller) => {
+        try {
+            const html = await buildReceiptHtml(seller);
+            if (!html) {
+                showFlash("error", t('sellerPayments.receiptGenerationError'));
+                return false;
+            }
+            // Include from/to dates in filename
+            const fromDate = cycle.from ? new Date(cycle.from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
+            const toDate = cycle.to ? new Date(cycle.to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
+            const fileName = `Receipt_${seller.seller_code || seller.seller_id}_${seller.bill_no || 'draft'}_${fromDate}_to_${toDate}.pdf`;
+            const success = await generateReceiptPDF(html, fileName);
+            if (success) {
+                return true;
+            } else {
+                showFlash("error", t('sellerPayments.pdfGenerationError'));
+                return false;
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            showFlash("error", t('sellerPayments.pdfGenerationError'));
+            return false;
+        }
+    };
+
+    // print receipt (Bill PDF) - for printing functionality
     const printReceipt = async (e, seller, overrideCycle) => {
         e.stopPropagation();
         const activeCycle = overrideCycle || cycle;
@@ -644,7 +1461,6 @@ const showFlash = (type, msg) => {
         </tbody>
       </table>` : "";
 
-        // Simplified - just show total amount for milk bought
         const walkinTotal = walkinDed > 0 ? `
     <div style="display:flex;justify-content:space-between;align-items:center;
                 padding:8px 12px; background:#fff7ed; border:1px solid #fed7aa; 
@@ -659,8 +1475,7 @@ const showFlash = (type, msg) => {
             return;
         }
 
-        const htmlContent = `
-<!DOCTYPE html>
+        const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
     <title>${t('sellerPayments.paymentReceipt')} - ${sellerObj.name}</title>
@@ -834,15 +1649,10 @@ ${entries.length > 0 ? `
 </table>` : ""}
 
 ${productSalesTable}
-
-<!-- Milk Bought Summary (Just Total) -->
 ${walkinTotal}
 
-<!-- 3-Column Summary -->
 <div class="section-title">${t('sellerPayments.accountSummary')}</div>
 <div class="bottom-summary">
-
-    <!-- Column 1: Advance Account -->
     <div class="bs-col">
         <div class="bs-col-header" style="background:#7c3aed">${t('sellerPayments.advanceAccount')}</div>
         <div class="bs-row">
@@ -862,8 +1672,6 @@ ${walkinTotal}
             <span style="color:#7c3aed;font-family:monospace">${fmtR(closingAdvance)}</span>
         </div>
     </div>
-
-    <!-- Column 2: Deposit Account -->
     <div class="bs-col">
         <div class="bs-col-header" style="background:#1d4ed8">${t('sellerPayments.depositAccount')}</div>
         <div class="bs-row">
@@ -883,8 +1691,6 @@ ${walkinTotal}
             <span style="color:#1d4ed8;font-family:monospace">${fmtR(closingDeposit)}</span>
         </div>
     </div>
-
-    <!-- Column 3: Payment Summary -->
     <div class="bs-col">
         <div class="bs-col-header" style="background:#15803d">${t('sellerPayments.paymentSummary')}</div>
         <div class="bs-row" style="background:#f0fdf4">
@@ -916,10 +1722,8 @@ ${walkinTotal}
             <span style="font-family:monospace;font-size:12px">${fmtR(finalPayable)}</span>
         </div>
     </div>
-
 </div>
 
-<!-- Detailed Payment Breakdown -->
 <div class="section-title">${t('sellerPayments.detailedBreakdown')}</div>
 <div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:10px">
     <div class="deduction-row" style="background:#f0fdf4">
@@ -964,7 +1768,6 @@ ${walkinTotal}
     </div>
 </div>
 
-<!-- Footer -->
 <div style="display:flex;justify-content:space-between;font-size:9px;color:#aaa;
             border-top:1px solid #eee;padding-top:8px;margin-top:4px">
     <span>${t('sellerPayments.computerGenerated')} · ${appName}</span>
@@ -979,6 +1782,102 @@ ${walkinTotal}
 
         win.document.write(htmlContent);
         win.document.close();
+    };
+
+    // Bulk download PDFs
+    const [bulkDownloading, setBulkDownloading] = useState(false);
+
+    const handleBulkDownloadPDFs = async () => {
+        const paidSellers = sellers.filter(s => !!(s.is_paid || s.bill_no) && parseFloat(s.milk_amount || 0) > 0);
+        if (paidSellers.length === 0) {
+            showFlash("error", t('sellerPayments.noPaidSellersToDownload') || "No paid sellers to download.");
+            return;
+        }
+        setBulkDownloading(true);
+        let successCount = 0;
+        let failCount = 0;
+        try {
+            // Show progress toast
+            showFlash("info", `Preparing ${paidSellers.length} PDF receipts...`);
+
+            for (let index = 0; index < paidSellers.length; index++) {
+                const seller = paidSellers[index];
+                const sellerWithBillNo = {
+                    ...seller,
+                    bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
+                };
+
+                // Update progress every 5 downloads
+                if (index % 5 === 0 && index > 0) {
+                    showFlash("info", `Downloading ${index + 1}/${paidSellers.length} receipts...`);
+                }
+
+                const success = await downloadReceiptPDF(sellerWithBillNo);
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+                // Small delay between downloads to prevent browser blocking
+                await new Promise(r => setTimeout(r, 600));
+            }
+
+            if (failCount === 0) {
+                showFlash("success", t('sellerPayments.bulkDownloadSuccess', { count: successCount }) || `Downloaded ${successCount} receipt(s).`);
+            } else {
+                showFlash("warning", `Downloaded ${successCount} receipt(s), ${failCount} failed. Check console for errors.`);
+            }
+        } catch (err) {
+            console.error('Bulk download error:', err);
+            showFlash("error", t('sellerPayments.bulkDownloadError') || "Some receipts failed to download.");
+        } finally {
+            setBulkDownloading(false);
+        }
+    };
+
+    // ── Add this function after handleBulkDownloadPDFs (around line 700) ──
+    const handleCombinedDownload = async () => {
+        const paidSellers = sellers.filter(s => !!(s.is_paid || s.bill_no) && parseFloat(s.milk_amount || 0) > 0);
+        if (paidSellers.length === 0) {
+            showFlash("error", t('sellerPayments.noPaidSellersToDownload') || "No paid sellers to download.");
+            return;
+        }
+
+        // Confirm with user for large downloads
+        if (paidSellers.length > 20) {
+            if (!window.confirm(`This will combine ${paidSellers.length} receipts into a single PDF. This may take a moment. Continue?`)) {
+                return;
+            }
+        }
+
+        setCombinedDownloading(true);
+        try {
+            showFlash("info", `Preparing combined PDF with ${paidSellers.length} receipts...`);
+
+            // Prepare seller data with bill numbers
+            const sellersWithBillNo = paidSellers.map(seller => ({
+                ...seller,
+                bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
+            }));
+
+            const result = await generateCombinedPDF(sellersWithBillNo);
+
+            if (result.successCount > 0) {
+                if (result.failCount === 0) {
+                    showFlash("success", `Combined PDF generated successfully with ${result.successCount} receipts!`);
+                } else {
+                    showFlash("warning", `Combined PDF generated with ${result.successCount} receipts, ${result.failCount} failed.`);
+                }
+            } else {
+                showFlash("error", "Failed to generate combined PDF. Please try again.");
+            }
+
+        } catch (err) {
+            console.error('Combined download error:', err);
+            showFlash("error", "Failed to generate combined PDF.");
+        } finally {
+            setCombinedDownloading(false);
+        }
     };
 
     const printBillReceipt = async (billDetailOrSummary) => {
@@ -1120,7 +2019,6 @@ ${walkinTotal}
 </tr>`;
 
             // ── Advance sub-row ──────────────────────────────────────
-            // Format: Advance: | Opening | Cut | Closing (3 numbers under name)
             const advRow = `
 <tr style="background:${subBg}">
     <td style="padding:1px 7px 1px 10px;border-left:1px solid #d1d5db;border-right:none;
@@ -1326,11 +2224,38 @@ ${walkinTotal}
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
             <style>{`
-                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+                * { 
+                    -webkit-print-color-adjust: exact !important; 
+                    print-color-adjust: exact !important; 
+                    color-adjust: exact !important;
+                }
                 @media print {
                     .no-print { display: none !important; }
                     .print-break { page-break-inside: avoid; }
-                    body { background: white !important; }
+                    body { 
+                        background: white !important; 
+                        color: #000000 !important;
+                    }
+                    /* Ensure all text is black for B&W printing */
+                    * {
+                        color: #000000 !important;
+                        background-color: transparent !important;
+                    }
+                    /* Keep backgrounds for tables and sections */
+                    th, .info-grid, .summary-box, .bs-col-header, .bs-total-row {
+                        background-color: #e0e0e0 !important;
+                    }
+                    .net-row {
+                        background-color: #333333 !important;
+                        color: #ffffff !important;
+                    }
+                    .net-row * {
+                        color: #ffffff !important;
+                    }
+                    /* Ensure borders are black */
+                    th, td, .summary-box, .bottom-summary, .bs-col {
+                        border-color: #000000 !important;
+                    }
                 }
             `}</style>
 
@@ -1361,16 +2286,44 @@ ${walkinTotal}
                                 bg-violet-600 text-white hover:bg-violet-700 transition">
                             <FileSearch size={13} /> {t('sellerPayments.searchBills')}
                         </button>
-                        <button onClick={() => setCycleConfigOpen(true)}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+                        {useCustomCycle && (
+                            <button onClick={() => setCycleConfigOpen(true)}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
     bg-violet-100 text-violet-700 hover:bg-violet-200 transition border border-violet-200">
-                            <Calendar size={13} /> {t('sellerPayments.configureCycle') || 'Configure Cycle'}
-                        </button>
+                                <Calendar size={13} /> {t('sellerPayments.configureCycle') || 'Configure Cycle'}
+                            </button>
+                        )}
                         {can('seller_payments', 'R') && (
                             <button onClick={printRegister}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                                     bg-black text-white hover:bg-gray-800 transition">
                                 <Printer size={13} /> {t('sellerPayments.printRegister')}
+                            </button>
+                        )}
+                        {can('seller_payments', 'R') && (
+                            <button onClick={handleBulkDownloadPDFs} disabled={bulkDownloading}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+                                    bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50">
+                                {bulkDownloading
+                                    ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    : <Download size={13} />}
+                                {bulkDownloading
+                                    ? (t('sellerPayments.bulkDownloading') || 'Downloading…')
+                                    : (t('sellerPayments.bulkDownloadAllPDFs') || 'Download All PDFs')}
+                            </button>
+                        )}
+                        {can('seller_payments', 'R') && (
+                            <button
+                                onClick={handleCombinedDownload}
+                                disabled={combinedDownloading}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+            bg-purple-600 text-white hover:bg-purple-700 transition disabled:opacity-50">
+                                {combinedDownloading
+                                    ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    : <Download size={13} />}
+                                {combinedDownloading
+                                    ? (t('sellerPayments.combinedDownloading') || 'Processing…')
+                                    : (t('sellerPayments.combinedDownloadAll') || 'Combined PDF')}
                             </button>
                         )}
                         {can('seller_payments', 'R') && (
@@ -1413,27 +2366,61 @@ ${walkinTotal}
                 </div>
 
                 {/* Date Range */}
-                <div className="flex items-center gap-3 flex-wrap no-print" data-tour="date-range">
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.from')}</span>
-                        <input type="date" value={customFrom || ''}
-                            onChange={e => setCustomFrom(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                <div className="flex flex-col gap-3 no-print" data-tour="date-range">
+
+                    {/* Mode toggle */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                            <button type="button" onClick={() => handleCycleModeToggle(false)}
+                                className={`px-3 py-2 transition ${!useCustomCycle ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                {t('sellerPayments.fixedMonthly') || 'Fixed Monthly'}
+                            </button>
+                            <button type="button" onClick={() => handleCycleModeToggle(true)}
+                                className={`px-3 py-2 transition ${useCustomCycle ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                {t('sellerPayments.customCycle') || 'Custom Cycle'}
+                            </button>
+                        </div>
+
+                        {!useCustomCycle && (
+                            <div className="flex items-center gap-1.5">
+                                {fixedCycles.map((c, idx) => (
+                                    <button key={c.label} type="button" onClick={() => selectFixedCycle(idx)}
+                                        className={`px-3 py-2 rounded-xl text-xs font-semibold border transition
+                                            ${activeFixedIdx === idx
+                                                ? "bg-violet-600 text-white border-violet-600"
+                                                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                                        {c.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.to')}</span>
-                        <input type="date" value={customTo || ''}
-                            onChange={e => setCustomTo(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
-                    </div>
-                    <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.paymentDate')}</span>
-                        <input type="date" value={simulatedToday}
-                            onChange={e => setSimulatedToday(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-            focus:outline-none focus:ring-2 focus:ring-black transition" />
+
+                    {/* Date inputs */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.from')}</span>
+                            <input type="date" value={customFrom || ''}
+                                disabled={!useCustomCycle}
+                                onChange={e => setCustomFrom(e.target.value)}
+                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
+                                    focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.to')}</span>
+                            <input type="date" value={customTo || ''}
+                                disabled={!useCustomCycle}
+                                onChange={e => setCustomTo(e.target.value)}
+                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
+                                    focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                        </div>
+                        <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.paymentDate')}</span>
+                            <input type="date" value={simulatedToday}
+                                onChange={e => setSimulatedToday(e.target.value)}
+                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
+                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                        </div>
                     </div>
                 </div>
 
@@ -1484,7 +2471,9 @@ ${walkinTotal}
                     <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
                         ${flash.type === "success"
                             ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
+                            : flash.type === "error"
+                                ? "bg-rose-50 border border-rose-200 text-rose-600"
+                                : "bg-blue-50 border border-blue-200 text-blue-700"}`}>
                         {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
                         {flash.msg}
                         <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
@@ -1624,10 +2613,13 @@ ${walkinTotal}
                                     )}
                                     {isPaid && (
                                         <button
-                                            onClick={(e) => printReceipt(e, {
-                                                ...seller,
-                                                bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
-                                            })}
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                await downloadReceiptPDF({
+                                                    ...seller,
+                                                    bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
+                                                });
+                                            }}
                                             className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition shadow-sm">
                                             <Printer size={11} />
                                             {t('sellerPayments.pdf')}
@@ -2340,7 +3332,8 @@ ${walkinTotal}
                 onClose={() => setExcelConfigOpen(false)}
                 showFlash={showFlash}
             />
-            <CycleConfigModal                open={cycleConfigOpen}
+            <CycleConfigModal
+                open={cycleConfigOpen}
                 onClose={() => setCycleConfigOpen(false)}
                 onSave={async (seed, days) => {
                     try {

@@ -913,6 +913,29 @@ export default function TankDispatch() {
         }
     };
 
+    const isFormReady = () => {
+        if (editingDispatch) return !!activeTruck.factory_name?.trim();
+        const validTrucks = trucks.filter(t => t.factory_name?.trim());
+        if (validTrucks.length === 0) return false;
+        const cowStock = stock ? parseFloat(stock.available?.cow || 0) : 0;
+        const bufStock = stock ? parseFloat(stock.available?.buffalo || 0) : 0;
+        const hasAnyQty = validTrucks.some(t =>
+            (t.cow_qty && parseFloat(t.cow_qty) > 0) ||
+            (t.buffalo_qty && parseFloat(t.buffalo_qty) > 0)
+        );
+        return hasAnyQty || cowStock > 0 || bufStock > 0;
+    };
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        // Let factory/vehicle/driver autocomplete dropdowns handle their own Enter
+        if (dropdownOpen.factory || dropdownOpen.vehicle || dropdownOpen.driver) return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        if (saving || !isFormReady()) return;
+        editingDispatch ? handleUpdate() : handleSave();
+    };
+
     const handleCancelEdit = () => {
         setEditingDispatch(null);
         setActiveTruckIdx(0);
@@ -1213,7 +1236,8 @@ export default function TankDispatch() {
                             <div key={truckIdx}
                                 className={`mb-4 p-4 rounded-xl border-2 transition ${isActive ? "border-gray-300 bg-gray-50/50" : "border-gray-100"}`}
                                 style={{ overflow: "visible" }}
-                                onClick={() => setActiveTruckIdx(truckIdx)}>
+                                onClick={() => setActiveTruckIdx(truckIdx)}
+                                onKeyDown={handleFormKeyDown}>
 
                                 <div className="flex flex-wrap items-center gap-2 mb-3">
                                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">

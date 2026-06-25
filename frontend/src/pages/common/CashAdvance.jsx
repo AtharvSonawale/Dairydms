@@ -686,6 +686,19 @@ export default function CashAdvance() {
         }
     };
 
+    const isFormReady = () =>
+        !!form.seller_id && !!form.amount && parseFloat(form.amount) > 0;
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        // Let the seller-search dropdown handle its own Enter
+        if (dropdownOpen) return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        if (saving || !isFormReady()) return;
+        editingEntry ? handleUpdate() : handleSave();
+    };
+
     const handleCancelEdit = () => {
         setEditingEntry(null);
         setForm(EMPTY_FORM);
@@ -901,7 +914,7 @@ export default function CashAdvance() {
                             </div>
                         )}
 
-                        <div className="flex items-start gap-3 flex-wrap">
+                        <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
 
                             {/* Seller */}
                             <Field label={t('cashAdvance.seller')} icon={<User size={12} />}>

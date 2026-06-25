@@ -637,6 +637,27 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
         }
     };
 
+    const isFormReady = () => {
+        if (!form.quantity || !form.mrp) return false;
+        if (form.buyer_mode === "named" && !form.buyer_name.trim()) return false;
+        if (form.buyer_mode === "seller" && !form.seller_id) return false;
+        if (availableStock) {
+            const available = form.milk_type === 'cow' ? availableStock.cow : availableStock.buffalo;
+            if (parseFloat(form.quantity) > available) return false;
+        }
+        return true;
+    };
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        // Let seller / named-buyer autocomplete dropdowns handle their own Enter
+        if (dropdownOpen || namedBuyerDropdownOpen) return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        if (saving || !isFormReady()) return;
+        handleSave();
+    };
+
     const handleRangeModeChange = (mode) => {
         setRangeMode(mode);
         setPdfReady(false);
@@ -1533,7 +1554,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                     </div>
 
                     {/* Form Inputs */}
-                    <div className="flex items-start gap-3 flex-wrap">
+                    <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
                         {/* Anonymous Buyer */}
                         {form.buyer_mode === "anon" && (
                             <Field label={t('walkinSale.buyer')} icon={<User size={12} />}>

@@ -9,6 +9,7 @@ exports.listSellers = async (req, res) => {
         const query = `
             SELECT
                 seller_id, seller_code, name, mobile, aadhaar,
+                pan_number, seller_id_code,
                 seller_type, milk_type, jamin,
                 bank_account, bank_name, ifsc_code,
                 address, advance_enabled, advance_deduction, product_sale_enabled,
@@ -41,6 +42,7 @@ exports.listCentreSellers = async (req, res) => {
         const query = `
             SELECT
                 s.seller_id, s.seller_code, s.name, s.mobile, s.aadhaar,
+                s.pan_number, s.seller_id_code,
                 s.seller_type, s.milk_type, s.jamin,
                 s.bank_account, s.bank_name, s.ifsc_code,
                 s.address, s.advance_enabled, s.advance_deduction, s.product_sale_enabled,
@@ -88,6 +90,7 @@ exports.listSellersByOperator = async (req, res) => {
         const query = `
             SELECT
                 seller_id, seller_code, name, mobile, aadhaar,
+                pan_number, seller_id_code,
                 seller_type, milk_type, jamin,
                 bank_account, bank_name, ifsc_code,
                 address, advance_enabled, advance_deduction, product_sale_enabled,
@@ -119,6 +122,7 @@ exports.getSellerById = async (req, res) => {
             query = `
                 SELECT
                     seller_id, seller_code, name, mobile, aadhaar,
+                    pan_number, seller_id_code,
                     seller_type, milk_type, jamin,
                     bank_account, bank_name, ifsc_code,
                     address, advance_enabled, advance_deduction, product_sale_enabled,
@@ -133,6 +137,7 @@ exports.getSellerById = async (req, res) => {
             query = `
                 SELECT
                     seller_id, seller_code, name, mobile, aadhaar,
+                    pan_number, seller_id_code,
                     seller_type, milk_type, jamin,
                     bank_account, bank_name, ifsc_code,
                     address, advance_enabled, advance_deduction, product_sale_enabled,
@@ -470,6 +475,7 @@ exports.createSeller = async (req, res) => {
 
         const {
             seller_code, name, mobile, aadhaar,
+            pan_number, seller_id_code,
             seller_type, milk_type, jamin,
             bank_account, bank_name, ifsc_code, address,
             advance_enabled, advance_deduction, product_sale_enabled,
@@ -501,15 +507,17 @@ exports.createSeller = async (req, res) => {
         const [result] = await conn.query(
             `INSERT INTO sellers
              (operator_id, centre_id, seller_code, name, mobile, aadhaar,
+              pan_number, seller_id_code,
               seller_type, milk_type, jamin,
               bank_account, bank_name, ifsc_code, address,
               advance_enabled, advance_deduction, product_sale_enabled,
-                     deposit_enabled, deposit_per_litre)
-                     VALUES (?, ?, ?, ?, ?, ?,
-                             ?, ?, ?,
-                             ?, ?, ?, ?,
-                             ?, ?, ?,
-                             ?, ?)`,
+              deposit_enabled, deposit_per_litre)
+             VALUES (?, ?, ?, ?, ?, ?,
+                     ?, ?,
+                     ?, ?, ?,
+                     ?, ?, ?, ?,
+                     ?, ?, ?,
+                     ?, ?)`,
             [
                 operator_id,
                 centre_id,
@@ -517,6 +525,8 @@ exports.createSeller = async (req, res) => {
                 name,
                 mobile,
                 aadhaar || null,
+                pan_number || null,
+                seller_id_code || null,
                 seller_type || 'Utpadak',
                 milk_type || 'mixed',
                 jamin || null,
@@ -554,6 +564,7 @@ exports.updateSeller = async (req, res) => {
     try {
         const {
             seller_code, name, mobile, aadhaar,
+            pan_number, seller_id_code,
             seller_type, milk_type, jamin,
             bank_account, bank_name, ifsc_code, address,
             advance_enabled, advance_deduction, product_sale_enabled,
@@ -596,29 +607,33 @@ exports.updateSeller = async (req, res) => {
 
         const [result] = await pool.query(
             `UPDATE sellers SET
-                seller_code       = ?,
-                name              = ?,
-                mobile            = ?,
-                aadhaar          = ?,
-                seller_type      = ?,
-                milk_type        = ?,
-                jamin             = ?,
-                bank_account      = ?,
-                bank_name        = ?,
-                ifsc_code        = ?,
-                address          = ?,
-                advance_enabled  = ?,
-                advance_deduction = ?,
+                seller_code          = ?,
+                name                 = ?,
+                mobile               = ?,
+                aadhaar              = ?,
+                pan_number           = ?,
+                seller_id_code       = ?,
+                seller_type          = ?,
+                milk_type            = ?,
+                jamin                = ?,
+                bank_account         = ?,
+                bank_name            = ?,
+                ifsc_code            = ?,
+                address              = ?,
+                advance_enabled      = ?,
+                advance_deduction    = ?,
                 product_sale_enabled = ?,
-                deposit_enabled  = ?,
-                deposit_per_litre = ?,
-                is_active        = ?
+                deposit_enabled      = ?,
+                deposit_per_litre    = ?,
+                is_active            = ?
              WHERE seller_id = ? AND centre_id = ?`,
             [
                 seller_code || null,
                 name || null,
                 mobile || null,
                 aadhaar || null,
+                pan_number || null,
+                seller_id_code || null,
                 seller_type || 'Utpadak',
                 milk_type || 'mixed',
                 jamin || null,
@@ -645,6 +660,7 @@ exports.updateSeller = async (req, res) => {
         const [rows] = await pool.query(
             `SELECT
                 seller_id, seller_code, name, mobile, aadhaar,
+                pan_number, seller_id_code,
                 seller_type, milk_type, jamin,
                 bank_account, bank_name, ifsc_code,
                 address, advance_enabled, advance_deduction,
@@ -769,6 +785,7 @@ exports.getActiveSellers = async (req, res) => {
         const [rows] = await pool.query(
             `SELECT
                 seller_id, seller_code, name, mobile,
+                pan_number, seller_id_code,
                 seller_type, milk_type,
                 bank_account, bank_name, ifsc_code,
                 address, advance_enabled, advance_deduction, product_sale_enabled,

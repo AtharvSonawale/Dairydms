@@ -75,15 +75,16 @@ exports.createProduct = async (req, res) => {
         if (!unit || !unit.trim())
             return res.status(400).json({ error: 'Unit is required.' });
 
-        // Check for duplicate product in same centre
+        // Check for duplicate product in same centre (same name + same supplier)
         const [existing] = await conn.query(
             `SELECT product_id FROM products 
-             WHERE product_name = ? AND centre_id = ?`,
-            [product_name.trim(), centreId]
+             WHERE product_name = ? AND centre_id = ?
+               AND (supplier_name = ? OR (supplier_name IS NULL AND ? IS NULL) OR (supplier_name = '' AND (? IS NULL OR ? = '')))`,
+            [product_name.trim(), centreId, supplier_name?.trim() || '', supplier_name?.trim() || null, supplier_name?.trim() || null, supplier_name?.trim() || '']
         );
         if (existing.length > 0) {
             await conn.rollback();
-            return res.status(409).json({ error: 'Product already exists in your centre.' });
+            return res.status(409).json({ error: 'A product with this name and supplier already exists in your centre.' });
         }
 
         const [result] = await conn.query(
@@ -266,10 +267,9 @@ exports.createPurchase = async (req, res) => {
             } else {
                 const [createResult] = await conn.query(
                     `INSERT INTO products 
-                        (operator_id, centre_id, product_name, unit, current_stock, supplier_name, rate, mrp_rate)
-                     VALUES (?, ?, ?, ?, 0.00, ?, ?, ?)`,
+                        (centre_id, product_name, unit, current_stock, supplier_name, rate, mrp_rate)
+                     VALUES (?, ?, ?, 0.00, ?, ?, ?)`,
                     [
-                        operatorId,
                         centreId,
                         baseProduct.product_name,
                         baseProduct.unit,

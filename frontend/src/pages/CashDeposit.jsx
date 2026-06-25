@@ -475,6 +475,20 @@ export default function CashDeposit() {
         fetchEntries(selectedDate);
     };
 
+    const isFormReady = () =>
+        !!form.seller_id && !!form.amount && parseFloat(form.amount) > 0;
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        // Let the seller-search dropdown handle its own Enter
+        if (dropdownOpen) return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        const isBusy = editingEntry ? editSaving : saving;
+        if (isBusy || !isFormReady()) return;
+        editingEntry ? handleUpdate() : handleSave();
+    };
+
     const handleDeleteEntry = async () => {
         if (!confirmDeleteEntry) return;
         const entryId = confirmDeleteEntry.id;
@@ -684,7 +698,7 @@ export default function CashDeposit() {
                             </div>
                         )}
 
-                        <div className="flex items-start gap-3 flex-wrap">
+                        <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
 
                             {/* Seller */}
                             <Field label={t('cashDeposit.seller')} icon={<User size={12} />}>

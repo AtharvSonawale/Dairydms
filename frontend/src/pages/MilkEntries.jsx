@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
     User, AlertTriangle, BadgeCheck, X,
-    TrendingUp, Hash, ChevronDown, Milk, Trash2
+    TrendingUp, Hash, ChevronDown, Milk, Trash2, Scale
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +12,7 @@ import AccessDenied from '../components/AccessDenied';
 import { useAppConfig } from '../context/AppConfigContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+
 // ── helpers ───────────────────────────────────────────────────
 const getShiftByTime = () => {
     const h = new Date().getHours();
@@ -38,6 +39,7 @@ const EMPTY_FORM = {
     snf: "",
     water: "",
     rate_applied: "",
+    machine_qty: "", // Added machine quantity field
 };
 
 const FAT_MIN = 2.5, FAT_MAX = 9.0;
@@ -156,6 +158,203 @@ export default function MilkEntry() {
     const { can, loading: permLoading } = usePermission();
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+    // RS232 Machine Quantity state and refs
+    const [machineQty, setMachineQty] = useState("");
+    const [isMachineConnected, setIsMachineConnected] = useState(false);
+    const [machineDataBuffer, setMachineDataBuffer] = useState("");
+    const machineIntervalRef = useRef(null);
+    const wsRef = useRef(null);
+    const serialPortRef = useRef(null);
+
+    // ── RS232 / Serial Communication Functions ──
+
+    // Simulated RS232 data generator (for testing without actual hardware)
+    const startSimulatedMachineData = () => {
+        if (machineIntervalRef.current) {
+            clearInterval(machineIntervalRef.current);
+        }
+
+        // Simulate continuous weight data stream
+        machineIntervalRef.current = setInterval(() => {
+            // Generate random weight between 0.5 and 50.0 kg
+            const weight = (Math.random() * 49.5 + 0.5).toFixed(2);
+            const timestamp = new Date().toISOString();
+
+            // Simulate RS232 data format: "WT:12.34kg|TS:2024-01-01T12:00:00"
+            const rawData = `WT:${weight}kg|TS:${timestamp}`;
+
+            // Process the incoming data
+            handleMachineData(rawData);
+        }, 1000); // Update every second
+    };
+
+    // Actual RS232 communication using Web Serial API (Chrome/Edge)
+    const connectSerialPort = async () => {
+        try {
+            // Check if Web Serial API is available
+            if (!('serial' in navigator)) {
+                showFlash("error", "Web Serial API not supported in this browser. Please use Chrome or Edge.");
+                return;
+            }
+
+            // Request a serial port
+            const port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 }); // Common baud rate for weight scales
+
+            serialPortRef.current = port;
+            setIsMachineConnected(true);
+            showFlash("success", "Connected to weight machine");
+
+            // Read data from the serial port
+            const textDecoder = new TextDecoderStream();
+            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+            const reader = textDecoder.readable.getReader();
+
+            // Read loop
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    break;
+                }
+                // Process each chunk of data
+                if (value) {
+                    handleMachineData(value);
+                }
+            }
+        } catch (error) {
+            console.error("Serial connection error:", error);
+            showFlash("error", `Failed to connect: ${error.message}`);
+            setIsMachineConnected(false);
+        }
+    };
+
+    // Alternative: WebSocket connection for network-connected scales
+    const connectWebSocket = (url = "ws://localhost:8080/weight") => {
+        try {
+            const ws = new WebSocket(url);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                setIsMachineConnected(true);
+                showFlash("success", "Connected to weight machine via WebSocket");
+            };
+
+            ws.onmessage = (event) => {
+                handleMachineData(event.data);
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                showFlash("error", "WebSocket connection error");
+                setIsMachineConnected(false);
+            };
+
+            ws.onclose = () => {
+                setIsMachineConnected(false);
+                showFlash("warning", "Disconnected from weight machine");
+            };
+        } catch (error) {
+            console.error("WebSocket connection error:", error);
+            showFlash("error", `WebSocket connection failed: ${error.message}`);
+        }
+    };
+
+    // Process incoming machine data
+    const handleMachineData = (rawData) => {
+        try {
+            // Parse different data formats that weight machines might send
+
+            let weightValue = null;
+
+            // Format 1: "WT:12.34kg|TS:2024-01-01T12:00:00"
+            const wtMatch = rawData.match(/WT[:=]\s*([\d.]+)/i);
+            if (wtMatch) {
+                weightValue = parseFloat(wtMatch[1]);
+            }
+
+            // Format 2: "12.34 kg" or "12.34kg"
+            const kgMatch = rawData.match(/([\d.]+)\s*kg/i);
+            if (kgMatch && weightValue === null) {
+                weightValue = parseFloat(kgMatch[1]);
+            }
+
+            // Format 3: Just a number
+            const numMatch = rawData.match(/^[\d.]+$/);
+            if (numMatch && weightValue === null) {
+                weightValue = parseFloat(numMatch[0]);
+            }
+
+            // Format 4: NMEA-like or other common formats
+            const gsMatch = rawData.match(/GS[:=]\s*([\d.]+)/i);
+            if (gsMatch && weightValue === null) {
+                weightValue = parseFloat(gsMatch[1]);
+            }
+
+            if (weightValue !== null && !isNaN(weightValue) && weightValue >= 0) {
+                // Update the machine quantity state
+                setMachineQty(weightValue.toFixed(2));
+
+                // Optionally auto-fill the quantity field
+                // Uncomment the following line to automatically fill the quantity field
+                // set("quantity", weightValue.toFixed(2));
+            }
+
+            // Update data buffer for debugging
+            setMachineDataBuffer(prev => {
+                const lines = prev.split('\n').slice(-10); // Keep last 10 lines
+                lines.push(`${new Date().toLocaleTimeString()}: ${rawData}`);
+                return lines.join('\n');
+            });
+
+        } catch (error) {
+            console.error("Error parsing machine data:", error);
+        }
+    };
+
+    // Disconnect from machine
+    const disconnectMachine = async () => {
+        // Clear interval if using simulation
+        if (machineIntervalRef.current) {
+            clearInterval(machineIntervalRef.current);
+            machineIntervalRef.current = null;
+        }
+
+        // Close WebSocket
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+
+        // Close serial port
+        if (serialPortRef.current) {
+            try {
+                await serialPortRef.current.close();
+            } catch (error) {
+                console.error("Error closing serial port:", error);
+            }
+            serialPortRef.current = null;
+        }
+
+        setIsMachineConnected(false);
+        showFlash("info", "Disconnected from weight machine");
+    };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (machineIntervalRef.current) {
+                clearInterval(machineIntervalRef.current);
+            }
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+            if (serialPortRef.current) {
+                serialPortRef.current.close().catch(console.error);
+            }
+        };
+    }, []);
+
+    // Start the tour
     const startMilkEntryTour = () => {
         const driverObj = driver({
             showProgress: true,
@@ -174,6 +373,10 @@ export default function MilkEntry() {
                     popover: { title: 'Quantity', description: 'Enter the quantity of milk collected, in liters.' },
                 },
                 {
+                    element: '[data-tour="machine-qty-field"]',
+                    popover: { title: 'Machine Quantity', description: 'Auto-reads from the connected weight machine via RS232.' },
+                },
+                {
                     element: '[data-tour="fat-field"]',
                     popover: { title: 'Fat %', description: 'Enter the fat percentage — rate auto-fills once valid.' },
                 },
@@ -189,6 +392,7 @@ export default function MilkEntry() {
         });
         driverObj.drive();
     };
+
     // Date range & PDF
     const [rangeMode, setRangeMode] = useState("daily");
     const [fromDate, setFromDate] = useState(today());
@@ -349,12 +553,14 @@ export default function MilkEntry() {
                 water: Number(form.water || 0),
                 rate_applied: Number(form.rate_applied),
                 total_amount: Number(amount),
+                machine_qty: form.machine_qty ? Number(form.machine_qty) : null, // Add machine quantity
             });
             await fetchEntries(selectedDate, selectedDate);
             await fetchLiveStock(selectedDate);
             showFlash("success", t('milkEntry.savedSuccess'));
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
+            setMachineQty(""); // Reset machine quantity
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -379,7 +585,11 @@ export default function MilkEntry() {
             snf: String(entry.snf),
             water: String(entry.water || ""),
             rate_applied: String(entry.rate_applied),
+            machine_qty: entry.machine_qty ? String(entry.machine_qty) : "",
         });
+        if (entry.machine_qty) {
+            setMachineQty(String(entry.machine_qty));
+        }
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
@@ -403,12 +613,14 @@ export default function MilkEntry() {
                 water: Number(form.water || 0),
                 rate_applied: Number(form.rate_applied),
                 total_amount: Number(computedAmount),
+                machine_qty: form.machine_qty ? Number(form.machine_qty) : null,
             });
             showFlash("success", t('milkEntry.updatedSuccess'));
             await fetchEntries(selectedDate, selectedDate);
             setEditingEntry(null);
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
+            setMachineQty("");
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -416,10 +628,24 @@ export default function MilkEntry() {
         }
     };
 
+    const isFormReady = () =>
+        form.seller_id && form.quantity && form.fat && form.snf && form.rate_applied &&
+        isValidFat(form.fat) && isValidSnf(form.snf);
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (dropdownOpen) return; // seller search box handles its own Enter
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        if (saving || !isFormReady()) return;
+        editingEntry ? handleUpdate() : handleSave();
+    };
+
     const handleCancelEdit = () => {
         setEditingEntry(null);
         setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
         setSellerSearch("");
+        setMachineQty("");
     };
 
     const handleDelete = async (entryId) => {
@@ -775,23 +1001,24 @@ export default function MilkEntry() {
                 </div>
 
                 {/* Stats Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                <div className={`grid grid-cols-2 gap-3 ${isAdmin ? "sm:grid-cols-4 lg:grid-cols-6" : "sm:grid-cols-2"}`}>
                     {[
-                        { label: rangeMode === "daily" ? t('milkEntry.entriesToday') : t('milkEntry.totalEntries'), value: rangeMode === "daily" ? entries.length : rangeEntries.length, icon: <Droplets size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('milkEntry.cowMilk'), value: entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
-                        { label: t('milkEntry.buffaloMilk'), value: entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('milkEntry.totalAmount'), value: "₹" + entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2), icon: <TrendingUp size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
-                        { label: t('milkEntry.remainingMorning'), value: `${remainingMorningSellers} ${t('milkEntry.sellers')}`, icon: <Sun size={14} />, color: "text-yellow-600 bg-yellow-50 border-yellow-100" },
-                        { label: t('milkEntry.remainingEvening'), value: `${remainingEveningSellers} ${t('milkEntry.sellers')}`, icon: <Moon size={14} />, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
-                    ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                        { label: rangeMode === "daily" ? t('milkEntry.entriesToday') : t('milkEntry.totalEntries'), value: rangeMode === "daily" ? entries.length : rangeEntries.length, icon: <Droplets size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100", adminOnly: true },
+                        { label: t('milkEntry.cowMilk'), value: entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100", adminOnly: true },
+                        { label: t('milkEntry.buffaloMilk'), value: entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100", adminOnly: true },
+                        { label: t('milkEntry.totalAmount'), value: "₹" + entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2), icon: <TrendingUp size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100", adminOnly: true },
+                        { label: t('milkEntry.remainingMorning'), value: `${remainingMorningSellers} ${t('milkEntry.sellers')}`, icon: <Sun size={14} />, color: "text-yellow-600 bg-yellow-50 border-yellow-100", adminOnly: false },
+                        { label: t('milkEntry.remainingEvening'), value: `${remainingEveningSellers} ${t('milkEntry.sellers')}`, icon: <Moon size={14} />, color: "text-indigo-600 bg-indigo-50 border-indigo-100", adminOnly: false },
+                    ].filter(card => isAdmin || !card.adminOnly)
+                        .map(({ label, value, icon, color }) => (
+                            <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
+                                <div className="shrink-0">{icon}</div>
+                                <div>
+                                    <p className="text-xs text-gray-400 leading-none">{label}</p>
+                                    <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
                 </div>
 
                 {/* Flash */}
@@ -807,23 +1034,82 @@ export default function MilkEntry() {
 
                 {/* Entry Form */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                    <div className="flex items-start justify-space-between mb-4 gap-4 flex-wrap">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">
                             {editingEntry ? t('milkEntry.editEntry') : t('milkEntry.newEntry')}
                         </p>
-                        {editingEntry && (
-                            <button onClick={handleCancelEdit}
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
-                                <X size={12} /> {t('milkEntry.cancelEdit')}
-                            </button>
-                        )}
+                        {/* Machine Quantity Field */}
+                        <Field label="Machine Qty" icon={<Scale size={12} />} data-tour="machine-qty-field">
+                            <div className="relative">
+                                <TinyInput
+                                    value={machineQty}
+                                    onChange={(e) => {
+                                        setMachineQty(e.target.value);
+                                        set("machine_qty", e.target.value);
+                                    }}
+                                    placeholder="0.0"
+                                    type="number"
+                                    step="0.01"
+                                    className={`font-mono ${isMachineConnected ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
+                                    style={{ width: "90px" }}
+                                    disabled={isMachineConnected}
+                                />
+                                {isMachineConnected && (
+                                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                                {/* Connection controls */}
+                                <button
+                                    type="button"
+                                    onClick={connectSerialPort}
+                                    disabled={isMachineConnected}
+                                    className={`text-[10px] px-2 py-0.5 rounded-lg transition ${isMachineConnected
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                        }`}
+                                >
+                                    {isMachineConnected ? "Connected" : "Connect RS232"}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={startSimulatedMachineData}
+                                    disabled={isMachineConnected}
+                                    className={`text-[10px] px-2 py-0.5 rounded-lg transition ${isMachineConnected
+                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                        : "bg-purple-50 text-purple-600 hover:bg-purple-100"
+                                        }`}
+                                >
+                                    Simulate
+                                </button>
+
+                                {isMachineConnected && (
+                                    <button
+                                        type="button"
+                                        onClick={disconnectMachine}
+                                        className="text-[10px] px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                    >
+                                        Disconnect
+                                    </button>
+                                )}
+                            </div>
+                        </Field>
+                        <div className="flex items-center gap-2 mt-1">
+                            {editingEntry && (
+                                <button onClick={handleCancelEdit}
+                                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
+                                    <X size={12} /> {t('milkEntry.cancelEdit')}
+                                </button>
+                            )}
+                        </div>
                     </div>
                     {editingEntry && (
                         <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
                             ✏ {t('milkEntry.editingBanner')} <strong>{editingEntry.seller_name}</strong> · {editingEntry.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')} · {editingEntry.milk_type === "cow" ? t('milkEntry.cow') : t('milkEntry.buffalo')} · {new Date(editingEntry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </div>
                     )}
-                    <div className="flex items-start gap-3 flex-wrap">
+                    <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
 
                         <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />} data-tour="seller-field">
                             <div className="relative" style={{ width: "160px" }}>
@@ -1012,6 +1298,18 @@ export default function MilkEntry() {
                             {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
                         </button>
                     </div>
+
+                    {/* Debug display for machine data (can be hidden in production) */}
+                    {machineDataBuffer && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                Machine Data Stream
+                            </p>
+                            <pre className="text-[10px] font-mono text-gray-600 whitespace-pre-wrap max-h-20 overflow-y-auto">
+                                {machineDataBuffer}
+                            </pre>
+                        </div>
+                    )}
                 </div>
 
                 {/* Entries Table */}

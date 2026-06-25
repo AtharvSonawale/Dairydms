@@ -1163,31 +1163,15 @@ exports.saveBill = async (req, res) => {
         if (sales.length > 0) {
             await conn.query(
                 `INSERT INTO walkin_bill_sales_snapshot
-                   (bill_id, sale_id, sale_date, shift, milk_type, quantity, mrp, total_amount)
+                   (bill_id, sale_id, centre_id, sale_date, shift, milk_type, quantity, mrp, total_amount)
                  VALUES ?`,
                 [sales.map(s => [
-                    billId, s.sale_id, s.sale_date,
+                    billId, s.sale_id, centre_id, s.sale_date,
                     s.shift, s.milk_type, s.quantity, s.mrp, s.total_amount
                 ])]
             );
         }
 
-        // ── 7. Record payment row if amount > 0 ────────────────────
-        if (paidAmt > 0) {
-            await conn.query(
-                `INSERT INTO walkin_payments
-                   (operator_id, centre_id, buyer_id, seller_id, amount,
-                    payment_mode, remarks, payment_date)
-                 VALUES (?, ?, ?, ?, ?, 'cash', ?, CURDATE())`,
-                [
-                    operator_id, centre_id,
-                    buyer_id ?? null,
-                    seller_id ?? null,
-                    paidAmt.toFixed(2),
-                    `Bill ${bill_no}`,
-                ]
-            );
-        }
 
         await conn.commit();
         res.json({
@@ -1233,15 +1217,6 @@ exports.deleteBill = async (req, res) => {
             await conn.rollback();
             return res.status(404).json({ error: 'Bill not found in your centre' });
         }
-
-        // Remove the payment row that was auto-created on save
-        await conn.query(
-            `DELETE FROM walkin_payments
-             WHERE centre_id = ?
-               AND ${bill.buyer_type === 'seller' ? 'seller_id = ?' : 'buyer_id = ?'}
-               AND remarks = ?`,
-            [centre_id, bill.buyer_type === 'seller' ? bill.seller_id : bill.buyer_id, `Bill ${bill_no}`]
-        );
 
         // Delete master (CASCADE removes snapshot)
         await conn.query(

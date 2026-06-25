@@ -26,6 +26,8 @@ const EMPTY_FORM = {
     name: "",
     mobile: "",
     aadhaar: "",
+    pan_number: "",
+    seller_id_code: "",
     seller_type: "Utpadak",
     milk_type: "mixed",
     jamin: "",
@@ -155,6 +157,8 @@ export default function SellerRegister() {
             name: s.name || "",
             mobile: s.mobile || "",
             aadhaar: s.aadhaar || "",
+            pan_number: s.pan_number || "",
+            seller_id_code: s.seller_id_code || "",
             seller_type: s.seller_type || "Utpadak",
             milk_type: s.milk_type || "mixed",
             jamin: s.jamin || "",
@@ -182,8 +186,9 @@ export default function SellerRegister() {
         if (/\d/.test(form.name)) { showFlash("error", t('sellerRegister.nameNoNumbersError')); return; }
         const mobileClean = form.mobile.replace(/^\+/, "");
         if (!/^\d{10,12}$/.test(mobileClean)) { showFlash("error", t('sellerRegister.mobileInvalidError')); return; }
-        if (form.bank_account && form.bank_account.length < 10) { showFlash("error", t('sellerRegister.bankAccountMinError')); return; }
-        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", t('sellerRegister.bankAccountMismatchError')); return; }
+        if (form.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(form.pan_number)) { showFlash("error", "PAN number must be alphanumeric and up to 12 characters."); return; }
+        if (form.seller_id_code && !/^\d{1,18}$/.test(form.seller_id_code)) { showFlash("error", "Seller ID Code must be numeric and up to 18 digits."); return; }
+        if (form.bank_account && form.bank_account.length < 10) { showFlash("error", t('sellerRegister.bankAccountMinError')); return; }        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", t('sellerRegister.bankAccountMismatchError')); return; }
         if (form.address && form.address.length < 10) { showFlash("error", t('sellerRegister.addressMinError')); return; }
         if (form.address && form.address.length > 200) { showFlash("error", t('sellerRegister.addressMaxError')); return; }
         setSaving(true);
@@ -212,6 +217,8 @@ export default function SellerRegister() {
         { label: t('sellerRegister.code'), icon: <Hash size={11} /> },
         { label: t('sellerRegister.mobile'), icon: <Phone size={11} /> },
         { label: t('sellerRegister.aadhaar'), icon: <CreditCard size={11} /> },
+        { label: 'PAN', icon: <CreditCard size={11} /> },
+        { label: 'Seller ID Code', icon: <Hash size={11} /> },
         { label: t('sellerRegister.type'), icon: <ChevronDown size={11} /> },
         { label: t('sellerRegister.milk'), icon: <ChevronDown size={11} /> },
         { label: t('sellerRegister.jamin'), icon: <User size={11} /> },
@@ -226,8 +233,7 @@ export default function SellerRegister() {
         { label: t('sellerRegister.actions'), icon: <Settings size={11} /> },
     ];
 
-    const GRID = "180px 60px 100px 120px 85px 85px 90px 120px 120px 115px 65px 95px 75px 72px 85px 100px";
-
+    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 120px 115px 65px 95px 75px 72px 85px 100px";
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
             <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
@@ -324,6 +330,22 @@ export default function SellerRegister() {
                                         onChange={e => setForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
                                         placeholder="XXXX XXXX XXXX" maxLength={12}
                                         className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                </Field>
+
+                                <Field label="PAN Number" name="pan_number" value={form.pan_number} onChange={handleChange} placeholder="e.g. ABCDE1234F" t={t}>
+                                    <input name="pan_number" value={form.pan_number}
+                                        onChange={e => setForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
+                                        placeholder="e.g. ABCDE1234F" maxLength={12}
+                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.pan_number.length}/12</p>
+                                </Field>
+
+                                <Field label="Seller ID Code" name="seller_id_code" value={form.seller_id_code} onChange={handleChange} placeholder="Up to 18 digits" t={t}>
+                                    <input name="seller_id_code" value={form.seller_id_code}
+                                        onChange={e => setForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
+                                        placeholder="Up to 18 digits" maxLength={18} inputMode="numeric"
+                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.seller_id_code.length}/18</p>
                                 </Field>
 
                                 {/* Seller Type */}
@@ -594,6 +616,10 @@ export default function SellerRegister() {
 
                                     <TableCell className="text-blue-600 font-mono text-xs font-medium">{s.mobile || "—"}</TableCell>
                                     <TableCell className="text-violet-600 font-mono text-xs">{s.aadhaar || "—"}</TableCell>
+
+                                    <TableCell className="text-rose-600 font-mono text-xs">{s.pan_number || "—"}</TableCell>
+
+                                    <TableCell className="text-indigo-600 font-mono text-xs">{s.seller_id_code || "—"}</TableCell>
 
                                     <TableCell>
                                         {s.seller_type
