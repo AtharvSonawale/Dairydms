@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
     User, AlertTriangle, BadgeCheck, X,
-    TrendingUp, Hash, ChevronDown, Milk, Trash2, Scale
+    TrendingUp, Hash, ChevronDown, Milk, Trash2, Scale,
+    Weight,
+    Pencil
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +14,7 @@ import AccessDenied from '../components/AccessDenied';
 import { useAppConfig } from '../context/AppConfigContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { io } from "socket.io-client";
 
 // ── helpers ───────────────────────────────────────────────────
 const getShiftByTime = () => {
@@ -61,12 +64,13 @@ function Field({ label, icon, children, ...rest }) {
 }
 
 function TinyInput({ className = "", style = {}, ...props }) {
+    const focusBg = props.readOnly ? "focus:bg-transparent" : "focus:bg-white";
     return (
         <input
             {...props}
             style={{ minWidth: 0, ...style }}
             className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+                focus:outline-none focus:ring-2 focus:ring-black ${focusBg} transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -158,201 +162,63 @@ export default function MilkEntry() {
     const { can, loading: permLoading } = usePermission();
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-    // RS232 Machine Quantity state and refs
+    // RS232 Machine Quantity — now driven by the backend's live weight machine reader
     const [machineQty, setMachineQty] = useState("");
+    const [machineUom, setMachineUom] = useState("");
     const [isMachineConnected, setIsMachineConnected] = useState(false);
-    const [machineDataBuffer, setMachineDataBuffer] = useState("");
-    const machineIntervalRef = useRef(null);
-    const wsRef = useRef(null);
-    const serialPortRef = useRef(null);
+    const [lastWeightRaw, setLastWeightRaw] = useState("");
+    const [weightPortConfig, setWeightPortConfig] = useState(null);
+    const socketRef = useRef(null);
 
-    // ── RS232 / Serial Communication Functions ──
-
-    // Simulated RS232 data generator (for testing without actual hardware)
-    const startSimulatedMachineData = () => {
-        if (machineIntervalRef.current) {
-            clearInterval(machineIntervalRef.current);
-        }
-
-        // Simulate continuous weight data stream
-        machineIntervalRef.current = setInterval(() => {
-            // Generate random weight between 0.5 and 50.0 kg
-            const weight = (Math.random() * 49.5 + 0.5).toFixed(2);
-            const timestamp = new Date().toISOString();
-
-            // Simulate RS232 data format: "WT:12.34kg|TS:2024-01-01T12:00:00"
-            const rawData = `WT:${weight}kg|TS:${timestamp}`;
-
-            // Process the incoming data
-            handleMachineData(rawData);
-        }, 1000); // Update every second
-    };
-
-    // Actual RS232 communication using Web Serial API (Chrome/Edge)
-    const connectSerialPort = async () => {
-        try {
-            // Check if Web Serial API is available
-            if (!('serial' in navigator)) {
-                showFlash("error", "Web Serial API not supported in this browser. Please use Chrome or Edge.");
-                return;
-            }
-
-            // Request a serial port
-            const port = await navigator.serial.requestPort();
-            await port.open({ baudRate: 9600 }); // Common baud rate for weight scales
-
-            serialPortRef.current = port;
-            setIsMachineConnected(true);
-            showFlash("success", "Connected to weight machine");
-
-            // Read data from the serial port
-            const textDecoder = new TextDecoderStream();
-            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-            const reader = textDecoder.readable.getReader();
-
-            // Read loop
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) {
-                    break;
-                }
-                // Process each chunk of data
-                if (value) {
-                    handleMachineData(value);
-                }
-            }
-        } catch (error) {
-            console.error("Serial connection error:", error);
-            showFlash("error", `Failed to connect: ${error.message}`);
-            setIsMachineConnected(false);
-        }
-    };
-
-    // Alternative: WebSocket connection for network-connected scales
-    const connectWebSocket = (url = "ws://localhost:8080/weight") => {
-        try {
-            const ws = new WebSocket(url);
-            wsRef.current = ws;
-
-            ws.onopen = () => {
-                setIsMachineConnected(true);
-                showFlash("success", "Connected to weight machine via WebSocket");
-            };
-
-            ws.onmessage = (event) => {
-                handleMachineData(event.data);
-            };
-
-            ws.onerror = (error) => {
-                console.error("WebSocket error:", error);
-                showFlash("error", "WebSocket connection error");
-                setIsMachineConnected(false);
-            };
-
-            ws.onclose = () => {
-                setIsMachineConnected(false);
-                showFlash("warning", "Disconnected from weight machine");
-            };
-        } catch (error) {
-            console.error("WebSocket connection error:", error);
-            showFlash("error", `WebSocket connection failed: ${error.message}`);
-        }
-    };
-
-    // Process incoming machine data
-    const handleMachineData = (rawData) => {
-        try {
-            // Parse different data formats that weight machines might send
-
-            let weightValue = null;
-
-            // Format 1: "WT:12.34kg|TS:2024-01-01T12:00:00"
-            const wtMatch = rawData.match(/WT[:=]\s*([\d.]+)/i);
-            if (wtMatch) {
-                weightValue = parseFloat(wtMatch[1]);
-            }
-
-            // Format 2: "12.34 kg" or "12.34kg"
-            const kgMatch = rawData.match(/([\d.]+)\s*kg/i);
-            if (kgMatch && weightValue === null) {
-                weightValue = parseFloat(kgMatch[1]);
-            }
-
-            // Format 3: Just a number
-            const numMatch = rawData.match(/^[\d.]+$/);
-            if (numMatch && weightValue === null) {
-                weightValue = parseFloat(numMatch[0]);
-            }
-
-            // Format 4: NMEA-like or other common formats
-            const gsMatch = rawData.match(/GS[:=]\s*([\d.]+)/i);
-            if (gsMatch && weightValue === null) {
-                weightValue = parseFloat(gsMatch[1]);
-            }
-
-            if (weightValue !== null && !isNaN(weightValue) && weightValue >= 0) {
-                // Update the machine quantity state
-                setMachineQty(weightValue.toFixed(2));
-
-                // Optionally auto-fill the quantity field
-                // Uncomment the following line to automatically fill the quantity field
-                // set("quantity", weightValue.toFixed(2));
-            }
-
-            // Update data buffer for debugging
-            setMachineDataBuffer(prev => {
-                const lines = prev.split('\n').slice(-10); // Keep last 10 lines
-                lines.push(`${new Date().toLocaleTimeString()}: ${rawData}`);
-                return lines.join('\n');
-            });
-
-        } catch (error) {
-            console.error("Error parsing machine data:", error);
-        }
-    };
-
-    // Disconnect from machine
-    const disconnectMachine = async () => {
-        // Clear interval if using simulation
-        if (machineIntervalRef.current) {
-            clearInterval(machineIntervalRef.current);
-            machineIntervalRef.current = null;
-        }
-
-        // Close WebSocket
-        if (wsRef.current) {
-            wsRef.current.close();
-            wsRef.current = null;
-        }
-
-        // Close serial port
-        if (serialPortRef.current) {
-            try {
-                await serialPortRef.current.close();
-            } catch (error) {
-                console.error("Error closing serial port:", error);
-            }
-            serialPortRef.current = null;
-        }
-
-        setIsMachineConnected(false);
-        showFlash("info", "Disconnected from weight machine");
-    };
-
-    // Cleanup on unmount
+    // ── Connect to the backend's WebSocket and listen for live weight updates ──
+    // ── Load the weight machine's configured port (for display under "Weight") ──
     useEffect(() => {
+        api.get("/settings/ports")
+            .then(({ data }) => setWeightPortConfig(data?.weight || null))
+            .catch(() => { /* leave as null — shown as "not configured" */ });
+    }, []);
+
+    // ── Connect to the backend's WebSocket and listen for live weight updates ──
+    useEffect(() => {
+        const socket = io(import.meta.env.VITE_SOCKET_URL || api.defaults.baseURL.replace(/\/api\/?$/, ""), {
+            transports: ["websocket"],
+        });
+        socketRef.current = socket;
+
+        socket.on("weight:update", (reading) => {
+            setIsMachineConnected(!!reading.connected);
+            if (reading.value !== null && reading.value !== undefined) {
+                const absValue = Math.abs(reading.value).toFixed(3);
+                setMachineQty(absValue);
+                set("machine_qty", absValue);
+                setMachineUom(reading.unit || "");
+                setLastWeightRaw(reading.raw || "");
+            }
+        });
+
         return () => {
-            if (machineIntervalRef.current) {
-                clearInterval(machineIntervalRef.current);
-            }
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
-            if (serialPortRef.current) {
-                serialPortRef.current.close().catch(console.error);
-            }
+            socket.disconnect();
         };
     }, []);
+
+    // Manual connect/disconnect — talks to the backend, not the browser's hardware
+    const connectSerialPort = async () => {
+        try {
+            await api.post("/settings/ports/weight/connect");
+            showFlash("success", "Connecting to weight machine…");
+        } catch (err) {
+            showFlash("error", err.response?.data?.message || "Failed to connect to weight machine.");
+        }
+    };
+
+    const disconnectMachine = async () => {
+        try {
+            await api.post("/settings/ports/weight/disconnect");
+            showFlash("info", "Disconnected from weight machine.");
+        } catch {
+            showFlash("error", "Failed to disconnect.");
+        }
+    };
 
     // Start the tour
     const startMilkEntryTour = () => {
@@ -561,6 +427,7 @@ export default function MilkEntry() {
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
             setMachineQty(""); // Reset machine quantity
+            setMachineUom("");
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -621,6 +488,7 @@ export default function MilkEntry() {
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
             setMachineQty("");
+            setMachineUom("");
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -646,6 +514,7 @@ export default function MilkEntry() {
         setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
         setSellerSearch("");
         setMachineQty("");
+        setMachineUom("");
     };
 
     const handleDelete = async (entryId) => {
@@ -1034,67 +903,91 @@ export default function MilkEntry() {
 
                 {/* Entry Form */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
-                    <div className="flex items-start justify-space-between mb-4 gap-4 flex-wrap">
+                    {/* Machine Quantity — full-width top row, high-contrast */}
+                    <div
+                        data-tour="machine-qty-field"
+                        className="flex items-center justify-between gap-4 mb-4 px-5 py-4 rounded-2xl bg-gray-950 border-2 border-emerald-400 shadow-lg shadow-emerald-500/10"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                                <Scale size={18} className="text-emerald-400" />
+                            </div>
+                            <div>
+                                <span className="block text-[11px] font-bold text-emerald-300 uppercase tracking-widest">
+                                    Weight
+                                </span>
+                                <span className={`flex items-center gap-1.5 text-[10px] font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`} />
+                                    {weightPortConfig?.serial_port
+                                        ? <>
+                                            {weightPortConfig.serial_port} · {weightPortConfig.serial_baud_rate} baud
+                                            {isMachineConnected ? " · Live" : " · Not connected"}
+                                        </>
+                                        : "No port configured — set up in Port Settings"}
+                                </span>
+                            </div>
+                            <div className="relative ml-1">
+                                <TinyInput
+                                    value={machineQty}
+                                    readOnly
+                                    placeholder="0.0"
+                                    type="text"
+                                    inputMode="decimal"
+                                    className={`font-mono font-extrabold text-xl text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-black"}`}
+                                    style={{ width: "140px", padding: "10px 8px" }}
+                                />
+                                {isMachineConnected && (
+                                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-400 animate-pulse ring-2 ring-gray-950" />
+                                )}
+                            </div>
+                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                                <Weight size={18} className="text-emerald-400" />
+                            </div>
+                            <span className="block text-[11px] font-bold text-emerald-300 uppercase tracking-widest">
+                                UOM
+                            </span>
+                            <div className="relative">
+                                <TinyInput
+                                    value={machineUom}
+                                    readOnly
+                                    placeholder="—"
+                                    type="text"
+                                    className={`font-mono font-bold text-sm uppercase text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-white"}`}
+                                    style={{ width: "60px", padding: "10px 4px" }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                onClick={connectSerialPort}
+                                disabled={isMachineConnected}
+                                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition ${isMachineConnected
+                                    ? "bg-emerald-400 text-emerald-950"
+                                    : "bg-blue-500 text-white hover:bg-blue-400"
+                                    }`}
+                            >
+                                {isMachineConnected ? "Connected" : "Connect RS232"}
+                            </button>
+
+                            {isMachineConnected && (
+                                <button
+                                    type="button"
+                                    onClick={disconnectMachine}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition"
+                                >
+                                    Disconnect
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* New / Edit Entry heading — now below the machine qty row */}
+                    <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">
                             {editingEntry ? t('milkEntry.editEntry') : t('milkEntry.newEntry')}
                         </p>
-                        {/* Machine Quantity Field */}
-                        <Field label="Machine Qty" icon={<Scale size={12} />} data-tour="machine-qty-field">
-                            <div className="relative">
-                                <TinyInput
-                                    value={machineQty}
-                                    onChange={(e) => {
-                                        setMachineQty(e.target.value);
-                                        set("machine_qty", e.target.value);
-                                    }}
-                                    placeholder="0.0"
-                                    type="number"
-                                    step="0.01"
-                                    className={`font-mono ${isMachineConnected ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
-                                    style={{ width: "90px" }}
-                                    disabled={isMachineConnected}
-                                />
-                                {isMachineConnected && (
-                                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-                                )}
-                            </div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                                {/* Connection controls */}
-                                <button
-                                    type="button"
-                                    onClick={connectSerialPort}
-                                    disabled={isMachineConnected}
-                                    className={`text-[10px] px-2 py-0.5 rounded-lg transition ${isMachineConnected
-                                        ? "bg-emerald-100 text-emerald-700"
-                                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                        }`}
-                                >
-                                    {isMachineConnected ? "Connected" : "Connect RS232"}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={startSimulatedMachineData}
-                                    disabled={isMachineConnected}
-                                    className={`text-[10px] px-2 py-0.5 rounded-lg transition ${isMachineConnected
-                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                        : "bg-purple-50 text-purple-600 hover:bg-purple-100"
-                                        }`}
-                                >
-                                    Simulate
-                                </button>
-
-                                {isMachineConnected && (
-                                    <button
-                                        type="button"
-                                        onClick={disconnectMachine}
-                                        className="text-[10px] px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
-                                    >
-                                        Disconnect
-                                    </button>
-                                )}
-                            </div>
-                        </Field>
                         <div className="flex items-center gap-2 mt-1">
                             {editingEntry && (
                                 <button onClick={handleCancelEdit}
@@ -1299,15 +1192,13 @@ export default function MilkEntry() {
                         </button>
                     </div>
 
-                    {/* Debug display for machine data (can be hidden in production) */}
-                    {machineDataBuffer && (
+                    {/* Debug display for the latest raw frame from the weight machine */}
+                    {lastWeightRaw && (
                         <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                                Machine Data Stream
+                                Last Raw Frame
                             </p>
-                            <pre className="text-[10px] font-mono text-gray-600 whitespace-pre-wrap max-h-20 overflow-y-auto">
-                                {machineDataBuffer}
-                            </pre>
+                            <pre className="text-[10px] font-mono text-gray-600">{lastWeightRaw}</pre>
                         </div>
                     )}
                 </div>
@@ -1421,19 +1312,21 @@ export default function MilkEntry() {
 
                                         {isAdmin && (
                                             <TableCell>
-                                                <div className="flex gap-1">
+                                                <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => handleEdit(r)}
-                                                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition border
-                            ${editingEntry?.entry_id === r.entry_id
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border
+                ${editingEntry?.entry_id === r.entry_id
                                                                 ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                                : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}>
-                                                        ✏ {editingEntry?.entry_id === r.entry_id ? t('milkEntry.editing') : t('milkEntry.edit')}
+                                                                : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}
+                                                    >
+                                                        <Pencil size={12} /> {editingEntry?.entry_id === r.entry_id ? t('milkEntry.editing') : t('milkEntry.edit')}
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(r.entry_id)}
-                                                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition border bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100">
-                                                        <Trash2 size={10} /> {t('milkEntry.delete')}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                                                    >
+                                                        <Trash2 size={12} /> {t('milkEntry.delete')}
                                                     </button>
                                                 </div>
                                             </TableCell>

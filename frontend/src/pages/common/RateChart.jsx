@@ -364,13 +364,7 @@ export default function RateChart() {
             bg-gray-100 text-gray-600 hover:bg-gray-200">
                             <BadgeCheck size={13} /> {t('rateChart.startTour') || 'Take a Tour'}
                         </button>
-                        <div className="flex flex-col gap-0.5" data-tour="date-picker">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('rateChart.dateLabel')}</span>
-                            <input type="date" value={selectedDate}
-                                onChange={e => setSelectedDate(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition" />
-                        </div>
+                        
 
                         <div className="flex items-end gap-2 flex-wrap" data-tour="action-buttons">
                         <button onClick={() => { setShowCopyModal(true); setCopyStartDate(''); setCopyEndDate(''); }} disabled={copyingForward}
@@ -508,17 +502,40 @@ export default function RateChart() {
                 )}
 
                 {/* ── Filter tabs ── */}
-                <div className="flex items-center gap-2" data-tour="filter-tabs">
+                <div className="flex items-center gap-2 flex-wrap" data-tour="filter-tabs">
                     {['cow', 'buffalo'].map(f => (
-                        <button key={f} onClick={() => setFilter(f)}
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
                             className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border ${filter === f
-                                ? 'bg-gray-900 text-white border-gray-900'
-                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                                }`}>
+                                    ? 'bg-gray-900 text-white border-gray-900'
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                }`}
+                        >
                             {f === 'cow' ? t('rateChart.cow') : t('rateChart.buffalo')}
                         </button>
                     ))}
-                    <span className="ml-auto text-xs text-gray-400">{rates.length} {t('rateChart.entries')}</span>
+
+                    <div className="flex items-center gap-2 border-amber-300 bg-amber-100 rounded-lg p-1">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                {t('rateChart.dateLabel')}
+                            </span>
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={e => setSelectedDate(e.target.value)}
+                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
+                    focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-auto" data-tour="date-picker">
+                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                            {rates.length} {t('rateChart.entries')}
+                        </span>
+                    </div>
                 </div>
 
                 {/* ── Table ── */}

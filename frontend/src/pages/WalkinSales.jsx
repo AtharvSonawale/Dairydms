@@ -4,7 +4,8 @@ import {
     ShoppingCart, Save, Sun, Moon, Milk, TrendingUp,
     AlertTriangle, BadgeCheck, X, User,
     Banknote, Smartphone, CreditCard, Waves, Users, Settings,
-    CheckCircle2, Clock
+    CheckCircle2, Clock, Tag, UserCircle2, Plus, Package,
+    Trash2
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -114,9 +115,9 @@ export default function WalkinSales() {
     const { can, loading: permLoading } = usePermission();
 
     const BUYER_MODES = [
-        { val: "anon", label: t('walkinSale.anon'), emoji: "👤", desc: t('walkinSale.anonDesc') },
-        { val: "named", label: t('walkinSale.named'), emoji: "🏷️", desc: t('walkinSale.namedDesc') },
-        { val: "seller", label: t('walkinSale.sellerBuys'), emoji: "🧑‍", desc: t('walkinSale.sellerDesc') },
+        { val: "anon", label: t('walkinSale.anon'), icon: <UserCircle2 size={18} />, desc: t('walkinSale.anonDesc') },
+        { val: "named", label: t('walkinSale.named'), icon: <Tag size={18} />, desc: t('walkinSale.namedDesc') },
+        { val: "seller", label: t('walkinSale.sellerBuys'), icon: <Users size={18} />, desc: t('walkinSale.sellerDesc') },
     ];
 
     const PAYMENT_MODES = [
@@ -970,7 +971,6 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
     margin-bottom:8px;padding-bottom:6px;border-bottom:2.5px double #1e3a8a">
 
     <div style="display:flex;align-items:center;gap:10px">
-        <div style="font-size:28px"></div>
         <div>
             <div style="font-size:15px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px">
                 ${t('walkinSale.pdfTitle')}</div>
@@ -1337,13 +1337,14 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                         {["loose", "packaged"].map(t => (
                                             <button key={t} type="button"
                                                 onClick={() => setNewProduct(p => ({ ...p, type: t }))}
-                                                className={`flex-1 py-[7px] transition ${newProduct.type === t ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                                {t === 'loose' ? '🥛 Loose' : '📦 Packaged'}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-[7px] transition ${newProduct.type === t ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                                {t === 'loose' ? <Milk size={12} /> : <Package size={12} />}
+                                                {t === 'loose' ? 'Loose' : 'Packaged'}
                                             </button>
                                         ))}
                                     </div>
                                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                                        {[{ v: "both", l: "Both" }, { v: "cow", l: " Cow" }, { v: "buffalo", l: " Buf" }].map(({ v, l }) => (
+                                        {[{ v: "both", l: "Both" }, { v: "cow", l: "Cow" }, { v: "buffalo", l: "Buf" }].map(({ v, l }) => (
                                             <button key={v} type="button"
                                                 onClick={() => setNewProduct(p => ({ ...p, milk_type: v }))}
                                                 className={`px-2 py-[7px] transition border-r last:border-r-0 border-gray-200 ${newProduct.milk_type === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
@@ -1377,14 +1378,17 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                         <div key={p.product_type_id} className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
                                             <div>
                                                 <p className="text-sm font-semibold text-gray-800">{p.name}</p>
-                                                <p className="text-[10px] text-gray-400 mt-0.5">
-                                                    {p.type === 'packaged' ? `📦 Packaged · +₹${p.extra_rate}/L` : '🥛 Loose'} ·{' '}
-                                                    {p.milk_type === 'both' ? 'Both milk types' : p.milk_type === 'cow' ? ' Cow only' : ' Buffalo only'}
+                                                <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                                    {p.type === 'packaged'
+                                                        ? <><Package size={10} className="inline" /> {`Packaged · +₹${p.extra_rate}/L`}</>
+                                                        : <><Milk size={10} className="inline" /> Loose</>}
+                                                    {' · '}
+                                                    {p.milk_type === 'both' ? 'Both milk types' : p.milk_type === 'cow' ? 'Cow only' : 'Buffalo only'}
                                                 </p>
                                             </div>
                                             <button onClick={() => deleteProductType(p.product_type_id)}
                                                 className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition">
-                                                <X size={12} />
+                                                <Trash2 size={12} />
                                             </button>
                                         </div>
                                     ))}
@@ -1538,7 +1542,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
                   {/* Buyer Mode Selector */}
                     <div className="flex gap-2 mb-5" data-tour="buyer-modes">
-                        {BUYER_MODES.map(({ val, label, emoji, desc }) => (
+                        {BUYER_MODES.map(({ val, label, icon, desc }) => (
                             <button
                                 key={val}
                                 type="button"
@@ -1546,7 +1550,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                 className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border text-xs font-semibold transition
                                     ${form.buyer_mode === val ? "bg-gray-900 text-white border-gray-900" : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300"}`}
                             >
-                                <span className="text-lg">{emoji}</span>
+                                {icon}
                                 <span>{label}</span>
                                 <span className="text-[10px] font-normal text-gray-400">{desc}</span>
                             </button>
@@ -1558,8 +1562,8 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                         {/* Anonymous Buyer */}
                         {form.buyer_mode === "anon" && (
                             <Field label={t('walkinSale.buyer')} icon={<User size={12} />}>
-                                <div className="h-[35px] px-3 flex items-center rounded-xl bg-gray-100 border border-gray-200 text-gray-400 text-sm font-medium w-28">
-                                    👤 {t('walkinSale.anonymous')}
+                                <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100 border border-gray-200 text-gray-400 text-sm font-medium w-28">
+                                    <UserCircle2 size={14} /> {t('walkinSale.anonymous')}
                                 </div>
                             </Field>
                         )}
@@ -1636,7 +1640,9 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                                             setNamedBuyerDropdownOpen(false);
                                                         }}
                                                         className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 transition ${namedBuyerHighlight === filtered.length ? "bg-emerald-50" : "hover:bg-emerald-50"}`}>
-                                                        <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">+</div>
+                                                        <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                                                            <Plus size={12} />
+                                                        </div>
                                                         <span className="font-medium text-emerald-700 text-xs">Register "{namedBuyerSearch}"</span>
                                                     </button>
                                                 )}
@@ -1734,8 +1740,8 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                     )}
                                 </div>
                                 {selectedSeller && (
-                                    <p className="text-[10px] text-emerald-600 font-medium mt-1">
-                                        🧑‍ {selectedSeller.seller_code} · {selectedSeller.seller_type || "—"}
+                                    <p className="text-[10px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                                        <Users size={11} /> {selectedSeller.seller_code} · {selectedSeller.seller_type || "—"}
                                     </p>
                                 )}
                             </Field>
@@ -1971,16 +1977,16 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                         {/* Buyer Type Filter */}
                         <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                             {[
-                                { v: "all", l: t('walkinSale.all') },
-                                { v: "anon", l: "👤 " + t('walkinSale.anonymous') },
-                                { v: "named", l: "🏷️ " + t('walkinSale.named') },
-                                { v: "seller", l: "🧑‍ " + t('walkinSale.sellerBuys') },
-                            ].map(({ v, l }) => (
+                                { v: "all", l: t('walkinSale.all'), icon: null },
+                                { v: "anon", l: t('walkinSale.anonymous'), icon: <UserCircle2 size={12} /> },
+                                { v: "named", l: t('walkinSale.named'), icon: <Tag size={12} /> },
+                                { v: "seller", l: t('walkinSale.sellerBuys'), icon: <Users size={12} /> },
+                            ].map(({ v, l, icon }) => (
                                 <button key={v} type="button"
                                     onClick={() => { setFilterBuyerType(v); setCurrentPage(1); }}
-                                    className={`px-3 py-1.5 transition border-r last:border-r-0 border-gray-200
+                                    className={`flex items-center gap-1 px-3 py-1.5 transition border-r last:border-r-0 border-gray-200
                     ${filterBuyerType === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                    {l}
+                                    {icon}{l}
                                 </button>
                             ))}
                         </div>
@@ -2087,7 +2093,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                    </svg>
+                                                    </svg> {t('walkinSale.edit')}
                                                 </button>
                                                 {can('walkin_sales', 'D') && (
                                                     <button
@@ -2095,7 +2101,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                                         className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
                                                         title="Delete"
                                                     >
-                                                        <X size={11} />
+                                                        <Trash2 size={11} /> {t('walkinSale.delete')}
                                                     </button>
                                                 )}
                                             </div>

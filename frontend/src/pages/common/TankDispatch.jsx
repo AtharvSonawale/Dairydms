@@ -4,6 +4,8 @@ import {
     Truck, Save, AlertTriangle, BadgeCheck, RefreshCw,
     X, TrendingUp, Milk, FlaskConical, User, Hash,
     MapPin, Warehouse, ChevronDown, Calendar, FileDown, Plus,
+    PencilIcon,
+    Trash2,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -106,6 +108,7 @@ export default function TankDispatch() {
     const [loadingRange, setLoadingRange] = useState(false);
     const [pdfReady, setPdfReady] = useState(false);
     const [activeTruckIdx, setActiveTruckIdx] = useState(0);
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const activeTruck = trucks[activeTruckIdx] || {};
     const setTruckField = (idx, k, v) => setTrucks(p => {
         const t = [...p];
@@ -166,6 +169,22 @@ export default function TankDispatch() {
         const dt = new Date(d + "T00:00:00");
         const y = dt.getFullYear(), m = dt.getMonth();
         return { from: new Date(y, m, 1).toISOString().split("T")[0], to: new Date(y, m + 1, 0).toISOString().split("T")[0] };
+    };
+
+    const handleDelete = async (id) => {
+        if (saving) return;
+        setSaving(true);
+        try {
+            await api.delete(`/tank-dispatch/${id}`);
+            showFlash("success", t('tankDispatch.deleteSuccess'));
+            await fetchDispatches(fromDate, toDate);
+            await fetchStock(selectedDate);
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t('tankDispatch.deleteError'));
+        } finally {
+            setSaving(false);
+            setDeleteConfirmId(null);
+        }
     };
 
     const handleRangeModeChange = (mode) => {
@@ -948,13 +967,23 @@ export default function TankDispatch() {
 
     // table
     const COLS = [
-        t('tankDispatch.colFactory'), t('tankDispatch.colType'), t('tankDispatch.colVehicle'),
-        t('tankDispatch.colDriver'), t('tankDispatch.colQtyL'), t('tankDispatch.colAvgFat'),
-        t('tankDispatch.colAvgSnf'), t('tankDispatch.colRate'), t('tankDispatch.colAmount'),
-        t('tankDispatch.colRemarks'), t('tankDispatch.colTime'), "", ...(isAdmin ? [t('tankDispatch.colEdit')] : [])
+        t('tankDispatch.colFactory'),
+        t('tankDispatch.colType'),
+        t('tankDispatch.colVehicle'),
+        t('tankDispatch.colDriver'),
+        t('tankDispatch.colQtyL'),
+        t('tankDispatch.colAvgFat'),
+        t('tankDispatch.colAvgSnf'),
+        t('tankDispatch.colRate'),
+        t('tankDispatch.colAmount'),
+        t('tankDispatch.colRemarks'),
+        t('tankDispatch.colTime'),
+        "",
+        ...(isAdmin ? [t('tankDispatch.colEdit'), t('tankDispatch.colDelete')] : []),
     ];
+
     const GRID = isAdmin
-        ? "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 120px 70px 60px 60px"
+        ? "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 120px 70px 60px 60px 60px"
         : "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 120px 70px 60px";
 
     // Helper function to get filtered suggestions
@@ -1505,80 +1534,100 @@ export default function TankDispatch() {
                     ) : (
                         <div className="overflow-x-auto">
                             <div className="min-w-max">
-                                {[...dispatches].reverse().map((d, i) => (
-                                    <div key={d.dispatch_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
-                                        style={{ gridTemplateColumns: GRID }}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
-                                                    <Truck size={11} className="text-white" />
-                                                </div>
-                                                <span className="text-gray-800 font-medium text-xs truncate">{d.factory_name || "—"}</span>
+                                        {[...dispatches].reverse().map((d, i) => (
+                                            <div
+                                                key={d.dispatch_id || i}
+                                                className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                                style={{ gridTemplateColumns: GRID }}
+                                            >
+                                                {/* Existing cells (Factory, Type, Vehicle, Driver, Qty, FAT%, SNF%, Rate, Amount, Remarks, Time, PDF) */}
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
+                                                            <Truck size={11} className="text-white" />
+                                                        </div>
+                                                        <span className="text-gray-800 font-medium text-xs truncate">{d.factory_name || "—"}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
+        ${d.milk_type === "cow" ? "bg-amber-50 text-amber-700 border-amber-100"
+                                                            : d.milk_type === "buffalo" ? "bg-blue-50 text-blue-700 border-blue-100"
+                                                                : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                                        {d.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-blue-600 font-mono text-xs font-medium">{d.vehicle_no || "—"}</TableCell>
+                                                <TableCell className="text-gray-600 text-xs">{d.driver_name || "—"}</TableCell>
+                                                <TableCell className="text-emerald-600 font-mono font-bold text-xs">
+                                                    {parseFloat(d.total_liters).toFixed(1)} L
+                                                </TableCell>
+                                                <TableCell className="text-amber-600 font-mono text-xs">
+                                                    {d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) + "%" : "—"}
+                                                </TableCell>
+                                                <TableCell className="text-violet-600 font-mono text-xs">
+                                                    {d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) + "%" : "—"}
+                                                </TableCell>
+                                                <TableCell className="text-gray-700 font-mono text-xs">
+                                                    {d.factory_rate ? `₹${parseFloat(d.factory_rate).toFixed(2)}` : "—"}
+                                                </TableCell>
+                                                <TableCell className="text-gray-900 font-bold text-xs">
+                                                    ₹{parseFloat(d.total_amount || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell className="text-gray-400 text-xs truncate">
+                                                    {d.remarks || "—"}
+                                                </TableCell>
+                                                <TableCell className="text-gray-400 font-mono text-xs">
+                                                    {fmtTime(d.created_at)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <button
+                                                        onClick={(e) => printChallan(e, d)}
+                                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition"
+                                                    >
+                                                        <Truck size={10} /> PDF
+                                                    </button>
+                                                </TableCell>
+
+                                                {/* Edit button (existing) */}
+                                                {isAdmin && (
+                                                    <TableCell>
+                                                        <button
+                                                            onClick={() => handleEdit(d)}
+                                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border
+            ${editingDispatch?.dispatch_id === d.dispatch_id
+                                                                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                                                                    : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}
+                                                        >
+                                                            <PencilIcon size={10} />
+                                                            {editingDispatch?.dispatch_id === d.dispatch_id ? t('tankDispatch.editing') : t('tankDispatch.edit')}
+                                                        </button>
+                                                    </TableCell>
+                                                )}
+
+                                                {/* Delete button (new) */}
+                                                {isAdmin && (
+                                                    <TableCell>
+                                                        <button
+                                                            onClick={() => setDeleteConfirmId(d.dispatch_id)}
+                                                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 text-[10px] font-semibold transition"
+                                                        >
+                                                            <Trash2 size={10} /> {t('tankDispatch.delete')}
+                                                        </button>
+                                                    </TableCell>
+                                                )}
                                             </div>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
-                                                ${d.milk_type === "cow" ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                    : d.milk_type === "buffalo" ? "bg-blue-50 text-blue-700 border-blue-100"
-                                                        : "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                                {d.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')}
-                                            </span>
-                                        </TableCell>
-
-                                        <TableCell className="text-blue-600 font-mono text-xs font-medium">{d.vehicle_no || "—"}</TableCell>
-                                        <TableCell className="text-gray-600 text-xs">{d.driver_name || "—"}</TableCell>
-                                        <TableCell className="text-emerald-600 font-mono font-bold text-xs">
-                                            {parseFloat(d.total_liters).toFixed(1)} L
-                                        </TableCell>
-                                        <TableCell className="text-amber-600 font-mono text-xs">
-                                            {d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) + "%" : "—"}
-                                        </TableCell>
-                                        <TableCell className="text-violet-600 font-mono text-xs">
-                                            {d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) + "%" : "—"}
-                                        </TableCell>
-                                        <TableCell className="text-gray-700 font-mono text-xs">
-                                            {d.factory_rate ? `₹${parseFloat(d.factory_rate).toFixed(2)}` : "—"}
-                                        </TableCell>
-                                        <TableCell className="text-gray-900 font-bold text-xs">
-                                            ₹{parseFloat(d.total_amount || 0).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-gray-400 text-xs truncate">
-                                            {d.remarks || "—"}
-                                        </TableCell>
-                                        <TableCell className="text-gray-400 font-mono text-xs">
-                                            {fmtTime(d.created_at)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <button
-                                                onClick={(e) => printChallan(e, d)}
-                                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition">
-                                                <Truck size={10} /> PDF
-                                            </button>
-                                        </TableCell>
-                                        {isAdmin && (
-                                            <TableCell>
-                                                <button
-                                                    onClick={() => handleEdit(d)}
-                                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border
-                                                        ${editingDispatch?.dispatch_id === d.dispatch_id
-                                                            ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                            : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}>
-                                                    ✏ {editingDispatch?.dispatch_id === d.dispatch_id ? t('tankDispatch.editing') : t('tankDispatch.edit')}
-                                                </button>
-                                            </TableCell>
-                                        )}
-                                    </div>
-                                ))}
+                                        ))}
                             </div>
                         </div>
                     )}
 
                     {/* Totals footer */}
                     {dispatches.length > 0 && (
-                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80"
-                            style={{ gridTemplateColumns: GRID }}>
+                        <div
+                            className="grid border-t-2 border-gray-100 bg-gray-50/80"
+                            style={{ gridTemplateColumns: GRID }}
+                        >
                             <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
                                 {dispatches.length} {dispatches.length === 1 ? t('tankDispatch.dispatch') : t('tankDispatch.dispatches')}
                             </div>
@@ -1596,6 +1645,12 @@ export default function TankDispatch() {
                             </div>
                             <div className="px-3 py-2.5" />
                             <div className="px-3 py-2.5" />
+                            {isAdmin && (
+                                <>
+                                    <div className="px-3 py-2.5" />
+                                    <div className="px-3 py-2.5" />
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1606,6 +1661,29 @@ export default function TankDispatch() {
                     <span>• {t('tankDispatch.legendClickStock')}</span>
                     <span>• {t('tankDispatch.legendFatSnf')}</span>
                 </div>
+
+                {deleteConfirmId && (
+                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 max-w-sm w-full">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('tankDispatch.deleteConfirmTitle')}</h3>
+                            <p className="text-sm text-gray-500 mb-4">{t('tankDispatch.deleteConfirmMessage')}</p>
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+                                >
+                                    {t('tankDispatch.cancel')}
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(deleteConfirmId)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition"
+                                >
+                                    {t('tankDispatch.delete')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );

@@ -4,6 +4,9 @@ import {
     Home, Save, AlertTriangle, BadgeCheck, RefreshCw,
     X, Sun, Moon, Milk, TrendingDown, Layers,
     FileText, Clock,
+    Trash,
+    Trash2,
+    Pencil,
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
@@ -90,6 +93,8 @@ export default function OwnerUsage() {
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
     const [selectedDate, setSelectedDate] = useState(today());
+    const [editingId, setEditingId] = useState(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -163,6 +168,67 @@ export default function OwnerUsage() {
         form.quantity &&
         parseFloat(form.quantity) > availableQty;
 
+    // Handle edit: pre-fill form with entry data
+    const handleEdit = (entry) => {
+        setForm({
+            shift: entry.shift,
+            milk_type: entry.milk_type,
+            quantity: entry.quantity.toString(),
+            purpose: entry.purpose || "",
+        });
+        setEditingId(entry.usage_id);
+    };
+
+    // Handle delete confirmation
+    const handleDelete = async (id) => {
+        if (saving) return;
+        setSaving(true);
+        try {
+            await api.delete(`/owner-usage/${id}`);
+            showFlash("success", t('ownerUsage.deleteSuccess'));
+            await fetchEntries(selectedDate);
+            await fetchStock(selectedDate);
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t('ownerUsage.deleteError'));
+        } finally {
+            setSaving(false);
+            setDeleteConfirmId(null);
+        }
+    };
+
+    // Handle update (save edited entry)
+    const handleUpdate = async () => {
+        if (!form.quantity || parseFloat(form.quantity) <= 0) {
+            showFlash("error", t('ownerUsage.quantityError'));
+            return;
+        }
+        if (exceedsStock) {
+            showFlash("error", t('ownerUsage.insufficientStock', { qty: availableQty.toFixed(2), type: form.milk_type === "cow" ? t('ownerUsage.cow') : t('ownerUsage.buffalo') }));
+            return;
+        }
+        if (saving) return;
+
+        setSaving(true);
+        try {
+            await api.put(`/owner-usage/${editingId}`, {
+                usage_date: selectedDate,
+                shift: form.shift,
+                milk_type: form.milk_type,
+                quantity: parseFloat(form.quantity),
+                purpose: form.purpose.trim() || t('ownerUsage.personalUse'),
+            });
+            showFlash("success", t('ownerUsage.updateSuccess'));
+            await fetchEntries(selectedDate);
+            await fetchStock(selectedDate);
+            setForm(EMPTY_FORM);
+            setEditingId(null);
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t('ownerUsage.updateError'));
+        } finally {
+            setSaving(false);
+        }
+    };
+    
     // save
     const handleSave = async () => {
         if (!form.quantity || parseFloat(form.quantity) <= 0) {
@@ -420,24 +486,39 @@ export default function OwnerUsage() {
                     {/* Footer */}
                     <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
                         <p className="text-xs text-gray-400">
-                            {entries.length} {entries.length === 1 ? t('ownerUsage.entry') : t('ownerUsage.entries')} {t('ownerUsage.on')}{" "}
+                            {entries.length} {entries.length === 1 ? t('ownerUsage.entry') : t('ownerUsage.entries')} {t('ownerUsage.on')} {" "}
                             {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                             {totalUsed > 0 && (
                                 <span className="ml-2 text-gray-600 font-semibold">· {totalUsed.toFixed(2)} L {t('ownerUsage.totalUsed')}</span>
                             )}
                         </p>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving || availableQty <= 0}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                ${saving || availableQty <= 0
-                                    ? "bg-gray-300 cursor-not-allowed"
-                                    : "bg-black hover:bg-gray-800 active:scale-95"}`}
-                        >
-                            <Save size={15} />
-                            {saving ? t('ownerUsage.saving') : t('ownerUsage.recordUsage')}
-                        </button>
+                        <div className="flex gap-2">
+                            {editingId && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setForm(EMPTY_FORM);
+                                        setEditingId(null);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+                                >
+                                    <X size={15} />
+                                    {t('ownerUsage.cancel')}
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={editingId ? handleUpdate : handleSave}
+                                disabled={saving || availableQty <= 0 || (editingId ? !isFormReady() : false)}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
+        ${saving || availableQty <= 0 || (editingId ? !isFormReady() : false)
+                                        ? "bg-gray-300 cursor-not-allowed"
+                                        : "bg-black hover:bg-gray-800 active:scale-95"}`}
+                            >
+                                <Save size={15} />
+                                {saving ? t('ownerUsage.saving') : editingId ? t('ownerUsage.updateEntry') : t('ownerUsage.recordUsage')}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -463,14 +544,16 @@ export default function OwnerUsage() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="usage-table">
 
                     {/* Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: `${GRID} 100px` }}>
                         {COLS.map((label) => (
                             <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
                                 {label}
                             </div>
                         ))}
+                        <div className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                            {t('ownerUsage.actions')}
+                        </div>
                     </div>
-
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
@@ -483,56 +566,73 @@ export default function OwnerUsage() {
                     ) : (
                         <div className="overflow-x-auto">
                             <div className="min-w-max w-full">
-                                {[...entries].reverse().map((e, i) => (
-                                    <div
-                                        key={e.usage_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
-                                        style={{ gridTemplateColumns: GRID }}
-                                    >
-                                        {/* Shift */}
-                                        <TableCell>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
-                                                ${e.shift === "morning"
-                                                    ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                                    : "bg-indigo-50 text-indigo-700 border border-indigo-100"}`}>
-                                                {e.shift === "morning" ? <Sun size={8} /> : <Moon size={8} />}
-                                                {e.shift === "morning" ? t('ownerUsage.morning') : t('ownerUsage.evening')}
-                                            </span>
-                                        </TableCell>
+                                        {[...entries].reverse().map((e, i) => (
+                                            <div
+                                                key={e.usage_id || i}
+                                                className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                                style={{ gridTemplateColumns: `${GRID} 100px` }}
+                                            >
+                                                {/* Shift */}
+                                                <TableCell>
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
+        ${e.shift === "morning"
+                                                            ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                                            : "bg-indigo-50 text-indigo-700 border border-indigo-100"}`}>
+                                                        {e.shift === "morning" ? <Sun size={8} /> : <Moon size={8} />}
+                                                        {e.shift === "morning" ? t('ownerUsage.morning') : t('ownerUsage.evening')}
+                                                    </span>
+                                                </TableCell>
 
-                                        {/* Milk type */}
-                                        <TableCell>
-                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full
-                                                ${e.milk_type === "cow"
-                                                    ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                                    : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
-                                                {e.milk_type === "cow" ? t('ownerUsage.cow') : t('ownerUsage.buffalo')}
-                                            </span>
-                                        </TableCell>
+                                                {/* Milk type */}
+                                                <TableCell>
+                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full
+        ${e.milk_type === "cow"
+                                                            ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                                            : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
+                                                        {e.milk_type === "cow" ? t('ownerUsage.cow') : t('ownerUsage.buffalo')}
+                                                    </span>
+                                                </TableCell>
 
-                                        {/* Quantity */}
-                                        <TableCell className="text-blue-600 font-mono font-bold text-xs">
-                                            {parseFloat(e.quantity).toFixed(2)} L
-                                        </TableCell>
+                                                {/* Quantity */}
+                                                <TableCell className="text-blue-600 font-mono font-bold text-xs">
+                                                    {parseFloat(e.quantity).toFixed(2)} L
+                                                </TableCell>
 
-                                        {/* Purpose */}
-                                        <TableCell className="text-gray-600 text-xs">
-                                            {e.purpose || <span className="text-gray-300">{t('ownerUsage.personalUse')}</span>}
-                                        </TableCell>
+                                                {/* Purpose */}
+                                                <TableCell className="text-gray-600 text-xs">
+                                                    {e.purpose || <span className="text-gray-300">{t('ownerUsage.personalUse')}</span>}
+                                                </TableCell>
 
-                                        {/* Time */}
-                                        <TableCell className="text-gray-400 font-mono text-xs">
-                                            {fmtTime(e.created_at)}
-                                        </TableCell>
-                                    </div>
-                                ))}
+                                                {/* Time */}
+                                                <TableCell className="text-gray-400 font-mono text-xs">
+                                                    {fmtTime(e.created_at)}
+                                                </TableCell>
+
+                                                {/* Actions */}
+                                                <TableCell className="justify-center gap-1">
+                                                    <button
+                                                        onClick={() => handleEdit(e)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"
+                                                    >
+                                                        <Pencil size={14} /> {t('ownerUsage.edit')}
+
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeleteConfirmId(e.usage_id)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                                                    >
+                                                        <Trash2 size={14} /> {t('ownerUsage.delete')}
+                                                    </button>
+                                                </TableCell>
+                                            </div>
+                                        ))}
                             </div>
                         </div>
                     )}
 
                     {/* Totals footer */}
                     {entries.length > 0 && (
-                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: `${GRID} 100px` }}>
                             <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
                                 {entries.length} {entries.length === 1 ? t('ownerUsage.entry') : t('ownerUsage.entries')}
                             </div>
@@ -540,6 +640,7 @@ export default function OwnerUsage() {
                             <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-100">
                                 {totalUsed.toFixed(2)} L
                             </div>
+                            <div className="px-3 py-2.5 border-r border-gray-100" />
                             <div className="px-3 py-2.5 border-r border-gray-100" />
                             <div className="px-3 py-2.5" />
                         </div>
@@ -552,6 +653,29 @@ export default function OwnerUsage() {
                     <span>• {t('ownerUsage.legendStockUpdate')}</span>
                     <span>• {t('ownerUsage.legendPurposeDefault')}</span>
                 </div>
+
+                {deleteConfirmId && (
+                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 max-w-sm w-full">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('ownerUsage.deleteConfirmTitle')}</h3>
+                            <p className="text-sm text-gray-500 mb-4">{t('ownerUsage.deleteConfirmMessage')}</p>
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+                                >
+                                    {t('ownerUsage.cancel')}
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(deleteConfirmId)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition"
+                                >
+                                    {t('ownerUsage.delete')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </main>
         </div>

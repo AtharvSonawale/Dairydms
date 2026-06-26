@@ -13,7 +13,8 @@ import {
     ShoppingCart, Home, LogOut, ChevronLeft, ChevronRight,
     Menu, Building2, ShoppingBag, Archive,
     Users2, Settings,
-    User2Icon, 
+    User2Icon,
+    HdmiPort, 
 } from 'lucide-react';
 
 /**
@@ -43,7 +44,7 @@ const SHARED_NAV = (isAdmin, t) => [
                 { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
                 { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
                 { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
-                { label: 'Ports Settings', to: '/admin/ports'},
+                { label: 'Ports Settings', icon: <HdmiPort size={14} />, to: '/admin/ports'},
                 { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
             ],
         },

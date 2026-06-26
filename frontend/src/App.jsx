@@ -69,7 +69,7 @@ function AppRoutes() {
         <Route path="/admin/adminlist" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins/:id" element={<ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>} />
-        <Route path="/admin/portsettings" element={<ProtectedRoute role="aadmin"><PortSettings /></ProtectedRoute>} />
+        <Route path="/admin/ports" element={<ProtectedRoute role="aadmin"><PortSettings /></ProtectedRoute>} />
 
         {/* ── Operator ── */}
         <Route path="/operator/dashboard" element={<ProtectedRoute role="operator"><OperatorDashboard /></ProtectedRoute>} />
