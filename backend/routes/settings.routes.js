@@ -10,8 +10,7 @@ const {
     saveGlobalSettings,
     clearAllData,
 } = require('../controllers/settings.controller');
-const { getPortSettings, savePortSettings, testPortConnection } = require('../controllers/ports.controller');
-
+const { getPortSettings, savePortSettings, testPortConnection, listAvailablePorts, closePort, getWeightStatus, connectWeightMachine, disconnectWeightMachine } = require('../controllers/ports.controller');
 
 router.use(protect);
 
@@ -30,6 +29,11 @@ router.post('/clear-all-data', clearAllData);
 
 router.get('/ports', getPortSettings);
 router.post('/ports', savePortSettings);
+router.get('/ports/available', listAvailablePorts);
 router.post('/ports/test', testPortConnection);
+router.post('/ports/close', closePort);
+router.get('/ports/weight/status', getWeightStatus);
+router.post('/ports/weight/connect', connectWeightMachine);
+router.post('/ports/weight/disconnect', disconnectWeightMachine);
 
 module.exports = router;

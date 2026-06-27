@@ -113,6 +113,7 @@ export default function PortSettings() {
     const [availablePorts, setAvailablePorts] = useState([]);
     const [scanning, setScanning] = useState(false);
     const [closingPort, setClosingPort] = useState(false);
+    const [manualPortEntry, setManualPortEntry] = useState(false);
     const form = byMachine[machineType];
 
     const set = (k, v) =>
@@ -345,19 +346,37 @@ export default function PortSettings() {
                                 />
                             </div>
                         </PortField>
-                        <PortField label="COM Port" hint="Detected ports on this system — click Scan Ports to refresh" required>
+                        <PortField label="COM Port" hint="Detected ports on this system — click Scan Ports to refresh, or type one manually (e.g. for virtual com0com ports)" required>
                             <div className="flex items-center gap-2">
-                                <PortSelect
-                                    value={form.serial_port}
-                                    onChange={e => set('serial_port', e.target.value)}
-                                    options={availablePorts.length ? availablePorts.map(p => p.path) : ['']}
-                                    renderLabel={path => {
-                                        const p = availablePorts.find(ap => ap.path === path);
-                                        return p?.isOpen ? `${path} (open)` : path;
-                                    }}
-                                    placeholder={availablePorts.length ? undefined : 'No ports found — click Scan'}
-                                    className="w-full"
-                                />
+                                {manualPortEntry ? (
+                                    <input
+                                        type="text"
+                                        value={form.serial_port}
+                                        onChange={e => set('serial_port', e.target.value.toUpperCase())}
+                                        placeholder="e.g. COM11"
+                                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 bg-gray-50
+                    focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition font-mono w-full"
+                                    />
+                                ) : (
+                                    <PortSelect
+                                        value={form.serial_port}
+                                        onChange={e => set('serial_port', e.target.value)}
+                                        options={availablePorts.length ? availablePorts.map(p => p.path) : ['']}
+                                        renderLabel={path => {
+                                            const p = availablePorts.find(ap => ap.path === path);
+                                            return p?.isOpen ? `${path} (open)` : path;
+                                        }}
+                                        placeholder={availablePorts.length ? undefined : 'No ports found — click Scan'}
+                                        className="w-full"
+                                    />
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setManualPortEntry(v => !v)}
+                                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-2 rounded-lg bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 transition whitespace-nowrap flex-shrink-0"
+                                >
+                                    {manualPortEntry ? 'Use List' : 'Type Manually'}
+                                </button>
                                 {availablePorts.find(p => p.path === form.serial_port)?.isOpen && (
                                     <button
                                         type="button"

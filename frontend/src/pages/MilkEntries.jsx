@@ -180,7 +180,12 @@ export default function MilkEntry() {
 
     // ── Connect to the backend's WebSocket and listen for live weight updates ──
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_SOCKET_URL || api.defaults.baseURL.replace(/\/api\/?$/, ""), {
+        const resolvedSocketUrl =
+            import.meta.env.VITE_SOCKET_URL ||
+            api.defaults.baseURL.replace(/\/api\/?$/, "") ||
+            "http://localhost:5000"; // last-resort dev default matching your Express port
+
+        const socket = io(resolvedSocketUrl, {
             transports: ["websocket"],
         });
         socketRef.current = socket;
@@ -188,13 +193,14 @@ export default function MilkEntry() {
         socket.on("weight:update", (reading) => {
             setIsMachineConnected(!!reading.connected);
             if (reading.value !== null && reading.value !== undefined) {
-                const absValue = Math.abs(reading.value).toFixed(3);
-                setMachineQty(absValue);
-                set("machine_qty", absValue);
+                const signedValue = reading.value.toFixed(3); // preserve sign instead of Math.abs
+                setMachineQty(signedValue);
+                set("machine_qty", signedValue);
                 setMachineUom(reading.unit || "");
                 setLastWeightRaw(reading.raw || "");
+                setLastUpdateAt(Date.now()); // new — proves each event is actually arriving
             }
-        });
+        })
 
         return () => {
             socket.disconnect();
@@ -203,9 +209,10 @@ export default function MilkEntry() {
 
     // Manual connect/disconnect — talks to the backend, not the browser's hardware
     const connectSerialPort = async () => {
+        showFlash("success", "Connecting to weight machine…"); // immediate feedback while we wait ~3s
         try {
-            await api.post("/settings/ports/weight/connect");
-            showFlash("success", "Connecting to weight machine…");
+            const { data } = await api.post("/settings/ports/weight/connect");
+            showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
         } catch (err) {
             showFlash("error", err.response?.data?.message || "Failed to connect to weight machine.");
         }
@@ -266,6 +273,7 @@ export default function MilkEntry() {
     const [rangeEntries, setRangeEntries] = useState([]);
     const [loadingRange, setLoadingRange] = useState(false);
     const [pdfReady, setPdfReady] = useState(false);
+    const [lastUpdateAt, setLastUpdateAt] = useState(null); // new
 
     const [pageSize, setPageSize] = useState(5);
 
@@ -916,7 +924,7 @@ export default function MilkEntry() {
                                 <span className="block text-[11px] font-bold text-emerald-300 uppercase tracking-widest">
                                     Weight
                                 </span>
-                                <span className={`flex items-center gap-1.5 text-[10px] font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"}`}>
+                                <span className={`flex items-center gap-1.5 text-md font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`} />
                                     {weightPortConfig?.serial_port
                                         ? <>
@@ -1195,8 +1203,13 @@ export default function MilkEntry() {
                     {/* Debug display for the latest raw frame from the weight machine */}
                     {lastWeightRaw && (
                         <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-2">
                                 Last Raw Frame
+                                {lastUpdateAt && (
+                                    <span className="text-emerald-500 font-normal">
+                                        · updated {Math.max(0, Math.round((Date.now() - lastUpdateAt) / 1000))}s ago
+                                    </span>
+                                )}
                             </p>
                             <pre className="text-[10px] font-mono text-gray-600">{lastWeightRaw}</pre>
                         </div>

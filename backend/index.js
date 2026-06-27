@@ -1,3 +1,6 @@
+const http = require('http');
+const { Server } = require('socket.io');
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -27,6 +30,7 @@ const gavaliBonusRoutes = require("./routes/gavaliBonus.routes");
 const walkinPaymentRoutes = require("./routes/walkinpayment.routes");
 const adminManagementRoutes = require('./routes/adminmanagement.routes');
 const portsRouter = require('./routes/ports.routes');
+const weightMachine = require('./services/weightMachine.service');
 
 const tourRoutes = require('./routes/tour.routes');
 
@@ -70,6 +74,13 @@ setInterval(async () => {
     }
 }, 60 * 60 * 1000);
 
-app.listen(process.env.PORT, () => {
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: process.env.CORS_ORIGIN || '*' },
+});
+
+weightMachine.init(io);
+
+server.listen(process.env.PORT, () => {
     console.log(`Server running on port ${process.env.PORT}`);
 });
