@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const { SerialPort } = require('serialport');
 const weightMachine = require('../services/weightMachine.service');
+const fatMachine = require('../services/fatMachine.service');
 
 // ─── In-memory registry of ports this server process currently holds open ────
 // Key: port path (e.g. "COM3"), Value: live SerialPort instance.
@@ -93,7 +94,7 @@ exports.savePortSettings = async (req, res) => {
             [dairyId, machineType, serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity]
         );
 
-        // If this is the weight machine, reconnect the live reader with the new settings
+        // Reconnect the matching live reader with the new settings
         if (machineType === 'weight') {
             try {
                 await weightMachine.connect(dairyId);
@@ -101,6 +102,16 @@ exports.savePortSettings = async (req, res) => {
                 console.error('weightMachine reconnect error:', connectErr.message);
                 return res.json({
                     message: 'Port settings saved, but failed to connect to the weight machine.',
+                    warning: connectErr.message,
+                });
+            }
+        } else if (machineType === 'fat') {
+            try {
+                await fatMachine.connect(dairyId);
+            } catch (connectErr) {
+                console.error('fatMachine reconnect error:', connectErr.message);
+                return res.json({
+                    message: 'Port settings saved, but failed to connect to the Fat & SNF machine.',
                     warning: connectErr.message,
                 });
             }
@@ -134,6 +145,7 @@ exports.listAvailablePorts = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
 // ─── POST /api/settings/ports/close ──────────────────────────────────────────
 // Closes a port this server currently holds open.
 exports.closePort = async (req, res) => {
@@ -200,8 +212,11 @@ exports.testPortConnection = async (req, res) => {
             // real test. Virtual null-modem ports occasionally lag behind or are
             // named differently than the OS enumeration reports.
         }
-        weightMachine.disconnect();
 
+        // Release any live machine connection that might be holding this exact
+        // port path, on either machine type, before testing it.
+        weightMachine.disconnect();
+        fatMachine.disconnect();
 
         // If we already have this port open from a previous test, close it
         // first so we don't leak duplicate handles on repeated test clicks.
@@ -223,7 +238,18 @@ exports.testPortConnection = async (req, res) => {
             sp.open(err => {
                 if (err) return reject(err);
                 openPorts.set(serial_port, sp);
-                sp.on('close', () => openPorts.delete(serial_port));
+                sp.on('close', () => {
+                    openPorts.delete(serial_port);
+                    weightMachine.unregisterCloser(serial_port);
+                    fatMachine.unregisterCloser(serial_port);
+                });
+
+                // Let weightMachine.connect() OR fatMachine.connect() force-release
+                // this exact handle later if the real machine connection needs the
+                // same port path — prevents a leftover Test session from blocking it.
+                weightMachine.registerCloser(serial_port, () => new Promise(res => sp.close(() => res())));
+                fatMachine.registerCloser(serial_port, () => new Promise(res => sp.close(() => res())));
+
                 resolve();
             });
         });
@@ -257,9 +283,34 @@ exports.connectWeightMachine = async (req, res) => {
         res.status(400).json({ success: false, message: err.message });
     }
 };
+
 // ─── POST /api/settings/ports/weight/disconnect ──────────────────────────────
 exports.disconnectWeightMachine = async (req, res) => {
     if (!requireAdmin(req, res)) return;
     weightMachine.disconnect();
     res.json({ success: true, message: 'Disconnected from weight machine.' });
+};
+
+// ─── GET /api/settings/ports/fat/status ──────────────────────────────────────
+exports.getFatStatus = async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    res.json(fatMachine.getLatest());
+};
+
+// ─── POST /api/settings/ports/fat/connect ────────────────────────────────────
+exports.connectFatMachine = async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+        await fatMachine.connect(req.user.dairy_id);
+        res.json({ success: true, message: 'Connected to the serial port.' });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// ─── POST /api/settings/ports/fat/disconnect ─────────────────────────────────
+exports.disconnectFatMachine = async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    fatMachine.disconnect();
+    res.json({ success: true, message: 'Disconnected from Fat & SNF machine.' });
 };

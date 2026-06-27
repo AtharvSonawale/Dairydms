@@ -7,6 +7,13 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js"
   },
+  "bin": "index.js",
+  "pkg": {
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "build"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

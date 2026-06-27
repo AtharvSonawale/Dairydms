@@ -170,14 +170,24 @@ export default function MilkEntry() {
     const [weightPortConfig, setWeightPortConfig] = useState(null);
     const socketRef = useRef(null);
 
+    // RS232 Fat & SNF Machine — driven by the backend's live fat-machine reader
+    const [machineFat, setMachineFat] = useState("");
+    const [machineSnf, setMachineSnf] = useState("");
+    const [isFatConnected, setIsFatConnected] = useState(false);
+    const [lastFatRaw, setLastFatRaw] = useState("");
+    const [fatPortConfig, setFatPortConfig] = useState(null);
+    const [lastFatUpdateAt, setLastFatUpdateAt] = useState(null);
+
     // ── Connect to the backend's WebSocket and listen for live weight updates ──
     // ── Load the weight machine's configured port (for display under "Weight") ──
     useEffect(() => {
         api.get("/settings/ports")
-            .then(({ data }) => setWeightPortConfig(data?.weight || null))
+            .then(({ data }) => {
+                setWeightPortConfig(data?.weight || null);
+                setFatPortConfig(data?.fat || null);
+            })
             .catch(() => { /* leave as null — shown as "not configured" */ });
     }, []);
-
     // ── Connect to the backend's WebSocket and listen for live weight updates ──
     useEffect(() => {
         const resolvedSocketUrl =
@@ -202,14 +212,31 @@ export default function MilkEntry() {
             }
         })
 
+        socket.on("fat:update", (reading) => {
+            setIsFatConnected(!!reading.connected);
+            if (reading.fat !== null && reading.fat !== undefined) {
+                const fatValue = reading.fat.toFixed(2);
+                setMachineFat(fatValue);
+                set("fat", fatValue);
+                fetchAutoRate(fatValue, reading.snf !== null && reading.snf !== undefined ? reading.snf.toFixed(2) : form.snf, form.milk_type);
+            }
+            if (reading.snf !== null && reading.snf !== undefined) {
+                const snfValue = reading.snf.toFixed(2);
+                setMachineSnf(snfValue);
+                set("snf", snfValue);
+            }
+            setLastFatRaw(reading.raw || "");
+            setLastFatUpdateAt(Date.now());
+        })
+
         return () => {
             socket.disconnect();
         };
     }, []);
 
     // Manual connect/disconnect — talks to the backend, not the browser's hardware
-    const connectSerialPort = async () => {
-        showFlash("success", "Connecting to weight machine…"); // immediate feedback while we wait ~3s
+    const connectSerialPort = async (silent = false) => {
+        if (!silent) showFlash("success", "Connecting to weight machine…");
         try {
             const { data } = await api.post("/settings/ports/weight/connect");
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
@@ -226,6 +253,52 @@ export default function MilkEntry() {
             showFlash("error", "Failed to disconnect.");
         }
     };
+
+    // Manual connect/disconnect for the Fat & SNF machine
+    const connectFatPort = async (silent = false) => {
+        if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
+        try {
+            const { data } = await api.post("/settings/ports/fat/connect");
+            showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
+        } catch (err) {
+            showFlash("error", err.response?.data?.message || "Failed to connect to Fat & SNF machine.");
+        }
+    };
+
+    const disconnectFatMachine = async () => {
+        try {
+            await api.post("/settings/ports/fat/disconnect");
+            showFlash("info", "Disconnected from Fat & SNF machine.");
+        } catch {
+            showFlash("error", "Failed to disconnect.");
+        }
+    };
+
+
+    // ── Auto-connect to the weight machine the moment this page mounts ──
+    // (e.g. navigating here from AppLayout's sidebar) — no button click needed.
+    // Stays connected in the background even after navigating away, by design.
+    //
+    // Guarded with a ref because React StrictMode double-invokes effects in
+    // dev (mount → cleanup → mount again). Without this guard, two concurrent
+    // /weight/connect requests race each other opening the same serial port,
+    // and the loser surfaces a spurious "Access denied" toast even though the
+    // connection ultimately succeeds.
+    const autoConnectFired = useRef(false);
+    useEffect(() => {
+        if (autoConnectFired.current) return;
+        autoConnectFired.current = true;
+        connectSerialPort(true); // silent: skip the "Connecting…" toast on auto-attempt
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const autoConnectFatFired = useRef(false);
+    useEffect(() => {
+        if (autoConnectFatFired.current) return;
+        autoConnectFatFired.current = true;
+        connectFatPort(true); // silent: skip the "Connecting…" toast on auto-attempt
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Start the tour
     const startMilkEntryTour = () => {
@@ -910,21 +983,23 @@ export default function MilkEntry() {
                 )}
 
                 {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
-                    {/* Machine Quantity — full-width top row, high-contrast */}
+                {/* Machine status rows — side-by-side on sm+ screens, stacked on mobile */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+
+                    {/* Weight */}
                     <div
                         data-tour="machine-qty-field"
-                        className="flex items-center justify-between gap-4 mb-4 px-5 py-4 rounded-2xl bg-gray-950 border-2 border-emerald-400 shadow-lg shadow-emerald-500/10"
+                        className="flex flex-wrap items-center justify-between gap-3 flex-1 px-4 py-3 rounded-2xl bg-gray-950 border-2 border-emerald-400 shadow-lg shadow-emerald-500/10"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                                <Scale size={18} className="text-emerald-400" />
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                                <Scale size={16} className="text-emerald-400" />
                             </div>
                             <div>
-                                <span className="block text-[11px] font-bold text-emerald-300 uppercase tracking-widest">
+                                <span className="block text-[10px] font-bold text-emerald-300 uppercase tracking-widest">
                                     Weight
                                 </span>
-                                <span className={`flex items-center gap-1.5 text-md font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"}`}>
+                                <span className={`flex items-center gap-1.5 text-xs font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`} />
                                     {weightPortConfig?.serial_port
                                         ? <>
@@ -934,34 +1009,30 @@ export default function MilkEntry() {
                                         : "No port configured — set up in Port Settings"}
                                 </span>
                             </div>
-                            <div className="relative ml-1">
+                            <div className="relative ml-1 flex flex-col gap-0.5">
+                                <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">Qty</span>
                                 <TinyInput
                                     value={machineQty}
                                     readOnly
                                     placeholder="0.0"
                                     type="text"
                                     inputMode="decimal"
-                                    className={`font-mono font-extrabold text-xl text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-black"}`}
-                                    style={{ width: "140px", padding: "10px 8px" }}
+                                    className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-black"}`}
+                                    style={{ width: "100px", padding: "8px 6px" }}
                                 />
                                 {isMachineConnected && (
-                                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-400 animate-pulse ring-2 ring-gray-950" />
+                                    <span className="absolute top-3.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-400 animate-pulse ring-2 ring-gray-950" />
                                 )}
                             </div>
-                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                                <Weight size={18} className="text-emerald-400" />
-                            </div>
-                            <span className="block text-[11px] font-bold text-emerald-300 uppercase tracking-widest">
-                                UOM
-                            </span>
-                            <div className="relative">
+                            <div className="relative flex flex-col gap-0.5">
+                                <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">UOM</span>
                                 <TinyInput
                                     value={machineUom}
                                     readOnly
                                     placeholder="—"
                                     type="text"
-                                    className={`font-mono font-bold text-sm uppercase text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-white"}`}
-                                    style={{ width: "60px", padding: "10px 4px" }}
+                                    className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-white"}`}
+                                    style={{ width: "50px", padding: "8px 4px" }}
                                 />
                             </div>
                         </div>
@@ -971,7 +1042,7 @@ export default function MilkEntry() {
                                 type="button"
                                 onClick={connectSerialPort}
                                 disabled={isMachineConnected}
-                                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition ${isMachineConnected
+                                className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isMachineConnected
                                     ? "bg-emerald-400 text-emerald-950"
                                     : "bg-blue-500 text-white hover:bg-blue-400"
                                     }`}
@@ -983,7 +1054,7 @@ export default function MilkEntry() {
                                 <button
                                     type="button"
                                     onClick={disconnectMachine}
-                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition"
+                                    className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition whitespace-nowrap"
                                 >
                                     Disconnect
                                 </button>
@@ -991,229 +1062,83 @@ export default function MilkEntry() {
                         </div>
                     </div>
 
-                    {/* New / Edit Entry heading — now below the machine qty row */}
-                    <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">
-                            {editingEntry ? t('milkEntry.editEntry') : t('milkEntry.newEntry')}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                            {editingEntry && (
-                                <button onClick={handleCancelEdit}
-                                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
-                                    <X size={12} /> {t('milkEntry.cancelEdit')}
+                    {/* Fat & SNF */}
+                    <div
+                        data-tour="fat-snf-field"
+                        className="flex flex-wrap items-center justify-between gap-3 flex-1 px-4 py-3 rounded-2xl bg-gray-950 border-2 border-violet-400 shadow-lg shadow-violet-500/10"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                                <FlaskConical size={16} className="text-violet-400" />
+                            </div>
+                            <div>
+                                <span className="block text-[10px] font-bold text-violet-300 uppercase tracking-widest">
+                                    Fat & SNF
+                                </span>
+                                <span className={`flex items-center gap-1.5 text-xs font-mono ${isFatConnected ? "text-violet-300" : "text-gray-400"}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFatConnected ? "bg-violet-400 animate-pulse" : "bg-gray-500"}`} />
+                                    {fatPortConfig?.serial_port
+                                        ? <>
+                                            {fatPortConfig.serial_port} · {fatPortConfig.serial_baud_rate} baud
+                                            {isFatConnected ? " · Live" : " · Not connected"}
+                                        </>
+                                        : "No port configured — set up in Port Settings"}
+                                </span>
+                            </div>
+                            <div className="relative ml-1 flex flex-col gap-0.5">
+                                <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest text-center">Fat</span>
+                                <TinyInput
+                                    value={machineFat}
+                                    readOnly
+                                    placeholder="Fat"
+                                    type="text"
+                                    inputMode="decimal"
+                                    className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isFatConnected ? "bg-violet-500/15 border-violet-400 text-violet-300" : "bg-white/5 border-white/20 text-black"}`}
+                                    style={{ width: "76px", padding: "8px 6px" }}
+                                />
+                                {isFatConnected && (
+                                    <span className="absolute top-3.5 -right-1.5 w-4 h-4 rounded-full bg-violet-400 animate-pulse ring-2 ring-gray-950" />
+                                )}
+                            </div>
+                            <div className="relative flex flex-col gap-0.5">
+                                <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest text-center">SNF</span>
+                                <TinyInput
+                                    value={machineSnf}
+                                    readOnly
+                                    placeholder="SNF"
+                                    type="text"
+                                    inputMode="decimal"
+                                    className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isFatConnected ? "bg-violet-500/15 border-violet-400 text-violet-300" : "bg-white/5 border-white/20 text-black"}`}
+                                    style={{ width: "76px", padding: "8px 6px" }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                onClick={connectFatPort}
+                                disabled={isFatConnected}
+                                className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isFatConnected
+                                    ? "bg-violet-400 text-violet-950"
+                                    : "bg-blue-500 text-white hover:bg-blue-400"
+                                    }`}
+                            >
+                                {isFatConnected ? "Connected" : "Connect RS232"}
+                            </button>
+
+                            {isFatConnected && (
+                                <button
+                                    type="button"
+                                    onClick={disconnectFatMachine}
+                                    className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition whitespace-nowrap"
+                                >
+                                    Disconnect
                                 </button>
                             )}
                         </div>
                     </div>
-                    {editingEntry && (
-                        <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-                            ✏ {t('milkEntry.editingBanner')} <strong>{editingEntry.seller_name}</strong> · {editingEntry.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')} · {editingEntry.milk_type === "cow" ? t('milkEntry.cow') : t('milkEntry.buffalo')} · {new Date(editingEntry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </div>
-                    )}
-                    <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
 
-                        <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />} data-tour="seller-field">
-                            <div className="relative" style={{ width: "160px" }}>
-                                <TinyInput
-                                    value={sellerSearch}
-                                    onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
-                                    onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSellerSearch(val);
-                                        setHighlightedIdx(-1);
-                                        setDropdownOpen(true);
-                                        if (!val) { set("seller_id", ""); return; }
-                                        const exact = sellers.find(
-                                            (s) =>
-                                                String(s.seller_id) === val.trim() ||
-                                                (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
-                                        );
-                                        if (exact) {
-                                            handleSellerChange(exact.seller_id);
-                                            setSellerSearch(exact.name);
-                                            setDropdownOpen(false);
-                                        }
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (!dropdownOpen || filteredSellers.length === 0) return;
-                                        if (e.key === "ArrowDown") {
-                                            e.preventDefault();
-                                            setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
-                                        } else if (e.key === "ArrowUp") {
-                                            e.preventDefault();
-                                            setHighlightedIdx(i => Math.max(i - 1, 0));
-                                        } else if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                            if (sel) {
-                                                handleSellerChange(sel.seller_id);
-                                                setSellerSearch(sel.name);
-                                                setDropdownOpen(false);
-                                            }
-                                        } else if (e.key === "Escape") {
-                                            setDropdownOpen(false);
-                                        }
-                                    }}
-                                    placeholder={t('milkEntry.searchPlaceholder')}
-                                    className="pr-7"
-                                    style={{ width: "160px" }}
-                                />
-                                {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                        <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                                            {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('milkEntry.matchesPlural') : t('milkEntry.matches')}` : t('milkEntry.sellersAZ')}
-                                        </p>
-                                        {filteredSellers.map((s, idx) => (
-                                            <button key={s.seller_id} type="button"
-                                                onMouseEnter={() => setHighlightedIdx(idx)}
-                                                onClick={() => {
-                                                    handleSellerChange(s.seller_id);
-                                                    setSellerSearch(s.name);
-                                                    setDropdownOpen(false);
-                                                }}
-                                                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                                                    ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                                                    ${highlightedIdx === idx ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
-                                                    {s.name?.charAt(0)?.toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                    <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                                {selectedSeller && (
-                                    <button type="button" onClick={() => { set("seller_id", ""); setSellerSearch(""); setDropdownOpen(false); }}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                                        <X size={12} />
-                                    </button>
-                                )}
-                            </div>
-                            {selectedSeller && (
-                                <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                                    ID: {selectedSeller.seller_id} · {selectedSeller.seller_type || "—"}
-                                </p>
-                            )}
-                        </Field>
-
-                        <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={12} /> : <Moon size={12} />} data-tour="shift-field">
-                            <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
-                        </Field>
-
-                        <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={12} />}>
-                            <MilkTypeToggle
-                                value={form.milk_type}
-                                onChange={(v) => {
-                                    set("milk_type", v);
-                                    if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
-                                    else fetchAutoRate(form.fat, form.snf, v);
-                                }}
-                                t={t}
-                            />
-                        </Field>
-
-                        <Field label={t('milkEntry.sellerTypeLabel')} icon={<User size={12} />}>
-                            <SellerTypeToggle value={form.seller_type} onChange={(v) => set("seller_type", v)} />
-                        </Field>
-
-                        <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={12} />} data-tour="qty-field">
-                            <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
-                                placeholder="0.0" type="number" step="0.01"
-                                className="bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-200"
-                                style={{ width: "72px" }} />
-                        </Field>
-
-                        <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={12} />} data-tour="fat-field">
-                            <TinyInput
-                                value={form.fat}
-                                onChange={(e) => {
-                                    set("fat", e.target.value);
-                                    fetchAutoRate(e.target.value, form.snf, form.milk_type);
-                                }}
-                                placeholder="0.0" type="number" step="0.01"
-                                className="bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-100"
-                                style={{ width: "64px" }} />
-                        </Field>
-
-                        <Field label={t('milkEntry.snfLabel')} icon={<FlaskConical size={12} />}>
-                            <TinyInput
-                                value={form.snf}
-                                onChange={(e) => {
-                                    set("snf", e.target.value);
-                                    fetchAutoRate(form.fat, e.target.value, form.milk_type);
-                                }}
-                                placeholder="0.0" type="number" step="0.01"
-                                className="bg-violet-50 border-violet-200 text-violet-700 focus:ring-violet-100"
-                                style={{ width: "64px" }} />
-                        </Field>
-
-                        <Field label={t('milkEntry.waterLabel')} icon={<Waves size={12} />}>
-                            <div className="relative">
-                                <TinyInput value={form.water} onChange={(e) => set("water", e.target.value)}
-                                    placeholder="0.0" type="number" step="0.01"
-                                    className={waterRisk(form.water)
-                                        ? "bg-red-50 border-red-300 text-red-600 focus:ring-red-100"
-                                        : "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-100"}
-                                    style={{ width: "64px" }} />
-                                {waterRisk(form.water) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center">
-                                        <AlertTriangle size={8} className="text-white" />
-                                    </span>
-                                )}
-                            </div>
-                            {waterRisk(form.water) && (
-                                <p className="text-[10px] text-red-500 font-semibold mt-0.5">{t('milkEntry.waterRisk')}</p>
-                            )}
-                        </Field>
-
-                        <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={12} />}>
-                            <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
-                                placeholder="₹0.00" type="number" step="0.01"
-                                className="bg-gray-50 border-gray-200 text-gray-800"
-                                style={{ width: "80px" }} />
-                        </Field>
-
-                        {amount && (
-                            <Field label={t('milkEntry.amountLabel')} icon={<TrendingUp size={12} />}>
-                                <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
-                                    ₹{amount}
-                                </div>
-                            </Field>
-                        )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
-                        <p className="text-xs text-gray-400">
-                            {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')} {t('milkEntry.entriesOn')}{" "}
-                            {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </p>
-                        <button type="button" onClick={editingEntry ? handleUpdate : handleSave} disabled={saving}
-                            data-tour="save-btn"
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-        ${saving ? "bg-gray-300 cursor-not-allowed" : editingEntry ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
-                            <Save size={15} />
-                            {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
-                        </button>
-                    </div>
-
-                    {/* Debug display for the latest raw frame from the weight machine */}
-                    {lastWeightRaw && (
-                        <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-2">
-                                Last Raw Frame
-                                {lastUpdateAt && (
-                                    <span className="text-emerald-500 font-normal">
-                                        · updated {Math.max(0, Math.round((Date.now() - lastUpdateAt) / 1000))}s ago
-                                    </span>
-                                )}
-                            </p>
-                            <pre className="text-[10px] font-mono text-gray-600">{lastWeightRaw}</pre>
-                        </div>
-                    )}
                 </div>
 
                 {/* Entries Table */}

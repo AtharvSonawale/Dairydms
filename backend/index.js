@@ -31,6 +31,7 @@ const walkinPaymentRoutes = require("./routes/walkinpayment.routes");
 const adminManagementRoutes = require('./routes/adminmanagement.routes');
 const portsRouter = require('./routes/ports.routes');
 const weightMachine = require('./services/weightMachine.service');
+const fatMachine = require('./services/fatMachine.service');
 
 const tourRoutes = require('./routes/tour.routes');
 
@@ -80,6 +81,7 @@ const io = new Server(server, {
 });
 
 weightMachine.init(io);
+fatMachine.init(io);
 
 server.listen(process.env.PORT, () => {
     console.log(`Server running on port ${process.env.PORT}`);
