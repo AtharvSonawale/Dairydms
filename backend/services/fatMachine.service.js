@@ -5,7 +5,7 @@ const pool = require('../config/db');
 
 let activePort = null;       // live SerialPort instance, or null if not connected
 let activeParser = null;
-let latestReading = { fat: null, snf: null, raw: null, timestamp: null, connected: false };
+let latestReading = { fat: null, snf: null, water: null, raw: null, timestamp: null, connected: false };
 let ioInstance = null;        // socket.io server instance, set via init()
 
 // ─── Registry of external close functions, keyed by port path ────────────────
@@ -16,20 +16,29 @@ let ioInstance = null;        // socket.io server instance, set via init()
 // a circular require.
 const externalClosers = new Map(); // path -> () => Promise<void>
 
-// ─── Parse a line like "+004.20,+008.50" (fat,snf) ────────────────────────────
-// NOTE: This regex assumes a comma-separated "<fat>,<snf>" frame, mirroring
-// the signed-decimal style of the weight machine's "+0005.460 Ltr" format.
-// Swap this out for whatever your actual analyzer's datasheet specifies —
-// some devices send space-separated values, labeled fields (e.g. "F:4.20
-// S:8.50"), or fixed-width columns instead.
+// ─── Parse a line like:
+// "LE2.12|A|CH1|F03.90|S08.50|C29.40|P03.10|L04.70|s00.70|W00.00|T33.13"
+// Pipe-delimited frame from the milk analyzer. Field prefixes:
+//   LE.. = firmware version, A = analyzer status, CH.. = channel number,
+//   F = Fat %, S = SNF % (uppercase — distinct from lowercase "s" = Salts %),
+//   C = CLR, P = Protein %, L = Lactose %, W = Added Water %, T = Temp (°C).
+// We only need Fat (F) and SNF (S, uppercase) for now; the regex is
+// anchored to a literal uppercase "S" right after "|" so it never matches
+// the lowercase "s00.70" (Salts) field that follows L04.70.
 function parseAnalyzerLine(line) {
     const trimmed = (line || '').trim();
-    const match = trimmed.match(/^([+-]?\d+\.\d+)\s*,\s*([+-]?\d+\.\d+)/);
-    if (!match) return null;
+    if (!trimmed) return null;
 
-    const fat = parseFloat(match[1]);
-    const snf = parseFloat(match[2]);
-    return { fat, snf, raw: trimmed };
+    const fatMatch = trimmed.match(/\|F(\d+\.\d+)/);
+    const snfMatch = trimmed.match(/\|S(\d+\.\d+)/); // uppercase S only — not lowercase s (Salts)
+    const waterMatch = trimmed.match(/\|W(\d+\.\d+)/); // Added Water %
+
+    if (!fatMatch || !snfMatch) return null;
+
+    const fat = parseFloat(fatMatch[1]);
+    const snf = parseFloat(snfMatch[1]);
+    const water = waterMatch ? parseFloat(waterMatch[1]) : null;
+    return { fat, snf, water, raw: trimmed };
 }
 
 // ─── Push the latest reading to all connected frontend clients ───────────────
@@ -146,6 +155,7 @@ async function connect(dairyId) {
                 latestReading = {
                     fat: parsed.fat,
                     snf: parsed.snf,
+                    water: parsed.water,
                     raw: parsed.raw,
                     timestamp: new Date().toISOString(),
                     connected: true,
@@ -179,7 +189,7 @@ async function connect(dairyId) {
             // "connected: true" now means the OS port handle opened successfully.
             // It does NOT guarantee the analyzer is sending valid data — check
             // latestReading.timestamp / isReceivingData() if you need that distinction.
-            latestReading = { fat: null, snf: null, raw: null, timestamp: null, connected: true };
+            latestReading = { fat: null, snf: null, water: null, raw: null, timestamp: null, connected: true };
             broadcast();
             resolve();
         });
