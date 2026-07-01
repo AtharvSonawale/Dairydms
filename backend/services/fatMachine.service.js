@@ -5,7 +5,7 @@ const pool = require('../config/db');
 
 let activePort = null;       // live SerialPort instance, or null if not connected
 let activeParser = null;
-let latestReading = { fat: null, snf: null, water: null, raw: null, timestamp: null, connected: false };
+let latestReading = { fat: null, snf: null, water: null, protein: null, raw: null, timestamp: null, connected: false };
 let ioInstance = null;        // socket.io server instance, set via init()
 
 // ─── Registry of external close functions, keyed by port path ────────────────
@@ -30,15 +30,17 @@ function parseAnalyzerLine(line) {
     if (!trimmed) return null;
 
     const fatMatch = trimmed.match(/\|F(\d+\.\d+)/);
-    const snfMatch = trimmed.match(/\|S(\d+\.\d+)/); // uppercase S only — not lowercase s (Salts)
-    const waterMatch = trimmed.match(/\|W(\d+\.\d+)/); // Added Water %
+    const snfMatch = trimmed.match(/\|S(\d+\.\d+)/);     // uppercase S only — not lowercase s (Salts)
+    const waterMatch = trimmed.match(/\|W(\d+\.\d+)/);     // Added Water %
+    const proteinMatch = trimmed.match(/\|P(\d+\.\d+)/);   // Protein %
 
     if (!fatMatch || !snfMatch) return null;
 
     const fat = parseFloat(fatMatch[1]);
     const snf = parseFloat(snfMatch[1]);
     const water = waterMatch ? parseFloat(waterMatch[1]) : null;
-    return { fat, snf, water, raw: trimmed };
+    const protein = proteinMatch ? parseFloat(proteinMatch[1]) : null;
+    return { fat, snf, water, protein, raw: trimmed };
 }
 
 // ─── Push the latest reading to all connected frontend clients ───────────────
@@ -156,6 +158,7 @@ async function connect(dairyId) {
                     fat: parsed.fat,
                     snf: parsed.snf,
                     water: parsed.water,
+                    protein: parsed.protein,
                     raw: parsed.raw,
                     timestamp: new Date().toISOString(),
                     connected: true,
@@ -189,7 +192,7 @@ async function connect(dairyId) {
             // "connected: true" now means the OS port handle opened successfully.
             // It does NOT guarantee the analyzer is sending valid data — check
             // latestReading.timestamp / isReceivingData() if you need that distinction.
-            latestReading = { fat: null, snf: null, water: null, raw: null, timestamp: null, connected: true };
+            latestReading = { fat: null, snf: null, water: null, protein: null, raw: null, timestamp: null, connected: true };
             broadcast();
             resolve();
         });
