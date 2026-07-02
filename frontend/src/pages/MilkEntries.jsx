@@ -32,6 +32,12 @@ const fmtDate = (d) =>
 
 const waterRisk = (v) => parseFloat(v) > 5;
 
+const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
+const snfBelowThreshold = (v, milk_type) =>
+    v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) < (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
+const snfAboveThreshold = (v, milk_type) =>
+    v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) >= (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
+
 const EMPTY_FORM = {
     seller_id: "",
     seller_type: "Utpadak",
@@ -41,8 +47,9 @@ const EMPTY_FORM = {
     fat: "",
     snf: "",
     water: "",
+    protein: "",
     rate_applied: "",
-    machine_qty: "", // Added machine quantity field
+    machine_qty: "",
 };
 
 const FAT_MIN = 2.5, FAT_MAX = 9.0;
@@ -173,6 +180,7 @@ export default function MilkEntry() {
     // RS232 Fat & SNF Machine — driven by the backend's live fat-machine reader
     const [machineFat, setMachineFat] = useState("");
     const [machineSnf, setMachineSnf] = useState("");
+    const [machineProtein, setMachineProtein] = useState("");
     const [isFatConnected, setIsFatConnected] = useState(false);
     const [lastFatRaw, setLastFatRaw] = useState("");
     const [fatPortConfig, setFatPortConfig] = useState(null);
@@ -227,8 +235,12 @@ export default function MilkEntry() {
                 set("snf", snfValue);
             }
             if (reading.water !== null && reading.water !== undefined) {
-                const waterValue = reading.water.toFixed(2);
-                set("water", waterValue); // auto-fill Water % from the analyzer's W field
+                set("water", reading.water.toFixed(2));
+            }
+            if (reading.protein !== null && reading.protein !== undefined) {
+                const proteinValue = reading.protein.toFixed(2);
+                setMachineProtein(proteinValue);
+                set("protein", proteinValue);
             }
             setLastFatRaw(reading.raw || "");
             setLastFatUpdateAt(Date.now());
@@ -512,8 +524,9 @@ export default function MilkEntry() {
             showFlash("success", t('milkEntry.savedSuccess'));
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
-            setMachineQty(""); // Reset machine quantity
+            setMachineQty("");
             setMachineUom("");
+            setMachineProtein("");
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -575,6 +588,7 @@ export default function MilkEntry() {
             setSellerSearch("");
             setMachineQty("");
             setMachineUom("");
+            setMachineProtein("");
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -601,6 +615,7 @@ export default function MilkEntry() {
         setSellerSearch("");
         setMachineQty("");
         setMachineUom("");
+        setMachineProtein("");
     };
 
     const handleDelete = async (entryId) => {
@@ -842,12 +857,13 @@ export default function MilkEntry() {
     const COLS = [
         t('milkEntry.colNo'), t('milkEntry.colSeller'), t('milkEntry.colCode'), t('milkEntry.colShift'), t('milkEntry.colMilk'),
         t('milkEntry.colQty'), t('milkEntry.colFat'), t('milkEntry.colSnf'), t('milkEntry.colWater'),
-        t('milkEntry.colRate'), t('milkEntry.colAmount'), t('milkEntry.colTime'), t('milkEntry.colPremium'),
+        ...(isAdmin ? [t('milkEntry.colRate'), t('milkEntry.colAmount')] : []),
+        t('milkEntry.colTime'), t('milkEntry.colPremium'),
         ...(isAdmin ? [t('milkEntry.colActions')] : []),
     ];
     const GRID = isAdmin
         ? "40px 1.4fr 70px 100px 90px 72px 65px 65px 75px 80px 90px 75px 85px 120px"
-        : "40px 1.4fr 70px 100px 90px 72px 65px 65px 75px 80px 90px 75px 85px";
+        : "40px 1.4fr 70px 100px 90px 72px 65px 65px 75px 75px 85px";
 
     if (permLoading) return (
         <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
@@ -1135,6 +1151,18 @@ export default function MilkEntry() {
                                         style={{ width: "76px", padding: "8px 6px" }}
                                     />
                                 </div>
+                                <div className="relative flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest text-center">Protein</span>
+                                    <TinyInput
+                                        value={machineProtein}
+                                        readOnly
+                                        placeholder="Prot"
+                                        type="text"
+                                        inputMode="decimal"
+                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isFatConnected ? "bg-violet-500/15 border-violet-400 text-violet-300" : "bg-white/5 border-white/20 text-black"}`}
+                                        style={{ width: "76px", padding: "8px 6px" }}
+                                    />
+                                </div>
                             </div>
 
                             <div className="flex items-center gap-1.5">
@@ -1293,14 +1321,51 @@ export default function MilkEntry() {
                         </Field>
 
                         <Field label={t('milkEntry.snfLabel')} icon={<FlaskConical size={12} />}>
+                            <div className="relative">
+                                <TinyInput
+                                    value={form.snf}
+                                    onChange={(e) => {
+                                        set("snf", e.target.value);
+                                        fetchAutoRate(form.fat, e.target.value, form.milk_type);
+                                    }}
+                                    placeholder="0.0" type="number" step="0.01"
+                                    className={
+                                        snfBelowThreshold(form.snf, form.milk_type)
+                                            ? "bg-red-50 border-red-300 text-red-600 focus:ring-red-100"
+                                            : snfAboveThreshold(form.snf, form.milk_type)
+                                                ? "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-100"
+                                                : "bg-violet-50 border-violet-200 text-violet-700 focus:ring-violet-100"
+                                    }
+                                    style={{ width: "64px" }} />
+                                {snfBelowThreshold(form.snf, form.milk_type) && (
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center">
+                                        <AlertTriangle size={8} className="text-white" />
+                                    </span>
+                                )}
+                                {snfAboveThreshold(form.snf, form.milk_type) && (
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                                        <BadgeCheck size={8} className="text-white" />
+                                    </span>
+                                )}
+                            </div>
+                            {snfBelowThreshold(form.snf, form.milk_type) && (
+                                <p className="text-[10px] text-red-500 font-semibold mt-0.5">
+                                    Below {SNF_THRESHOLD[form.milk_type]}% min
+                                </p>
+                            )}
+                            {snfAboveThreshold(form.snf, form.milk_type) && (
+                                <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                                    SNF OK ✓
+                                </p>
+                            )}
+                        </Field>
+
+                        <Field label="Protein %" icon={<FlaskConical size={12} />}>
                             <TinyInput
-                                value={form.snf}
-                                onChange={(e) => {
-                                    set("snf", e.target.value);
-                                    fetchAutoRate(form.fat, e.target.value, form.milk_type);
-                                }}
+                                value={form.protein}
+                                onChange={(e) => set("protein", e.target.value)}
                                 placeholder="0.0" type="number" step="0.01"
-                                className="bg-violet-50 border-violet-200 text-violet-700 focus:ring-violet-100"
+                                className="bg-pink-50 border-pink-200 text-pink-700 focus:ring-pink-100"
                                 style={{ width: "64px" }} />
                         </Field>
 
@@ -1323,14 +1388,16 @@ export default function MilkEntry() {
                             )}
                         </Field>
 
-                        <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={12} />}>
-                            <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
-                                placeholder="₹0.00" type="number" step="0.01"
-                                className="bg-gray-50 border-gray-200 text-gray-800"
-                                style={{ width: "80px" }} />
-                        </Field>
+                        {isAdmin && (
+                            <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={12} />}>
+                                <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
+                                    placeholder="₹0.00" type="number" step="0.01"
+                                    className="bg-gray-50 border-gray-200 text-gray-800"
+                                    style={{ width: "80px" }} />
+                            </Field>
+                        )}
 
-                        {amount && (
+                        {isAdmin && amount && (
                             <Field label={t('milkEntry.amountLabel')} icon={<TrendingUp size={12} />}>
                                 <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
                                     ₹{amount}
@@ -1452,8 +1519,12 @@ export default function MilkEntry() {
                                             </span>
                                         </TableCell>
 
-                                        <TableCell className="text-gray-700 font-mono text-xs font-semibold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
-                                        <TableCell className="text-gray-900 font-bold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
+                                        {isAdmin && (
+                                            <TableCell className="text-gray-700 font-mono text-xs font-semibold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
+                                        )}
+                                        {isAdmin && (
+                                            <TableCell className="text-gray-900 font-bold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
+                                        )}
                                         <TableCell className="text-gray-400 font-mono text-xs">{fmtTime(r.entry_time)}</TableCell>
 
                                         <TableCell>
@@ -1566,9 +1637,14 @@ export default function MilkEntry() {
                             <div className="px-3 py-2.5 border-r border-gray-100" />
                             <div className="px-3 py-2.5 border-r border-gray-100" />
                             <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
-                                ₹{entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2)}
-                            </div>
+                            {isAdmin && (
+                                <>
+                                    <div className="px-3 py-2.5 border-r border-gray-100" />
+                                    <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                                        ₹{entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2)}
+                                    </div>
+                                </>
+                            )}
                             <div className="px-3 py-2.5 border-r border-gray-100" />
                             <div className="px-3 py-2.5" />
                         </div>
