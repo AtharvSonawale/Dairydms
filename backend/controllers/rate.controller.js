@@ -148,21 +148,23 @@ exports.deleteRate = async (req, res) => {
     }
 };
 // ── POST /api/rates/copy-forward ─────────────────────────────
-// Copies all rates from from_date as new rows with effective_from = to_date.
-// Source must have rates saved for from_date exactly — no bleeding from other dates.
+// Copies rates from from_date to every date in [start_date, end_date] in ONE bulk insert.
 exports.copyForward = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
-        const { from_date, to_date, milk_type } = req.body;
+        const { from_date, start_date, end_date, milk_type } = req.body;
 
-        if (!from_date || !to_date || !milk_type)
-            return res.status(400).json({ message: 'from_date, to_date and milk_type are required' });
+        if (!from_date || !start_date || !end_date || !milk_type)
+            return res.status(400).json({ message: 'from_date, start_date, end_date and milk_type are required' });
+
+        if (end_date < start_date)
+            return res.status(400).json({ message: 'end_date must be on or after start_date' });
 
         const table = tbl(milk_type);
 
-        // only fetch rates saved exactly for from_date, in this centre
+        // fetch source rates once
         const [rows] = await pool.query(
-            `SELECT * FROM ${table} WHERE centre_id = ? AND effective_from = ?`,
+            `SELECT fat, snf, rate, mrp FROM ${table} WHERE centre_id = ? AND effective_from = ?`,
             [centreId, from_date]
         );
 
@@ -171,28 +173,42 @@ exports.copyForward = async (req, res) => {
                 message: `No rates found for ${from_date}. Only dates with saved rates can be copied.`,
             });
 
-        let inserted = 0;
-        let skipped = 0;
-
-        for (const row of rows) {
-            const [dup] = await pool.query(
-                `SELECT rate_id FROM ${table}
-                 WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
-                [centreId, row.fat, row.snf, to_date]
-            );
-            if (dup.length > 0) { skipped++; continue; }
-
-            await pool.query(
-                `INSERT INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to) VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-                [centreId, row.fat, row.snf, row.rate, row.mrp || null, to_date]
-            );
-            inserted++;
+        // build target date list
+        const targetDates = [];
+        const cursor = new Date(start_date);
+        const end = new Date(end_date);
+        while (cursor <= end) {
+            targetDates.push(cursor.toISOString().split('T')[0]);
+            cursor.setDate(cursor.getDate() + 1);
         }
 
+        // cross join rows × target dates into one bulk value set
+        const values = [];
+        for (const date of targetDates) {
+            for (const row of rows) {
+                values.push([centreId, row.fat, row.snf, row.rate, row.mrp || null, date]);
+            }
+        }
+
+        // chunk to keep any single query reasonably sized
+        const CHUNK_SIZE = 2000;
+        let inserted = 0;
+        for (let i = 0; i < values.length; i += CHUNK_SIZE) {
+            const chunk = values.slice(i, i + CHUNK_SIZE);
+            const [result] = await pool.query(
+                `INSERT IGNORE INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to) VALUES ?`,
+                [chunk]
+            );
+            inserted += result.affectedRows;
+        }
+
+        const skipped = values.length - inserted;
+
         res.json({
-            message: `${inserted} rate(s) copied to ${to_date}${skipped ? `, ${skipped} skipped (already exist)` : ''}.`,
+            message: `${inserted} rate(s) copied across ${targetDates.length} date(s)${skipped ? `, ${skipped} skipped (already exist)` : ''}.`,
             inserted,
             skipped,
+            days: targetDates.length,
         });
     } catch (err) {
         console.error('copyForward error:', err);

@@ -50,7 +50,7 @@ exports.createGavaliEvent = async (req, res) => {
     try {
         const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
-        const { event_name, occasion, from_date, to_date } = req.body;
+        const { event_name, occasion, from_date, to_date, cow_bonus = 0.25, buffalo_bonus = 0.50 } = req.body;
 
         if (!event_name || !from_date || !to_date) {
             return res.status(400).json({
@@ -700,6 +700,53 @@ exports.getGavaliEventSummary = async (req, res) => {
         });
     } catch (err) {
         console.error("getGavaliEventSummary error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/gavali-bonus/default-rates
+// Returns the centre's saved default cow/buffalo bonus rates
+// ═══════════════════════════════════════════════════════════════
+exports.getGavaliDefaultRates = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const [[row]] = await pool.query(
+            `SELECT cow_bonus, buffalo_bonus FROM gavali_bonus_default_rates WHERE centre_id = ?`,
+            [centreId]
+        );
+        res.json(row || { cow_bonus: 0.25, buffalo_bonus: 0.50 });
+    } catch (err) {
+        console.error("getGavaliDefaultRates error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PUT /api/gavali-bonus/default-rates
+// Upserts the centre's default cow/buffalo bonus rates
+// Body: { cow_bonus, buffalo_bonus }
+// ═══════════════════════════════════════════════════════════════
+exports.updateGavaliDefaultRates = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const operatorId = req.user.role === 'admin' ? null : req.user.id;
+        const { cow_bonus, buffalo_bonus } = req.body;
+
+        if (cow_bonus == null || buffalo_bonus == null)
+            return res.status(400).json({ message: "cow_bonus and buffalo_bonus are required." });
+
+        await pool.query(
+            `INSERT INTO gavali_bonus_default_rates (centre_id, cow_bonus, buffalo_bonus, updated_by)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE cow_bonus = VALUES(cow_bonus), buffalo_bonus = VALUES(buffalo_bonus),
+                updated_by = VALUES(updated_by), updated_at = NOW()`,
+            [centreId, cow_bonus, buffalo_bonus, operatorId]
+        );
+
+        res.json({ message: "Default rates updated successfully." });
+    } catch (err) {
+        console.error("updateGavaliDefaultRates error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

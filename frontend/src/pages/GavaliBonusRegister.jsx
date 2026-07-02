@@ -156,6 +156,21 @@ export default function GavaliBonusRegister() {
 
     useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+
+    const fetchDefaultRates = useCallback(async () => {
+        try {
+            const { data } = await api.get("/gavali-bonus/default-rates");
+            setSlabs([
+                { milk_type: "cow", bonus: parseFloat(data.cow_bonus) },
+                { milk_type: "buffalo", bonus: parseFloat(data.buffalo_bonus) },
+            ]);
+        } catch (err) {
+            showFlash("error", t('gavaliBonus.rateLoadError'));
+        }
+    }, [t]);
+
+    useEffect(() => { fetchDefaultRates(); }, [fetchDefaultRates]);
+
     // ── Create Event ────────────────────────────────────────────
     const handleCreateEvent = async () => {
         if (!newEvent.event_name || !newEvent.from_date || !newEvent.to_date) {
@@ -641,10 +656,25 @@ export default function GavaliBonusRegister() {
     const handleSlabChange = (idx, field, val) =>
         setDraftSlabs(prev => prev.map((s, i) => i === idx ? { ...s, [field]: parseFloat(val) || 0 } : s));
 
-    const handleSaveSlabs = () => {
-        setSlabs(draftSlabs);
-        setEditingSlabs(false);
-        showFlash("success", t('gavaliBonus.slabUpdateSuccess'));
+    const handleSaveSlabs = async () => {
+        setSaving(true);
+        try {
+            const cow = draftSlabs.find(s => s.milk_type === "cow")?.bonus ?? 0.25;
+            const buffalo = draftSlabs.find(s => s.milk_type === "buffalo")?.bonus ?? 0.50;
+
+            await api.put("/gavali-bonus/default-rates", {
+                cow_bonus: cow,
+                buffalo_bonus: buffalo,
+            });
+
+            setSlabs(draftSlabs);
+            setEditingSlabs(false);
+            showFlash("success", t('gavaliBonus.slabUpdateSuccess'));
+        } catch (err) {
+            showFlash("error", err.response?.data?.message || t('gavaliBonus.slabUpdateError'));
+        } finally {
+            setSaving(false);
+        }
     };
 
     // ── Filtered List ───────────────────────────────────────────

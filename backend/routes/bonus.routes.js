@@ -12,7 +12,9 @@ const {
     deleteEvent,
     undoBonusPaid,
     getPaidStatus,
-    saveRegister
+    saveRegister,
+    getDefaultSlabs,
+    updateDefaultSlabs,
 } = require("../controllers/bonus.controller");
 
 router.use(protect);
@@ -31,6 +33,8 @@ router.delete("/events/:eventId/mark-paid/:sellerId", undoBonusPaid);
 router.get('/events/:eventId/paid-status', getPaidStatus);
 router.post('/save-register', saveRegister);
 
+router.get('/default-slabs', getDefaultSlabs);
+router.put('/default-slabs', updateDefaultSlabs);
 
 
 module.exports = router;

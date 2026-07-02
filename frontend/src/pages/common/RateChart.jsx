@@ -217,23 +217,14 @@ export default function RateChart() {
         if (copyEndDate < copyStartDate) { showFlash('error', t('rateChart.copyDateInvalid')); return; }
         setCopyingForward(true);
         try {
-            const dates = [];
-            const cursor = new Date(copyStartDate);
-            const end = new Date(copyEndDate);
-            while (cursor <= end) {
-                dates.push(cursor.toISOString().split('T')[0]);
-                cursor.setDate(cursor.getDate() + 1);
-            }
+            const { data } = await api.post('/rates/copy-forward', {
+                from_date: selectedDate,
+                start_date: copyStartDate,
+                end_date: copyEndDate,
+                milk_type: filter,
+            });
 
-            for (const date of dates) {
-                await api.post('/rates/copy-forward', {
-                    from_date: selectedDate,
-                    to_date: date,
-                    milk_type: filter,
-                });
-            }
-
-            showFlash('success', t('rateChart.copySuccess', { sourceDate: new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), count: dates.length }));
+            showFlash('success', data.message);
             setShowCopyModal(false);
             setCopyStartDate('');
             setCopyEndDate('');

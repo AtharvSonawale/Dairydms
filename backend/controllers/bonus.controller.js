@@ -120,15 +120,6 @@ exports.updateSlabs = async (req, res) => {
         if (!eventCheck.length)
             return res.status(404).json({ message: "Bonus event not found in your centre." });
 
-        if (!isAdmin) {
-            const [ownerCheck] = await pool.query(
-                `SELECT event_id FROM bonus_events WHERE event_id = ? AND created_by = ?`,
-                [eventId, operatorId]
-            );
-            if (!ownerCheck.length)
-                return res.status(403).json({ message: "Access denied." });
-        }
-
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
@@ -446,6 +437,56 @@ exports.saveRegister = async (req, res) => {
         }
     } catch (err) {
         console.error("saveRegister error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// ── GET /bonus/default-slabs ──────────────────────────────────
+exports.getDefaultSlabs = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const [slabs] = await pool.query(
+            `SELECT * FROM bonus_default_slabs WHERE centre_id = ? ORDER BY sort_order ASC`,
+            [centreId]
+        );
+        res.json(slabs);
+    } catch (err) {
+        console.error("getDefaultSlabs error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// ── PUT /bonus/default-slabs ────────────────────────────────── 
+exports.updateDefaultSlabs = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const { slabs } = req.body;
+
+        if (!slabs || !Array.isArray(slabs) || slabs.length === 0)
+            return res.status(400).json({ message: "At least one slab is required." });
+
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            await conn.query(`DELETE FROM bonus_default_slabs WHERE centre_id = ?`, [centreId]);
+            for (let i = 0; i < slabs.length; i++) {
+                const { fat_min, fat_max, bonus = 0, vahatuk = 1, rate } = slabs[i];
+                await conn.query(
+                    `INSERT INTO bonus_default_slabs (centre_id, fat_min, fat_max, bonus, vahatuk, rate, sort_order)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [centreId, fat_min, fat_max, bonus, vahatuk, rate, i + 1]
+                );
+            }
+            await conn.commit();
+            res.json({ message: "Default slabs updated successfully." });
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        console.error("updateDefaultSlabs error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

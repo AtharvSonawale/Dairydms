@@ -11,6 +11,8 @@ const {
     undoGavaliBonusPaid,
     getGavaliNoEventRegister,
     getGavaliMonthlyBreakdown,
+    getGavaliDefaultRates,
+    updateGavaliDefaultRates,
 } = require("../controllers/gavalibonus.controller");
 
 router.use(protect);
@@ -18,6 +20,8 @@ router.use(protect);
 // ── Static routes FIRST (before any /:eventId param routes) ──
 router.get("/no-event-register", getGavaliNoEventRegister);
 router.get("/monthly-breakdown", getGavaliMonthlyBreakdown);  // ✅ fixed path
+router.get("/default-rates", getGavaliDefaultRates);
+router.put("/default-rates", updateGavaliDefaultRates);
 
 // ── Event CRUD ────────────────────────────────────────────────
 router.get("/events", getGavaliEvents);

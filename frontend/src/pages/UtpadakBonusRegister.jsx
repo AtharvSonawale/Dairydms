@@ -180,6 +180,44 @@ export default function UtpadakBonusRegister() {
 
     useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+    const fetchSlabs = useCallback(async () => {
+        if (!selectedEventId) {
+            try {
+                const { data } = await api.get(`/bonus/default-slabs`);
+                setSlabs(data && data.length > 0
+                    ? data.map(s => ({
+                        fat_min: parseFloat(s.fat_min),
+                        fat_max: parseFloat(s.fat_max),
+                        bonus: parseFloat(s.bonus),
+                        vahatuk: parseFloat(s.vahatuk),
+                        rate: parseFloat(s.rate),
+                    }))
+                    : DEFAULT_SLABS);
+            } catch (err) {
+                setSlabs(DEFAULT_SLABS);
+            }
+            return;
+        }
+        try {
+            const { data } = await api.get(`/bonus/events/${selectedEventId}/slabs`);
+            if (data && data.length > 0) {
+                setSlabs(data.map(s => ({
+                    fat_min: parseFloat(s.fat_min),
+                    fat_max: parseFloat(s.fat_max),
+                    bonus: parseFloat(s.bonus),
+                    vahatuk: parseFloat(s.vahatuk),
+                    rate: parseFloat(s.rate),
+                })));
+            } else {
+                setSlabs(DEFAULT_SLABS);
+            }
+        } catch (err) {
+            showFlash("error", err.response?.data?.message || t('utpadakBonus.slabLoadError'));
+        }
+    }, [selectedEventId, t]);
+
+    useEffect(() => { fetchSlabs(); }, [fetchSlabs]);
+
     const handleCreateEvent = async () => {
         if (!newEvent.event_name || !newEvent.from_date || !newEvent.to_date) {
             showFlash("error", t('utpadakBonus.eventRequired'));
@@ -589,10 +627,42 @@ export default function UtpadakBonusRegister() {
     const handleAddSlab = () =>
         setDraftSlabs(prev => [...prev, { fat_min: 0, fat_max: 0, bonus: 0, vahatuk: 1, rate: 1 }]);
 
-    const handleSaveSlabs = () => {
-        setSlabs(draftSlabs);
-        setEditingSlabs(false);
-        showFlash("success", t('utpadakBonus.slabUpdateSuccess'));
+    const handleSaveSlabs = async () => {
+        if (!selectedEventId) {
+            try {
+                await api.put(`/bonus/default-slabs`, {
+                    slabs: draftSlabs.map(s => ({
+                        fat_min: parseFloat(s.fat_min) || 0,
+                        fat_max: parseFloat(s.fat_max) || 0,
+                        bonus: parseFloat(s.bonus) || 0,
+                        vahatuk: parseFloat(s.vahatuk) || 1,
+                        rate: parseFloat(s.rate) || 0,
+                    })),
+                });
+                await fetchSlabs();
+                setEditingSlabs(false);
+                showFlash("success", t('utpadakBonus.slabUpdateSuccess'));
+            } catch (err) {
+                showFlash("error", err.response?.data?.message || t('utpadakBonus.slabUpdateError'));
+            }
+            return;
+        }
+        try {
+            await api.put(`/bonus/events/${selectedEventId}/slabs`, {
+                slabs: draftSlabs.map(s => ({
+                    fat_min: parseFloat(s.fat_min) || 0,
+                    fat_max: parseFloat(s.fat_max) || 0,
+                    bonus: parseFloat(s.bonus) || 0,
+                    vahatuk: parseFloat(s.vahatuk) || 1,
+                    rate: parseFloat(s.rate) || 0,
+                })),
+            });
+            await fetchSlabs();
+            setEditingSlabs(false);
+            showFlash("success", t('utpadakBonus.slabUpdateSuccess'));
+        } catch (err) {
+            showFlash("error", err.response?.data?.message || t('utpadakBonus.slabUpdateError'));
+        }
     };
 
     // filtered list
