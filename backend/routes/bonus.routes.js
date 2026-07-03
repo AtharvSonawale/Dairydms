@@ -36,5 +36,4 @@ router.post('/save-register', saveRegister);
 router.get('/default-slabs', getDefaultSlabs);
 router.put('/default-slabs', updateDefaultSlabs);
 
-
 module.exports = router;

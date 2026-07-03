@@ -6,7 +6,8 @@ import {
     BadgeCheck, AlertTriangle, X, User, Users,
     Banknote, Smartphone, CreditCard, DollarSign,
     CheckCircle2, Clock, Search, Calendar, FileText,
-    FileSearch, Hash, Trash2, Printer, RefreshCw
+    FileSearch, Hash, Trash2, Printer, RefreshCw,
+    Tag, Sprout, Sun, Moon
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -1096,7 +1097,7 @@ ${entries.length > 0 ? `
 <div class="report-header">
   <div>
     <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:28px">💰</span>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
       <div>
         <div class="report-title">Walk-in Payments Register</div>
         <div class="report-sub">${modeLabel} Report &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${periodLabel}</div>
@@ -1356,19 +1357,19 @@ ${entries.length > 0 ? `
 
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                         {[
-                            { v: "all", l: t("payments.all") },
-                            { v: "cash", l: "💵 " + t("payments.cash") },
-                            { v: "upi", l: "📱 " + t("payments.upi") },
-                            { v: "credit", l: "💳 " + t("payments.credit") },
-                        ].map(({ v, l }) => (
+                            { v: "all", l: t("payments.all"), icon: null },
+                            { v: "cash", l: t("payments.cash"), icon: <Banknote size={12} /> },
+                            { v: "upi", l: t("payments.upi"), icon: <Smartphone size={12} /> },
+                            { v: "credit", l: t("payments.credit"), icon: <CreditCard size={12} /> },
+                        ].map(({ v, l, icon }) => (
                             <button
                                 key={v}
                                 type="button"
                                 onClick={() => setFilterMode(v)}
-                                className={`px-3 py-2 transition border-r last:border-r-0 border-gray-200
+                                className={`flex items-center gap-1.5 px-3 py-2 transition border-r last:border-r-0 border-gray-200
                                     ${filterMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}
                             >
-                                {l}
+                                {icon}{l}
                             </button>
                         ))}
                     </div>
@@ -1482,8 +1483,9 @@ ${entries.length > 0 ? `
                                             >
                                                 <div>
                                                     <p className="font-medium text-gray-800">{b.name}</p>
-                                                    <p className="text-[10px] text-gray-400">
-                                                        {b.buyer_type === 'seller' ? '🧑‍🌾 ' + t("payments.seller") : '🏷️ ' + t("payments.named")}{b.mobile ? ` · ${b.mobile}` : ''}
+                                                    <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                                                        {b.buyer_type === 'seller' ? <Sprout size={10} /> : <Tag size={10} />}
+                                                        {b.buyer_type === 'seller' ? t("payments.seller") : t("payments.named")}{b.mobile ? ` · ${b.mobile}` : ''}
                                                     </p>
                                                 </div>
                                                 {b.outstanding_balance > 0 && (
@@ -1604,18 +1606,17 @@ ${entries.length > 0 ? `
 
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                         {[
-                            ["all", t("payments.all_types")],
-                            ["named", "🏷️ " + t("payments.named")],
-                            ["seller", "🧑‍🌾 " + t("payments.seller")],
-                        ].map(([v, l]) => (
+                            ["all", t("payments.all_types"), null],
+                            ["named", t("payments.named"), <Tag size={12} />],
+                            ["seller", t("payments.seller"), <Sprout size={12} />],
+                        ].map(([v, l, icon]) => (
                             <button key={v} onClick={() => { setFilterType(v); setCurrentPage(1); }}
-                                className={`px-3 py-2 transition border-r last:border-r-0 border-gray-200
+                                className={`flex items-center gap-1.5 px-3 py-2 transition border-r last:border-r-0 border-gray-200
                                     ${filterType === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {l}
+                                {icon}{l}
                             </button>
                         ))}
                     </div>
-
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                         {[
                             ["all", t("payments.all")],
@@ -1672,7 +1673,8 @@ ${entries.length > 0 ? `
                                                 ${buyer.buyer_type === 'seller'
                                                     ? "bg-violet-50 text-violet-600 border-violet-100"
                                                     : "bg-blue-50 text-blue-600 border-blue-100"}`}>
-                                                {buyer.buyer_type === 'seller' ? '🧑‍🌾 ' + t("payments.seller") : '🏷️ ' + t("payments.named")}
+                                                {buyer.buyer_type === 'seller' ? <Sprout size={10} /> : <Tag size={10} />}
+                                                {buyer.buyer_type === 'seller' ? t("payments.seller") : t("payments.named")}
                                             </span>
                                             {hasOutstanding ? (
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100">
@@ -2124,9 +2126,10 @@ ${entries.length > 0 ? `
                                                                         </span>
                                                                     </div>
                                                                     <div className="px-3 py-2">
-                                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                                                                        <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full
                                                                 ${e.shift === "morning" ? "bg-yellow-100 text-yellow-700" : "bg-indigo-100 text-indigo-600"}`}>
-                                                                            {e.shift === "morning" ? "☀ M" : "🌙 E"}
+                                                                            {e.shift === "morning" ? <Sun size={9} /> : <Moon size={9} />}
+                                                                            {e.shift === "morning" ? "M" : "E"}
                                                                         </span>
                                                                     </div>
                                                                     <div className="px-3 py-2 text-blue-600 font-mono font-semibold">{parseFloat(e.quantity || 0).toFixed(2)}</div>

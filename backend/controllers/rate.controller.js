@@ -147,6 +147,7 @@ exports.deleteRate = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
 // ── POST /api/rates/copy-forward ─────────────────────────────
 // Copies rates from from_date to every date in [start_date, end_date] in ONE bulk insert.
 exports.copyForward = async (req, res) => {
@@ -186,10 +187,10 @@ exports.copyForward = async (req, res) => {
         const values = [];
         for (const date of targetDates) {
             for (const row of rows) {
-                values.push([centreId, row.fat, row.snf, row.rate, row.mrp || null, date]);
+                values.push([centreId, row.fat, row.snf, row.rate, row.mrp || null, date, null]);
             }
         }
-
+        
         // chunk to keep any single query reasonably sized
         const CHUNK_SIZE = 2000;
         let inserted = 0;
