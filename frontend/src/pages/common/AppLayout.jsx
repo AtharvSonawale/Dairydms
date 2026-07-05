@@ -303,9 +303,29 @@ export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [expanded, setExpanded] = useState({});
 
     const navItems = useMemo(() => SHARED_NAV(isAdmin, t), [isAdmin, t]);
+
+    // Expand all collapsible nav sections by default
+    const [expanded, setExpanded] = useState(() =>
+        navItems.reduce((acc, item) => {
+            if (item.children) acc[item.label] = true;
+            return acc;
+        }, {})
+    );
+
+    // Keep sections expanded if navItems changes (e.g. admin/operator switch,
+    // or language change renaming labels) — merges in any new group keys
+    // without collapsing ones the user may have manually toggled closed.
+    useEffect(() => {
+        setExpanded(prev => {
+            const next = { ...prev };
+            navItems.forEach(item => {
+                if (item.children && !(item.label in next)) next[item.label] = true;
+            });
+            return next;
+        });
+    }, [navItems]);
 
     useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 

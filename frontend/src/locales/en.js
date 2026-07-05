@@ -260,6 +260,8 @@ const en = {
         },
 
         walkinSale: {
+            delete: "Delete",
+            edit: "Edit",
             startTour: 'Start a Tour',
             pageTitle: 'Walk-in Counter Sale',
             pageSubtitle: 'Record Local Milk Purchase',
@@ -688,11 +690,11 @@ const en = {
             "noPaidSellersToDownload": "No paid sellers to download.",
             "configureCycle2": "Configure Cycle",
             "cycleConfigDesc": "Set the start date and length of each payment cycle",
-            "cycleInfo": "Today is {date}. Payment is allowed only on the last day of each cycle.",
+            "cycleInfo": "Today is {{date}}. Payment is allowed only on the last day of each cycle.",
             "seedStartDate": "Seed Start Date",
             "daysPerCycle": "Days per Cycle",
             "upcomingCycles": "Upcoming Cycles",
-            "payOn": "Pay on {date}",
+            "payOn": "Pay on {{date}}",
             "past": "Past",
             "upcoming": "Upcoming",
             "saveCycleConfig": "Save Cycle Config",
@@ -728,7 +730,7 @@ const en = {
             "reversalSellerStatus": "Seller payment status",
             "deleting": "Deleting...",
             "yesDeleteBill": "Yes, Delete Bill",
-            "deleteSuccess": "Bill {billNo} deleted successfully",
+            "deleteSuccess": "Bill {{billNo}} deleted successfully",
             "deleteError": "Failed to delete bill",
             "paidSuccess": "Payment recorded successfully! Bill: {{billNo}}",
             "paidError": "Failed to mark payment",
@@ -1664,6 +1666,7 @@ const en = {
         },
 
         gavaliBonus: {
+            rates: "Rates",
             startTour: 'Start a Tour',
             deleteEventWarning: 'This action cannot be undone.',
             willBeDeleted: 'The following will be permanently removed',

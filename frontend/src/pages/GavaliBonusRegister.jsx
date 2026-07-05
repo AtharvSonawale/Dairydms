@@ -201,6 +201,14 @@ export default function GavaliBonusRegister() {
     const activeFrom = selectedEvent?.from_date?.split("T")[0] || fromDate;
     const activeTo = selectedEvent?.to_date?.split("T")[0] || toDate;
 
+    // ── Effective rates for display (event overrides default) ──
+    const displaySlabs = selectedEvent
+        ? [
+            { milk_type: "cow", bonus: parseFloat(selectedEvent.cow_bonus ?? 0.25) },
+            { milk_type: "buffalo", bonus: parseFloat(selectedEvent.buffalo_bonus ?? 0.50) },
+        ]
+        : slabs;
+
     // ── Fetch Last Year's Data for Growth Calculation ──────────
     const fetchLastYearData = useCallback(async () => {
         try {
@@ -943,7 +951,10 @@ export default function GavaliBonusRegister() {
                     <StatCard label={t('gavaliBonus.totalBonusAmt')} value={fmt(grandBonus)}
                         icon={<Banknote size={14} />}
                         color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                    <StatCard label={t('gavaliBonus.bonusRates')} value={t('gavaliBonus.ratesValue')}
+                    <StatCard
+                        label={t('gavaliBonus.bonusRates')}
+                        value={`${fmt(displaySlabs.find(s => s.milk_type === "cow")?.bonus || 0)} / ${fmt(displaySlabs.find(s => s.milk_type === "buffalo")?.bonus || 0)}`}
+                        sub={`${t('gavaliBonus.cow')} / ${t('gavaliBonus.buffalo')}`}
                         icon={<Settings size={14} />}
                         color="text-violet-600 bg-violet-50 border-violet-100" />
                 </div>
@@ -1040,7 +1051,7 @@ export default function GavaliBonusRegister() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 flex-wrap px-5 py-3">
-                            {slabs.map((s, i) => (
+                            {displaySlabs.map((s, i) => (
                                 <div key={i}
                                     className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 text-xs">
                                     <span className="font-semibold text-gray-700">
@@ -1050,6 +1061,11 @@ export default function GavaliBonusRegister() {
                                     <span className="font-bold text-gray-900">{t('gavaliBonus.bonus')} {fmt(s.bonus)}</span>
                                 </div>
                             ))}
+                            {selectedEvent && (
+                                <span className="text-[10px] font-semibold text-amber-500 px-2 py-1">
+                                    ({selectedEvent.event_name} {t('gavaliBonus.rates') || 'rates'})
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
