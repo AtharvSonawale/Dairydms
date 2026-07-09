@@ -542,10 +542,10 @@ export default function RateChart() {
                             <p className="text-gray-400 text-xs mt-1">{t('rateChart.addFirstRate')}</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                <div className="overflow-x-auto overflow-y-auto max-h-[360px]">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100">
+                                            <tr>
                                         {[t('rateChart.type'), t('rateChart.fat'), t('rateChart.snf'), t('rateChart.ratePerL'), t('rateChart.mrpPerL'), t('rateChart.from'), t('rateChart.to'), isAdmin ? t('rateChart.actions') : null]
                                             .filter(Boolean)
                                             .map((h, i) => (
