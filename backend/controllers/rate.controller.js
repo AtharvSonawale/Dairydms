@@ -42,27 +42,46 @@ exports.createRate = async (req, res) => {
             return res.status(400).json({ message: "milk_type must be 'cow' or 'buffalo'" });
 
         const table = tbl(milk_type);
+        const fatNum = parseFloat(fat);
+        const snfNum = parseFloat(snf);
+        const rateNum = parseFloat(rate);
+        const mrpNum = mrp ? parseFloat(mrp) : null;
+
+        // build the list of dates this rate should apply to
+        const targetDates = [];
+        if (effective_to && effective_to > effective_from) {
+            const cursor = new Date(effective_from);
+            const end = new Date(effective_to);
+            while (cursor <= end) {
+                targetDates.push(cursor.toISOString().split('T')[0]);
+                cursor.setDate(cursor.getDate() + 1);
+            }
+        } else {
+            targetDates.push(effective_from);
+        }
+
+        // one row per date, mirroring how copyForward stores rows
+        const values = targetDates.map(date => [
+            centreId, fatNum, snfNum, rateNum, mrpNum, date, null,
+        ]);
 
         const [result] = await pool.query(
-            `INSERT INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                centreId,
-                parseFloat(fat),
-                parseFloat(snf),
-                parseFloat(rate),
-                mrp ? parseFloat(mrp) : null,
-                effective_from,
-                effective_to || null,
-            ]
+            `INSERT IGNORE INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to) VALUES ?`,
+            [values]
         );
 
         const [newRow] = await pool.query(
-            `SELECT *, '${milk_type}' AS milk_type FROM ${table} WHERE rate_id = ? AND centre_id = ?`,
-            [result.insertId, centreId]
+            `SELECT *, '${milk_type}' AS milk_type FROM ${table}
+             WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
+            [centreId, fatNum, snfNum, effective_from]
         );
 
-        res.status(201).json(newRow[0]);
+        res.status(201).json({
+            ...newRow[0],
+            message: targetDates.length > 1
+                ? `Rate saved for ${result.affectedRows} of ${targetDates.length} day(s) from ${effective_from} to ${effective_to}.`
+                : undefined,
+        });
     } catch (err) {
         console.error('createRate error:', err);
         if (err.code === 'ER_DUP_ENTRY')
