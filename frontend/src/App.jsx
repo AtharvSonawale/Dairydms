@@ -6,7 +6,6 @@ import { AppConfigProvider } from './context/AppConfigContext';
 
 // ── Auth ───────────────────────────────────────────────────
 import AdminLogin from './pages/auth/AdminLogin';
-import AdminSignup from './pages/auth/AdminSignup';
 import OperatorLogin from './pages/auth/OperatorLogin';
 
 // ── Admin pages ────────────────────────────────────────────
@@ -51,8 +50,7 @@ function AppRoutes() {
     <Routes>
 
       <Route path="/" element={<AdminLogin />} />
-      <Route path="/signup" element={<AdminSignup />} />
-      <Route path="/operator/login" element={<OperatorLogin />} />
+\      <Route path="/operator/login" element={<OperatorLogin />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
 
       <Route

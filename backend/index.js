@@ -75,7 +75,22 @@ setInterval(async () => {
     }
 }, 60 * 60 * 1000);
 
+// ======================
+// Serve React Frontend
+// ======================
+const frontendPath = path.join(__dirname, "../frontend/dist");
+
+app.use(express.static(frontendPath));
+
+// React Router fallback (must be after API routes)
+app.get(/^\/(?!api|uploads).*/, (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+});
+
+
 const server = http.createServer(app);
+
+
 const io = new Server(server, {
     cors: { origin: process.env.CORS_ORIGIN || '*' },
 });
@@ -83,6 +98,6 @@ const io = new Server(server, {
 weightMachine.init(io);
 fatMachine.init(io);
 
-server.listen(process.env.PORT, () => {
+server.listen(process.env.PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${process.env.PORT}`);
 });

@@ -244,6 +244,21 @@ exports.deleteOperator = async (req, res) => {
 
         let hasData = false;
         for (const table of tables) {
+            // Check if this table actually has an operator_id column before querying it
+            const [colCheck] = await conn.query(
+                `SELECT COUNT(*) AS cnt
+                 FROM information_schema.columns
+                 WHERE table_schema = DATABASE()
+                   AND table_name = ?
+                   AND column_name = 'operator_id'`,
+                [table]
+            );
+
+            if (colCheck[0].cnt === 0) {
+                // Table has no operator_id column, skip it
+                continue;
+            }
+
             const [rows] = await conn.query(
                 `SELECT COUNT(*) AS count FROM ${table} WHERE operator_id = ? AND centre_id = ?`,
                 [id, centreId]

@@ -487,7 +487,9 @@ exports.createSeller = async (req, res) => {
             return res.status(400).json({ message: 'Name and mobile are required' });
         }
 
-        const operator_id = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+        const operator_id = isAdmin ? null : req.user.id;
+        const created_by_admin_id = isAdmin ? req.user.id : null;
         const centre_id = req.user.centre_id;
 
         // Check if seller already exists in this centre
@@ -506,13 +508,13 @@ exports.createSeller = async (req, res) => {
 
         const [result] = await conn.query(
             `INSERT INTO sellers
-             (operator_id, centre_id, seller_code, name, mobile, aadhaar,
+             (operator_id, created_by_admin_id, centre_id, seller_code, name, mobile, aadhaar,
               pan_number, seller_id_code,
               seller_type, milk_type, jamin,
               bank_account, bank_name, ifsc_code, address,
               advance_enabled, advance_deduction, product_sale_enabled,
               deposit_enabled, deposit_per_litre)
-             VALUES (?, ?, ?, ?, ?, ?,
+             VALUES (?, ?, ?, ?, ?, ?, ?,
                      ?, ?,
                      ?, ?, ?,
                      ?, ?, ?, ?,
@@ -520,6 +522,7 @@ exports.createSeller = async (req, res) => {
                      ?, ?)`,
             [
                 operator_id,
+                created_by_admin_id,
                 centre_id,
                 seller_code || null,
                 name,

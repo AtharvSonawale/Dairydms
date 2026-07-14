@@ -418,6 +418,27 @@ export default function AppLayout() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin, user]);
 
+    // ── Server heartbeat: if the app server goes down, force a real
+    // navigation attempt so the browser shows its native "can't be
+    // reached" page instead of a stale in-memory SPA with broken data.
+    useEffect(() => {
+        const HEARTBEAT_INTERVAL = 0; 
+
+        const checkServer = async () => {
+            try {
+                // same-origin, no-cors so opaque responses still count as "reachable"
+                await fetch(window.location.origin, { method: 'HEAD', cache: 'no-store', mode: 'no-cors' });
+            } catch {
+                // fetch failed to even connect — server is down.
+                // Reload forces a real navigation; browser shows its native error page.
+                window.location.reload();
+            }
+        };
+
+        const intervalId = setInterval(checkServer, HEARTBEAT_INTERVAL);
+        return () => clearInterval(intervalId);
+    }, []);
+
     const handleLogout = () => setShowLogoutConfirm(true);
     const confirmLogout = () => {
         logout();

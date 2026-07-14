@@ -63,3 +63,27 @@ exports.listAdmins = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
+// Example logout with blacklist
+exports.logout = async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(400).json({ message: 'Token required' });
+        }
+
+        // Decode token to get expiry (you need jwt.decode)
+        const decoded = jwt.decode(token);
+        const expiresAt = new Date(decoded.exp * 1000); // convert to Date
+
+        await pool.query(
+            'INSERT INTO token_blacklist (token, expires_at) VALUES (?, ?)',
+            [token, expiresAt]
+        );
+
+        res.json({ message: 'Logged out successfully.' });
+    } catch (err) {
+        console.error('Logout error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
