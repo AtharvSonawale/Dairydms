@@ -222,8 +222,29 @@ exports.getSummary = async (req, res) => {
         const centreId = req.user.centre_id;
         const date = req.query.date || new Date().toISOString().split('T')[0];
 
+        // Run milk aggregation first — its avg rates are needed as
+        // params for the walkin/dispatch/owner-usage queries below,
+        // so it cannot be part of the same Promise.all() array.
+        const [milkAgg] = await pool.query(
+            `SELECT
+                COUNT(*) AS entry_count,
+                COALESCE(SUM(quantity), 0) AS total_quantity,
+                COALESCE(SUM(total_amount), 0) AS total_amount,
+                COALESCE(AVG(fat), 0) AS avg_fat,
+                COALESCE(AVG(snf), 0) AS avg_snf,
+                COUNT(DISTINCT seller_id) AS unique_sellers,
+                SUM(shift = 'morning') AS morning_count,
+                SUM(shift = 'evening') AS evening_count,
+                COALESCE(SUM(CASE WHEN milk_type = 'cow' THEN quantity ELSE 0 END), 0) AS cow_quantity,
+                COALESCE(SUM(CASE WHEN milk_type = 'buffalo' THEN quantity ELSE 0 END), 0) AS buffalo_quantity,
+                COALESCE(AVG(CASE WHEN milk_type = 'cow' THEN rate_applied ELSE NULL END), 0) AS avg_cow_rate,
+                COALESCE(AVG(CASE WHEN milk_type = 'buffalo' THEN rate_applied ELSE NULL END), 0) AS avg_buffalo_rate
+             FROM milk_entries
+             WHERE centre_id = ? AND entry_date = ?`,
+            [centreId, date]
+        );
+
         const [
-            [milkAgg],
             [walkinAgg],
             [prodSaleAgg],
             [purchaseAgg],
@@ -232,26 +253,6 @@ exports.getSummary = async (req, res) => {
             [dispatchAgg],
             [ownerUsageAgg],
         ] = await Promise.all([
-
-            // Milk entries aggregation (by type)
-            pool.query(
-                `SELECT
-                    COUNT(*) AS entry_count,
-                    COALESCE(SUM(quantity), 0) AS total_quantity,
-                    COALESCE(SUM(total_amount), 0) AS total_amount,
-                    COALESCE(AVG(fat), 0) AS avg_fat,
-                    COALESCE(AVG(snf), 0) AS avg_snf,
-                    COUNT(DISTINCT seller_id) AS unique_sellers,
-                    SUM(shift = 'morning') AS morning_count,
-                    SUM(shift = 'evening') AS evening_count,
-                    COALESCE(SUM(CASE WHEN milk_type = 'cow' THEN quantity ELSE 0 END), 0) AS cow_quantity,
-                    COALESCE(SUM(CASE WHEN milk_type = 'buffalo' THEN quantity ELSE 0 END), 0) AS buffalo_quantity,
-                    COALESCE(AVG(CASE WHEN milk_type = 'cow' THEN rate_applied ELSE NULL END), 0) AS avg_cow_rate,
-                    COALESCE(AVG(CASE WHEN milk_type = 'buffalo' THEN rate_applied ELSE NULL END), 0) AS avg_buffalo_rate
-                 FROM milk_entries
-                 WHERE centre_id = ? AND entry_date = ?`,
-                [centreId, date]
-            ),
 
             // Walk-in sales aggregation (by type)
             pool.query(
@@ -399,7 +400,7 @@ exports.getSummary = async (req, res) => {
                 product_sales: {
                     transaction_count: parseInt(prodSaleAgg[0].transaction_count),
                     total_amount: prodSaleAmt,
-                    product_sales_profit,
+                    product_sales_profit: productSalesProfit,
                 },
                 purchases: {
                     transaction_count: parseInt(purchaseAgg[0].transaction_count),

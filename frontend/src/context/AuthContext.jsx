@@ -24,41 +24,46 @@ export function AuthProvider({ children }) {
             const role = localStorage.getItem('role');
             const name = localStorage.getItem('name');
             const centre_id = localStorage.getItem('centre_id');
-            const dairy_id = localStorage.getItem('dairy_id');
-            const dairy_name = localStorage.getItem('dairy_name');
-            const centre_name = localStorage.getItem('centre_name');
-            const has_seen_tour_raw = localStorage.getItem('has_seen_tour');
+const dairy_id = localStorage.getItem('dairy_id');
+const dairy_name = localStorage.getItem('dairy_name');
+const centre_name = localStorage.getItem('centre_name');
+const seller_id = localStorage.getItem('seller_id');       // ADD
+const seller_code = localStorage.getItem('seller_code');   // ADD
+const has_seen_tour_raw = localStorage.getItem('has_seen_tour');
 
             return {
-                token,
-                role,
-                name,
-                centre_id,
-                dairy_id,
-                dairy_name,
-                centre_name,
-                has_seen_tour: has_seen_tour_raw === null ? null : Number(has_seen_tour_raw),
-                id: decodeId(token)
-            };
+    token,
+    role,
+    name,
+    centre_id,
+    dairy_id,
+    dairy_name,
+    centre_name,
+    seller_id,
+    seller_code,
+    has_seen_tour: has_seen_tour_raw === null ? null : Number(has_seen_tour_raw),
+    id: decodeId(token)
+};
         } catch {
             return null;
         }
     });
 
     const login = (data) => {
-        // Store all user data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('role', data.role);
-        localStorage.setItem('name', data.name);
-        localStorage.setItem('centre_id', data.centre_id || '');
-        localStorage.setItem('dairy_id', data.dairy_id || '');
-        localStorage.setItem('dairy_name', data.dairy_name || '');
-        localStorage.setItem('centre_name', data.centre_name || '');
-        if (data.has_seen_tour !== undefined && data.has_seen_tour !== null) {
-            localStorage.setItem('has_seen_tour', String(data.has_seen_tour));
-        }
-        setUser({ ...data, has_seen_tour: Number(data.has_seen_tour), id: decodeId(data?.token) });
-    };
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('role', data.role);
+    localStorage.setItem('name', data.name);
+    localStorage.setItem('centre_id', data.centre_id || '');
+    localStorage.setItem('dairy_id', data.dairy_id || '');
+    localStorage.setItem('dairy_name', data.dairy_name || '');
+    localStorage.setItem('centre_name', data.centre_name || '');
+    if (data.seller_id !== undefined) localStorage.setItem('seller_id', data.seller_id || '');       // ADD
+    if (data.seller_code !== undefined) localStorage.setItem('seller_code', data.seller_code || '');  // ADD
+    if (data.has_seen_tour !== undefined && data.has_seen_tour !== null) {
+        localStorage.setItem('has_seen_tour', String(data.has_seen_tour));
+    }
+    setUser({ ...data, has_seen_tour: Number(data.has_seen_tour), id: decodeId(data?.token) });
+};
 
     const logout = () => {
         localStorage.clear();

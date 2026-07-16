@@ -294,7 +294,7 @@ exports.markPaid = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
+        const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
         const { seller_id, from_date, to_date, installment_cut = 0, deposit_amount = 0 } = req.body;
 
@@ -775,7 +775,7 @@ exports.createPaymentCycle = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
+        const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
         const { from_date, to_date } = req.body;
 
@@ -827,7 +827,7 @@ exports.deleteBill = async (req, res) => {
         await conn.beginTransaction();
 
         const { bill_no } = req.params;
-        const operatorId = req.user.id;
+        const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
 
         const [bills] = await conn.query(
@@ -898,7 +898,7 @@ exports.getCycleConfig = async (req, res) => {
 // ── POST /api/payments/cycle-config ────────────────
 exports.saveCycleConfig = async (req, res) => {
     try {
-        const operatorId = req.user.id;
+        const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
         const { seed_from, days_per_cycle } = req.body;
 
@@ -1119,7 +1119,7 @@ exports.getExcelConfig = async (req, res) => {
 // ── POST /api/payments/excel-config ────────────────
 exports.saveExcelConfig = async (req, res) => {
     try {
-        const operatorId = req.user.id;
+        const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
         const { plant_code, code, payment_mode, dairy_acc_no, code2 } = req.body;
 

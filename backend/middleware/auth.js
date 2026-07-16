@@ -64,9 +64,32 @@ const requireSameCentre = (getResourceCentreId) => async (req, res, next) => {
     }
 };
 
+// requireSelf()
+// For farmer-facing routes where the seller should only ever see/touch
+// their OWN records (e.g. GET /farmer/bills/:billId). Compares the JWT's
+// id against req.user.id directly rather than looking up a resource --
+// use requireSameCentre instead for admin/operator routes on shared
+// centre tables.
+const requireSelf = (getResourceSellerId) => async (req, res, next) => {
+    try {
+        const resourceSellerId = await getResourceSellerId(req);
+        if (resourceSellerId == null) {
+            return res.status(404).json({ message: 'Resource not found.' });
+        }
+        if (resourceSellerId !== req.user.id) {
+            return res.status(403).json({ message: 'Not your record.' });
+        }
+        next();
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 // Default export unchanged (so every existing `require('../middleware/auth')`
 // call site that does `const auth = require(...)` and uses it directly as
 // a middleware function keeps working with zero changes).
+module.exports.requireSelf = requireSelf; // ADD near the other module.exports lines
 module.exports = authenticate;
 module.exports.authenticate = authenticate;
 module.exports.requireRole = requireRole;

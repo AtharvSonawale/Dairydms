@@ -607,3 +607,147 @@ exports.resetPassword = async (req, res) => {
         });
     }
 };
+
+// ============================================
+// SELLER (FARMER) AUTHENTICATION
+// ============================================
+
+// POST /api/auth/seller/login
+// identifier = mobile number OR seller name
+exports.sellerLogin = async (req, res) => {
+    try {
+        const { identifier, password } = req.body;
+        if (!identifier || !password)
+            return res.status(400).json({ message: 'Identifier and password required' });
+
+        const [rows] = await pool.query(
+            `SELECT s.*, c.dairy_id, d.dairy_name, c.centre_name
+             FROM sellers s
+             JOIN centres c ON c.centre_id = s.centre_id
+             JOIN dairies d ON d.dairy_id = c.dairy_id
+             WHERE (s.mobile = ? OR s.name = ?) AND s.is_active = 1
+             LIMIT 1`,
+            [identifier, identifier]
+        );
+        const seller = rows[0];
+
+        if (!seller)
+            return res.status(401).json({ message: 'Invalid credentials' });
+
+        // First-time login: no password set yet. Tell the frontend to show
+        // the "set your password" screen instead of failing the login.
+        if (!seller.password_hash) {
+            return res.status(200).json({
+                needsPasswordSetup: true,
+                seller_id: seller.seller_id,
+                name: seller.name,
+                mobile: seller.mobile,
+            });
+        }
+
+        const match = await bcrypt.compare(password, seller.password_hash);
+        if (!match)
+            return res.status(401).json({ message: 'Invalid credentials' });
+
+        const token = signToken({
+            id: seller.seller_id,
+            role: 'seller',
+            name: seller.name,
+            centre_id: seller.centre_id,
+            dairy_id: seller.dairy_id,
+        });
+        res.json({
+            token,
+            role: 'seller',
+            name: seller.name,
+            seller_id: seller.seller_id,
+            seller_code: seller.seller_code,
+            centre_id: seller.centre_id,
+            dairy_id: seller.dairy_id,
+            dairy_name: seller.dairy_name,
+            centre_name: seller.centre_name,
+            must_change_password: !!seller.must_change_password,
+        });
+
+    } catch (err) {
+        console.error('Seller login error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// POST /api/auth/seller/set-password
+// Only reachable while password_hash IS NULL for that seller. It does NOT
+// take an old password, since none exists yet by definition. Once a
+// password is set, this route 409s — later resets should go through a
+// proper forgot-password flow, not this one.
+//
+// SECURITY NOTE: because it's keyed only on mobile/name (both are
+// knowable to people who aren't the farmer, e.g. co-workers), this is a
+// soft "claim your account" step rather than a strong-auth endpoint.
+// Fine for now since it only fires once per seller (first login), but if
+// you want it locked down later, add a centre-side one-time code the
+// operator hands the farmer instead of trusting mobile/name alone.
+exports.sellerSetPassword = async (req, res) => {
+    try {
+        const { identifier, password } = req.body;
+        if (!identifier || !password)
+            return res.status(400).json({ message: 'Identifier and password required' });
+
+        if (password.length < 6)
+            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+
+        const [rows] = await pool.query(
+            `SELECT seller_id, password_hash, is_active FROM sellers 
+             WHERE (mobile = ? OR name = ?) LIMIT 1`,
+            [identifier, identifier]
+        );
+        const seller = rows[0];
+
+        if (!seller || !seller.is_active)
+            return res.status(404).json({ message: 'No account found for this farmer.' });
+
+        if (seller.password_hash)
+            return res.status(409).json({ message: 'Password already set. Please log in instead.' });
+
+        const hash = await bcrypt.hash(password, 10);
+        await pool.query(
+            'UPDATE sellers SET password_hash = ?, must_change_password = 0 WHERE seller_id = ?',
+            [hash, seller.seller_id]
+        );
+
+        const [rows2] = await pool.query(
+            `SELECT s.*, c.dairy_id, d.dairy_name, c.centre_name
+             FROM sellers s
+             JOIN centres c ON c.centre_id = s.centre_id
+             JOIN dairies d ON d.dairy_id = c.dairy_id
+             WHERE s.seller_id = ?`,
+            [seller.seller_id]
+        );
+        const full = rows2[0];
+
+        const token = signToken({
+            id: full.seller_id,
+            role: 'seller',
+            name: full.name,
+            centre_id: full.centre_id,
+            dairy_id: full.dairy_id,
+        });
+
+        res.status(201).json({
+            token,
+            role: 'seller',
+            name: full.name,
+            seller_id: full.seller_id,
+            seller_code: full.seller_code,
+            centre_id: full.centre_id,
+            dairy_id: full.dairy_id,
+            dairy_name: full.dairy_name,
+            centre_name: full.centre_name,
+            message: 'Password set successfully',
+        });
+
+    } catch (err) {
+        console.error('Seller set-password error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};

@@ -14,7 +14,8 @@ import {
     Menu, Building2, ShoppingBag, Archive,
     Users2, Settings,
     User2Icon,
-    HdmiPort, 
+    HdmiPort,
+    Wheat
 } from 'lucide-react';
 
 /**
@@ -129,6 +130,47 @@ const SHARED_NAV = (isAdmin, t) => [
     // ── Reports ──────────────────────────────────────────────────
     { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
 ];
+
+/**
+ * FARMER_NAV is intentionally NOT built on top of SHARED_NAV — a farmer
+ * only ever sees their own records, so none of the centre-wide
+ * sellers/products/finance/bonus sections apply. Keep this list separate
+ * rather than filtering SHARED_NAV down, so admin/operator nav changes
+ * can't accidentally leak a farmer-inappropriate item in here later.
+ */
+const FARMER_NAV = (t) => [
+    {
+        label: t('nav.dashboard', { defaultValue: 'Dashboard' }),
+        icon: <LayoutDashboard size={16} />,
+        to: '/farmer/dashboard',
+        tourId: 'nav-dashboard',
+    },
+    {
+        label: t('nav.myMilkEntries', { defaultValue: 'My Milk Entries' }),
+        icon: <Milk size={16} />,
+        to: '/farmer/milk-entries',
+        tourId: 'nav-my-milk-entries',
+    },
+    {
+        label: t('nav.myBills', { defaultValue: 'My Milk Bills' }),
+        icon: <ClipboardList size={16} />,
+        to: '/farmer/bills',
+        tourId: 'nav-my-bills',
+    },
+    {
+        label: t('nav.myFinance', { defaultValue: 'Advance & Deposit' }),
+        icon: <Wallet size={16} />,
+        to: '/farmer/finance',
+        tourId: 'nav-my-finance',
+    },
+    {
+        label: t('nav.MyCattleFeed', { defaultValue: 'My Cattle Feed' }),
+        icon: <Wheat size={16} />,
+        to: '/farmer/cattle-feed',
+        tourId: 'nav-my-cattle-feed',
+    }
+];
+
 const initials = (name = '') =>
     name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
@@ -149,7 +191,7 @@ const ToggleBtn = ({ collapsed, onClick, isAdmin }) => (
     </button>
 );
 
-function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navItems, isAdmin, user, handleLogout, appName, logoUrl }) {
+function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navItems, isAdmin, isFarmer, user, handleLogout, appName, logoUrl }) {
     const { t } = useTranslation();
 
     return (
@@ -170,8 +212,12 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                             {appName}
                         </p>
                         <p className={`text-[11px] mt-0.5 whitespace-nowrap font-medium
-                            ${isAdmin ? 'text-gray-500' : 'text-emerald-400'}`}>
-                            {isAdmin ? t('adminPortal') : t('operatorPortal')}
+                             ${isAdmin ? 'text-gray-500' : 'text-emerald-400'}`}>
+                            {isAdmin
+                                ? t('adminPortal')
+                                : isFarmer
+                                    ? t('farmerPortal', { defaultValue: 'Farmer Portal' })
+                                    : t('operatorPortal')}
                         </p>
                     </div>
                 )}
@@ -264,7 +310,11 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white truncate leading-none">{user?.name}</p>
                             <p className={`text-xs mt-0.5 capitalize ${isAdmin ? 'text-gray-400' : 'text-emerald-300'}`}>
-                                {user?.role === 'admin' ? t('status.admin') : t('status.operator')}
+                                {user?.role === 'admin'
+                                    ? t('status.admin')
+                                    : user?.role === 'seller'
+                                        ? t('status.farmer', { defaultValue: 'Farmer' })
+                                        : t('status.operator')}
                             </p>
                         </div>
                     )}
@@ -298,14 +348,18 @@ export default function AppLayout() {
     const { t } = useTranslation();                // ← i18next
     const navigate = useNavigate();
     const location = useLocation();
-    const isAdmin = user?.role === 'admin';
+    const role = user?.role;
+    const isAdmin = role === 'admin';
+    const isFarmer = role === 'seller';
 
     const [collapsed, setCollapsed] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
-    const navItems = useMemo(() => SHARED_NAV(isAdmin, t), [isAdmin, t]);
-
+    const navItems = useMemo(
+        () => (isFarmer ? FARMER_NAV(t) : SHARED_NAV(isAdmin, t)),
+        [isAdmin, isFarmer, t]
+    );
     // Expand all collapsible nav sections by default
     const [expanded, setExpanded] = useState(() =>
         navItems.reduce((acc, item) => {
@@ -442,7 +496,7 @@ export default function AppLayout() {
     const handleLogout = () => setShowLogoutConfirm(true);
     const confirmLogout = () => {
         logout();
-        navigate(isAdmin ? '/' : '/operator/login');
+        navigate(isAdmin ? '/' : isFarmer ? '/seller/login' : '/operator/login');
     };
 
     return (
@@ -467,9 +521,9 @@ export default function AppLayout() {
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <SidebarContent mobile
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
-                    navItems={navItems} isAdmin={isAdmin} user={user} handleLogout={handleLogout}
+                    navItems={navItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
                     appName={appName} logoUrl={logoUrl}
-                />
+                 />
             </aside>
 
             {/* Desktop sidebar */}
@@ -479,9 +533,9 @@ export default function AppLayout() {
                 <ToggleBtn collapsed={collapsed} onClick={() => setCollapsed(p => !p)} isAdmin={isAdmin} />
                 <SidebarContent
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
-                    navItems={navItems} isAdmin={isAdmin} user={user} handleLogout={handleLogout}
+                    navItems={navItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
                     appName={appName} logoUrl={logoUrl}
-                />
+                 />
             </aside>
 
             {/* Main content */}

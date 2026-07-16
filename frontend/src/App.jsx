@@ -7,6 +7,8 @@ import { AppConfigProvider } from './context/AppConfigContext';
 // ── Auth ───────────────────────────────────────────────────
 import AdminLogin from './pages/auth/AdminLogin';
 import OperatorLogin from './pages/auth/OperatorLogin';
+import FarmerMilkEntries from "./pages/farmer/FarmerMilkEntries";
+
 
 // ── Admin pages ────────────────────────────────────────────
 import AdminDashboard from './pages/admin/Dashboard';
@@ -42,6 +44,10 @@ import NamedBuyers from './pages/NamedBuyers';
 import AdminList from './pages/admin/AdminList';
 import AdminProfile from './pages/admin/AdminProfile';
 import PortSettings from './pages/admin/PortSettings';
+import SellerLogin from './pages/SellerLogin';
+import FarmerDashboard from './pages/FarmerDashboard';
+import FarmerMilkBills from "./pages/farmer/FarmerMilkBills";
+import FarmerFinance from "./pages/farmer/FarmerFinance";
 
 
 // AFTER
@@ -50,8 +56,9 @@ function AppRoutes() {
     <Routes>
 
       <Route path="/" element={<AdminLogin />} />
-\      <Route path="/operator/login" element={<OperatorLogin />} />
+      <Route path="/operator/login" element={<OperatorLogin />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/farmer/login" element={<SellerLogin />} />
 
       <Route
         element={
@@ -95,7 +102,10 @@ function AppRoutes() {
         <Route path="/admin/clear-data" element={<ClearData />} />
         <Route path='/walkinpayments' element={<WalkinPayments />} />
         <Route path='/namedbuyers' element={<NamedBuyers />} />
-
+        <Route path="/farmer/dashboard" element={<FarmerDashboard />} />
+        <Route path="/farmer/milk-entries" element={<FarmerMilkEntries />} />
+        <Route path="/farmer/bills" element={<FarmerMilkBills />} />
+        <Route path="/farmer/finance" element={<FarmerFinance />} />
       </Route>
 
       {/* ── Fallback ── */}
