@@ -492,6 +492,16 @@ exports.createSeller = async (req, res) => {
         const created_by_admin_id = isAdmin ? req.user.id : null;
         const centre_id = req.user.centre_id;
 
+        const [[centreRow]] = await conn.query(
+            `SELECT dairy_id FROM centres WHERE centre_id = ?`,
+            [centre_id]
+        );
+        if (!centreRow) {
+            await conn.rollback();
+            return res.status(400).json({ message: 'Invalid centre: no matching dairy found' });
+        }
+        const dairy_id = centreRow.dairy_id;
+
         // Check if seller already exists in this centre
         const [existing] = await conn.query(
             `SELECT seller_id FROM sellers
@@ -508,22 +518,23 @@ exports.createSeller = async (req, res) => {
 
         const [result] = await conn.query(
             `INSERT INTO sellers
-             (operator_id, created_by_admin_id, centre_id, seller_code, name, mobile, aadhaar,
-              pan_number, seller_id_code,
-              seller_type, milk_type, jamin,
-              bank_account, bank_name, ifsc_code, address,
-              advance_enabled, advance_deduction, product_sale_enabled,
-              deposit_enabled, deposit_per_litre)
-             VALUES (?, ?, ?, ?, ?, ?, ?,
-                     ?, ?,
-                     ?, ?, ?,
-                     ?, ?, ?, ?,
-                     ?, ?, ?,
-                     ?, ?)`,
+     (operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
+      pan_number, seller_id_code,
+      seller_type, milk_type, jamin,
+      bank_account, bank_name, ifsc_code, address,
+      advance_enabled, advance_deduction, product_sale_enabled,
+      deposit_enabled, deposit_per_litre)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+             ?, ?,
+             ?, ?, ?,
+             ?, ?, ?, ?,
+             ?, ?, ?,
+             ?, ?)`,
             [
                 operator_id,
                 created_by_admin_id,
                 centre_id,
+                dairy_id,
                 seller_code || null,
                 name,
                 mobile,

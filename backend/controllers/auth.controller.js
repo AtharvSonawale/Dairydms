@@ -620,19 +620,30 @@ exports.sellerLogin = async (req, res) => {
         if (!identifier || !password)
             return res.status(400).json({ message: 'Identifier and password required' });
 
+        // Mobile is globally unique (uq_seller_mobile) so a mobile match is
+        // always unambiguous. Name is NOT unique, so if the identifier only
+        // matches by name and more than one active seller shares that name
+        // (possibly in a different centre/dairy), we refuse to guess which
+        // one is meant — that silent guess was the original bug. Instead we
+        // ask the farmer to log in with their mobile number instead.
         const [rows] = await pool.query(
             `SELECT s.*, c.dairy_id, d.dairy_name, c.centre_name
              FROM sellers s
              JOIN centres c ON c.centre_id = s.centre_id
              JOIN dairies d ON d.dairy_id = c.dairy_id
-             WHERE (s.mobile = ? OR s.name = ?) AND s.is_active = 1
-             LIMIT 1`,
+             WHERE (s.mobile = ? OR s.name = ?) AND s.is_active = 1`,
             [identifier, identifier]
         );
-        const seller = rows[0];
 
-        if (!seller)
+        if (rows.length === 0)
             return res.status(401).json({ message: 'Invalid credentials' });
+
+        if (rows.length > 1)
+            return res.status(409).json({
+                message: 'Multiple farmers match this name. Please log in using your mobile number instead.',
+            });
+
+        const seller = rows[0];
 
         // First-time login: no password set yet. Tell the frontend to show
         // the "set your password" screen instead of failing the login.
@@ -696,15 +707,24 @@ exports.sellerSetPassword = async (req, res) => {
         if (password.length < 6)
             return res.status(400).json({ message: 'Password must be at least 6 characters' });
 
+        // See ambiguity-handling note in sellerLogin above.
         const [rows] = await pool.query(
             `SELECT seller_id, password_hash, is_active FROM sellers 
-             WHERE (mobile = ? OR name = ?) LIMIT 1`,
+             WHERE mobile = ? OR name = ?`,
             [identifier, identifier]
         );
-        const seller = rows[0];
 
-        if (!seller || !seller.is_active)
+        const activeRows = rows.filter(r => r.is_active);
+
+        if (activeRows.length === 0)
             return res.status(404).json({ message: 'No account found for this farmer.' });
+
+        if (activeRows.length > 1)
+            return res.status(409).json({
+                message: 'Multiple farmers match this name. Please set your password using your mobile number instead.',
+            });
+
+        const seller = activeRows[0];
 
         if (seller.password_hash)
             return res.status(409).json({ message: 'Password already set. Please log in instead.' });

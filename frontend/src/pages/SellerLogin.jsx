@@ -6,10 +6,10 @@ import api from '../api/axios';
 export default function SellerLogin() {
     const { login } = useAuth();
     const navigate = useNavigate();
-    const [form, setForm] = useState({ identifier: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
+    const [form, setForm] = useState({ identifier: '', password: '' });
 
     // First-time login (no password_hash yet on this seller) flips us
     // into "set your password" mode instead of a second page/route.
@@ -148,9 +148,9 @@ export default function SellerLogin() {
 
                         <form onSubmit={handleLogin} className="space-y-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-gray-700">Mobile number or name</label>
-                                <input name="identifier" type="text" value={form.identifier} onChange={handleChange} required
-                                    placeholder="Enter your mobile number or name"
+                                    <label className="text-sm font-medium text-gray-700">Mobile number or name</label>
+                                    <input name="identifier" type="text" value={form.identifier} onChange={handleChange} required
+                                        placeholder="Enter your mobile number or name"
                                     className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm
                                     placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" />
                             </div>

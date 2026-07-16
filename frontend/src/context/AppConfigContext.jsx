@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import i18n from '../i18n';
 import api from '../api/axios';
+import { useAuth } from './AuthContext';
 
 const AppConfigContext = createContext({
     appName: 'MilkApp',
@@ -13,13 +14,18 @@ const AppConfigContext = createContext({
 });
 
 export function AppConfigProvider({ children }) {
+    const { user } = useAuth();
     const [appName, setAppName] = useState('MilkApp');
     const [logoUrl, setLogoUrl] = useState('');
     const [language, setLanguage] = useState('en');
     const [textSize, setTextSize] = useState('base');
     const [loaded, setLoaded] = useState(false);
 
-    // Fetch once on mount
+    // Re-fetch on mount AND whenever auth state changes (login/logout/role
+    // switch) — settings can be dairy/centre-scoped server-side, so the
+    // response before login (no token) can differ from the response after.
+    // Without `user` as a dependency this only ever ran once at boot,
+    // which is why settings looked stale until a hard browser refresh.
     useEffect(() => {
         api.get('/settings/global')
             .then(({ data }) => {
@@ -36,7 +42,7 @@ export function AppConfigProvider({ children }) {
             })
             .catch(() => { })
             .finally(() => setLoaded(true));
-    }, []);
+    }, [user?.id, user?.role]);
 
     // Sync title + favicon whenever appName or logoUrl changes
     useEffect(() => {
