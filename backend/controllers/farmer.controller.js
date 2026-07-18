@@ -324,3 +324,81 @@ exports.getFarmerFinance = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
+// ── GET /api/farmer/cattle-feed ────────────────────────────
+// All of the farmer's own cattle feed purchases (all-time). Optional
+// ?from=&to= filtering on sale_date, same convention as
+// getFarmerMilkEntries / getFarmerBills / getFarmerFinance.
+exports.getFarmerCattleFeed = async (req, res) => {
+    try {
+        if (req.user.role !== 'seller') {
+            return res.status(403).json({ error: 'Access denied. Farmer login required.' });
+        }
+
+        const sellerId = req.user.id;
+        const centreId = req.user.centre_id;
+        const { from, to } = req.query;
+
+        let dateFilter = '';
+        const params = [sellerId, centreId];
+
+        if (from && to) {
+            dateFilter = `AND cfs.sale_date BETWEEN ? AND ?`;
+            params.push(from, to);
+        }
+
+        const [rows] = await pool.query(
+            `SELECT cfs.sale_id, cfs.transaction_id, cfs.feed_id,
+                    cfs.quantity, cfs.rate, cfs.total_amount, cfs.sale_date, cfs.created_at,
+                    cf.feed_name, cf.unit
+             FROM cattle_feed_sales cfs
+             JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+             WHERE cfs.seller_id = ? AND cfs.centre_id = ? ${dateFilter}
+             ORDER BY cfs.sale_date DESC, cfs.transaction_id DESC, cfs.sale_id ASC`,
+            params
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('getFarmerCattleFeed error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── GET /api/farmer/product-sales ──────────────────────────
+// All of the farmer's own product purchases (all-time). Optional
+// ?from=&to= filtering on sale_date, same convention as
+// getFarmerMilkEntries / getFarmerBills / getFarmerFinance / getFarmerCattleFeed.
+exports.getFarmerProductSales = async (req, res) => {
+    try {
+        if (req.user.role !== 'seller') {
+            return res.status(403).json({ error: 'Access denied. Farmer login required.' });
+        }
+
+        const sellerId = req.user.id;
+        const centreId = req.user.centre_id;
+        const { from, to } = req.query;
+
+        let dateFilter = '';
+        const params = [sellerId, centreId];
+
+        if (from && to) {
+            dateFilter = `AND ps.sale_date BETWEEN ? AND ?`;
+            params.push(from, to);
+        }
+
+        const [rows] = await pool.query(
+            `SELECT ps.sale_id, ps.transaction_id, ps.product_id,
+                    ps.quantity, ps.rate, ps.total_amount, ps.sale_date, ps.created_at,
+                    p.product_name, p.unit
+             FROM product_sales ps
+             JOIN products p ON p.product_id = ps.product_id
+             WHERE ps.seller_id = ? AND ps.centre_id = ? ${dateFilter}
+             ORDER BY ps.sale_date DESC, ps.transaction_id DESC, ps.sale_id ASC`,
+            params
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('getFarmerProductSales error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};

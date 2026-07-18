@@ -1,14 +1,43 @@
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
 
-// ── GET /api/payments/seller-summary?from=YYYY-MM-DD&to=YYYY-MM-DD ───────────────────────────────────────────────────────────────────────────────
+/*
+  ── REQUIRED SQL MIGRATIONS ──────────────────────────────────
+  Run these before deploying the controller:
+
+  1. Add cattle_feed_deduction column to seller_payments
+  ALTER TABLE seller_payments
+  ADD COLUMN cattle_feed_deduction DECIMAL(12,2) DEFAULT 0.00 AFTER walkin_deduction;
+
+  2. Add cattle_feed_deduction column to bill_master
+  ALTER TABLE bill_master
+  ADD COLUMN cattle_feed_deduction DECIMAL(12,2) DEFAULT 0.00 AFTER walkin_deduction;
+
+  3. Create snapshot table for cattle feed sales
+  CREATE TABLE bill_cattle_feed_sales (
+     id BIGINT NOT NULL AUTO_INCREMENT,
+     bill_id BIGINT NOT NULL,
+     centre_id INT NOT NULL,
+     sale_id INT DEFAULT NULL,
+     feed_name VARCHAR(200) DEFAULT NULL,
+     quantity DECIMAL(10,2) DEFAULT NULL,
+     rate DECIMAL(10,2) DEFAULT NULL,
+     total_amount DECIMAL(12,2) DEFAULT NULL,
+     PRIMARY KEY (id),
+     KEY bill_id (bill_id),
+     KEY centre_id (centre_id),
+     CONSTRAINT bill_cattle_feed_sales_ibfk_1 FOREIGN KEY (bill_id) REFERENCES bill_master (bill_id) ON DELETE CASCADE,
+     CONSTRAINT bill_cattle_feed_sales_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+  );
+*/
+
+// ── GET /api/payments/seller-summary?from=YYYY-MM-DD&to=YYYY-MM-DD ──
 // Returns a summary of all sellers with milk entries in the given date range, including:
-// - Total milk amount, quantity, and entries
-// - Advance given, product deductions, walk-in deductions
+// - Total milk amount, quantity, entries
+// - Advance given, product deductions, walk-in deductions, cattle feed deductions
 // - Deposit amount (qty * deposit_per_litre)
 // - Installment cut (from cash advance)
 // - Final payable amount
-// ═══════════════════════════════════════════════════════════════════════════════
 exports.getSellerSummary = async (req, res) => {
     try {
         const { from, to } = req.query;
@@ -97,12 +126,24 @@ exports.getSellerSummary = async (req, res) => {
             walkinSales.map(w => [w.seller_id, parseFloat(w.walkin_total || 0)])
         );
 
+        // 4b. Fetch cattle feed sales deductions
+        const [cattleFeedSales] = await pool.query(
+            `SELECT seller_id, COALESCE(SUM(total_amount), 0) AS cattle_feed_total
+            FROM cattle_feed_sales
+            WHERE centre_id = ? AND sale_date BETWEEN ? AND ?
+            GROUP BY seller_id`,
+            [centreId, from, to]
+        );
+        const cattleFeedMap = Object.fromEntries(
+            cattleFeedSales.map(c => [c.seller_id, parseFloat(c.cattle_feed_total || 0)])
+        );
+
         // 5. Fetch already-paid records
         const [paid] = await pool.query(
             `SELECT
                 seller_id, paid_at, bill_no, from_date, to_date,
                 installment_cut, deposit_amount, product_deduction,
-                walkin_deduction, final_payable, cash_paid
+                walkin_deduction, cattle_feed_deduction, final_payable, cash_paid
             FROM seller_payments
             WHERE paid_at IS NOT NULL
               AND centre_id = ?
@@ -126,6 +167,7 @@ exports.getSellerSummary = async (req, res) => {
                     deposit_amount: p.deposit_amount,
                     product_deduction: p.product_deduction,
                     walkin_deduction: p.walkin_deduction,
+                    cattle_feed_deduction: p.cattle_feed_deduction,
                     final_payable: p.final_payable,
                     cash_paid: p.cash_paid,
                 };
@@ -170,7 +212,7 @@ exports.getSellerSummary = async (req, res) => {
             const paidRecord = paidMap[s.seller_id];
             const alreadyPaid = !!paidRecord?.paid_at;
 
-            // Safely parse entries (handle NULL or string)
+            // Safely parse entries
             let entries = [];
             if (s.entries) {
                 try {
@@ -199,6 +241,7 @@ exports.getSellerSummary = async (req, res) => {
                     installment_cut: parseFloat(paidRecord.installment_cut || 0),
                     product_deduction: parseFloat(paidRecord.product_deduction || 0),
                     walkin_deduction: parseFloat(paidRecord.walkin_deduction || 0),
+                    cattle_feed_deduction: parseFloat(paidRecord.cattle_feed_deduction || 0),
                     deduction_amount: parseFloat(s.advance_deduction || 0),
                     cash_to_pay: parseFloat(paidRecord.final_payable || paidRecord.cash_paid || 0),
                     final_payable: parseFloat(paidRecord.final_payable || paidRecord.cash_paid || 0),
@@ -221,6 +264,7 @@ exports.getSellerSummary = async (req, res) => {
             const advGiven = advMap[s.seller_id] || 0;
             const productDeduction = productMap[s.seller_id] || 0;
             const walkinDeduction = walkinMap[s.seller_id] || 0;
+            const cattleFeedDeduction = cattleFeedMap[s.seller_id] || 0;
             const deductionAmt = parseFloat(s.advance_deduction || 0);
 
             // Installment cut: min(deductionAmt, advGiven)
@@ -234,10 +278,10 @@ exports.getSellerSummary = async (req, res) => {
             // Deduct installment from milk payable
             const milkAfterInstallment = milkAfterDeposit - installmentCut;
 
-            // Deduct product and walk-in sales
-            const milkAfterProductWalkin = milkAfterInstallment - productDeduction - walkinDeduction;
+            // Deduct product, walk-in, and cattle feed sales
+            const milkAfterAllDeductions = milkAfterInstallment - productDeduction - walkinDeduction - cattleFeedDeduction;
 
-            const finalPayable = parseFloat(milkAfterProductWalkin.toFixed(2));
+            const finalPayable = parseFloat(milkAfterAllDeductions.toFixed(2));
 
             // Update deposit balance
             const updatedDepositBalance = depositMap[s.seller_id] || 0;
@@ -258,8 +302,9 @@ exports.getSellerSummary = async (req, res) => {
                 installment_cut: installmentCut,
                 product_deduction: productDeduction,
                 walkin_deduction: walkinDeduction,
+                cattle_feed_deduction: cattleFeedDeduction,
                 deduction_amount: deductionAmt,
-                cash_to_pay: milkAfterProductWalkin,
+                cash_to_pay: milkAfterAllDeductions,
                 final_payable: finalPayable,
                 deposit_balance: updatedDepositBalance,
                 advance_balance: updatedAdvanceBalance,
@@ -287,8 +332,7 @@ exports.getSellerSummary = async (req, res) => {
 // 1. Deducts the installment from cash_advance (if applicable)
 // 2. Adds the deposit amount to seller_deposits (if applicable)
 // 3. Generates a bill number and updates seller_payments
-// 4. Creates a bill snapshot with all granular data
-// ═══════════════════════════════════════════════════════════════════════════════
+// 4. Creates a bill snapshot with all granular data (including cattle feed sales)
 exports.markPaid = async (req, res) => {
     const conn = await pool.getConnection();
     try {
@@ -395,11 +439,20 @@ exports.markPaid = async (req, res) => {
         );
         const walkinDeduction = parseFloat(walkinRows.walkin_total || 0);
 
+        // 9b. Fetch cattle feed deductions
+        const [[cattleFeedRows]] = await conn.query(
+            `SELECT COALESCE(SUM(total_amount), 0) AS cattle_feed_total
+             FROM cattle_feed_sales
+             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
+            [seller_id, centreId, from_date, to_date]
+        );
+        const cattleFeedDeduction = parseFloat(cattleFeedRows.cattle_feed_total || 0);
+
         // 10. Calculate final payable (no TDS)
         const milkAfterDeposit = milkAmount - finalDepositAmount;
         const milkAfterInstallment = milkAfterDeposit - finalInstallmentCut;
-        const milkAfterDeductions = milkAfterInstallment - productDeduction - walkinDeduction;
-        const finalPayable = parseFloat(milkAfterDeductions.toFixed(2));
+        const milkAfterAllDeductions = milkAfterInstallment - productDeduction - walkinDeduction - cattleFeedDeduction;
+        const finalPayable = parseFloat(milkAfterAllDeductions.toFixed(2));
 
         // 11. Generate bill number
         const toDateObj = new Date(to_date);
@@ -426,6 +479,7 @@ exports.markPaid = async (req, res) => {
                 finalDepositAmount,
                 productDeduction,
                 walkinDeduction,
+                cattleFeedDeduction,
                 finalPayable,
                 totalMilkQty,
                 depositPerLitre,
@@ -443,24 +497,25 @@ exports.markPaid = async (req, res) => {
         await conn.query(
             `INSERT INTO seller_payments
              (seller_id, operator_id, centre_id, from_date, to_date, milk_amount, advance_given,
-              installment_cut, deposit_amount, product_deduction, walkin_deduction,
+              installment_cut, deposit_amount, product_deduction, walkin_deduction, cattle_feed_deduction,
               tds_amount, final_payable, cash_paid, bill_no, paid_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NOW())
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NOW())
              ON DUPLICATE KEY UPDATE
-               installment_cut   = VALUES(installment_cut),
-               deposit_amount    = VALUES(deposit_amount),
-               product_deduction = VALUES(product_deduction),
-               walkin_deduction  = VALUES(walkin_deduction),
-               tds_amount        = 0,
-               final_payable     = VALUES(final_payable),
-               cash_paid         = VALUES(cash_paid),
-               bill_no           = VALUES(bill_no),
-               paid_at           = NOW()`,
+               installment_cut         = VALUES(installment_cut),
+               deposit_amount          = VALUES(deposit_amount),
+               product_deduction       = VALUES(product_deduction),
+               walkin_deduction        = VALUES(walkin_deduction),
+               cattle_feed_deduction   = VALUES(cattle_feed_deduction),
+               tds_amount              = 0,
+               final_payable           = VALUES(final_payable),
+               cash_paid               = VALUES(cash_paid),
+               bill_no                 = VALUES(bill_no),
+               paid_at                 = NOW()`,
             [
                 seller_id, operatorId, centreId, from_date, to_date, milkAmount,
                 advanceBalanceBefore, finalInstallmentCut, finalDepositAmount,
-                productDeduction, walkinDeduction, finalPayable,
-                finalPayable, bill_no
+                productDeduction, walkinDeduction, cattleFeedDeduction,
+                finalPayable, finalPayable, bill_no
             ]
         );
 
@@ -474,6 +529,7 @@ exports.markPaid = async (req, res) => {
             installment_deducted: finalInstallmentCut,
             product_deduction: productDeduction,
             walkin_deduction: walkinDeduction,
+            cattle_feed_deduction: cattleFeedDeduction,
             cash_paid: finalPayable,
         });
 
@@ -490,12 +546,13 @@ exports.markPaid = async (req, res) => {
     }
 };
 
+// ── Helper: createBillSnapshot ───────────────────────────────────────────────────────────────────────────────
 async function createBillSnapshot(conn, data) {
     const {
         bill_no, seller_id, operatorId, centreId, sellerInfo,
         from_date, to_date, milkAmount, advanceBalance,
         finalInstallmentCut, finalDepositAmount,
-        productDeduction, walkinDeduction,
+        productDeduction, walkinDeduction, cattleFeedDeduction,
         finalPayable, totalMilkQty,
         depositPerLitre,
     } = data;
@@ -513,27 +570,28 @@ async function createBillSnapshot(conn, data) {
         `INSERT INTO bill_master (
             bill_no, seller_id, operator_id, centre_id, seller_code, seller_name,
             from_date, to_date, milk_amount, advance_balance, installment_cut,
-            deposit_amount, product_deduction, walkin_deduction, tds_amount,
-            final_payable, cash_paid, total_qty, total_entries, paid_at
+            deposit_amount, product_deduction, walkin_deduction, cattle_feed_deduction,
+            tds_amount, final_payable, cash_paid, total_qty, total_entries, paid_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
-            milk_amount       = VALUES(milk_amount),
-            advance_balance   = VALUES(advance_balance),
-            installment_cut   = VALUES(installment_cut),
-            deposit_amount    = VALUES(deposit_amount),
-            product_deduction = VALUES(product_deduction),
-            walkin_deduction  = VALUES(walkin_deduction),
-            tds_amount        = 0,
-            final_payable     = VALUES(final_payable),
-            cash_paid         = VALUES(cash_paid),
-            total_qty         = VALUES(total_qty),
-            total_entries     = VALUES(total_entries),
-            paid_at           = NOW()`,
+            milk_amount             = VALUES(milk_amount),
+            advance_balance         = VALUES(advance_balance),
+            installment_cut         = VALUES(installment_cut),
+            deposit_amount          = VALUES(deposit_amount),
+            product_deduction       = VALUES(product_deduction),
+            walkin_deduction        = VALUES(walkin_deduction),
+            cattle_feed_deduction   = VALUES(cattle_feed_deduction),
+            tds_amount              = 0,
+            final_payable           = VALUES(final_payable),
+            cash_paid               = VALUES(cash_paid),
+            total_qty               = VALUES(total_qty),
+            total_entries           = VALUES(total_entries),
+            paid_at                 = NOW()`,
         [
             bill_no, seller_id, operatorId, centreId, sellerInfo.seller_code, sellerInfo.name,
             from_date, to_date, milkAmount, advanceBalance, finalInstallmentCut,
-            finalDepositAmount, productDeduction, walkinDeduction,
+            finalDepositAmount, productDeduction, walkinDeduction, cattleFeedDeduction,
             finalPayable, finalPayable, totalMilkQty, entries.length
         ]
     );
@@ -545,10 +603,14 @@ async function createBillSnapshot(conn, data) {
     );
     const billId = existingBill.bill_id;
 
-    // 4. Insert milk entries snapshot
+    // 4. Insert milk entries snapshot (clear old rows first so re-runs don't duplicate)
+    await conn.query(
+        `DELETE FROM bill_milk_entries WHERE bill_id = ? AND centre_id = ?`,
+        [billId, centreId]
+    );
     for (const row of entries) {
         await conn.query(
-            `INSERT IGNORE INTO bill_milk_entries (
+            `INSERT INTO bill_milk_entries (
                 bill_id, centre_id, original_entry_id, entry_date, shift, milk_type,
                 quantity, fat, snf, water, rate_applied, total_amount
             )
@@ -560,7 +622,7 @@ async function createBillSnapshot(conn, data) {
         );
     }
 
-    // 5. Insert product sales snapshot
+    // 5. Insert product sales snapshot (clear old rows first)
     const [products] = await conn.query(
         `SELECT ps.*, p.product_name, p.unit
          FROM product_sales ps
@@ -568,24 +630,32 @@ async function createBillSnapshot(conn, data) {
          WHERE ps.seller_id = ? AND ps.centre_id = ? AND ps.sale_date BETWEEN ? AND ?`,
         [seller_id, centreId, from_date, to_date]
     );
+    await conn.query(
+        `DELETE FROM bill_product_sales WHERE bill_id = ? AND centre_id = ?`,
+        [billId, centreId]
+    );
     for (const p of products) {
         await conn.query(
-            `INSERT IGNORE INTO bill_product_sales
+            `INSERT INTO bill_product_sales
              (bill_id, centre_id, sale_id, product_name, quantity, rate, total_amount)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [billId, centreId, p.sale_id, p.product_name || 'Unknown', p.quantity, p.rate, p.total_amount]
         );
     }
 
-    // 6. Insert walkin sales snapshot
+    // 6. Insert walkin sales snapshot (clear old rows first)
     const [walkins] = await conn.query(
         `SELECT * FROM walkin_sales
          WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
         [seller_id, centreId, from_date, to_date]
     );
+    await conn.query(
+        `DELETE FROM bill_walkin_sales WHERE bill_id = ? AND centre_id = ?`,
+        [billId, centreId]
+    );
     for (const w of walkins) {
         await conn.query(
-            `INSERT IGNORE INTO bill_walkin_sales
+            `INSERT INTO bill_walkin_sales
              (bill_id, centre_id, sale_id, buyer_name, milk_type, quantity, mrp,
               total_amount, payment_mode, shift, sale_date)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -596,7 +666,29 @@ async function createBillSnapshot(conn, data) {
         );
     }
 
-    // 7. Insert deposit snapshot
+    // 7. Insert cattle feed sales snapshot (clear old rows first — this is what was
+    //    causing the same cattle feed line to appear multiple times on print)
+    const [cattleFeedSales] = await conn.query(
+        `SELECT cfs.*, cf.feed_name
+         FROM cattle_feed_sales cfs
+         JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+         WHERE cfs.seller_id = ? AND cfs.centre_id = ? AND cfs.sale_date BETWEEN ? AND ?`,
+        [seller_id, centreId, from_date, to_date]
+    );
+    await conn.query(
+        `DELETE FROM bill_cattle_feed_sales WHERE bill_id = ? AND centre_id = ?`,
+        [billId, centreId]
+    );
+    for (const f of cattleFeedSales) {
+        await conn.query(
+            `INSERT INTO bill_cattle_feed_sales
+             (bill_id, centre_id, sale_id, feed_name, quantity, rate, total_amount)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [billId, centreId, f.sale_id, f.feed_name, f.quantity, f.rate, f.total_amount]
+        );
+    }
+
+    // 8. Insert deposit snapshot
     const [[depositRow]] = await conn.query(
         `SELECT
             COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) -
@@ -608,6 +700,10 @@ async function createBillSnapshot(conn, data) {
     const depositBalBefore = parseFloat(depositRow.balance_before || 0);
 
     await conn.query(
+        `DELETE FROM bill_deposit_snapshot WHERE bill_id = ? AND centre_id = ?`,
+        [billId, centreId]
+    );
+    await conn.query(
         `INSERT INTO bill_deposit_snapshot
          (bill_id, centre_id, deposit_per_litre, total_milk_qty, deposit_amount,
           deposit_balance_before, deposit_balance_after)
@@ -618,7 +714,7 @@ async function createBillSnapshot(conn, data) {
         ]
     );
 
-    // 8. Insert cash advance snapshot
+    // 9. Insert cash advance snapshot
     await conn.query(
         `DELETE FROM bill_cash_advance_snapshot WHERE bill_id = ? AND centre_id = ?`,
         [billId, centreId]
@@ -636,10 +732,9 @@ async function createBillSnapshot(conn, data) {
 // ── GET /api/payments/bill/:bill_no ───────────────────────────────────────────────────────────────────────────────
 // Fetches a bill by its bill_no, including:
 // - Payment details
-// - Milk entries for the period
-// - Advance transactions for the period
-// - Product sales for the period
-// ════════════════════════════════════
+// - Milk entries
+// - Advance transactions
+// - Product sales, walk‑in sales, and cattle feed sales
 exports.getBillByNo = async (req, res) => {
     try {
         const { bill_no } = req.params;
@@ -649,7 +744,7 @@ exports.getBillByNo = async (req, res) => {
         const [[payment]] = await pool.query(
             `SELECT sp.id, sp.seller_id, sp.operator_id, sp.from_date, sp.to_date,
                     sp.milk_amount, sp.advance_given, sp.installment_cut, sp.deposit_amount,
-                    sp.product_deduction, sp.walkin_deduction,
+                    sp.product_deduction, sp.walkin_deduction, sp.cattle_feed_deduction,
                     sp.final_payable, sp.cash_paid, sp.bill_no, sp.paid_at,
                     s.name, s.seller_code, s.seller_type, s.mobile,
                     s.bank_account, s.bank_name, s.advance_deduction AS adv_deduction_setting,
@@ -663,13 +758,7 @@ exports.getBillByNo = async (req, res) => {
             return res.status(404).json({ message: "Bill not found." });
         }
 
-        const [walkinSales] = await pool.query(
-            `SELECT * FROM bill_walkin_sales WHERE bill_id = (
-                SELECT bill_id FROM bill_master WHERE bill_no = ? AND centre_id = ? LIMIT 1
-            ) ORDER BY sale_date ASC`,
-            [bill_no, centreId]
-        );
-
+        // 2. Fetch deposit snapshot
         const [[depositRow]] = await pool.query(
             `SELECT
                 COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) -
@@ -680,7 +769,7 @@ exports.getBillByNo = async (req, res) => {
         );
         const depositSnapshot = [{ deposit_balance_before: parseFloat(depositRow.deposit_balance_before || 0) }];
 
-        // 2. Fetch milk entries for the period
+        // 3. Fetch milk entries
         const [entries] = await pool.query(
             `SELECT me.*, s.name AS seller_name, s.seller_code
              FROM milk_entries me
@@ -690,7 +779,7 @@ exports.getBillByNo = async (req, res) => {
             [payment.seller_id, centreId, payment.from_date, payment.to_date]
         );
 
-        // 3. Fetch advance transactions for the period
+        // 4. Fetch advance transactions
         const [advances] = await pool.query(
             `SELECT * FROM cash_advance
              WHERE seller_id = ? AND centre_id = ? AND transaction_date BETWEEN ? AND ?
@@ -698,7 +787,7 @@ exports.getBillByNo = async (req, res) => {
             [payment.seller_id, centreId, payment.from_date, payment.to_date]
         );
 
-        // 4. Fetch product sales for the period
+        // 5. Fetch product sales
         const [productSales] = await pool.query(
             `SELECT ps.*, p.product_name, p.unit
              FROM product_sales ps
@@ -708,13 +797,29 @@ exports.getBillByNo = async (req, res) => {
             [payment.seller_id, centreId, payment.from_date, payment.to_date]
         );
 
-        // 5. Return all data
+        // 6. Fetch walk‑in sales
+        const [walkinSales] = await pool.query(
+            `SELECT * FROM walkin_sales
+             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
+            [payment.seller_id, centreId, payment.from_date, payment.to_date]
+        );
+
+        // 7. Fetch cattle feed sales from snapshot
+        const [cattleFeedSales] = await pool.query(
+            `SELECT * FROM bill_cattle_feed_sales
+             WHERE bill_id = (SELECT bill_id FROM bill_master WHERE bill_no = ? AND centre_id = ? LIMIT 1)
+             ORDER BY sale_id ASC`,
+            [bill_no, centreId]
+        );
+
+        // 8. Return all data
         res.json({
             payment,
             entries,
             advances,
             productSales,
             walkinSales,
+            cattleFeedSales,
             depositSnapshot
         });
     } catch (err) {
@@ -752,7 +857,7 @@ exports.searchBills = async (req, res) => {
         const [rows] = await pool.query(
             `SELECT sp.id, sp.seller_id, sp.bill_no, sp.from_date, sp.to_date,
                     sp.milk_amount, sp.advance_given, sp.installment_cut, sp.deposit_amount,
-                    sp.product_deduction, sp.walkin_deduction,
+                    sp.product_deduction, sp.walkin_deduction, sp.cattle_feed_deduction,
                     sp.final_payable, sp.cash_paid, sp.paid_at,
                     s.name, s.seller_code
              FROM seller_payments sp
@@ -919,9 +1024,7 @@ exports.saveCycleConfig = async (req, res) => {
     }
 };
 
-// ── GET /api/payments/export-excel?from=YYYY-MM-DD&to=YYYY-MM-DD ────────
-// Exports paid sellers for the given cycle in the bank NEFT/RTGS upload format.
-// ═══════════════════════════════════════════════════════════════════════
+// ── GET /api/payments/export-excel ───────────────────────────────────────────────────────────────────────────────
 exports.exportExcel = async (req, res) => {
     try {
         const { from, to } = req.query;
@@ -969,11 +1072,9 @@ exports.exportExcel = async (req, res) => {
 
         const todayStr = fmtDateDDMMYYYY(new Date());
 
-        // ── ExcelJS workbook ──────────────────────────────────────
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Payments');
 
-        // Column widths (A–Y = 25 cols)
         worksheet.columns = [
             { width: 14 }, // A - Plant Code
             { width: 8 }, // B - Code
@@ -1002,7 +1103,6 @@ exports.exportExcel = async (req, res) => {
             { width: 20 }, // Y - Narration
         ];
 
-        // ── Header row ────────────────────────────────────────────
         const headerRow = worksheet.addRow([
             'Plant Code', 'Code', 'Payment Mode', '', 'Date', '',
             'Dairy Current Acc No.', 'Amount', 'Code2', '',
@@ -1024,7 +1124,6 @@ exports.exportExcel = async (req, res) => {
             };
         });
 
-        // ── Data rows ─────────────────────────────────────────────
         const whiteBorder = {
             top: { style: 'thin', color: { argb: 'FFFFFFFF' } },
             bottom: { style: 'thin', color: { argb: 'FFFFFFFF' } },
@@ -1039,40 +1138,32 @@ exports.exportExcel = async (req, res) => {
             const amount = parseFloat(r.final_payable || r.cash_paid || 0);
 
             const dataRow = worksheet.addRow([
-                PLANT_CODE,           // A col 0
-                CODE,                 // B col 1
-                PAYMENT_MODE,         // C col 2
-                '',                   // D col 3
-                todayStr,             // E col 4
-                '',                   // F col 5
-                DAIRY_CURRENT_ACC_NO, // G col 6
-                amount,               // H col 7
-                CODE2,                // I col 8
-                '',                   // J col 9
-                `${cleanCode} ${r.name} ${periodLabel}`, // K col 10
-                '',                   // L col 11
-                r.ifsc_code || '', // M col 12
-                r.bank_account || '', // N col 13
-                '', '', '', '', '', '', '', '', '', // O–W col 14-22
-                narration,            // X col 23
-                narration,            // Y col 24
+                PLANT_CODE,
+                CODE,
+                PAYMENT_MODE,
+                '',
+                todayStr,
+                '',
+                DAIRY_CURRENT_ACC_NO,
+                amount,
+                CODE2,
+                '',
+                `${cleanCode} ${r.name} ${periodLabel}`,
+                '',
+                r.ifsc_code || '',
+                r.bank_account || '',
+                '', '', '', '', '', '', '', '', '',
+                narration,
+                narration,
             ]);
 
-            // Amount cell (H) — white border
             const amtCell = dataRow.getCell(8);
             amtCell.numFmt = '0.00';
             amtCell.border = whiteBorder;
-
-            // Seller Details cell (K) — white border
             dataRow.getCell(11).border = whiteBorder;
-
-            // IFSC cell (M) — white border
             dataRow.getCell(13).border = whiteBorder;
-
-            // Acc_no cell (N) — white border
             dataRow.getCell(14).border = whiteBorder;
 
-            // Narration cells (X, Y) — yellow bg, black font, black border
             [24, 25].forEach(colNumber => {
                 const cell = dataRow.getCell(colNumber);
                 cell.fill = {
@@ -1083,7 +1174,6 @@ exports.exportExcel = async (req, res) => {
             });
         }
 
-        // ── Stream response ───────────────────────────────────────
         res.setHeader('Content-Type',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition',

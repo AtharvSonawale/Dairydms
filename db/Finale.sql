@@ -1016,4 +1016,20 @@ CREATE TABLE speed_cattle_feeds (
    CONSTRAINT speed_cattle_feeds_ibfk_4 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+ CREATE TABLE bill_cattle_feed_sales (
+   id BIGINT NOT NULL AUTO_INCREMENT,
+   bill_id BIGINT NOT NULL,
+   centre_id INT NOT NULL,
+   sale_id INT DEFAULT NULL,
+   feed_name VARCHAR(200) DEFAULT NULL,
+   quantity DECIMAL(10,2) DEFAULT NULL,
+   rate DECIMAL(10,2) DEFAULT NULL,
+   total_amount DECIMAL(12,2) DEFAULT NULL,
+   PRIMARY KEY (id),
+   KEY bill_id (bill_id),
+   KEY centre_id (centre_id),
+   CONSTRAINT bill_cattle_feed_sales_ibfk_1 FOREIGN KEY (bill_id) REFERENCES bill_master (bill_id) ON DELETE CASCADE,
+   CONSTRAINT bill_cattle_feed_sales_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+);
+
 SET FOREIGN_KEY_CHECKS = 1;

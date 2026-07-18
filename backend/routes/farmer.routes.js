@@ -9,5 +9,8 @@ router.get('/bill/:bill_no', ctrl.getFarmerBillDetail);
 router.get('/milk-entries', ctrl.getFarmerMilkEntries);
 router.get('/bills', ctrl.getFarmerBills);
 router.get('/finance', ctrl.getFarmerFinance);
+router.get('/cattle-feed', ctrl.getFarmerCattleFeed);
+router.get('/product-sales', ctrl.getFarmerProductSales);
+
 
 module.exports = router;

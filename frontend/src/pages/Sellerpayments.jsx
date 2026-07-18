@@ -5,7 +5,7 @@ import {
     Wallet, ChevronDown, ChevronUp, RefreshCw, Printer,
     BadgeCheck, AlertTriangle, X, Users, Milk,
     CheckCircle2, Clock, Search, Banknote, TrendingUp,
-    FileSearch, Hash, FileText, Trash2, Calendar, Download
+    FileSearch, Hash, FileText, Trash2, Calendar, Download, Package
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
@@ -340,7 +340,6 @@ export default function SellerPayments() {
 
     const [billListExpanded, setBillListExpanded] = useState(true);
 
-
     const [combinedDownloading, setCombinedDownloading] = useState(false);
     const cycle = { from: customFrom, to: customTo };
     const [currentPage, setCurrentPage] = useState(1);
@@ -365,7 +364,6 @@ export default function SellerPayments() {
     const [undoing, setUndoing] = useState(null);
     const [simulatedToday, setSimulatedToday] = useState(() => new Date().toISOString().split('T')[0]);
 
-
     const [cycleConfigOpen, setCycleConfigOpen] = useState(false);
     const [excelConfigOpen, setExcelConfigOpen] = useState(false);
     const [cycleSeedFrom, setCycleSeedFrom] = useState(new Date().toISOString().split('T')[0]);
@@ -373,7 +371,6 @@ export default function SellerPayments() {
     const [cycleConfigLoaded, setCycleConfigLoaded] = useState(false);
 
     // Fixed monthly cycles (1-10 / 11-20 / 21-end) are the default.
-    // The custom/rolling seed+days cycle is an optional override.
     const [useCustomCycle, setUseCustomCycle] = useState(false);
     const fixedCycles = getFixedMonthCycles(new Date());
     const [activeFixedIdx, setActiveFixedIdx] = useState(() => {
@@ -391,7 +388,7 @@ export default function SellerPayments() {
         setCustomTo(c.to);
     };
 
-    // Fetch cycle config from DB on mount (only applied if user later enables custom mode)
+    // Fetch cycle config from DB on mount
     useEffect(() => {
         const fetchCycleConfig = async () => {
             try {
@@ -441,7 +438,6 @@ export default function SellerPayments() {
         const end = new Date(cycleTo + 'T00:00:00');
         return today.getTime() === end.getTime();
     };
-
 
     const searchBills = async (q) => {
         setBillLoading(true);
@@ -563,9 +559,10 @@ export default function SellerPayments() {
         }
     };
 
+    // ── FIX: added optional chaining to prevent crash ──
     const handleUndo = async (e, seller) => {
         e.stopPropagation();
-        if (undoing || !seller.bill_no) return;
+        if (undoing || !seller?.bill_no) return;
         setUndoing(seller.seller_id);
         try {
             await api.delete(`/payments/bill/${seller.bill_no}`);
@@ -660,7 +657,6 @@ export default function SellerPayments() {
         }
     };
 
-    // ── Add this function after generateReceiptPDF (around line 530) ──
     // Generate combined PDF with all receipts
     const generateCombinedPDF = async (sellersList) => {
         try {
@@ -768,7 +764,7 @@ export default function SellerPayments() {
         }
     };
 
-    // Build receipt HTML (returns HTML string)
+    // Build receipt HTML (returns HTML string) – UPDATED with cattle feed
     const buildReceiptHtml = async (seller, overrideCycle) => {
         const activeCycle = overrideCycle || cycle;
 
@@ -785,12 +781,14 @@ export default function SellerPayments() {
         const entries = billData?.entries || seller.entries || [];
         const productSales = billData?.productSales || [];
         const walkinSales = billData?.walkinSales || [];
+        const cattleFeedSales = billData?.cattleFeedSales || [];
 
         const sellerObj = {
             ...seller,
             entries,
             product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
             walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+            cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
             installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
             deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
             deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
@@ -813,6 +811,7 @@ export default function SellerPayments() {
         const installmentCut = parseFloat(sellerObj.installment_cut || 0);
         const productDed = parseFloat(sellerObj.product_deduction || 0);
         const walkinDed = parseFloat(sellerObj.walkin_deduction || 0);
+        const cattleFeedDed = parseFloat(sellerObj.cattle_feed_deduction || 0);
         const advGiven = parseFloat(sellerObj.advance_given || 0);
         const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
         const finalPayable = parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0);
@@ -886,6 +885,32 @@ export default function SellerPayments() {
             <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
                 <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
                 <td style="text-align:right">${fmtR(productDed)}</td>
+              </tr>
+        </tbody>
+      </table>` : "";
+
+        const cattleFeedTable = cattleFeedSales.length > 0 ? `
+    <div class="section-title">${t('sellerPayments.cattleFeedDeductions')}</div>
+    <table style="margin-bottom:10px">
+        <thead>
+            <tr>
+                <th style="text-align:left">${t('sellerPayments.feed')}</th>
+                <th>${t('sellerPayments.qty')}</th>
+                <th>${t('sellerPayments.rate')}</th>
+                <th>${t('sellerPayments.amount')}</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${cattleFeedSales.map((f, i) => `
+                <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
+                    <td style="text-align:left">${f.feed_name || t('sellerPayments.unknown')}</td>
+                    <td style="text-align:center">${parseFloat(f.quantity || 0).toFixed(2)}</td>
+                    <td style="text-align:center">Rs.${parseFloat(f.rate || 0).toFixed(2)}</td>
+                    <td style="font-weight:600;text-align:right">${fmtR(f.total_amount)}</td>
+                  </tr>`).join('')}
+            <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
+                <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
+                <td style="text-align:right">${fmtR(cattleFeedDed)}</td>
               </tr>
         </tbody>
       </table>` : "";
@@ -1173,6 +1198,7 @@ ${entries.length > 0 ? `
 </table>` : ""}
 
 ${productSalesTable}
+${cattleFeedTable}
 ${walkinTotal}
 
 <div class="section-title">${t('sellerPayments.accountSummary')}</div>
@@ -1242,6 +1268,11 @@ ${walkinTotal}
             <span class="key">${t('sellerPayments.products')}</span>
             <span class="val">− ${fmtR(productDed)}</span>
         </div>` : ""}
+        ${cattleFeedDed > 0 ? `
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.cattleFeed')}</span>
+            <span class="val">− ${fmtR(cattleFeedDed)}</span>
+        </div>` : ""}
         ${walkinDed > 0 ? `
         <div class="bs-row">
             <span class="key">${t('sellerPayments.milkBought')}</span>
@@ -1288,6 +1319,11 @@ ${walkinTotal}
         <span>${t('sellerPayments.productSalesDeduction')}</span>
         <span style="font-family:monospace;font-weight:600">− ${fmtR(productDed)}</span>
     </div>` : ""}
+    ${cattleFeedDed > 0 ? `
+    <div class="deduction-row" style="background:#ecfdf5">
+        <span>${t('sellerPayments.cattleFeedDeduction')}</span>
+        <span style="font-family:monospace;font-weight:600;color:#065f46">− ${fmtR(cattleFeedDed)}</span>
+    </div>` : ""}
     ${walkinDed > 0 ? `
     <div class="deduction-row" style="background:#fff7ed">
         <span>${t('sellerPayments.milkBoughtBySellerWalkin')}</span>
@@ -1319,7 +1355,6 @@ ${walkinTotal}
                 showFlash("error", t('sellerPayments.receiptGenerationError'));
                 return false;
             }
-            // Include from/to dates in filename
             const fromDate = cycle.from ? new Date(cycle.from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
             const toDate = cycle.to ? new Date(cycle.to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
             const fileName = `Receipt_${seller.seller_code || seller.seller_id}_${seller.bill_no || 'draft'}_${fromDate}_to_${toDate}.pdf`;
@@ -1337,7 +1372,7 @@ ${walkinTotal}
         }
     };
 
-    // print receipt (Bill PDF) - for printing functionality
+    // print receipt (Bill PDF) – UPDATED with cattle feed
     const printReceipt = async (e, seller, overrideCycle) => {
         e.stopPropagation();
         const activeCycle = overrideCycle || cycle;
@@ -1356,12 +1391,14 @@ ${walkinTotal}
         const entries = billData?.entries || seller.entries || [];
         const productSales = billData?.productSales || [];
         const walkinSales = billData?.walkinSales || [];
+        const cattleFeedSales = billData?.cattleFeedSales || [];
 
         const sellerObj = {
             ...seller,
             entries,
             product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
             walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+            cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
             installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
             deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
             deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
@@ -1384,6 +1421,7 @@ ${walkinTotal}
         const installmentCut = parseFloat(sellerObj.installment_cut || 0);
         const productDed = parseFloat(sellerObj.product_deduction || 0);
         const walkinDed = parseFloat(sellerObj.walkin_deduction || 0);
+        const cattleFeedDed = parseFloat(sellerObj.cattle_feed_deduction || 0);
         const advGiven = parseFloat(sellerObj.advance_given || 0);
         const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
         const finalPayable = parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0);
@@ -1457,6 +1495,32 @@ ${walkinTotal}
             <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #111">
                 <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
                 <td style="text-align:right">${fmtR(productDed)}</td>
+              </tr>
+        </tbody>
+      </table>` : "";
+
+        const cattleFeedTable = cattleFeedSales.length > 0 ? `
+    <div class="section-title">${t('sellerPayments.cattleFeedDeductions')}</div>
+    <table style="margin-bottom:10px">
+        <thead>
+            <tr>
+                <th style="text-align:left">${t('sellerPayments.feed')}</th>
+                <th>${t('sellerPayments.qty')}</th>
+                <th>${t('sellerPayments.rate')}</th>
+                <th>${t('sellerPayments.amount')}</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${cattleFeedSales.map((f, i) => `
+                <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
+                    <td style="text-align:left">${f.feed_name || t('sellerPayments.unknown')}</td>
+                    <td style="text-align:center">${parseFloat(f.quantity || 0).toFixed(2)}</td>
+                    <td style="text-align:center">Rs.${parseFloat(f.rate || 0).toFixed(2)}</td>
+                    <td style="font-weight:600;text-align:right">${fmtR(f.total_amount)}</td>
+                  </tr>`).join('')}
+            <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #111">
+                <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
+                <td style="text-align:right">${fmtR(cattleFeedDed)}</td>
               </tr>
         </tbody>
       </table>` : "";
@@ -1649,6 +1713,7 @@ ${entries.length > 0 ? `
 </table>` : ""}
 
 ${productSalesTable}
+${cattleFeedTable}
 ${walkinTotal}
 
 <div class="section-title">${t('sellerPayments.accountSummary')}</div>
@@ -1712,6 +1777,11 @@ ${walkinTotal}
             <span class="key">${t('sellerPayments.products')}</span>
             <span class="val" style="color:#d97706">− ${fmtR(productDed)}</span>
         </div>` : ""}
+        ${cattleFeedDed > 0 ? `
+        <div class="bs-row">
+            <span class="key">${t('sellerPayments.cattleFeed')}</span>
+            <span class="val" style="color:#065f46">− ${fmtR(cattleFeedDed)}</span>
+        </div>` : ""}
         ${walkinDed > 0 ? `
         <div class="bs-row">
             <span class="key">${t('sellerPayments.milkBought')}</span>
@@ -1757,6 +1827,11 @@ ${walkinTotal}
         <span>${t('sellerPayments.productSalesDeduction')}</span>
         <span style="font-family:monospace;font-weight:600">− ${fmtR(productDed)}</span>
     </div>` : ""}
+    ${cattleFeedDed > 0 ? `
+    <div class="deduction-row" style="color:#065f46;background:#ecfdf5">
+        <span>${t('sellerPayments.cattleFeedDeduction')}</span>
+        <span style="font-family:monospace;font-weight:600">− ${fmtR(cattleFeedDed)}</span>
+    </div>` : ""}
     ${walkinDed > 0 ? `
     <div class="deduction-row" style="color:#ea580c;background:#fff7ed">
         <span>${t('sellerPayments.milkBoughtBySellerWalkin')}</span>
@@ -1797,7 +1872,6 @@ ${walkinTotal}
         let successCount = 0;
         let failCount = 0;
         try {
-            // Show progress toast
             showFlash("info", `Preparing ${paidSellers.length} PDF receipts...`);
 
             for (let index = 0; index < paidSellers.length; index++) {
@@ -1807,7 +1881,6 @@ ${walkinTotal}
                     bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
                 };
 
-                // Update progress every 5 downloads
                 if (index % 5 === 0 && index > 0) {
                     showFlash("info", `Downloading ${index + 1}/${paidSellers.length} receipts...`);
                 }
@@ -1818,7 +1891,6 @@ ${walkinTotal}
                 } else {
                     failCount++;
                 }
-                // Small delay between downloads to prevent browser blocking
                 await new Promise(r => setTimeout(r, 600));
             }
 
@@ -1835,7 +1907,6 @@ ${walkinTotal}
         }
     };
 
-    // ── Add this function after handleBulkDownloadPDFs (around line 700) ──
     const handleCombinedDownload = async () => {
         const paidSellers = sellers.filter(s => !!(s.is_paid || s.bill_no) && parseFloat(s.milk_amount || 0) > 0);
         if (paidSellers.length === 0) {
@@ -1843,7 +1914,6 @@ ${walkinTotal}
             return;
         }
 
-        // Confirm with user for large downloads
         if (paidSellers.length > 20) {
             if (!window.confirm(`This will combine ${paidSellers.length} receipts into a single PDF. This may take a moment. Continue?`)) {
                 return;
@@ -1854,7 +1924,6 @@ ${walkinTotal}
         try {
             showFlash("info", `Preparing combined PDF with ${paidSellers.length} receipts...`);
 
-            // Prepare seller data with bill numbers
             const sellersWithBillNo = paidSellers.map(seller => ({
                 ...seller,
                 bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
@@ -1915,6 +1984,7 @@ ${walkinTotal}
             total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
             product_deduction: payment.product_deduction,
             walkin_deduction: payment.walkin_deduction,
+            cattle_feed_deduction: payment.cattle_feed_deduction,
             final_payable: payment.final_payable ?? payment.cash_paid,
             cash_to_pay: payment.cash_paid,
             is_paid: true,
@@ -1968,6 +2038,7 @@ ${walkinTotal}
             const depositAmt = parseFloat(s.deposit_amount || 0);
             const productDed = parseFloat(s.product_deduction || 0);
             const walkinDed = parseFloat(s.walkin_deduction || 0);
+            const cattleFeedDed = parseFloat(s.cattle_feed_deduction || 0);
             const finalPayable = parseFloat(s.final_payable || s.cash_to_pay || 0);
             const totalQty = (s.entries || []).reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
             const billNo = s.bill_no || "N/A";
@@ -1975,12 +2046,11 @@ ${walkinTotal}
             const advClosing = Math.max(0, advGiven - installmentCut);
             const depositOpening = Math.max(0, parseFloat(s.deposit_balance ?? 0) - depositAmt);
             const depositClosing = depositOpening + depositAmt;
-            const pendTotal = productDed + walkinDed;
+            const pendTotal = productDed + walkinDed + cattleFeedDed;
 
             const bg = i % 2 === 0 ? "#ffffff" : "#f9fafb";
             const subBg = i % 2 === 0 ? "#f3f4f6" : "#eef0f3";
 
-            // ── Main seller row ──────────────────────────────────────
             const mainRow = `
 <tr style="background:${bg};border-top:2px solid #9ca3af">
     <td style="padding:5px 7px;border:1px solid #d1d5db;font-family:monospace;font-size:10px;
@@ -2018,7 +2088,6 @@ ${walkinTotal}
     </td>
 </tr>`;
 
-            // ── Advance sub-row ──────────────────────────────────────
             const advRow = `
 <tr style="background:${subBg}">
     <td style="padding:1px 7px 1px 10px;border-left:1px solid #d1d5db;border-right:none;
@@ -2034,23 +2103,21 @@ ${walkinTotal}
     <td colspan="6" style="border-right:1px solid #d1d5db;border-bottom:none"></td>
 </tr>`;
 
-            // ── Pending sub-row ──────────────────────────────────────
             const pendRow = `
 <tr style="background:${subBg}">
     <td style="padding:1px 7px 1px 10px;border-left:1px solid #d1d5db;border-right:none;
                font-size:9px;color:#6b7280;text-align:right;font-style:italic;white-space:nowrap">
-        Product Bought:
+        Bought:
     </td>
     <td style="padding:1px 7px;border-right:1px solid #d1d5db;font-size:9px;
-               font-family:monospace;color:#d97706">
+               font-family:monospace;">
         ${pendTotal > 0
-                    ? `${productDed > 0 ? `<span style="margin-right:10px">${fmtR(productDed)}</span>` : ""}${walkinDed > 0 ? `<span style="margin-right:10px">${fmtR(walkinDed)}</span>` : ""}<span>${fmtR(pendTotal)}</span>`
+                    ? `<span style="color:#d97706">${productDed > 0 ? `${fmtR(productDed)} ` : ""}</span><span style="color:#ea580c">${walkinDed > 0 ? `${fmtR(walkinDed)} ` : ""}</span><span style="color:#065f46">${cattleFeedDed > 0 ? fmtR(cattleFeedDed) : ""}</span><span style="font-weight:600;color:#000"> = ${fmtR(pendTotal)}</span>`
                     : `<span style="color:#d1d5db">—</span>`}
     </td>
     <td colspan="6" style="border-right:1px solid #d1d5db;border-bottom:none"></td>
 </tr>`;
 
-            // ── Deposit sub-row ──────────────────────────────────────
             const depRow = `
 <tr style="background:${subBg};border-bottom:1px solid #d1d5db">
     <td style="padding:1px 7px 3px 10px;border-left:1px solid #d1d5db;border-right:none;
@@ -2069,7 +2136,6 @@ ${walkinTotal}
             return mainRow + advRow + pendRow + depRow;
         }).join("");
 
-        // ── Grand totals ─────────────────────────────────────────────
         const grandQty = activePrintSellers.reduce((a, s) => a + (s.entries || []).reduce((b, e) => b + parseFloat(e.quantity || 0), 0), 0);
         const grandMilk = activePrintSellers.reduce((a, s) => a + parseFloat(s.milk_amount || 0), 0);
         const grandAdv = activePrintSellers.reduce((a, s) => a + parseFloat(s.advance_given || 0), 0);
@@ -2106,7 +2172,6 @@ ${walkinTotal}
     </div>
 </div>
 
-<!-- Section label (like "01 : KUMBHAR DAIRY" in the image) -->
 <div style="font-size:11px;font-weight:700;color:#111;margin-bottom:4px;padding:3px 6px;
             border-top:1px solid #111;border-bottom:1px solid #111;background:#f3f4f6">
     ${appName}
@@ -2163,7 +2228,6 @@ ${walkinTotal}
     </tbody>
 </table>
 
-<!-- Footer -->
 <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:9px;color:#9ca3af">
     <span>${t('sellerPayments.computerGenerated')} · ${new Date().toLocaleDateString("en-IN")}</span>
     <span>${t('sellerPayments.authorisedSignatory')}: ___________________________</span>
@@ -2203,6 +2267,7 @@ ${walkinTotal}
     const totalAdvance = activeSellers.reduce((a, s) => a + parseFloat(s.advance_given || 0), 0);
     const totalDeduction = activeSellers.reduce((a, s) => a + parseFloat(s.deduction_amount || 0), 0);
     const totalProductDeduction = activeSellers.reduce((a, s) => a + parseFloat(s.product_deduction || 0), 0);
+    const totalCattleFeedDeduction = activeSellers.reduce((a, s) => a + parseFloat(s.cattle_feed_deduction || 0), 0);
     const totalFinal = activeSellers.reduce((a, s) =>
         a + parseFloat(s.final_payable || s.cash_to_pay || 0), 0);
     const paidCount = activeSellers.filter(s => !!(s.is_paid || s.bill_no)).length;
@@ -2236,12 +2301,10 @@ ${walkinTotal}
                         background: white !important; 
                         color: #000000 !important;
                     }
-                    /* Ensure all text is black for B&W printing */
                     * {
                         color: #000000 !important;
                         background-color: transparent !important;
                     }
-                    /* Keep backgrounds for tables and sections */
                     th, .info-grid, .summary-box, .bs-col-header, .bs-total-row {
                         background-color: #e0e0e0 !important;
                     }
@@ -2252,7 +2315,6 @@ ${walkinTotal}
                     .net-row * {
                         color: #ffffff !important;
                     }
-                    /* Ensure borders are black */
                     th, td, .summary-box, .bottom-summary, .bs-col {
                         border-color: #000000 !important;
                     }
@@ -2446,6 +2508,10 @@ ${walkinTotal}
                         sub={t('sellerPayments.productSalesCut')}
                         icon={<Banknote size={14} />}
                         color="text-rose-600 bg-rose-50 border-rose-100" />
+                    <StatCard label={t('sellerPayments.cattleFeedDeduction')} value={fmt(totalCattleFeedDeduction)}
+                        sub={t('sellerPayments.cattleFeedCut')}
+                        icon={<Banknote size={14} />}
+                        color="text-emerald-600 bg-emerald-50 border-emerald-100" />
                 </div>
 
                 {/* Progress bar */}
@@ -2506,7 +2572,7 @@ ${walkinTotal}
                     </div>
                 </div>
 
-                {/* Seller Cards */}
+                {/* ── Seller Cards ── */}
                 <div className="flex flex-col gap-3" data-tour="seller-list">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
@@ -2518,11 +2584,14 @@ ${walkinTotal}
                             <p className="text-sm">{t('sellerPayments.noSellersFound')}</p>
                         </div>
                     ) : paginatedSellers.map(seller => {
+                        // ── SAFETY: ensure entries is always an array ──
+                        const entries = seller.entries || [];
                         const isOpen = expanded[seller.seller_id];
                         const milkAmt = parseFloat(seller.milk_amount || 0);
                         const advGiven = parseFloat(seller.advance_given || 0);
                         const finalPayable = parseFloat(seller.final_payable || seller.cash_to_pay || 0);
                         const isPaid = !!(seller.is_paid || seller.bill_no);
+                        const cattleFeedDed = parseFloat(seller.cattle_feed_deduction || 0);
 
                         return (
                             <div key={seller.seller_id}
@@ -2580,6 +2649,12 @@ ${walkinTotal}
                                             <div>
                                                 <p className="text-[10px] text-blue-400 uppercase tracking-wider">{t('sellerPayments.depositCut')}</p>
                                                 <p className="text-sm font-semibold text-blue-500">− {fmt(seller.deposit_amount)}</p>
+                                            </div>
+                                        )}
+                                        {cattleFeedDed > 0 && (
+                                            <div>
+                                                <p className="text-[10px] text-emerald-400 uppercase tracking-wider">{t('sellerPayments.cattleFeed')}</p>
+                                                <p className="text-sm font-semibold text-emerald-500">− {fmt(cattleFeedDed)}</p>
                                             </div>
                                         )}
                                         {parseFloat(seller.walkin_deduction || 0) > 0 && (
@@ -2655,16 +2730,17 @@ ${walkinTotal}
                                     {advGiven > 0 && <span className="text-violet-500">{t('sellerPayments.adv')}: {fmt(advGiven)}</span>}
                                     {parseFloat(seller.installment_cut || 0) > 0 && <span className="text-rose-500">{t('sellerPayments.advInstCut')}: −{fmt(seller.installment_cut)}</span>}
                                     {parseFloat(seller.deposit_amount || 0) > 0 && <span className="text-blue-500">{t('sellerPayments.dep')}: −{fmt(seller.deposit_amount)}</span>}
+                                    {cattleFeedDed > 0 && <span className="text-emerald-500">{t('sellerPayments.cattleFeed')}: −{fmt(cattleFeedDed)}</span>}
                                     {parseFloat(seller.walkin_deduction || 0) > 0 && <span className="text-rose-500">{t('sellerPayments.bought')}: −{fmt(seller.walkin_deduction)}</span>}
                                     <span className="font-bold text-gray-900">{t('sellerPayments.cash')}: {fmt(finalPayable)}</span>
                                 </div>
 
-                                {/* Expanded breakdown */}
+                                {/* ── Expanded breakdown ── */}
                                 {isOpen && (
                                     <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
 
-                                        {/* Day-wise entries table */}
-                                        {seller.entries?.length > 0 && (
+                                        {/* Day-wise entries table – safe with entries array */}
+                                        {entries.length > 0 && (
                                             <div>
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                                     {t('sellerPayments.dailyMilkEntries')}
@@ -2676,7 +2752,7 @@ ${walkinTotal}
                                                             <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
                                                         ))}
                                                     </div>
-                                                    {seller.entries.map((e, i) => (
+                                                    {entries.map((e, i) => (
                                                         <div key={i}
                                                             className="grid border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition"
                                                             style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 95px" }}>
@@ -2695,9 +2771,9 @@ ${walkinTotal}
                                                     ))}
                                                     <div className="grid bg-gray-50 border-t border-gray-100"
                                                         style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 95px" }}>
-                                                        <div className="px-3 py-2 text-xs font-bold text-gray-600 col-span-2">{seller.entries.length} {t('sellerPayments.entries')}</div>
+                                                        <div className="px-3 py-2 text-xs font-bold text-gray-600 col-span-2">{entries.length} {t('sellerPayments.entries')}</div>
                                                         <div className="px-3 py-2 text-xs font-bold text-blue-700">
-                                                            {seller.entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
+                                                            {entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
                                                         </div>
                                                         <div className="px-3 py-2" /><div className="px-3 py-2" />
                                                         <div className="px-3 py-2 text-xs font-bold text-gray-900">{fmt(milkAmt)}</div>
@@ -2713,6 +2789,17 @@ ${walkinTotal}
                                                 <div className="flex-1 text-xs text-rose-700">
                                                     <span className="font-semibold">{t('sellerPayments.milkBoughtBySeller')}: {fmt(seller.walkin_deduction)}</span>
                                                     <p className="text-rose-400 mt-0.5">{t('sellerPayments.deductedFromMilkPayment')}</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Cattle feed deduction info */}
+                                        {cattleFeedDed > 0 && (
+                                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                                                <Package size={15} className="text-emerald-400 shrink-0" />
+                                                <div className="flex-1 text-xs text-emerald-700">
+                                                    <span className="font-semibold">{t('sellerPayments.cattleFeedDeduction')}: {fmt(cattleFeedDed)}</span>
+                                                    <p className="text-emerald-400 mt-0.5">{t('sellerPayments.deductedFromMilkPayment')}</p>
                                                 </div>
                                             </div>
                                         )}
@@ -2752,6 +2839,11 @@ ${walkinTotal}
                                             {parseFloat(seller.product_deduction || 0) > 0 && (
                                                 <p>{t('sellerPayments.productSalesDeducted')}:
                                                     <strong className="text-amber-600 ml-1">− {fmt(seller.product_deduction)}</strong>
+                                                </p>
+                                            )}
+                                            {cattleFeedDed > 0 && (
+                                                <p>{t('sellerPayments.cattleFeedDeduction')}:
+                                                    <strong className="text-emerald-600 ml-1">− {fmt(cattleFeedDed)}</strong>
                                                 </p>
                                             )}
                                             {parseFloat(seller.walkin_deduction || 0) > 0 && (
@@ -2849,6 +2941,12 @@ ${walkinTotal}
                                 <div>
                                     <p className="text-[10px] text-amber-400 uppercase tracking-wider">{t('sellerPayments.productDeductions')}</p>
                                     <p className="font-bold text-amber-500">− {fmt(totalProductDeduction)}</p>
+                                </div>
+                            )}
+                            {totalCattleFeedDeduction > 0 && (
+                                <div>
+                                    <p className="text-[10px] text-emerald-400 uppercase tracking-wider">{t('sellerPayments.cattleFeedDeductions')}</p>
+                                    <p className="font-bold text-emerald-500">− {fmt(totalCattleFeedDeduction)}</p>
                                 </div>
                             )}
                         </div>
@@ -3152,6 +3250,13 @@ ${walkinTotal}
                                                                 always: false,
                                                             },
                                                             {
+                                                                label: t('sellerPayments.cattleFeedDeduction'),
+                                                                value: parseFloat(billDetail.payment.cattle_feed_deduction || 0),
+                                                                type: "debit",
+                                                                color: "bg-emerald-50 text-emerald-700",
+                                                                always: false,
+                                                            },
+                                                            {
                                                                 label: t('sellerPayments.milkBoughtBySellerWalkinShort'),
                                                                 value: parseFloat(billDetail.payment.walkin_deduction || 0),
                                                                 type: "debit",
@@ -3229,6 +3334,32 @@ ${walkinTotal}
                                                                     </div>
                                                                     <span className="text-xs font-bold font-mono text-amber-700">
                                                                         − ₹{parseFloat(s.total_amount || 0).toFixed(2)}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Cattle Feed Sales */}
+                                                {billDetail.cattleFeedSales?.length > 0 && (
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                                            {t('sellerPayments.cattleFeedSales')} ({billDetail.cattleFeedSales.length})
+                                                        </p>
+                                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                                            {billDetail.cattleFeedSales.map((f, i) => (
+                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "bg-white" : "bg-emerald-50/30"}`}>
+                                                                    <div>
+                                                                        <p className="text-xs font-medium text-gray-700">{f.feed_name}</p>
+                                                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                                                            {parseFloat(f.quantity || 0).toFixed(2)} units
+                                                                            {" · "}
+                                                                            {new Date(f.sale_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                                                        </p>
+                                                                    </div>
+                                                                    <span className="text-xs font-bold font-mono text-emerald-700">
+                                                                        − ₹{parseFloat(f.total_amount || 0).toFixed(2)}
                                                                     </span>
                                                                 </div>
                                                             ))}

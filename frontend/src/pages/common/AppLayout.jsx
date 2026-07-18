@@ -170,11 +170,11 @@ const FARMER_NAV = (t) => [
         tourId: 'nav-my-cattle-feed',
     },
     {
-        label: t('nav.MyProducts', { defaultValue: 'My Products' }),
+        label: t('nav.myProductPurchases', { defaultValue: 'My Product Purchases' }),
         icon: <ShoppingBag size={16} />,
-        to: '/farmer/products',
-        tourId: 'nav-my-products',
-    }
+        to: '/farmer/product-purchases',
+        tourId: 'nav-my-product-purchases',
+    },
 ];
 
 const initials = (name = '') =>
