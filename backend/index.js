@@ -33,6 +33,8 @@ const adminManagementRoutes = require('./routes/adminmanagement.routes');
 const portsRouter = require('./routes/ports.routes');
 const weightMachine = require('./services/weightMachine.service');
 const fatMachine = require('./services/fatMachine.service');
+const cattleFeedPurcahseRoutes = require('./routes/cattlefeedpurchase.routes')
+const cattleFeedSaleRoutes = require('./routes/cattleFeedSale.routes');
 
 const tourRoutes = require('./routes/tour.routes');
 
@@ -68,6 +70,8 @@ app.use('/api/admin-management', adminManagementRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/admin', tourRoutes);
 app.use('/api/settings/ports', portsRouter);
+app.use('/api/cattle-feeds', cattleFeedPurcahseRoutes);
+app.use('/api/cattle-feed-sales', cattleFeedSaleRoutes);
 
 setInterval(async () => {
     try {

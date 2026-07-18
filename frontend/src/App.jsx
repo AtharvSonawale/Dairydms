@@ -48,6 +48,9 @@ import SellerLogin from './pages/SellerLogin';
 import FarmerDashboard from './pages/FarmerDashboard';
 import FarmerMilkBills from "./pages/farmer/FarmerMilkBills";
 import FarmerFinance from "./pages/farmer/FarmerFinance";
+import CattleFeedPurchase from './pages/common/CattleFeed';
+import CattleFeedSales from './pages/common/Cattlefeedsale';
+import CattleFeedCatalogue from './pages/common/CattleFeedCatalogue';
 
 
 // AFTER
@@ -106,6 +109,9 @@ function AppRoutes() {
         <Route path="/farmer/milk-entries" element={<FarmerMilkEntries />} />
         <Route path="/farmer/bills" element={<FarmerMilkBills />} />
         <Route path="/farmer/finance" element={<FarmerFinance />} />
+        <Route path="/cattlefeed-purchase" element={<CattleFeedPurchase />} />
+        <Route path="/cattlefeed-sales" element={<CattleFeedSales />} />
+        <Route path="/cattlefeed-catalogue" element={<CattleFeedCatalogue />} />
       </Route>
 
       {/* ── Fallback ── */}

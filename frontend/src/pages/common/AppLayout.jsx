@@ -168,6 +168,12 @@ const FARMER_NAV = (t) => [
         icon: <Wheat size={16} />,
         to: '/farmer/cattle-feed',
         tourId: 'nav-my-cattle-feed',
+    },
+    {
+        label: t('nav.MyProducts', { defaultValue: 'My Products' }),
+        icon: <ShoppingBag size={16} />,
+        to: '/farmer/products',
+        tourId: 'nav-my-products',
     }
 ];
 

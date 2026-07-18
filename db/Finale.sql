@@ -915,4 +915,105 @@ CREATE TABLE `walkin_sales` (
    CONSTRAINT `walkin_sales_ibfk_6` FOREIGN KEY (`created_by_admin_id`) REFERENCES `admins` (`admin_id`) ON DELETE SET NULL ON UPDATE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 
+ CREATE TABLE cattle_feeds (
+   feed_id int NOT NULL AUTO_INCREMENT,
+   centre_id int NOT NULL,
+   feed_name varchar(255) NOT NULL,
+   unit varchar(20) NOT NULL,
+   current_stock decimal(10,2) NOT NULL DEFAULT '0.00',
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   rate decimal(10,2) NOT NULL DEFAULT '0.00',
+   mrp_rate decimal(10,2) NOT NULL DEFAULT '0.00',
+   supplier_name varchar(150) NOT NULL DEFAULT '',
+   PRIMARY KEY (feed_id),
+   UNIQUE KEY feed_name_supplier_centre (feed_name,supplier_name,centre_id),
+   KEY centre_id (centre_id),
+   CONSTRAINT cattle_feeds_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ 
+-- ---------------------------------------------------------------------
+-- 2. cattle_feed_purchases  (mirrors product_purchases)
+-- ---------------------------------------------------------------------
+CREATE TABLE cattle_feed_purchases (
+   purchase_id int NOT NULL AUTO_INCREMENT,
+   feed_id int NOT NULL,
+   centre_id int NOT NULL,
+   feed_name varchar(255) DEFAULT NULL,
+   operator_id int NOT NULL,
+   supplier_name varchar(150) NOT NULL,
+   quantity decimal(10,2) NOT NULL,
+   rate decimal(8,2) NOT NULL,
+   mrp_rate decimal(10,2) DEFAULT '0.00',
+   total_amount decimal(12,2) NOT NULL,
+   purchase_date date NOT NULL,
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (purchase_id),
+   KEY feed_id (feed_id),
+   KEY operator_id (operator_id),
+   KEY centre_id (centre_id),
+   CONSTRAINT cattle_feed_purchases_ibfk_1 FOREIGN KEY (feed_id) REFERENCES cattle_feeds (feed_id),
+   CONSTRAINT cattle_feed_purchases_ibfk_2 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
+   CONSTRAINT cattle_feed_purchases_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ 
+-- ---------------------------------------------------------------------
+-- 3. cattle_feed_sales  (mirrors product_sales) — for the future
+--    Cattle Feed Sale page. Included now so all three tables exist
+--    together and nothing needs a second migration later.
+-- ---------------------------------------------------------------------
+CREATE TABLE cattle_feed_sales (
+   sale_id int NOT NULL AUTO_INCREMENT,
+   transaction_id varchar(30) DEFAULT NULL,
+   seller_id int NOT NULL,
+   feed_id int NOT NULL,
+   operator_id int NOT NULL,
+   centre_id int NOT NULL,
+   quantity decimal(10,2) NOT NULL,
+   rate decimal(8,2) NOT NULL,
+   total_amount decimal(12,2) NOT NULL,
+   sale_date date NOT NULL,
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (sale_id),
+   KEY seller_id (seller_id),
+   KEY feed_id (feed_id),
+   KEY operator_id (operator_id),
+   KEY centre_id (centre_id),
+   KEY idx_transaction_id (transaction_id),
+   CONSTRAINT cattle_feed_sales_ibfk_1 FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
+   CONSTRAINT cattle_feed_sales_ibfk_2 FOREIGN KEY (feed_id) REFERENCES cattle_feeds (feed_id),
+   CONSTRAINT cattle_feed_sales_ibfk_3 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
+   CONSTRAINT cattle_feed_sales_ibfk_4 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ 
+-- ---------------------------------------------------------------------
+-- 4. speed_cattle_feeds  (mirrors speed_products) — for the future
+--    quick-tap strip on the Cattle Feed Sale page.
+-- ---------------------------------------------------------------------
+CREATE TABLE speed_cattle_feeds (
+   id int NOT NULL AUTO_INCREMENT,
+   operator_id int DEFAULT NULL,
+   created_by_admin_id int DEFAULT NULL,
+   centre_id int NOT NULL,
+   feed_id int NOT NULL,
+   display_name varchar(200) DEFAULT NULL,
+   image_url varchar(500) DEFAULT NULL,
+   sort_order int NOT NULL DEFAULT '0',
+   is_active tinyint(1) NOT NULL DEFAULT '1',
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (id),
+   UNIQUE KEY uq_operator_feed (operator_id,feed_id),
+   KEY idx_operator_id (operator_id),
+   KEY idx_centre_id (centre_id),
+   KEY idx_feed_id (feed_id),
+   KEY idx_sort_order (sort_order),
+   KEY idx_is_active (is_active),
+   KEY idx_centre_active (centre_id,is_active),
+   KEY idx_created_by_admin_id (created_by_admin_id),
+   CONSTRAINT speed_cattle_feeds_ibfk_1 FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE CASCADE,
+   CONSTRAINT speed_cattle_feeds_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE,
+   CONSTRAINT speed_cattle_feeds_ibfk_3 FOREIGN KEY (feed_id) REFERENCES cattle_feeds (feed_id) ON DELETE CASCADE,
+   CONSTRAINT speed_cattle_feeds_ibfk_4 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
