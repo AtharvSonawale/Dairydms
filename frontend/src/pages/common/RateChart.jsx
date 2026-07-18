@@ -66,6 +66,9 @@ export default function RateChart() {
     const [flash, setFlash] = useState(null);
     const [copyingForward, setCopyingForward] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    // 'matrix' mirrors the paper rate-chart format (FAT rows × SNF columns) and
+    // is the default; 'list' is the original flat table, kept as an option.
+    const [viewMode, setViewMode] = useState('matrix');
 
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [sellers, setSellers] = useState([]);
@@ -324,6 +327,21 @@ export default function RateChart() {
     const totalPages = Math.ceil(rates.length / pageSize);
     const paginated = rates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+    // ── matrix view data ──
+    // Rows = unique FAT values, Columns = unique SNF values, cell = the rate
+    // for that combo. Only combinations actually present in `rates` appear,
+    // so a handful of manually-entered rates still renders a sensible (if
+    // sparse) grid rather than requiring a full auto-generated chart.
+    const fatValues = [...new Set(rates.map(r => parseFloat(r.fat).toFixed(1)))]
+        .sort((a, b) => parseFloat(a) - parseFloat(b));
+    const snfValues = [...new Set(rates.map(r => parseFloat(r.snf).toFixed(1)))]
+        .sort((a, b) => parseFloat(a) - parseFloat(b));
+    const rateGrid = {};
+    rates.forEach(r => {
+        const key = `${parseFloat(r.fat).toFixed(1)}_${parseFloat(r.snf).toFixed(1)}`;
+        rateGrid[key] = r;
+    });
+
     if (permLoading) return (
         <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
@@ -522,6 +540,19 @@ export default function RateChart() {
                         </div>
                     </div>
 
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                        <button onClick={() => setViewMode('matrix')}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition
+                                ${viewMode === 'matrix' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                            {t('rateChart.matrixView', { defaultValue: 'Rate Sheet' })}
+                        </button>
+                        <button onClick={() => setViewMode('list')}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition
+                                ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                            {t('rateChart.listView', { defaultValue: 'List' })}
+                        </button>
+                    </div>
+
                     <div className="flex items-center gap-2 ml-auto" data-tour="date-picker">
                         <span className="text-xs text-gray-400 whitespace-nowrap">
                             {rates.length} {t('rateChart.entries')}
@@ -541,9 +572,49 @@ export default function RateChart() {
                             <p className="text-gray-500 text-sm font-medium">{t('rateChart.noRatesFound')}</p>
                             <p className="text-gray-400 text-xs mt-1">{t('rateChart.addFirstRate')}</p>
                         </div>
+                    ) : viewMode === 'matrix' ? (
+                        <div className="overflow-auto max-h-[500px]">
+                            <table className="border-collapse text-sm w-full">
+                                <thead>
+                                    <tr>
+                                        <th className="sticky top-0 left-0 z-20 bg-gray-900 text-white text-xs font-semibold px-4 py-2.5 border border-gray-700 whitespace-nowrap">
+                                            {t('rateChart.fat')} ⁄ {t('rateChart.snf')}
+                                        </th>
+                                        {snfValues.map(snf => (
+                                            <th key={snf}
+                                                className="sticky top-0 z-10 bg-gray-50 text-gray-500 text-xs font-semibold px-4 py-2.5 border border-gray-100 whitespace-nowrap">
+                                                {snf}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fatValues.map(fat => (
+                                        <tr key={fat}>
+                                            <td className="sticky left-0 z-10 bg-gray-50 text-gray-700 text-xs font-semibold px-4 py-2 border border-gray-100 whitespace-nowrap">
+                                                {fat}
+                                            </td>
+                                            {snfValues.map(snf => {
+                                                const cell = rateGrid[`${fat}_${snf}`];
+                                                return (
+                                                    <td key={snf}
+                                                        onClick={() => isAdmin && (cell ? openEdit(cell) : openAdd())}
+                                                        title={cell?.mrp ? `MRP ₹${parseFloat(cell.mrp).toFixed(2)}` : undefined}
+                                                        className={`px-4 py-2 border border-gray-100 text-center whitespace-nowrap transition
+                                                            ${cell ? 'font-bold text-gray-900 bg-white hover:bg-blue-50' : 'text-gray-300 bg-gray-50/40'}
+                                                            ${isAdmin ? 'cursor-pointer' : ''}`}>
+                                                        {cell ? parseFloat(cell.rate).toFixed(2) : '—'}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     ) : (
-                                <div className="overflow-x-auto overflow-y-auto max-h-[360px]">
-                                    <table className="w-full text-sm">
+                        <div className="overflow-x-auto overflow-y-auto max-h-[360px]">
+                            <table className="w-full text-sm">
                                         <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100">
                                             <tr>
                                         {[t('rateChart.type'), t('rateChart.fat'), t('rateChart.snf'), t('rateChart.ratePerL'), t('rateChart.mrpPerL'), t('rateChart.from'), t('rateChart.to'), isAdmin ? t('rateChart.actions') : null]

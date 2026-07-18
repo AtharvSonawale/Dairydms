@@ -771,3 +771,13 @@ exports.sellerSetPassword = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
+// POST /api/auth/logout
+// JWT auth is stateless — there is no server-side session to destroy, so
+// this endpoint doesn't invalidate the token. It exists so clients have a
+// single logout call to hit; the actual logout is the client discarding
+// the token. It's kept behind `authenticate` only so a bad/expired token
+// gets a 401 here instead of a false "success".
+exports.logout = async (req, res) => {
+    res.json({ message: 'Logged out successfully' });
+};

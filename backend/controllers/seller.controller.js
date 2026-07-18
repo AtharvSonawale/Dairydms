@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const bcrypt = require('bcrypt');
 
 // ── GET /api/sellers ──────────────────────────────────────
 exports.listSellers = async (req, res) => {
@@ -11,11 +12,12 @@ exports.listSellers = async (req, res) => {
                 seller_id, seller_code, name, mobile, aadhaar,
                 pan_number, seller_id_code,
                 seller_type, milk_type, jamin,
-                bank_account, bank_name, ifsc_code,
-                address, advance_enabled, advance_deduction, product_sale_enabled,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
+                address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                 is_active, created_at,
                 deposit_enabled, deposit_per_litre,
-                operator_id
+                operator_id,
+                (password_hash IS NOT NULL AND password_hash <> '') AS has_password
             FROM sellers
             WHERE centre_id = ?
             ORDER BY created_at DESC
@@ -44,8 +46,8 @@ exports.listCentreSellers = async (req, res) => {
                 s.seller_id, s.seller_code, s.name, s.mobile, s.aadhaar,
                 s.pan_number, s.seller_id_code,
                 s.seller_type, s.milk_type, s.jamin,
-                s.bank_account, s.bank_name, s.ifsc_code,
-                s.address, s.advance_enabled, s.advance_deduction, s.product_sale_enabled,
+                s.bank_account, s.bank_name, s.account_holder_name, s.branch_name, s.ifsc_code,
+                s.address, s.pincode, s.advance_enabled, s.advance_deduction, s.product_sale_enabled,
                 s.is_active, s.created_at,
                 s.deposit_enabled, s.deposit_per_litre,
                 o.name AS operator_name, o.operator_id
@@ -92,8 +94,8 @@ exports.listSellersByOperator = async (req, res) => {
                 seller_id, seller_code, name, mobile, aadhaar,
                 pan_number, seller_id_code,
                 seller_type, milk_type, jamin,
-                bank_account, bank_name, ifsc_code,
-                address, advance_enabled, advance_deduction, product_sale_enabled,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
+                address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                 is_active, created_at,
                 deposit_enabled, deposit_per_litre
             FROM sellers
@@ -124,11 +126,12 @@ exports.getSellerById = async (req, res) => {
                     seller_id, seller_code, name, mobile, aadhaar,
                     pan_number, seller_id_code,
                     seller_type, milk_type, jamin,
-                    bank_account, bank_name, ifsc_code,
-                    address, advance_enabled, advance_deduction, product_sale_enabled,
+                    bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
+                    address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                     is_active, created_at,
                     deposit_enabled, deposit_per_litre,
-                    operator_id
+                    operator_id,
+                    (password_hash IS NOT NULL AND password_hash <> '') AS has_password
                 FROM sellers
                 WHERE seller_id = ? AND centre_id = ?
             `;
@@ -139,11 +142,12 @@ exports.getSellerById = async (req, res) => {
                     seller_id, seller_code, name, mobile, aadhaar,
                     pan_number, seller_id_code,
                     seller_type, milk_type, jamin,
-                    bank_account, bank_name, ifsc_code,
-                    address, advance_enabled, advance_deduction, product_sale_enabled,
+                    bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
+                    address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                     is_active, created_at,
                     deposit_enabled, deposit_per_litre,
-                    operator_id
+                    operator_id,
+                    (password_hash IS NOT NULL AND password_hash <> '') AS has_password
                 FROM sellers
                 WHERE seller_id = ? AND operator_id = ? AND centre_id = ?
             `;
@@ -477,9 +481,9 @@ exports.createSeller = async (req, res) => {
             seller_code, name, mobile, aadhaar,
             pan_number, seller_id_code,
             seller_type, milk_type, jamin,
-            bank_account, bank_name, ifsc_code, address,
+            bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled,
-            deposit_enabled, deposit_per_litre
+            deposit_enabled, deposit_per_litre, password
         } = req.body;
 
         if (!name || !mobile) {
@@ -501,12 +505,16 @@ exports.createSeller = async (req, res) => {
             return res.status(400).json({ message: 'Invalid centre: no matching dairy found' });
         }
         const dairy_id = centreRow.dairy_id;
+        const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
-        // Check if seller already exists in this centre
+        // seller_code is auto-generated per-centre by the frontend (S001, S002...)
+        // so the same code legitimately exists across different centres/dairies --
+        // only check it within this centre. mobile stays a global check since it
+        // has a DB-wide UNIQUE constraint (uq_seller_mobile) by design.
         const [existing] = await conn.query(
             `SELECT seller_id FROM sellers
-             WHERE (seller_code = ? OR (mobile = ? AND centre_id = ?))`,
-            [seller_code, mobile, centre_id]
+             WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
+            [seller_code, centre_id, mobile]
         );
 
         if (existing.length > 0) {
@@ -518,18 +526,18 @@ exports.createSeller = async (req, res) => {
 
         const [result] = await conn.query(
             `INSERT INTO sellers
-     (operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
-      pan_number, seller_id_code,
-      seller_type, milk_type, jamin,
-      bank_account, bank_name, ifsc_code, address,
-      advance_enabled, advance_deduction, product_sale_enabled,
-      deposit_enabled, deposit_per_litre)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?,
-             ?, ?,
-             ?, ?, ?,
-             ?, ?, ?, ?,
-             ?, ?, ?,
-             ?, ?)`,
+ (operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
+  pan_number, seller_id_code,
+  seller_type, milk_type, jamin,
+  bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
+  advance_enabled, advance_deduction, product_sale_enabled,
+  deposit_enabled, deposit_per_litre, password_hash, must_change_password)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?,
+         ?, ?, ?,
+         ?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?,
+         ?, ?, ?, ?)`,
             [
                 operator_id,
                 created_by_admin_id,
@@ -546,13 +554,18 @@ exports.createSeller = async (req, res) => {
                 jamin || null,
                 bank_account || null,
                 bank_name || null,
+                account_holder_name || null,
+                branch_name || null,
                 ifsc_code || null,
                 address || null,
+                pincode || null,
                 advance_enabled !== undefined ? advance_enabled : 1,
                 advance_deduction || null,
                 product_sale_enabled !== undefined ? product_sale_enabled : 0,
                 deposit_enabled !== undefined ? deposit_enabled : 0,
-                deposit_per_litre || null
+                deposit_per_litre || null,
+                password_hash,
+                password_hash ? 0 : 1
             ]
         );
 
@@ -580,10 +593,9 @@ exports.updateSeller = async (req, res) => {
             seller_code, name, mobile, aadhaar,
             pan_number, seller_id_code,
             seller_type, milk_type, jamin,
-            bank_account, bank_name, ifsc_code, address,
+            bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled,
-            deposit_enabled, deposit_per_litre,
-            is_active
+            deposit_enabled, deposit_per_litre, password, is_active
         } = req.body;
 
         const operatorId = req.user.id;
@@ -605,12 +617,13 @@ exports.updateSeller = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
         }
 
-        // Check for duplicate seller_code or mobile in the same centre
+        // Same scoping fix as createSeller — seller_code is per-centre,
+        // mobile is global (DB-enforced).
         const [duplicate] = await pool.query(
             `SELECT seller_id FROM sellers 
-             WHERE (seller_code = ? OR (mobile = ? AND centre_id = ?))
+             WHERE ((seller_code = ? AND centre_id = ?) OR mobile = ?)
                AND seller_id != ?`,
-            [seller_code, mobile, centreId, req.params.id]
+            [seller_code, centreId, mobile, req.params.id]
         );
 
         if (duplicate.length > 0) {
@@ -618,6 +631,8 @@ exports.updateSeller = async (req, res) => {
                 error: 'Another seller with this code or mobile already exists in your centre'
             });
         }
+
+        const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
         const [result] = await pool.query(
             `UPDATE sellers SET
@@ -632,14 +647,19 @@ exports.updateSeller = async (req, res) => {
                 jamin                = ?,
                 bank_account         = ?,
                 bank_name            = ?,
+                account_holder_name  = ?,
+                branch_name          = ?,
                 ifsc_code            = ?,
                 address              = ?,
+                pincode              = ?,
                 advance_enabled      = ?,
                 advance_deduction    = ?,
                 product_sale_enabled = ?,
                 deposit_enabled      = ?,
                 deposit_per_litre    = ?,
-                is_active            = ?
+                is_active            = ?,
+                password_hash        = COALESCE(?, password_hash),
+                must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
              WHERE seller_id = ? AND centre_id = ?`,
             [
                 seller_code || null,
@@ -653,14 +673,19 @@ exports.updateSeller = async (req, res) => {
                 jamin || null,
                 bank_account || null,
                 bank_name || null,
+                account_holder_name || null,
+                branch_name || null,
                 ifsc_code || null,
                 address || null,
+                pincode || null,
                 advance_enabled !== undefined ? advance_enabled : 1,
                 advance_deduction || null,
                 product_sale_enabled !== undefined ? product_sale_enabled : 0,
                 deposit_enabled !== undefined ? deposit_enabled : 0,
                 deposit_per_litre || null,
                 is_active !== undefined ? is_active : 1,
+                password_hash,
+                password_hash,
                 req.params.id,
                 centreId
             ]
@@ -676,10 +701,11 @@ exports.updateSeller = async (req, res) => {
                 seller_id, seller_code, name, mobile, aadhaar,
                 pan_number, seller_id_code,
                 seller_type, milk_type, jamin,
-                bank_account, bank_name, ifsc_code,
-                address, advance_enabled, advance_deduction,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
+                address, pincode, advance_enabled, advance_deduction,
                 product_sale_enabled, deposit_enabled, deposit_per_litre,
-                is_active, created_at, operator_id
+                is_active, created_at, operator_id,
+                (password_hash IS NOT NULL AND password_hash <> '') AS has_password
              FROM sellers
              WHERE seller_id = ? AND centre_id = ?`,
             [req.params.id, centreId]
@@ -801,10 +827,11 @@ exports.getActiveSellers = async (req, res) => {
                 seller_id, seller_code, name, mobile,
                 pan_number, seller_id_code,
                 seller_type, milk_type,
-                bank_account, bank_name, ifsc_code,
-                address, advance_enabled, advance_deduction, product_sale_enabled,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
+                address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                 deposit_enabled, deposit_per_litre,
-                operator_id
+                operator_id,
+                (password_hash IS NOT NULL AND password_hash <> '') AS has_password
              FROM sellers
              WHERE centre_id = ? AND is_active = 1
              ORDER BY name ASC`,

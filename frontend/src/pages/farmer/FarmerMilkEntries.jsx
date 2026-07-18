@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-    ArrowLeft, Milk, FlaskConical, ChevronRight, AlertTriangle,
+    ArrowLeft, Milk, FlaskConical, ChevronRight, AlertTriangle, Banknote, Calendar,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -62,6 +62,29 @@ function Spinner() {
     return (
         <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-emerald-600 rounded-full animate-spin" />
+        </div>
+    );
+}
+
+function StatCard({ label, value, sub, icon, color }) {
+    const colors = {
+        blue: "text-blue-600 bg-blue-50 border-blue-100",
+        emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
+        amber: "text-amber-600 bg-amber-50 border-amber-100",
+        violet: "text-violet-600 bg-violet-50 border-violet-100",
+        red: "text-red-500 bg-red-50 border-red-100",
+        slate: "text-slate-600 bg-slate-50 border-slate-200",
+        indigo: "text-indigo-600 bg-indigo-50 border-indigo-100",
+        teal: "text-teal-600 bg-teal-50 border-teal-100",
+    };
+    return (
+        <div className={`flex flex-col gap-2 px-4 py-4 rounded-2xl border ${colors[color]} relative overflow-hidden`}>
+            <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
+                <div className="shrink-0 opacity-80">{icon}</div>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 leading-tight">{value}</p>
+            {sub && <p className="text-[11px] text-gray-400">{sub}</p>}
         </div>
     );
 }
@@ -225,7 +248,7 @@ export default function FarmerMilkEntries() {
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
                 {/* Breadcrumb + Header */}
                 <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
@@ -260,30 +283,34 @@ export default function FarmerMilkEntries() {
 
                 {/* Stats overview */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="flex flex-col gap-1 px-4 py-4 rounded-2xl border border-blue-100 bg-blue-50">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 opacity-70">{t('dashboard.milkDelivered', { defaultValue: 'Total Delivered' })}</p>
-                        <p className="text-xl font-bold text-gray-900">{totalQty.toFixed(1)} L</p>
-                        <p className="text-[10px] text-gray-400">{filtered.length} {t('dashboard.entries')}</p>
-                    </div>
-                    <div className="flex flex-col gap-1 px-4 py-4 rounded-2xl border border-emerald-100 bg-emerald-50">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 opacity-70">{t('dashboard.milkEarnings', { defaultValue: 'Total Earnings' })}</p>
-                        <p className="text-xl font-bold text-gray-900">₹{fmt(totalAmt)}</p>
-                    </div>
-                    <div className="flex flex-col gap-1 px-4 py-4 rounded-2xl border border-indigo-100 bg-indigo-50">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 opacity-70">{t('dashboard.avgFatSnf', { defaultValue: 'Avg FAT / SNF' })}</p>
-                        <p className="text-xl font-bold text-gray-900">{avgFat} / {avgSnf}</p>
-                    </div>
-                    <div className="flex flex-col gap-1 px-4 py-4 rounded-2xl border border-amber-100 bg-amber-50">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-600 opacity-70">{t('dashboard.cow', { defaultValue: 'Cow' })} / {t('dashboard.buffalo', { defaultValue: 'Buffalo' })}</p>
-                        <p className="text-xl font-bold text-gray-900">{cowQty.toFixed(1)} / {bufQty.toFixed(1)} L</p>
-                    </div>
+                    <StatCard
+                        label={t('dashboard.milkDelivered', { defaultValue: 'Total Delivered' })}
+                        value={totalQty.toFixed(1) + " L"}
+                        sub={`${filtered.length} ${t('dashboard.entries')}`}
+                        icon={<Milk size={15} />} color="blue"
+                    />
+                    <StatCard
+                        label={t('dashboard.milkEarnings', { defaultValue: 'Total Earnings' })}
+                        value={"₹" + fmt(totalAmt)}
+                        icon={<Banknote size={15} />} color="emerald"
+                    />
+                    <StatCard
+                        label={t('dashboard.avgFatSnf', { defaultValue: 'Avg FAT / SNF' })}
+                        value={`${avgFat} / ${avgSnf}`}
+                        icon={<FlaskConical size={15} />} color="indigo"
+                    />
+                    <StatCard
+                        label={`${t('dashboard.cow', { defaultValue: 'Cow' })} / ${t('dashboard.buffalo', { defaultValue: 'Buffalo' })}`}
+                        value={`${cowQty.toFixed(1)} / ${bufQty.toFixed(1)} L`}
+                        icon={<Milk size={15} />} color="amber"
+                    />
                 </div>
 
                 {/* Current Payment Cycle / Custom Period indicator */}
                 <div className="flex items-center justify-between px-5 py-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 flex-wrap gap-3">
                     <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center shrink-0">
-                            <Milk size={14} className="text-white" />
+                            <Calendar size={14} className="text-white" />
                         </div>
                         <div>
                             <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">

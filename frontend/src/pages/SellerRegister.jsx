@@ -5,7 +5,7 @@ import {
     Users, Save, User, Phone, CreditCard, MapPin, Landmark,
     Calendar, AlertTriangle, ChevronDown, Settings, Pencil,
     Trash2, Hash, Building2, X, BadgeCheck, ExternalLink,
-    Wallet, Banknote,
+    Wallet, Banknote, Milk, Sprout, MapPinned, Lock,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -33,8 +33,12 @@ const EMPTY_FORM = {
     jamin: "",
     bank_account: "",
     bank_name: "",
+    account_holder_name: "",
+    branch_name: "",
     ifsc_code: "",
     address: "",
+    pincode: "",
+    password: "",
     advance_enabled: 1,
     advance_deduction: "",
     deposit_enabled: 0,
@@ -95,7 +99,7 @@ export default function SellerRegister() {
     const [filter, setFilter] = useState("all");
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
-
+    const [hasPassword, setHasPassword] = useState(false);
     const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 3500); };
     const handleFilterChange = (f) => { setFilter(f); setCurrentPage(1); };
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -147,9 +151,10 @@ export default function SellerRegister() {
         const next = codes.length > 0 ? Math.max(...codes) + 1 : 1;
         setForm({ ...EMPTY_FORM, seller_code: "S" + String(next).padStart(3, "0") });
         setEditingId(null);
+        setHasPassword(false);
         setShowForm(true);
     };
-    const closeForm = () => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); };
+    const closeForm = () => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); setHasPassword(false); };
 
     const openEdit = (s) => {
         setForm({
@@ -165,8 +170,12 @@ export default function SellerRegister() {
             bank_account: s.bank_account || "",
             bank_account_confirm: s.bank_account || "",
             bank_name: s.bank_name || "",
+            account_holder_name: s.account_holder_name || "",
+            branch_name: s.branch_name || "",
             ifsc_code: s.ifsc_code || "",
             address: s.address || "",
+            pincode: s.pincode || "",
+            password: "",
             advance_enabled: s.advance_enabled ?? 1,
             advance_deduction: s.advance_deduction || "",
             deposit_enabled: s.deposit_enabled ?? 0,
@@ -175,6 +184,7 @@ export default function SellerRegister() {
             is_active: s.is_active ?? 1,
         });
         setEditingId(s.seller_id);
+        setHasPassword(!!s.has_password);
         setShowForm(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -191,10 +201,13 @@ export default function SellerRegister() {
         if (form.bank_account && form.bank_account.length < 10) { showFlash("error", t('sellerRegister.bankAccountMinError')); return; }        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", t('sellerRegister.bankAccountMismatchError')); return; }
         if (form.address && form.address.length < 10) { showFlash("error", t('sellerRegister.addressMinError')); return; }
         if (form.address && form.address.length > 200) { showFlash("error", t('sellerRegister.addressMaxError')); return; }
-        setSaving(true);
+        if (form.pincode && !/^\d{6}$/.test(form.pincode)) { showFlash("error", "Pincode must be a valid 6-digit number."); return; }
+        if (form.password && form.password.length < 6) { showFlash("error", "Password must be at least 6 characters."); return; } setSaving(true);
         try {
-            if (editingId) { await api.put(`/sellers/${editingId}`, form); showFlash("success", t('sellerRegister.updateSuccess')); }
-            else { await api.post("/sellers", form); showFlash("success", t('sellerRegister.createSuccess')); }
+            const payload = { ...form };
+            if (!payload.password) delete payload.password;
+            if (editingId) { await api.put(`/sellers/${editingId}`, payload); showFlash("success", t('sellerRegister.updateSuccess')); }
+            else { await api.post("/sellers", payload); showFlash("success", t('sellerRegister.createSuccess')); }
             await fetchSellers();
             closeForm();
         } catch (err) {
@@ -223,8 +236,11 @@ export default function SellerRegister() {
         { label: t('sellerRegister.milk'), icon: <ChevronDown size={11} /> },
         { label: t('sellerRegister.jamin'), icon: <User size={11} /> },
         { label: t('sellerRegister.bankAccount'), icon: <Landmark size={11} /> },
+        { label: 'Acc. Holder', icon: <User size={11} /> },
         { label: t('sellerRegister.bankIfsc'), icon: <Building2 size={11} /> },
+        { label: 'Branch', icon: <Building2 size={11} /> },
         { label: t('sellerRegister.address'), icon: <MapPin size={11} /> },
+        { label: 'Pincode', icon: <MapPinned size={11} /> },
         { label: t('sellerRegister.advance'), icon: <Wallet size={11} /> },
         { label: t('sellerRegister.advRecovery'), icon: <Banknote size={11} /> },
         { label: t('sellerRegister.depPerL'), icon: <Banknote size={11} /> },
@@ -233,7 +249,7 @@ export default function SellerRegister() {
         { label: t('sellerRegister.actions'), icon: <Settings size={11} /> },
     ];
 
-    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 120px 115px 65px 95px 75px 72px 85px 100px";
+    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 72px 85px 100px";
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
             <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
@@ -268,9 +284,9 @@ export default function SellerRegister() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" data-tour="seller-stats">
                     {[
                         { label: t('sellerRegister.totalSellers'), value: sellers.length, icon: <Users size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <span className="text-sm"></span>, color: "text-amber-600 bg-amber-50 border-amber-100" },
-                        { label: t('sellerRegister.buffaloSellers'), value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <span className="text-sm"></span>, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
-                        { label: t('sellerRegister.mixedSellers'), value: sellers.filter((s) => s.milk_type === "mixed").length, icon: <span className="text-sm"></span>, color: "text-violet-600 bg-violet-50 border-violet-100" },
+                        { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <Milk size={16} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
+                        { label: t('sellerRegister.buffaloSellers'), value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <Milk size={16} />, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
+                        { label: t('sellerRegister.mixedSellers'), value: sellers.filter((s) => s.milk_type === "mixed").length, icon: <Milk size={16} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
                     ].map(({ label, value, icon, color }) => (
                         <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
                             <div className="shrink-0">{icon}</div>
@@ -418,12 +434,46 @@ export default function SellerRegister() {
                             </div>
 
                             {/* Row 4 */}
-                            <Field label={t('sellerRegister.address')} name="address" value={form.address} onChange={handleChange} placeholder={t('sellerRegister.addressPlaceholder')} t={t}>
-                                <input name="address" value={form.address} onChange={handleChange}
-                                    placeholder={t('sellerRegister.addressPlaceholder')} minLength={10} maxLength={200}
-                                    className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
-                                <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
-                            </Field>
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                                <Field label="Account Holder Name" name="account_holder_name" value={form.account_holder_name} onChange={handleChange} placeholder="As per bank passbook" t={t}>
+                                    <input name="account_holder_name" value={form.account_holder_name}
+                                        onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                        placeholder="As per bank passbook" maxLength={100}
+                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                </Field>
+                                <Field label="Branch Name" name="branch_name" value={form.branch_name} onChange={handleChange} placeholder="e.g. Pune Main Branch" t={t}>
+                                    <input name="branch_name" value={form.branch_name}
+                                        onChange={e => setForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
+                                        placeholder="e.g. Pune Main Branch" maxLength={100}
+                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                </Field>
+                                <Field label={t('sellerRegister.address')} name="address" value={form.address} onChange={handleChange} placeholder={t('sellerRegister.addressPlaceholder')} t={t}>
+                                    <input name="address" value={form.address} onChange={handleChange}
+                                        placeholder={t('sellerRegister.addressPlaceholder')} minLength={10} maxLength={200}
+                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
+                                </Field>
+                                <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 411001" t={t}>
+                                    <input name="pincode" value={form.pincode}
+                                        onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                                        placeholder="e.g. 411001" maxLength={6} inputMode="numeric"
+                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                </Field>
+                                <Field label="Password" name="password" value={form.password} onChange={handleChange}
+                                    placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"} t={t}>
+                                    <div className="relative">
+                                        <input name="password" type="password" value={form.password}
+                                            onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                                            placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
+                                            maxLength={100} autoComplete="new-password"
+                                            className="border border-gray-200 bg-gray-50 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        <Lock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    </div>
+                                    <p className={`text-[10px] mt-1 ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
+                                        {hasPassword ? "Password is set. Enter a new one to change it." : "No password set yet for this seller."}
+                                    </p>
+                                </Field>
+                            </div>
 
                             {/* Row 5 - Cash Advance */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -584,8 +634,8 @@ export default function SellerRegister() {
                         </div>
                     ) : filtered.length === 0 ? (
                         <div className="text-center py-20">
-                            <p className="text-3xl mb-3">🧑‍🌾</p>
-                            <p className="text-gray-500 text-sm font-medium">{t('sellerRegister.noSellersFound')}</p>
+                                <div className="flex justify-center mb-3"><Sprout size={32} className="text-gray-300" /></div>
+                                <p className="text-gray-500 text-sm font-medium">{t('sellerRegister.noSellersFound')}</p>
                             <p className="text-gray-400 text-xs mt-1">{t('sellerRegister.addFirstSeller')}</p>
                         </div>
                     ) : (
@@ -644,16 +694,23 @@ export default function SellerRegister() {
                                     <TableCell className="text-amber-700 font-mono text-xs">
                                         <span className="truncate block max-w-[110px]" title={s.bank_account || ""}>{s.bank_account || "—"}</span>
                                     </TableCell>
+                                    <TableCell className="text-gray-600 text-xs">
+                                        <span className="truncate block max-w-[100px]" title={s.account_holder_name || ""}>{s.account_holder_name || "—"}</span>
+                                    </TableCell>
                                     <TableCell className="text-xs text-gray-500">
                                         <div className="flex flex-col gap-0.5">
                                             <span className="font-medium text-gray-700">{s.bank_name || "—"}</span>
                                             {s.ifsc_code && <span className="font-mono text-[10px] text-gray-400">{s.ifsc_code}</span>}
                                         </div>
                                     </TableCell>
+                                    <TableCell className="text-gray-500 text-xs">
+                                        <span className="truncate block max-w-[90px]" title={s.branch_name || ""}>{s.branch_name || "—"}</span>
+                                    </TableCell>
 
                                     <TableCell className="text-gray-500 text-xs">
                                         <span className="truncate block max-w-[100px]" title={s.address || ""}>{s.address || "—"}</span>
                                     </TableCell>
+                                    <TableCell className="text-gray-500 font-mono text-xs">{s.pincode || "—"}</TableCell>
                                     <TableCell>
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border
                                             ${s.advance_enabled === 0 || s.advance_enabled === false

@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../controllers/auth.controller');
+const { authenticate } = require('../middleware/auth'); // ADD THIS LINE
+
 
 // Public routes
 router.post('/admin/login', auth.adminLogin);
@@ -11,6 +13,7 @@ router.post('/seller/set-password', auth.sellerSetPassword);
 router.post('/forgot-password', auth.forgotPassword);
 router.post('/verify-otp', auth.verifyOtp);
 router.post('/reset-password', auth.resetPassword);
+router.post('/logout', authenticate, auth.logout); // ADD THIS LINE
 // router.get('/farmer/my-entries', requireRole('seller'), auth.getMyEntriesHandler);
 
 // Dairy and Centre routes (public for signup)
