@@ -119,6 +119,18 @@ const SHARED_NAV = (isAdmin, t) => [
             { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales' },
         ],
     },
+    {
+        label: t('nav.cattleFeed'),
+        icon: <Package size={16} />,
+        to: null,
+        tourId: 'nav-cattle-feed',
+        children: [
+            {
+                label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue' },
+            { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase' },
+            { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales' },
+        ],
+    },
 
     // ── Finance ──────────────────────────────────────────────────
     {

@@ -170,12 +170,39 @@ exports.createSale = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
+        const userId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const { seller_id, sale_date, lines } = req.body;
 
-        // ── top-level validation ──
+        // ── Resolve a valid operator ID ──
+        let effectiveOperatorId = userId;
+        if (isAdmin) {
+            const [ops] = await conn.query(
+                `SELECT operator_id FROM operators WHERE centre_id = ? AND is_active = 1 LIMIT 1`,
+                [centreId]
+            );
+            if (!ops.length) {
+                await conn.rollback();
+                return res.status(400).json({
+                    error: 'No active operator found for this centre. Please contact admin.'
+                });
+            }
+            effectiveOperatorId = ops[0].operator_id;
+        } else {
+            // Verify the operator belongs to this centre
+            const [opCheck] = await conn.query(
+                `SELECT operator_id FROM operators WHERE operator_id = ? AND centre_id = ?`,
+                [userId, centreId]
+            );
+            if (!opCheck.length) {
+                await conn.rollback();
+                return res.status(403).json({ error: 'Operator not found in your centre.' });
+            }
+            effectiveOperatorId = userId;
+        }
+
+        // ── validation ──
         if (!seller_id) {
             await conn.rollback();
             return res.status(400).json({ error: 'Seller is required.' });
@@ -198,8 +225,6 @@ exports.createSale = async (req, res) => {
             await conn.rollback();
             return res.status(404).json({ error: 'Seller not found in your centre.' });
         }
-
-        // REMOVED operator ownership check - any operator can use any seller
 
         // ── validate & stock-check every line up front ──
         for (const [i, line] of lines.entries()) {
@@ -234,7 +259,7 @@ exports.createSale = async (req, res) => {
             }
         }
 
-        // ── generate one transaction ID ──
+        // ── generate transaction ID ──
         const transaction_id = generateTxnId();
 
         // ── insert all lines + deduct stock ──
@@ -250,7 +275,7 @@ exports.createSale = async (req, res) => {
                     (transaction_id, product_id, seller_id, operator_id, centre_id, 
                      quantity, rate, total_amount, sale_date)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [transaction_id, Number(product_id), Number(seller_id), operatorId, centreId,
+                [transaction_id, Number(product_id), Number(seller_id), effectiveOperatorId, centreId,
                     saleQty, saleRate, saleTotal, sale_date]
             );
             insertedIds.push(result.insertId);

@@ -76,49 +76,60 @@ exports.getBuyers = async (req, res) => {
 };
 
 // ── POST /api/walkin-payments/buyers ──────────────────────────
-// Register a new named buyer
 exports.createBuyer = async (req, res) => {
     try {
-        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
-        const { name, mobile, address } = req.body;
+        const isAdmin = req.user.role === 'admin';
+        const operator_id = isAdmin ? null : req.user.id;
 
-        if (!name || !name.trim()) {
-            return res.status(400).json({ error: 'Buyer name is required' });
+        const { name, mobile, address, default_milk_type, pincode } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required' });
         }
 
-        // Check if buyer with same name already exists in this centre
-        const [existing] = await pool.query(
-            `SELECT buyer_id FROM walkin_named_buyers 
-             WHERE centre_id = ? AND name = ? AND is_active = 1`,
-            [centre_id, name.trim()]
+        // ── Generate buyer code (B001, B002, …) ──────────────────
+        const [maxRow] = await pool.query(
+            `SELECT code FROM walkin_named_buyers
+             WHERE centre_id = ? AND code LIKE 'B%'
+             ORDER BY CAST(SUBSTRING(code, 2) AS UNSIGNED) DESC
+             LIMIT 1`,
+            [centre_id]
         );
-
-        if (existing.length > 0) {
-            return res.status(400).json({ error: 'A buyer with this name already exists in your centre' });
+        let nextNum = 1;
+        if (maxRow.length > 0 && maxRow[0].code) {
+            const num = parseInt(maxRow[0].code.substring(1), 10);
+            if (!isNaN(num)) nextNum = num + 1;
         }
+        const code = `B${String(nextNum).padStart(3, '0')}`;
 
+        // ── Insert with new fields ────────────────────────────────
         const [result] = await pool.query(
-            `INSERT INTO walkin_named_buyers (operator_id, centre_id, name, mobile, address)
-             VALUES (?, ?, ?, ?, ?)`,
-            [operator_id, centre_id, name.trim(), mobile || null, address || null]
+            `INSERT INTO walkin_named_buyers
+             (operator_id, centre_id, name, mobile, address, code, default_milk_type, pincode)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                operator_id,
+                centre_id,
+                name.trim(),
+                mobile || null,
+                address || null,
+                code,
+                default_milk_type || 'mixed',
+                pincode || null
+            ]
         );
 
-        const [newBuyer] = await pool.query(
-            `SELECT nb.*, 0 AS outstanding_balance, 0 AS total_purchases, 0 AS total_paid
-             FROM walkin_named_buyers nb
-             WHERE nb.buyer_id = ?`,
+        const [row] = await pool.query(
+            `SELECT * FROM walkin_named_buyers WHERE buyer_id = ?`,
             [result.insertId]
         );
-
-        res.status(201).json({
-            ...newBuyer[0],
-            outstanding_balance: 0,
-            total_purchases: 0,
-            total_paid: 0
-        });
+        res.status(201).json(row[0]);
     } catch (err) {
         console.error("createBuyer error:", err);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Buyer code conflict, please retry' });
+        }
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };

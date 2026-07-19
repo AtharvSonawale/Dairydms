@@ -1,19 +1,7 @@
-// backend/controllers/walkinSales.controller.js
-
 const pool = require('../config/db');
 
-// ──────────────────────────────────────────────────────────────
-//  IMPORTANT DATABASE CHANGES (run once)
-// ──────────────────────────────────────────────────────────────
-/*
-ALTER TABLE app_settings          MODIFY operator_id INT NULL;
-ALTER TABLE walkin_named_buyers   MODIFY operator_id INT NULL;
-ALTER TABLE walkin_product_types  MODIFY operator_id INT NULL;
-ALTER TABLE walkin_payments       MODIFY operator_id INT NULL;
-*/
-// ──────────────────────────────────────────────────────────────
-
-// ── GET /api/walkin-sales?date=YYYY-MM-DD OR ?from=&to= ──
+// ── GET /api/walkin-sales?date=YYYY-MM-DD
+//        OR ?from=YYYY-MM-DD&to=YYYY-MM-DD ──────────────────────
 exports.getSales = async (req, res) => {
     try {
         const { date, from, to, buyer_id, seller_id } = req.query;
@@ -23,6 +11,8 @@ exports.getSales = async (req, res) => {
 
         let whereClause = `WHERE ws.centre_id = ? AND ws.sale_date BETWEEN ? AND ?`;
         const params = [centre_id, fromDate, toDate];
+
+        // REMOVED operator filter - both admin and operator see all
 
         if (buyer_id) {
             whereClause += ` AND ws.buyer_id = ?`;
@@ -87,6 +77,7 @@ exports.createSale = async (req, res) => {
             sale_date,
         } = req.body;
 
+        // Validation
         if (!milk_type) {
             await conn.rollback();
             return res.status(400).json({ error: 'Milk type is required' });
@@ -108,7 +99,7 @@ exports.createSale = async (req, res) => {
             return res.status(400).json({ error: 'Sale date is required' });
         }
 
-        const centre_id = req.user.centre_id;
+         const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operator_id = isAdmin ? null : req.user.id;
         const created_by_admin_id = isAdmin ? req.user.id : null;
@@ -123,6 +114,8 @@ exports.createSale = async (req, res) => {
                 await conn.rollback();
                 return res.status(404).json({ error: 'Seller not found in your centre.' });
             }
+
+            // REMOVED operator access check - any operator can use any seller
         }
 
         // Verify buyer if provided
@@ -172,7 +165,7 @@ exports.createSale = async (req, res) => {
             });
         }
 
-        // Product-type rate uplift
+        // ── Product-type rate uplift ────────────────────────────
         const { product_type, amount_paid } = req.body;
         let effectiveMrp = parseFloat(mrp);
         let extraRate = 0;
@@ -188,7 +181,7 @@ exports.createSale = async (req, res) => {
         const computedTotal = (parseFloat(quantity) * effectiveMrp).toFixed(2);
         const actualPaid = amount_paid != null ? parseFloat(amount_paid) : null;
 
-        // Previous balance for named buyer
+        // ── Previous balance for named buyer ──────────────────
         let prevBalance = 0;
         if (buyer_id) {
             const [[balRow]] = await conn.query(
@@ -199,10 +192,11 @@ exports.createSale = async (req, res) => {
             prevBalance = parseFloat(balRow.bal || 0);
         }
 
+        // Insert sale
         const [result] = await conn.query(
             `INSERT INTO walkin_sales
-             (buyer_name, buyer_id, seller_id, product_type_id, product_type,
-              milk_type, quantity, mrp, total_amount, amount_paid,
+             (buyer_name, buyer_id, seller_id, product_type_id, product_type, 
+              milk_type, quantity, mrp, total_amount, amount_paid, 
               previous_balance, payment_mode, shift, sale_date, operator_id, centre_id)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
@@ -261,6 +255,7 @@ exports.deleteSale = async (req, res) => {
             return res.status(404).json({ error: 'Sale not found in your centre' });
         }
 
+        // Only allow deletion by the same operator or admin
         if (!isAdmin && existing[0].operator_id !== operator_id) {
             return res.status(403).json({ error: 'Not authorized to delete this sale' });
         }
@@ -278,6 +273,7 @@ exports.getMRPRates = async (req, res) => {
     try {
         const centre_id = req.user.centre_id;
 
+        // Get centre-specific MRP rates from app_settings
         const [rows] = await pool.query(
             `SELECT setting_key, setting_value
              FROM app_settings
@@ -285,6 +281,7 @@ exports.getMRPRates = async (req, res) => {
             [centre_id]
         );
 
+        // If no centre-specific rates, fallback to global settings
         let rates = {};
         if (rows.length === 0) {
             const [globalRows] = await pool.query(
@@ -315,15 +312,14 @@ exports.getMRPRates = async (req, res) => {
 exports.saveMRPRates = async (req, res) => {
     try {
         const { mrp_cow_rate, mrp_buffalo_rate } = req.body;
+        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
-        const isAdmin = req.user.role === 'admin';
-        // For admin, operator_id = NULL; for operator, use their id
-        const operator_id = isAdmin ? null : req.user.id;
 
         if (mrp_cow_rate === undefined || mrp_buffalo_rate === undefined) {
             return res.status(400).json({ error: 'Both MRP rates are required' });
         }
 
+        // Update or insert MRP rates in app_settings (centre-specific)
         await pool.query(
             `INSERT INTO app_settings (operator_id, centre_id, setting_key, setting_value)
              VALUES (?, ?, 'mrp_cow_rate', ?), (?, ?, 'mrp_buffalo_rate', ?)
@@ -343,6 +339,7 @@ exports.getProductTypes = async (req, res) => {
     try {
         const centre_id = req.user.centre_id;
 
+        // Both admin and operator see all product types in their centre
         const query = `
             SELECT wpt.*, o.name AS operator_name
             FROM walkin_product_types wpt
@@ -362,9 +359,8 @@ exports.getProductTypes = async (req, res) => {
 // ── POST /api/walkin-sales/product-types ─────────────────────
 exports.saveProductType = async (req, res) => {
     try {
+        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
-        const isAdmin = req.user.role === 'admin';
-        const operator_id = isAdmin ? null : req.user.id;
         const { name, milk_type, type, extra_rate } = req.body;
 
         if (!name || !type) {
@@ -397,6 +393,7 @@ exports.updateProductType = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const { name, milk_type, type, extra_rate, is_active } = req.body;
 
+        // Check if product type exists and user has access
         let accessQuery = `SELECT product_type_id FROM walkin_product_types WHERE product_type_id = ? AND centre_id = ?`;
         let accessParams = [id, centre_id];
 
@@ -476,10 +473,10 @@ exports.getNamedBuyers = async (req, res) => {
 
         const query = `
             SELECT wb.*, o.name AS operator_name,
-                   (SELECT COUNT(*) FROM walkin_sales ws
+                   (SELECT COUNT(*) FROM walkin_sales ws 
                     WHERE ws.buyer_id = wb.buyer_id AND ws.centre_id = wb.centre_id) AS total_sales
             FROM walkin_named_buyers wb
-            JOIN operators o ON o.operator_id = wb.operator_id
+            LEFT JOIN operators o ON o.operator_id = wb.operator_id   -- ← LEFT JOIN
             WHERE wb.centre_id = ?
             ORDER BY wb.name
         `;
@@ -498,33 +495,53 @@ exports.saveNamedBuyer = async (req, res) => {
         const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operator_id = isAdmin ? null : req.user.id;
-        const { name, mobile, address } = req.body;
+        const { name, mobile, address, default_milk_type, pincode } = req.body;
 
         if (!name) {
             return res.status(400).json({ error: 'Name is required' });
         }
 
-        const [existing] = await pool.query(
-            'SELECT * FROM walkin_named_buyers WHERE name = ? AND centre_id = ?',
-            [name.trim(), centre_id]
+        // Generate code
+        const [maxRow] = await pool.query(
+            `SELECT code FROM walkin_named_buyers
+             WHERE centre_id = ? AND code LIKE 'B%'
+             ORDER BY CAST(SUBSTRING(code, 2) AS UNSIGNED) DESC
+             LIMIT 1`,
+            [centre_id]
         );
-        if (existing.length) {
-            return res.status(200).json(existing[0]);
+        let nextNum = 1;
+        if (maxRow.length > 0 && maxRow[0].code) {
+            const num = parseInt(maxRow[0].code.substring(1), 10);
+            if (!isNaN(num)) nextNum = num + 1;
         }
+        const code = `B${String(nextNum).padStart(3, '0')}`;
 
         const [result] = await pool.query(
-            `INSERT INTO walkin_named_buyers (operator_id, centre_id, name, mobile, address)
-             VALUES (?, ?, ?, ?, ?)`,
-            [operator_id, centre_id, name.trim(), mobile || null, address || null]
+            `INSERT INTO walkin_named_buyers
+             (operator_id, centre_id, name, mobile, address, code, default_milk_type, pincode)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                operator_id,
+                centre_id,
+                name.trim(),
+                mobile || null,
+                address || null,
+                code,
+                default_milk_type || 'mixed',
+                pincode || null
+            ]
         );
 
         const [row] = await pool.query(
             `SELECT * FROM walkin_named_buyers WHERE buyer_id = ?`,
             [result.insertId]
         );
-        return res.status(201).json(row[0]);
+        res.status(201).json(row[0]);
     } catch (err) {
         console.error("saveNamedBuyer error:", err);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Buyer code conflict, please retry' });
+        }
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };
@@ -535,6 +552,7 @@ exports.getNamedBuyerBalance = async (req, res) => {
         const { buyerId } = req.params;
         const centre_id = req.user.centre_id;
 
+        // Verify buyer belongs to centre
         const [buyerCheck] = await pool.query(
             'SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?',
             [buyerId, centre_id]
@@ -561,6 +579,7 @@ exports.getNamedBuyerSummaries = async (req, res) => {
     try {
         const centre_id = req.user.centre_id;
 
+        // Both admin and operator see all buyer summaries
         const query = `
             SELECT
                 nb.buyer_id,
@@ -594,9 +613,9 @@ exports.clearBuyerBill = async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
+        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
-        const operator_id = isAdmin ? null : req.user.id;
         const { buyer_id, amount_paid, outstanding } = req.body;
 
         if (!buyer_id || amount_paid == null) {
@@ -604,6 +623,7 @@ exports.clearBuyerBill = async (req, res) => {
             return res.status(400).json({ error: 'buyer_id and amount_paid required' });
         }
 
+        // Verify buyer belongs to centre
         const [buyerCheck] = await conn.query(
             'SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?',
             [buyer_id, centre_id]
@@ -617,6 +637,7 @@ exports.clearBuyerBill = async (req, res) => {
         const totalOwed = parseFloat(outstanding);
         const remaining = Math.max(0, totalOwed - paid);
 
+        // Get all unpaid/partial sales for this buyer, oldest first
         let salesQuery = `
             SELECT sale_id, total_amount, COALESCE(amount_paid, 0) AS paid
             FROM walkin_sales
@@ -626,8 +647,11 @@ exports.clearBuyerBill = async (req, res) => {
         `;
         let salesParams = [buyer_id, centre_id];
 
+        // REMOVED operator filter
+
         const [sales] = await conn.query(salesQuery, salesParams);
 
+        // Distribute payment across sales
         let budgetLeft = paid;
         for (const sale of sales) {
             if (budgetLeft <= 0) break;
@@ -641,8 +665,9 @@ exports.clearBuyerBill = async (req, res) => {
             budgetLeft -= toApply;
         }
 
+        // Also record in walkin_payments so WalkinPayments page stays in sync
         await conn.query(
-            `INSERT INTO walkin_payments
+            `INSERT INTO walkin_payments 
              (operator_id, centre_id, buyer_id, seller_id, amount, payment_mode, remarks, payment_date)
              VALUES (?, ?, ?, ?, ?, 'cash', ?, CURDATE())`,
             [
@@ -691,6 +716,8 @@ exports.getBillingSummary = async (req, res) => {
             WHERE ws.centre_id = ?
         `;
         let params = [centre_id];
+
+        // REMOVED operator filter
 
         if (from && to) {
             query += ` AND ws.sale_date BETWEEN ? AND ?`;
@@ -748,6 +775,7 @@ exports.updateSale = async (req, res) => {
             }
         }
 
+        // Verify buyer if provided
         if (buyer_id) {
             const [buyerCheck] = await conn.query(
                 'SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?',
@@ -768,6 +796,7 @@ exports.updateSale = async (req, res) => {
             if (pt) effectiveMrp += parseFloat(pt.extra_rate || 0);
         }
 
+        // Check stock availability if quantity changed
         if (parseFloat(quantity) !== parseFloat(existing[0].quantity)) {
             const [[collected]] = await conn.query(
                 `SELECT COALESCE(SUM(quantity), 0) AS total
@@ -794,9 +823,9 @@ exports.updateSale = async (req, res) => {
 
         await conn.query(
             `UPDATE walkin_sales SET
-                buyer_name = ?, buyer_id = ?, seller_id = ?,
+                buyer_name = ?, buyer_id = ?, seller_id = ?, 
                 product_type_id = ?, product_type = ?,
-                milk_type = ?, quantity = ?, mrp = ?,
+                milk_type = ?, quantity = ?, mrp = ?, 
                 total_amount = ?, amount_paid = ?,
                 payment_mode = ?, shift = ?, sale_date = ?
              WHERE sale_id = ? AND centre_id = ?`,
@@ -842,51 +871,47 @@ exports.updateSale = async (req, res) => {
 exports.updateNamedBuyer = async (req, res) => {
     try {
         const { id } = req.params;
-        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
-        const isAdmin = req.user.role === 'admin';
-        const { name, mobile, address, is_active } = req.body;
+        const { name, mobile, address, is_active, default_milk_type, pincode } = req.body;
 
         if (!name || !name.trim()) {
             return res.status(400).json({ error: 'Name is required' });
         }
 
-        let accessQuery = `SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?`;
-        let accessParams = [id, centre_id];
-
-        if (!isAdmin) {
-            accessQuery += ` AND operator_id = ?`;
-            accessParams.push(operator_id);
-        }
-
-        const [existing] = await pool.query(accessQuery, accessParams);
-        if (!existing.length) {
-            return res.status(403).json({ error: 'Buyer not found or unauthorized.' });
-        }
-
-        const [duplicate] = await pool.query(
-            `SELECT buyer_id FROM walkin_named_buyers
-             WHERE centre_id = ? AND name = ? AND buyer_id != ?`,
-            [centre_id, name.trim(), id]
+        // Check access (any operator/admin in centre)
+        const [existing] = await pool.query(
+            `SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?`,
+            [id, centre_id]
         );
-
-        if (duplicate.length > 0) {
-            return res.status(400).json({ error: 'A buyer with this name already exists' });
+        if (!existing.length) {
+            return res.status(404).json({ error: 'Buyer not found.' });
         }
 
         await pool.query(
-            `UPDATE walkin_named_buyers
-             SET name = ?, mobile = ?, address = ?, is_active = ?
+            `UPDATE walkin_named_buyers SET
+                name = ?,
+                mobile = ?,
+                address = ?,
+                is_active = ?,
+                default_milk_type = ?,
+                pincode = ?
              WHERE buyer_id = ? AND centre_id = ?`,
-            [name.trim(), mobile || null, address || null,
-            is_active !== undefined ? is_active : 1, id, centre_id]
+            [
+                name.trim(),
+                mobile || null,
+                address || null,
+                is_active !== undefined ? is_active : 1,
+                default_milk_type || 'mixed',
+                pincode || null,
+                id,
+                centre_id
+            ]
         );
 
         const [row] = await pool.query(
             `SELECT * FROM walkin_named_buyers WHERE buyer_id = ?`,
             [id]
         );
-
         res.json(row[0]);
     } catch (err) {
         console.error("updateNamedBuyer error:", err);
@@ -896,56 +921,44 @@ exports.updateNamedBuyer = async (req, res) => {
 
 // ── DELETE /api/walkin-sales/named-buyers/:id ────────────────
 exports.deleteNamedBuyer = async (req, res) => {
+    const conn = await pool.getConnection();
     try {
+        await conn.beginTransaction();
+
         const { id } = req.params;
-        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
-        const isAdmin = req.user.role === 'admin';
 
-        let accessQuery = `SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?`;
-        let accessParams = [id, centre_id];
-
-        if (!isAdmin) {
-            accessQuery += ` AND operator_id = ?`;
-            accessParams.push(operator_id);
-        }
-
-        const [existing] = await pool.query(accessQuery, accessParams);
+        // 1. Verify buyer exists in this centre
+        const [existing] = await conn.query(
+            `SELECT buyer_id FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?`,
+            [id, centre_id]
+        );
         if (!existing.length) {
-            return res.status(404).json({ error: 'Buyer not found or unauthorized.' });
+            await conn.rollback();
+            return res.status(404).json({ error: 'Buyer not found.' });
         }
 
-        const [sales] = await pool.query(
-            `SELECT COUNT(*) AS count FROM walkin_sales
+        // 2. Detach buyer from all sales (set buyer_id to NULL)
+        await conn.query(
+            `UPDATE walkin_sales SET buyer_id = NULL
              WHERE buyer_id = ? AND centre_id = ?`,
             [id, centre_id]
         );
 
-        if (sales[0].count > 0) {
-            await pool.query(
-                `UPDATE walkin_named_buyers SET is_active = 0
-                 WHERE buyer_id = ? AND centre_id = ?`,
-                [id, centre_id]
-            );
-            res.json({
-                message: 'Buyer deactivated successfully',
-                softDelete: true
-            });
-        } else {
-            let deleteQuery = `DELETE FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?`;
-            let deleteParams = [id, centre_id];
+        // 3. Hard delete the buyer record
+        await conn.query(
+            `DELETE FROM walkin_named_buyers WHERE buyer_id = ? AND centre_id = ?`,
+            [id, centre_id]
+        );
 
-            if (!isAdmin) {
-                deleteQuery += ` AND operator_id = ?`;
-                deleteParams.push(operator_id);
-            }
-
-            await pool.query(deleteQuery, deleteParams);
-            res.json({ message: 'Buyer deleted successfully' });
-        }
+        await conn.commit();
+        res.json({ message: 'Buyer permanently deleted.' });
     } catch (err) {
+        await conn.rollback();
         console.error("deleteNamedBuyer error:", err);
         res.status(500).json({ error: 'Server error', message: err.message });
+    } finally {
+        conn.release();
     }
 };
 

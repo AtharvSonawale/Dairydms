@@ -4,8 +4,7 @@ import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
     User, AlertTriangle, BadgeCheck, X,
     TrendingUp, Hash, ChevronDown, Milk, Trash2, Scale,
-    Weight,
-    Pencil
+    Weight, Pencil, ShoppingCart, Package
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -144,6 +143,412 @@ function TableCell({ children, className = "" }) {
     );
 }
 
+// ── Quick Sale Modal: Products ──────────────────────────────
+function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess, showFlash }) {
+    const { t } = useTranslation();
+    const [products, setProducts] = useState([]);
+    const [lines, setLines] = useState([{ _key: Date.now(), product_id: "", quantity: "", rate: "" }]);
+    const [productSearch, setProductSearch] = useState({});
+    const [showProductDrop, setShowProductDrop] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        api.get("/products")
+            .then(({ data }) => setProducts(data))
+            .catch(() => showFlash("error", "Failed to load products"));
+    }, []);
+
+    const setLine = (key, field, value) =>
+        setLines(prev => prev.map(l => l._key === key ? { ...l, [field]: value } : l));
+
+    const addLine = () =>
+        setLines(prev => [...prev, { _key: Date.now() + Math.random(), product_id: "", quantity: "", rate: "" }]);
+
+    const removeLine = (key) =>
+        setLines(prev => prev.length > 1 ? prev.filter(l => l._key !== key) : prev);
+
+    const grandTotal = lines.reduce((sum, l) => {
+        const qty = parseFloat(l.quantity) || 0;
+        const rate = parseFloat(l.rate) || 0;
+        return sum + qty * rate;
+    }, 0);
+
+    const handleSave = async () => {
+        const validLines = lines.filter(l => l.product_id && l.quantity && l.rate);
+        if (validLines.length === 0) {
+            showFlash("error", "Add at least one product with quantity and rate.");
+            return;
+        }
+        if (saving) return;
+        setSaving(true);
+        try {
+            await api.post("/product-sales", {
+                seller_id: Number(sellerId),
+                sale_date: saleDate,
+                lines: validLines.map(l => ({
+                    product_id: Number(l.product_id),
+                    quantity: parseFloat(l.quantity),
+                    rate: parseFloat(l.rate),
+                })),
+            });
+            showFlash("success", "Product sale recorded successfully!");
+            onSuccess?.();
+            onClose();
+        } catch (err) {
+            const msg = err.response?.data?.error || "Failed to save product sale.";
+            showFlash("error", msg);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-900">Quick Product Sale</h2>
+                        <p className="text-[10px] text-gray-400">
+                            Seller: <span className="font-semibold text-gray-700">{sellerName || `ID:${sellerId}`}</span>
+                            {" · "}{new Date(saleDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 transition">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                {/* Lines */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="flex flex-col gap-3">
+                        <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                            style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
+                            <span>Product</span>
+                            <span>Qty</span>
+                            <span>Rate</span>
+                            <span>Total</span>
+                            <span />
+                        </div>
+
+                        {lines.map((line) => {
+                            const lineProduct = products.find(p => String(p.product_id) === String(line.product_id));
+                            const lt = (parseFloat(line.quantity) || 0) * (parseFloat(line.rate) || 0);
+                            const searchVal = productSearch[line._key] !== undefined ? productSearch[line._key] : (lineProduct?.product_name || "");
+
+                            return (
+                                <div key={line._key} className="grid gap-2 items-start"
+                                    style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
+                                    {/* Product picker */}
+                                    <div className="relative">
+                                        <TinyInput
+                                            value={searchVal}
+                                            onChange={(e) => {
+                                                setProductSearch(p => ({ ...p, [line._key]: e.target.value }));
+                                                setShowProductDrop(p => ({ ...p, [line._key]: true }));
+                                            }}
+                                            onFocus={() => {
+                                                setProductSearch(p => ({ ...p, [line._key]: "" }));
+                                                setShowProductDrop(p => ({ ...p, [line._key]: true }));
+                                            }}
+                                            onBlur={() => setTimeout(() => {
+                                                setShowProductDrop(p => ({ ...p, [line._key]: false }));
+                                                setProductSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
+                                            }, 150)}
+                                            placeholder="Search product…"
+                                            className="w-full"
+                                        />
+                                        {showProductDrop[line._key] && (
+                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                                                {(productSearch[line._key]?.trim()
+                                                    ? products.filter(p => p.product_name.toLowerCase().includes(productSearch[line._key].toLowerCase()))
+                                                    : products
+                                                ).map((p) => (
+                                                    <button key={p.product_id} type="button"
+                                                        onMouseDown={() => {
+                                                            setLine(line._key, "product_id", String(p.product_id));
+                                                            setLine(line._key, "rate", p.mrp_rate ? String(p.mrp_rate) : (p.rate ? String(p.rate) : ""));
+                                                            setProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
+                                                            setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
+                                                        }}
+                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                        <div>
+                                                            <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
+                                                            <p className="text-[10px] text-gray-400">
+                                                                Stock: {parseFloat(p.current_stock || 0).toFixed(1)} {p.unit}
+                                                            </p>
+                                                        </div>
+                                                        <span className="text-[10px] text-violet-600 font-semibold">
+                                                            ₹{parseFloat(p.mrp_rate || 0).toFixed(2)}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Qty */}
+                                    <TinyInput
+                                        value={line.quantity}
+                                        onChange={(e) => setLine(line._key, "quantity", e.target.value)}
+                                        placeholder="0.0" type="number" step="0.01"
+                                        className="w-full bg-blue-50 border-blue-200 text-blue-700"
+                                    />
+
+                                    {/* Rate */}
+                                    <TinyInput
+                                        value={line.rate}
+                                        onChange={(e) => setLine(line._key, "rate", e.target.value)}
+                                        placeholder="₹0.00" type="number" step="0.01"
+                                        className="w-full bg-amber-50 border-amber-200 text-amber-700"
+                                    />
+
+                                    {/* Line total */}
+                                    <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap
+                                        ${lt ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                                        {lt ? `₹${lt.toFixed(2)}` : "—"}
+                                    </div>
+
+                                    <button type="button" onClick={() => removeLine(line._key)}
+                                        disabled={lines.length === 1}
+                                        className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 disabled:opacity-20 transition">
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <button type="button" onClick={addLine}
+                        className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
+                        <span className="text-base leading-none">+</span> Add Product
+                    </button>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
+                    <div className="text-sm font-bold text-gray-800">
+                        Grand Total: <span className="text-emerald-700">₹{grandTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onClose}
+                            className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button onClick={handleSave} disabled={saving}
+                            className={`px-6 py-2 rounded-xl text-sm font-semibold text-white transition ${saving ? "bg-gray-300" : "bg-black hover:bg-gray-800"}`}>
+                            {saving ? "Saving…" : "Record Sale"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Quick Sale Modal: Cattle Feed ──────────────────────────────
+function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess, showFlash }) {
+    const { t } = useTranslation();
+    const [feeds, setFeeds] = useState([]);
+    const [lines, setLines] = useState([{ _key: Date.now(), feed_id: "", quantity: "", rate: "" }]);
+    const [feedSearch, setFeedSearch] = useState({});
+    const [showFeedDrop, setShowFeedDrop] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        api.get("/cattle-feeds")
+            .then(({ data }) => setFeeds(data))
+            .catch(() => showFlash("error", "Failed to load feeds"));
+    }, []);
+
+    const setLine = (key, field, value) =>
+        setLines(prev => prev.map(l => l._key === key ? { ...l, [field]: value } : l));
+
+    const addLine = () =>
+        setLines(prev => [...prev, { _key: Date.now() + Math.random(), feed_id: "", quantity: "", rate: "" }]);
+
+    const removeLine = (key) =>
+        setLines(prev => prev.length > 1 ? prev.filter(l => l._key !== key) : prev);
+
+    const grandTotal = lines.reduce((sum, l) => {
+        const qty = parseFloat(l.quantity) || 0;
+        const rate = parseFloat(l.rate) || 0;
+        return sum + qty * rate;
+    }, 0);
+
+    const handleSave = async () => {
+        const validLines = lines.filter(l => l.feed_id && l.quantity && l.rate);
+        if (validLines.length === 0) {
+            showFlash("error", "Add at least one feed with quantity and rate.");
+            return;
+        }
+        if (saving) return;
+        setSaving(true);
+        try {
+            await api.post("/cattle-feed-sales", {
+                seller_id: Number(sellerId),
+                sale_date: saleDate,
+                lines: validLines.map(l => ({
+                    feed_id: Number(l.feed_id),
+                    quantity: parseFloat(l.quantity),
+                    rate: parseFloat(l.rate),
+                })),
+            });
+            showFlash("success", "Feed sale recorded successfully!");
+            onSuccess?.();
+            onClose();
+        } catch (err) {
+            const msg = err.response?.data?.error || "Failed to save feed sale.";
+            showFlash("error", msg);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-900">Quick Feed Sale</h2>
+                        <p className="text-[10px] text-gray-400">
+                            Seller: <span className="font-semibold text-gray-700">{sellerName || `ID:${sellerId}`}</span>
+                            {" · "}{new Date(saleDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 transition">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                {/* Lines */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="flex flex-col gap-3">
+                        <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                            style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
+                            <span>Feed</span>
+                            <span>Qty</span>
+                            <span>Rate</span>
+                            <span>Total</span>
+                            <span />
+                        </div>
+
+                        {lines.map((line) => {
+                            const lineFeed = feeds.find(f => String(f.feed_id) === String(line.feed_id));
+                            const lt = (parseFloat(line.quantity) || 0) * (parseFloat(line.rate) || 0);
+                            const searchVal = feedSearch[line._key] !== undefined ? feedSearch[line._key] : (lineFeed?.feed_name || "");
+
+                            return (
+                                <div key={line._key} className="grid gap-2 items-start"
+                                    style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
+                                    {/* Feed picker */}
+                                    <div className="relative">
+                                        <TinyInput
+                                            value={searchVal}
+                                            onChange={(e) => {
+                                                setFeedSearch(p => ({ ...p, [line._key]: e.target.value }));
+                                                setShowFeedDrop(p => ({ ...p, [line._key]: true }));
+                                            }}
+                                            onFocus={() => {
+                                                setFeedSearch(p => ({ ...p, [line._key]: "" }));
+                                                setShowFeedDrop(p => ({ ...p, [line._key]: true }));
+                                            }}
+                                            onBlur={() => setTimeout(() => {
+                                                setShowFeedDrop(p => ({ ...p, [line._key]: false }));
+                                                setFeedSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
+                                            }, 150)}
+                                            placeholder="Search feed…"
+                                            className="w-full"
+                                        />
+                                        {showFeedDrop[line._key] && (
+                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                                                {(feedSearch[line._key]?.trim()
+                                                    ? feeds.filter(f => f.feed_name.toLowerCase().includes(feedSearch[line._key].toLowerCase()))
+                                                    : feeds
+                                                ).map((f) => (
+                                                    <button key={f.feed_id} type="button"
+                                                        onMouseDown={() => {
+                                                            setLine(line._key, "feed_id", String(f.feed_id));
+                                                            setLine(line._key, "rate", f.mrp_rate ? String(f.mrp_rate) : (f.rate ? String(f.rate) : ""));
+                                                            setFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
+                                                            setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
+                                                        }}
+                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                        <div>
+                                                            <p className="text-xs font-medium text-gray-800">{f.feed_name}</p>
+                                                            <p className="text-[10px] text-gray-400">
+                                                                Stock: {parseFloat(f.current_stock || 0).toFixed(1)} {f.unit}
+                                                            </p>
+                                                        </div>
+                                                        <span className="text-[10px] text-violet-600 font-semibold">
+                                                            ₹{parseFloat(f.mrp_rate || 0).toFixed(2)}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Qty */}
+                                    <TinyInput
+                                        value={line.quantity}
+                                        onChange={(e) => setLine(line._key, "quantity", e.target.value)}
+                                        placeholder="0.0" type="number" step="0.01"
+                                        className="w-full bg-blue-50 border-blue-200 text-blue-700"
+                                    />
+
+                                    {/* Rate */}
+                                    <TinyInput
+                                        value={line.rate}
+                                        onChange={(e) => setLine(line._key, "rate", e.target.value)}
+                                        placeholder="₹0.00" type="number" step="0.01"
+                                        className="w-full bg-amber-50 border-amber-200 text-amber-700"
+                                    />
+
+                                    {/* Line total */}
+                                    <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap
+                                        ${lt ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                                        {lt ? `₹${lt.toFixed(2)}` : "—"}
+                                    </div>
+
+                                    <button type="button" onClick={() => removeLine(line._key)}
+                                        disabled={lines.length === 1}
+                                        className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 disabled:opacity-20 transition">
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <button type="button" onClick={addLine}
+                        className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
+                        <span className="text-base leading-none">+</span> Add Feed
+                    </button>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
+                    <div className="text-sm font-bold text-gray-800">
+                        Grand Total: <span className="text-emerald-700">₹{grandTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onClose}
+                            className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button onClick={handleSave} disabled={saving}
+                            className={`px-6 py-2 rounded-xl text-sm font-semibold text-white transition ${saving ? "bg-gray-300" : "bg-black hover:bg-gray-800"}`}>
+                            {saving ? "Saving…" : "Record Sale"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function MilkEntry() {
     const { t } = useTranslation();
@@ -168,6 +573,10 @@ export default function MilkEntry() {
     const { appName } = useAppConfig();
     const { can, loading: permLoading } = usePermission();
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+    // ── Quick Sale modals state ──
+    const [showProductModal, setShowProductModal] = useState(false);
+    const [showFeedModal, setShowFeedModal] = useState(false);
 
     // RS232 Machine Quantity — now driven by the backend's live weight machine reader
     const [machineQty, setMachineQty] = useState("");
@@ -1411,16 +1820,44 @@ export default function MilkEntry() {
                             {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')} {t('milkEntry.entriesOn')}{" "}
                             {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </p>
-                        <button type="button" data-tour="save-btn" onClick={editingEntry ? handleUpdate : handleSave} disabled={saving}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                ${saving ? "bg-gray-300 cursor-not-allowed" : editingEntry ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
-                            <Save size={15} />
-                            {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
-                        </button>
+
+                        {/* ── Quick Sale Buttons ── */}
+                        <div className="flex items-center gap-2">
+                            {can('product_sales', 'C') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowProductModal(true)}
+                                    disabled={!form.seller_id}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-40 transition"
+                                >
+                                    <ShoppingCart size={13} /> Product Sale
+                                </button>
+                            )}
+                            {can('cattle_feed_sales', 'C') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFeedModal(true)}
+                                    disabled={!form.seller_id}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-40 transition"
+                                >
+                                    <Package size={13} /> Feed Sale
+                                </button>
+                            )}
+
+                            <button
+                                type="button"
+                                data-tour="save-btn"
+                                onClick={editingEntry ? handleUpdate : handleSave}
+                                disabled={saving}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
+                                    ${saving ? "bg-gray-300 cursor-not-allowed" : editingEntry ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}
+                            >
+                                <Save size={15} />
+                                {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-               
 
                 {/* Entries Table */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1728,6 +2165,28 @@ export default function MilkEntry() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ── Quick Sale Modals ── */}
+            {showProductModal && (
+                <QuickProductSaleModal
+                    sellerId={form.seller_id}
+                    sellerName={selectedSeller?.name || ""}
+                    saleDate={selectedDate}
+                    onClose={() => setShowProductModal(false)}
+                    onSuccess={() => { }} // optionally refresh data
+                    showFlash={showFlash}
+                />
+            )}
+            {showFeedModal && (
+                <QuickFeedSaleModal
+                    sellerId={form.seller_id}
+                    sellerName={selectedSeller?.name || ""}
+                    saleDate={selectedDate}
+                    onClose={() => setShowFeedModal(false)}
+                    onSuccess={() => { }}
+                    showFlash={showFlash}
+                />
             )}
         </div>
     );

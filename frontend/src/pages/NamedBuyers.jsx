@@ -1,13 +1,13 @@
-// NamedBuyersManagement.jsx
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Users, UserPlus, Search, X, Edit2, Trash2, User,
-    CheckCircle2, AlertCircle, Phone, MapPin, Filter
+    CheckCircle2, AlertCircle, Phone, MapPin, Filter, Hash,
+    Milk, MapPin as LocationIcon
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
-import AccessDenied from '../components/AccessDenied';   // <- added import
+import AccessDenied from '../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
@@ -58,6 +58,20 @@ function StatusBadge({ active }) {
     );
 }
 
+function MilkTypeBadge({ type }) {
+    const map = {
+        cow: { label: "Cow", bg: "bg-amber-50 text-amber-700 border-amber-100" },
+        buffalo: { label: "Buffalo", bg: "bg-blue-50 text-blue-700 border-blue-100" },
+        mixed: { label: "Mixed", bg: "bg-purple-50 text-purple-700 border-purple-100" },
+    };
+    const t = map[type] || map.mixed;
+    return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${t.bg}`}>
+            {t.label}
+        </span>
+    );
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function NamedBuyersManagement() {
     const { t } = useTranslation();
@@ -78,7 +92,10 @@ export default function NamedBuyersManagement() {
     const [formData, setFormData] = useState({
         name: "",
         mobile: "",
-        address: ""
+        address: "",
+        code: "",
+        default_milk_type: "mixed",
+        pincode: "",
     });
 
     // Pagination
@@ -89,12 +106,9 @@ export default function NamedBuyersManagement() {
     const fetchBuyers = async () => {
         setLoading(true);
         try {
-            // Use the existing /walkin-payments/buyers endpoint
-            const { data } = await api.get("/walkin-payments/buyers");
-            // Filter only named buyers (buyer_type === 'named')
-            const named = data.filter(b => b.buyer_type === 'named');
-            setBuyers(named);
-            setFilteredBuyers(named);
+            const { data } = await api.get("/walkin-sales/named-buyers");
+            setBuyers(data);
+            setFilteredBuyers(data);
         } catch (err) {
             console.error("Failed to fetch buyers:", err);
             showFlash("error", t('namedBuyers.loadError'));
@@ -112,7 +126,9 @@ export default function NamedBuyersManagement() {
         const filtered = buyers.filter(b =>
             b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (b.mobile && b.mobile.includes(searchTerm)) ||
-            (b.address && b.address.toLowerCase().includes(searchTerm.toLowerCase()))
+            (b.address && b.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (b.code && b.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (b.pincode && b.pincode.includes(searchTerm))
         );
         setFilteredBuyers(filtered);
         setCurrentPage(1);
@@ -131,7 +147,7 @@ export default function NamedBuyersManagement() {
             steps: [
                 {
                     element: '[data-tour="search-add"]',
-                    popover: { title: t('namedBuyers.addBuyer'), description: 'Search existing buyers by name, mobile, or address — or register a new one.' },
+                    popover: { title: t('namedBuyers.addBuyer'), description: 'Search existing buyers by name, mobile, address, or code — or register a new one.' },
                 },
                 {
                     element: '[data-tour="buyer-stats"]',
@@ -153,7 +169,14 @@ export default function NamedBuyersManagement() {
     };
 
     const resetForm = () => {
-        setFormData({ name: "", mobile: "", address: "" });
+        setFormData({
+            name: "",
+            mobile: "",
+            address: "",
+            code: "",
+            default_milk_type: "mixed",
+            pincode: "",
+        });
         setEditingBuyer(null);
     };
 
@@ -167,7 +190,10 @@ export default function NamedBuyersManagement() {
         setFormData({
             name: buyer.name,
             mobile: buyer.mobile || "",
-            address: buyer.address || ""
+            address: buyer.address || "",
+            code: buyer.code || "",
+            default_milk_type: buyer.default_milk_type || "mixed",
+            pincode: buyer.pincode || "",
         });
         setShowModal(true);
     };
@@ -184,18 +210,16 @@ export default function NamedBuyersManagement() {
             const payload = {
                 name: formData.name.trim(),
                 mobile: formData.mobile.trim() || null,
-                address: formData.address.trim() || null
+                address: formData.address.trim() || null,
+                default_milk_type: formData.default_milk_type,
+                pincode: formData.pincode.trim() || null,
             };
 
             if (editingBuyer) {
-                // Update – we need to implement this on the backend; for now, we'll show a notice
-                // Since we don't have a PUT endpoint, we'll show an error for now.
-                showFlash("error", "Edit functionality is not yet implemented on the server.");
-                setSaving(false);
-                return;
+                await api.put(`/walkin-sales/named-buyers/${editingBuyer.buyer_id}`, payload);
+                showFlash("success", t('namedBuyers.updateSuccess'));
             } else {
-                // Create new buyer – uses existing POST /walkin-payments/buyers
-                await api.post("/walkin-payments/buyers", payload);
+                await api.post("/walkin-sales/named-buyers", payload);
                 showFlash("success", t('namedBuyers.createSuccess'));
             }
 
@@ -211,16 +235,30 @@ export default function NamedBuyersManagement() {
     };
 
     const handleDelete = async (buyer) => {
-        // There is no DELETE endpoint for buyers; we'll simulate by setting inactive? Or show error.
-        showFlash("error", "Delete functionality is not yet implemented on the server.");
-        setShowDeleteConfirm(null);
-        // Optionally, we could call a soft-delete if exists, but we don't have it.
-        // For now just close modal.
+        try {
+            await api.delete(`/walkin-sales/named-buyers/${buyer.buyer_id}`);
+            showFlash("success", t('namedBuyers.deleteSuccess'));
+            await fetchBuyers();
+            setShowDeleteConfirm(null);
+        } catch (err) {
+            const errorMsg = err.response?.data?.error || t('namedBuyers.deleteError');
+            showFlash("error", errorMsg);
+        }
     };
 
     const toggleStatus = async (buyer) => {
-        // No PATCH endpoint for status; we'll show a message.
-        showFlash("error", "Status toggle is not implemented on the server.");
+        try {
+            const newStatus = buyer.is_active ? 0 : 1;
+            await api.patch(`/walkin-sales/named-buyers/${buyer.buyer_id}/status`, {
+                is_active: newStatus
+            });
+            await fetchBuyers();
+            showFlash("success",
+                newStatus ? t('namedBuyers.activated') : t('namedBuyers.deactivated')
+            );
+        } catch (err) {
+            showFlash("error", t('namedBuyers.statusError'));
+        }
     };
 
     // ── Pagination ─────────────────────────────────────────────
@@ -233,14 +271,17 @@ export default function NamedBuyersManagement() {
     // ── Table Columns ──────────────────────────────────────────
     const COLS = [
         "#",
+        t('namedBuyers.colCode'),
         t('namedBuyers.colName'),
         t('namedBuyers.colMobile'),
         t('namedBuyers.colAddress'),
+        t('namedBuyers.colMilkType'),
+        t('namedBuyers.colPincode'),
         t('namedBuyers.colStatus'),
         t('namedBuyers.colCreated'),
         t('namedBuyers.colActions')
     ];
-    const GRID = "60px 1.4fr 1fr 1.4fr 100px 120px 100px";
+    const GRID = "50px 80px 1.2fr 1fr 1.4fr 90px 80px 90px 110px 100px";
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
@@ -418,6 +459,20 @@ export default function NamedBuyersManagement() {
                             </div>
 
                             <div className="flex flex-col gap-3">
+                                {/* Code field – read-only */}
+                                <div>
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                        <Hash size={12} /> {t('namedBuyers.colCode')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="code"
+                                        value={formData.code || (editingBuyer ? "" : "Auto‑generated")}
+                                        disabled
+                                        className="w-full border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-500 bg-gray-100 cursor-not-allowed"
+                                    />
+                                </div>
+
                                 <div>
                                     <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
                                         <User size={12} /> {t('namedBuyers.buyerName')} <span className="text-rose-500">*</span>
@@ -456,6 +511,38 @@ export default function NamedBuyersManagement() {
                                         onChange={handleInputChange}
                                         placeholder={t('namedBuyers.addressPlaceholder')}
                                         className="w-full"
+                                    />
+                                </div>
+
+                                {/* Default Milk Type */}
+                                <div>
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                        <Milk size={12} /> {t('namedBuyers.defaultMilkType')}
+                                    </label>
+                                    <select
+                                        name="default_milk_type"
+                                        value={formData.default_milk_type}
+                                        onChange={handleInputChange}
+                                        className="w-full border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
+                                    >
+                                        <option value="mixed">{t('namedBuyers.mixed')}</option>
+                                        <option value="cow">{t('namedBuyers.cow')}</option>
+                                        <option value="buffalo">{t('namedBuyers.buffalo')}</option>
+                                    </select>
+                                </div>
+
+                                {/* Pincode */}
+                                <div>
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                        <LocationIcon size={12} /> {t('namedBuyers.pincode')}
+                                    </label>
+                                    <TinyInput
+                                        name="pincode"
+                                        value={formData.pincode}
+                                        onChange={handleInputChange}
+                                        placeholder={t('namedBuyers.pincodePlaceholder')}
+                                        className="w-full"
+                                        maxLength="10"
                                     />
                                 </div>
                             </div>
@@ -511,6 +598,9 @@ export default function NamedBuyersManagement() {
                                         <TableCell className="text-gray-400 text-xs font-mono">
                                             {(currentPage - 1) * pageSize + idx + 1}
                                         </TableCell>
+                                        <TableCell className="text-xs font-mono text-gray-500">
+                                            {buyer.code || "—"}
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
@@ -526,6 +616,12 @@ export default function NamedBuyersManagement() {
                                         </TableCell>
                                         <TableCell className="text-xs text-gray-500 truncate max-w-[150px]">
                                             {buyer.address || "—"}
+                                        </TableCell>
+                                        <TableCell>
+                                            <MilkTypeBadge type={buyer.default_milk_type || "mixed"} />
+                                        </TableCell>
+                                        <TableCell className="text-xs text-gray-600 font-mono">
+                                            {buyer.pincode || "—"}
                                         </TableCell>
                                         <TableCell>
                                             <button
