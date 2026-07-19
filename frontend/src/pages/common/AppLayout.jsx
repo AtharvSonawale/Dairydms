@@ -1,7 +1,7 @@
 // src/pages/common/AppLayout.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';        // ← react-i18next
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { driver } from 'driver.js';
@@ -15,7 +15,8 @@ import {
     Users2, Settings,
     User2Icon,
     HdmiPort,
-    Wheat
+    Wheat,
+    FileText,
 } from 'lucide-react';
 
 /**
@@ -45,7 +46,7 @@ const SHARED_NAV = (isAdmin, t) => [
                 { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
                 { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
                 { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
-                { label: 'Ports Settings', icon: <HdmiPort size={14} />, to: '/admin/ports'},
+                { label: 'Ports Settings', icon: <HdmiPort size={14} />, to: '/admin/ports' },
                 { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
             ],
         },
@@ -87,6 +88,22 @@ const SHARED_NAV = (isAdmin, t) => [
             { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales' },
             { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments' },
             { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers' },
+            // ─── New Report Links ──────────────────────────────
+            {
+                label: 'Sellers Report',
+                icon: <Users2 size={14} />,
+                to: '/walkinsellersreport',
+            },
+            {
+                label: 'Named-Buyers Report',
+                icon: <User2Icon size={14} />,
+                to: '/walkinnamedbuyersreports',
+            },
+            {
+                label: 'Anon-Sellers Report',
+                icon: <FileText size={14} />,
+                to: '/walkinanonymousreports',
+            },
         ],
     },
 
@@ -302,7 +319,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                         </NavLink>
                     )
                 )}
-            </nav> 
+            </nav>
 
             {/* Bottom Avatar */}
             <div className={`border-t p-3 ${isAdmin ? 'border-gray-800' : 'border-emerald-700'}`}>
@@ -350,8 +367,8 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
 
 export default function AppLayout() {
     const { user, logout, markTourSeen } = useAuth();
-    const { appName, logoUrl } = useAppConfig();   // ← global app identity
-    const { t } = useTranslation();                // ← i18next
+    const { appName, logoUrl } = useAppConfig();
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const role = user?.role;
@@ -403,7 +420,7 @@ export default function AppLayout() {
         setCollapsed(false);
 
         const timeoutId = setTimeout(() => {
-        // Pick whichever sidebar is actually visible — desktop and mobile
+            // Pick whichever sidebar is actually visible — desktop and mobile
             // both render the same data-tour attributes, and a plain
             // querySelector would always grab the (possibly hidden) first one.
             const visibleSidebar = ['[data-sidebar="desktop"]', '[data-sidebar="mobile"]']
@@ -482,7 +499,7 @@ export default function AppLayout() {
     // navigation attempt so the browser shows its native "can't be
     // reached" page instead of a stale in-memory SPA with broken data.
     useEffect(() => {
-        const HEARTBEAT_INTERVAL = 0; 
+        const HEARTBEAT_INTERVAL = 0;
 
         const checkServer = async () => {
             try {
@@ -529,7 +546,7 @@ export default function AppLayout() {
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
                     navItems={navItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
                     appName={appName} logoUrl={logoUrl}
-                 />
+                />
             </aside>
 
             {/* Desktop sidebar */}
@@ -541,7 +558,7 @@ export default function AppLayout() {
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
                     navItems={navItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
                     appName={appName} logoUrl={logoUrl}
-                 />
+                />
             </aside>
 
             {/* Main content */}
@@ -598,5 +615,5 @@ export default function AppLayout() {
                 )
             }
         </div>
-    ); 
+    );
 }

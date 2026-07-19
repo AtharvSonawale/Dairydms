@@ -318,11 +318,48 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
         } catch (err) { console.error("Failed to fetch product types:", err); }
     };
 
+    // Replace the existing fetchNamedBuyers and saveNamedBuyer functions
+
     const fetchNamedBuyers = async () => {
         try {
-            const { data } = await api.get("/walkin-sales/named-buyers");
-            setNamedBuyers(data);
-        } catch (err) { console.error("Failed to fetch named buyers:", err); }
+            const { data } = await api.get("/walkin-payments/buyers");
+            // Filter only named buyers (buyer_type === 'named')
+            const named = data.filter(b => b.buyer_type === 'named');
+            setNamedBuyers(named);
+        } catch (err) {
+            console.error("Failed to fetch named buyers:", err);
+            setNamedBuyers([]);
+        }
+    };
+
+    const saveNamedBuyer = async (name) => {
+        try {
+            const { data } = await api.post("/walkin-payments/buyers", {
+                name: name.trim(),
+                mobile: null,
+                address: null,
+            });
+            // Refetch to get the updated list with the new buyer
+            await fetchNamedBuyers();
+            // Return the newly created buyer (or find it in the updated list)
+            return data;
+        } catch (err) {
+            // 409 = already exists → fetch and return the existing one
+            if (err.response?.status === 409) {
+                const existing = namedBuyers.find(
+                    b => b.name.toLowerCase() === name.toLowerCase()
+                );
+                if (existing) return existing;
+                // If not in local state, refetch and try again
+                await fetchNamedBuyers();
+                const found = namedBuyers.find(
+                    b => b.name.toLowerCase() === name.toLowerCase()
+                );
+                return found || null;
+            }
+            showFlash("error", "Failed to register buyer");
+            return null;
+        }
     };
 
     const fetchBuyerBalance = async (buyerId) => {
@@ -412,30 +449,6 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
         if (buyerMode === "named") setNamedBuyerSearch(sale.registered_buyer_name || sale.buyer_name || "");
         setAmountPaid(sale.amount_paid != null ? String(sale.amount_paid) : "");
         window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    const saveNamedBuyer = async (name) => {
-        try {
-            const { data } = await api.post("/walkin-sales/named-buyers", { name });
-            await fetchNamedBuyers();
-            return data;
-        } catch (err) {
-            // 409 = buyer already exists → fetch and return the existing one
-            if (err.response?.status === 409) {
-                const existing = namedBuyers.find(
-                    b => b.name.toLowerCase() === name.toLowerCase()
-                );
-                if (existing) return existing;
-                // If not in local state yet, refetch
-                try {
-                    await fetchNamedBuyers();
-                    const { data: freshList } = await api.get("/walkin-sales/named-buyers");
-                    return freshList.find(b => b.name.toLowerCase() === name.toLowerCase()) || null;
-                } catch { return null; }
-            }
-            showFlash("error", "Failed to register buyer");
-            return null;
-        }
     };
 
     const saveMRPRates = async () => {

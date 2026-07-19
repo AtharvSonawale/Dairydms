@@ -152,54 +152,86 @@ exports.getRegister = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.role === 'admin' ? null : req.user.id;
+
+        // 1. Fetch event
         let eventQuery = `SELECT * FROM bonus_events WHERE event_id = ? AND centre_id = ?`;
         let eventParams = [eventId, centreId];
-        if (!isAdmin) { eventQuery += ` AND created_by = ?`; eventParams.push(operatorId); }
-
+        if (!isAdmin) {
+            eventQuery += ` AND created_by = ?`;
+            eventParams.push(operatorId);
+        }
         const [[event]] = await pool.query(eventQuery, eventParams);
-        if (!event) return res.status(404).json({ message: "Bonus event not found in your centre." });
+        if (!event) {
+            return res.status(404).json({ message: "Bonus event not found in your centre." });
+        }
 
+        // 2. Fetch slabs
         const [slabs] = await pool.query(
             `SELECT * FROM bonus_slabs WHERE event_id = ? AND centre_id = ? ORDER BY sort_order ASC`,
             [eventId, centreId]
         );
-        if (slabs.length === 0) return res.status(400).json({ message: "No slabs configured for this event." });
+        if (slabs.length === 0) {
+            return res.status(400).json({ message: "No slabs configured for this event." });
+        }
 
+        // 3. Determine effective date range
         const fromFilter = req.query.from || event.from_date;
         const toFilter = req.query.to || event.to_date;
         const effectiveFrom = fromFilter > event.from_date ? fromFilter : event.from_date;
         const effectiveTo = toFilter < event.to_date ? toFilter : event.to_date;
 
+        // 4. Fetch milk entries for the period
+        //    Note: remove `me.operator_id` filter if not needed, or handle NULL for admin
         let entriesQuery = `
-            SELECT me.seller_id, me.entry_date, me.fat, me.quantity, me.milk_type, s.name, s.seller_code
+            SELECT me.seller_id, me.entry_date, me.fat, me.quantity, me.milk_type,
+                   s.name, s.seller_code
             FROM milk_entries me
             JOIN sellers s ON s.seller_id = me.seller_id
-            WHERE me.entry_date BETWEEN ? AND ? AND me.centre_id = ?
+            WHERE me.entry_date BETWEEN ? AND ?
+              AND me.centre_id = ?
         `;
         let entriesParams = [effectiveFrom, effectiveTo, centreId];
-        if (!isAdmin) { entriesQuery += ` AND me.operator_id = ?`; entriesParams.push(operatorId); }
+
+        // Optionally filter by operator if you want to restrict to current operator's entries
+        // but we skip that here to avoid missing entries from admins.
+        // If you need it, uncomment:
+        // if (!isAdmin) { entriesQuery += ` AND me.operator_id = ?`; entriesParams.push(operatorId); }
+
         entriesQuery += ` ORDER BY s.name ASC, me.entry_date ASC`;
 
         const [entries] = await pool.query(entriesQuery, entriesParams);
 
+        // 5. Fetch paid status
         const [paidRows] = await pool.query(
-            `SELECT seller_id, total_bonus, CAST(is_paid AS UNSIGNED) AS is_paid, paid_at
-             FROM bonus_payments WHERE event_id = ? AND centre_id = ?`,
+            `SELECT seller_id, total_bonus, is_paid, paid_at
+             FROM bonus_payments
+             WHERE event_id = ? AND centre_id = ?`,
             [eventId, centreId]
         );
-        const paidMap = Object.fromEntries(paidRows.map(p => [p.seller_id, p]));
+        const paidMap = Object.fromEntries(
+            paidRows.map(p => [p.seller_id, { is_paid: p.is_paid === 1, paid_at: p.paid_at, total_bonus: p.total_bonus }])
+        );
 
+        // 6. Build seller map with buckets
         const sellerMap = {};
         for (const e of entries) {
             if (!sellerMap[e.seller_id]) {
                 sellerMap[e.seller_id] = {
-                    seller_id: e.seller_id, seller_code: e.seller_code, name: e.name,
+                    seller_id: e.seller_id,
+                    seller_code: e.seller_code,
+                    name: e.name,
                     buckets: slabs.map(s => ({
-                        slab_id: s.slab_id, fat_min: parseFloat(s.fat_min), fat_max: parseFloat(s.fat_max),
-                        bonus: parseFloat(s.bonus), vahatuk: parseFloat(s.vahatuk), rate: parseFloat(s.rate),
-                        qty: 0, amt: 0,
+                        slab_id: s.slab_id,
+                        fat_min: parseFloat(s.fat_min),
+                        fat_max: parseFloat(s.fat_max),
+                        bonus: parseFloat(s.bonus),
+                        vahatuk: parseFloat(s.vahatuk),
+                        rate: parseFloat(s.rate),
+                        qty: 0,
+                        amt: 0,
                     })),
-                    total_qty: 0, total_amt: 0,
+                    total_qty: 0,
+                    total_amt: 0,
                 };
             }
             const fat = parseFloat(e.fat);
@@ -214,20 +246,26 @@ exports.getRegister = async (req, res) => {
             }
         }
 
+        // 7. Merge with payment data
         const result = Object.values(sellerMap).map(seller => {
             const payment = paidMap[seller.seller_id];
             return {
                 ...seller,
-                is_paid: payment ? Number(payment.is_paid) === 1 : false,
-                paid_at: (payment && Number(payment.is_paid) === 1) ? payment.paid_at : null,
-                total_bonus: payment?.total_bonus || seller.total_amt,
+                is_paid: payment ? payment.is_paid : false,
+                paid_at: payment && payment.is_paid ? payment.paid_at : null,
+                total_bonus: payment && payment.is_paid ? parseFloat(payment.total_bonus) : seller.total_amt,
             };
         });
 
         res.json({ event, slabs, sellers: result });
     } catch (err) {
         console.error("getRegister error:", err);
-        res.status(500).json({ message: "Server error", error: err.message });
+        // Send full error message for debugging (remove in production)
+        res.status(500).json({
+            message: "Server error",
+            error: err.message,
+            stack: err.stack,
+        });
     }
 };
 

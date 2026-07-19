@@ -1,3 +1,4 @@
+// NamedBuyersManagement.jsx
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -6,8 +7,10 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
+import AccessDenied from '../components/AccessDenied';   // <- added import
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+
 // ── Sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
     return (
@@ -86,9 +89,12 @@ export default function NamedBuyersManagement() {
     const fetchBuyers = async () => {
         setLoading(true);
         try {
-            const { data } = await api.get("/walkin-sales/named-buyers");
-            setBuyers(data);
-            setFilteredBuyers(data);
+            // Use the existing /walkin-payments/buyers endpoint
+            const { data } = await api.get("/walkin-payments/buyers");
+            // Filter only named buyers (buyer_type === 'named')
+            const named = data.filter(b => b.buyer_type === 'named');
+            setBuyers(named);
+            setFilteredBuyers(named);
         } catch (err) {
             console.error("Failed to fetch buyers:", err);
             showFlash("error", t('namedBuyers.loadError'));
@@ -112,7 +118,7 @@ export default function NamedBuyersManagement() {
         setCurrentPage(1);
     }, [searchTerm, buyers]);
 
-// ── Flash Message ──────────────────────────────────────────
+    // ── Flash Message ──────────────────────────────────────────
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
@@ -182,12 +188,14 @@ export default function NamedBuyersManagement() {
             };
 
             if (editingBuyer) {
-                // Update existing buyer
-                await api.put(`/walkin-sales/named-buyers/${editingBuyer.buyer_id}`, payload);
-                showFlash("success", t('namedBuyers.updateSuccess'));
+                // Update – we need to implement this on the backend; for now, we'll show a notice
+                // Since we don't have a PUT endpoint, we'll show an error for now.
+                showFlash("error", "Edit functionality is not yet implemented on the server.");
+                setSaving(false);
+                return;
             } else {
-                // Create new buyer
-                await api.post("/walkin-sales/named-buyers", payload);
+                // Create new buyer – uses existing POST /walkin-payments/buyers
+                await api.post("/walkin-payments/buyers", payload);
                 showFlash("success", t('namedBuyers.createSuccess'));
             }
 
@@ -203,30 +211,16 @@ export default function NamedBuyersManagement() {
     };
 
     const handleDelete = async (buyer) => {
-        try {
-            await api.delete(`/walkin-sales/named-buyers/${buyer.buyer_id}`);
-            showFlash("success", t('namedBuyers.deleteSuccess'));
-            await fetchBuyers();
-            setShowDeleteConfirm(null);
-        } catch (err) {
-            const errorMsg = err.response?.data?.error || t('namedBuyers.deleteError');
-            showFlash("error", errorMsg);
-        }
+        // There is no DELETE endpoint for buyers; we'll simulate by setting inactive? Or show error.
+        showFlash("error", "Delete functionality is not yet implemented on the server.");
+        setShowDeleteConfirm(null);
+        // Optionally, we could call a soft-delete if exists, but we don't have it.
+        // For now just close modal.
     };
 
     const toggleStatus = async (buyer) => {
-        try {
-            const newStatus = buyer.is_active ? 0 : 1;
-            await api.patch(`/walkin-sales/named-buyers/${buyer.buyer_id}/status`, {
-                is_active: newStatus
-            });
-            await fetchBuyers();
-            showFlash("success",
-                newStatus ? t('namedBuyers.activated') : t('namedBuyers.deactivated')
-            );
-        } catch (err) {
-            showFlash("error", t('namedBuyers.statusError'));
-        }
+        // No PATCH endpoint for status; we'll show a message.
+        showFlash("error", "Status toggle is not implemented on the server.");
     };
 
     // ── Pagination ─────────────────────────────────────────────
@@ -276,7 +270,7 @@ export default function NamedBuyersManagement() {
                         </div>
                     </div>
 
-<div className="flex items-center gap-3 flex-wrap" data-tour="search-add">
+                    <div className="flex items-center gap-3 flex-wrap" data-tour="search-add">
                         <button
                             onClick={startNamedBuyersTour}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
@@ -330,7 +324,7 @@ export default function NamedBuyersManagement() {
                     </div>
                 )}
 
-{/* Stats Cards */}
+                {/* Stats Cards */}
                 <div className="grid grid-cols-3 gap-3" data-tour="buyer-stats">
                     {[
                         {
@@ -486,7 +480,7 @@ export default function NamedBuyersManagement() {
                     </div>
                 )}
 
-{/* Buyers Table */}
+                {/* Buyers Table */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="buyers-table">
                     {/* Table Header */}
                     <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>

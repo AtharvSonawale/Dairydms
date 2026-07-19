@@ -19,21 +19,29 @@ const {
 
 router.use(protect);
 
+// Events
 router.get("/events", getEvents);
 router.post("/events", createEvent);
 router.delete("/events/:eventId", deleteEvent);
-
-router.get("/events/:eventId/slabs", getSlabs);
-router.put("/events/:eventId/slabs", updateSlabs);
 router.put("/events/:eventId", updateEvent);
 
-router.get("/events/:eventId/register", getRegister);
+// Slabs (event-specific)
+router.get("/events/:eventId/slabs", getSlabs);
+router.put("/events/:eventId/slabs", updateSlabs);
+
+// Register (fixed route to match frontend)
+router.get("/register/:eventId", getRegister);   // <-- CHANGED
+
+// Payments
 router.post("/events/:eventId/mark-paid", markBonusPaid);
 router.delete("/events/:eventId/mark-paid/:sellerId", undoBonusPaid);
-router.get('/events/:eventId/paid-status', getPaidStatus);
-router.post('/save-register', saveRegister);
+router.get("/events/:eventId/paid-status", getPaidStatus);
 
-router.get('/default-slabs', getDefaultSlabs);
-router.put('/default-slabs', updateDefaultSlabs);
+// Save register (custom date range)
+router.post("/save-register", saveRegister);
+
+// Default slabs (centre-wide)
+router.get("/default-slabs", getDefaultSlabs);
+router.put("/default-slabs", updateDefaultSlabs);
 
 module.exports = router;

@@ -53,9 +53,15 @@ import CattleFeedSales from './pages/common/Cattlefeedsale';
 import CattleFeedCatalogue from './pages/common/CattleFeedCatalogue';
 import FarmerCattleFeed from './pages/farmer/FarmerCattleFeed';
 import FarmerProductPurchases from './pages/farmer/FarmerProductSales';
+import WalkinPaymentsReport from './pages/Walkinsellerreports'
+import WalkinSellerReports from './pages/Walkinsellerreports';
+import WalkinNamedBuyersReports from './pages/Walkinnamedbuyersreports';
+import WalkinAnonymousReport from './pages/WalkinAnonymousReports';
+import WalkinAnonymousReports from './pages/WalkinAnonymousReports';
+import UtpadakBonusReport from './pages/UtpadakBonusReport';
+import GavaliBonusReport from './pages/GavaliBonusReport';
 
 
-// AFTER
 function AppRoutes() {
   return (
     <Routes>
@@ -116,6 +122,11 @@ function AppRoutes() {
         <Route path="/cattlefeed-sales" element={<CattleFeedSales />} />
         <Route path="/cattlefeed-catalogue" element={<CattleFeedCatalogue />} />
         <Route path="/farmer/product-purchases" element={<FarmerProductPurchases />} />
+        <Route path="/walkinsellersreport" element={<ProtectedRoute><WalkinSellerReports /></ProtectedRoute>} />
+        <Route path="/walkinnamedbuyersreports" element={<ProtectedRoute><WalkinNamedBuyersReports /></ProtectedRoute>} />
+        <Route path="/walkinanonymousreports" element={<ProtectedRoute><WalkinAnonymousReports /></ProtectedRoute>} />
+        <Route path="/utpadakbonusreport" element={<ProtectedRoute><UtpadakBonusReport /></ProtectedRoute>} />
+        <Route path="/gavalibonusreport" element={<ProtectedRoute><GavaliBonusReport /></ProtectedRoute>} />
       </Route>
 
       {/* ── Fallback ── */}
