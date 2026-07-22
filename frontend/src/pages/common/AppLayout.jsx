@@ -18,7 +18,8 @@ import {
     Wheat,
     FileText,
     BanknoteArrowDown,
-    HandCoins
+    HandCoins,
+    ArrowLeftRight
 } from 'lucide-react';
 
 /**
@@ -160,6 +161,7 @@ const SHARED_NAV = (isAdmin, t) => [
 
     // ── Reports ──────────────────────────────────────────────────
     { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
+    { label: t('nav.customerLedger'), icon: <ArrowLeftRight size={16} />, to: '/farmer-ledger', tourId: 'nav-farmer-ledger' },
     {
         label: t('nav.expenses'), icon: <HandCoins size={16} />, to: null,
         tourId: 'nav-expenses',

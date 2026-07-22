@@ -27,7 +27,7 @@ exports.getDeposits = async (req, res) => {
                     d.id, d.seller_id, d.type, d.amount, d.remarks,
                     d.transaction_date, d.created_at, d.operator_id,
                     s.name AS seller_name, s.seller_code, s.seller_type, s.deposit_per_litre,
-                    o.name AS operator_name,
+                    COALESCE(o.name, 'Admin') AS operator_name,
                     (
                         SELECT SUM(CASE WHEN type = 'credit' THEN amount ELSE -amount END)
                         FROM seller_deposits
@@ -38,7 +38,7 @@ exports.getDeposits = async (req, res) => {
                     ) AS running_balance
                 FROM seller_deposits d
                 JOIN sellers s ON s.seller_id = d.seller_id
-                JOIN operators o ON o.operator_id = d.operator_id
+                LEFT JOIN operators o ON o.operator_id = d.operator_id
                 WHERE d.centre_id = ?
                 AND d.seller_id = ?
                 ORDER BY d.transaction_date DESC, d.created_at DESC
@@ -67,10 +67,10 @@ exports.getDeposits = async (req, res) => {
                 d.id, d.seller_id, d.type, d.amount, d.remarks,
                 d.transaction_date, d.created_at, d.operator_id,
                 s.name AS seller_name, s.seller_code, s.seller_type, s.deposit_per_litre,
-                o.name AS operator_name
+                COALESCE(o.name, 'Admin') AS operator_name
             FROM seller_deposits d
             JOIN sellers s ON s.seller_id = d.seller_id
-            JOIN operators o ON o.operator_id = d.operator_id
+            LEFT JOIN operators o ON o.operator_id = d.operator_id
             WHERE d.centre_id = ?
             ${dateCondition}
             ORDER BY d.created_at DESC
@@ -156,10 +156,11 @@ exports.createDeposit = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
-        const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
-        const { seller_id, type, amount, transaction_date, remarks } = req.body;
+        const centreId = req.user.centre_id;
+        // Admin IDs aren't valid operator_id FK values.
+        const operatorId = isAdmin ? null : req.user.id;
+        const { seller_id, type, amount, transaction_date, remarks, category } = req.body;
 
         // Validation
         if (!seller_id) {
@@ -179,6 +180,15 @@ exports.createDeposit = async (req, res) => {
             return res.status(400).json({ error: "Transaction date is required." });
         }
 
+        // category only applies to debit entries: 'refund' (reverses a
+        // bill-held deposit) vs 'withdrawal' (farmer takes back a
+        // manually-collected deposit). Defaults to 'refund' so old
+        // callers that don't send it keep working unchanged.
+        let depositCategory = null;
+        if (type === "debit") {
+            depositCategory = ["refund", "withdrawal"].includes(category) ? category : "refund";
+        }
+
         // Verify seller exists and belongs to the centre
         const [sellerRows] = await conn.query(
             `SELECT seller_id, deposit_per_litre FROM sellers
@@ -195,13 +205,14 @@ exports.createDeposit = async (req, res) => {
         // Insert the deposit entry
         const [result] = await conn.query(
             `INSERT INTO seller_deposits
-                (seller_id, operator_id, centre_id, type, amount, remarks, transaction_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                (seller_id, operator_id, centre_id, type, category, amount, remarks, transaction_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 Number(seller_id),
                 operatorId,
                 centreId,
                 type,
+                depositCategory,
                 parseFloat(amount),
                 remarks ? String(remarks).trim() : null,
                 transaction_date,
@@ -216,6 +227,7 @@ exports.createDeposit = async (req, res) => {
                 d.id,
                 d.seller_id,
                 d.type,
+                d.category,
                 d.amount,
                 d.remarks,
                 d.transaction_date,
@@ -225,10 +237,10 @@ exports.createDeposit = async (req, res) => {
                 s.seller_code,
                 s.seller_type,
                 s.deposit_per_litre,
-                o.name AS operator_name
+                COALESCE(o.name, 'Admin') AS operator_name
             FROM seller_deposits d
             JOIN sellers s ON s.seller_id = d.seller_id
-            JOIN operators o ON o.operator_id = d.operator_id
+            LEFT JOIN operators o ON o.operator_id = d.operator_id
             WHERE d.id = ? AND d.centre_id = ?`,
             [result.insertId, centreId]
         );
@@ -245,8 +257,6 @@ exports.createDeposit = async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════
 //  DELETE /api/deposits/:id
-//  Delete a deposit entry (operator-scoped)
-// ══════════════════════════════════════════════════════════════
 exports.deleteDeposit = async (req, res) => {
     try {
         const operatorId = req.user.id;
@@ -313,7 +323,7 @@ exports.getSellerDeposits = async (req, res) => {
             `SELECT
                 d.id, d.seller_id, d.type, d.amount, d.remarks,
                 d.transaction_date, d.created_at, d.operator_id,
-                o.name AS operator_name,
+                COALESCE(o.name, 'Admin') AS operator_name,
                 (
                     SELECT SUM(CASE WHEN type = 'credit' THEN amount ELSE -amount END)
                     FROM seller_deposits
@@ -323,7 +333,7 @@ exports.getSellerDeposits = async (req, res) => {
                            OR (transaction_date = d.transaction_date AND created_at <= d.created_at))
                 ) AS running_balance
             FROM seller_deposits d
-            JOIN operators o ON o.operator_id = d.operator_id
+            LEFT JOIN operators o ON o.operator_id = d.operator_id
             WHERE d.seller_id = ? AND d.centre_id = ?
             ORDER BY d.transaction_date DESC, d.created_at DESC`,
             [sellerId, centreId]
@@ -380,9 +390,8 @@ exports.bulkCreateDeposits = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
-        const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const centreId = req.user.centre_id;
 
         if (!isAdmin) {
             await conn.rollback();
@@ -390,6 +399,10 @@ exports.bulkCreateDeposits = async (req, res) => {
                 error: 'Access denied. Admin privileges required.'
             });
         }
+
+        // Only admins reach this point (checked above), and admin IDs
+        // aren't valid operator_id FK values, so this must be NULL.
+        const operatorId = null;
 
         const { deposits } = req.body;
 

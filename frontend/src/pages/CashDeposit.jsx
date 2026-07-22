@@ -28,6 +28,7 @@ const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", {
 const EMPTY_FORM = {
     seller_id: "",
     type: "credit",
+    category: "refund", // only used when type === "debit"
     amount: "",
     remarks: "",
 };
@@ -409,6 +410,7 @@ export default function CashDeposit() {
             await api.post("/deposits", {
                 seller_id: Number(form.seller_id),
                 type: form.type,
+                category: form.type === "debit" ? form.category : null,
                 amount: parseFloat(form.amount),
                 transaction_date: selectedDate,
                 remarks: form.remarks.trim() || null,
@@ -431,6 +433,7 @@ export default function CashDeposit() {
         setForm({
             seller_id: String(entry.seller_id),
             type: entry.type,
+            category: entry.category || "refund",
             amount: String(entry.amount),
             remarks: entry.remarks || "",
         });
@@ -783,6 +786,21 @@ export default function CashDeposit() {
                             <Field label={t('cashDeposit.transactionType')} icon={<ChevronDown size={12} />}>
                                 <TypeToggle value={form.type} onChange={(v) => set("type", v)} t={t} />
                             </Field>
+
+                            {/* Debit reason: refund vs withdrawal */}
+                            {form.type === "debit" && (
+                                <Field label="Reason" icon={<ChevronDown size={12} />}>
+                                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                        {[{ val: "refund", label: "Refund" }, { val: "withdrawal", label: "Withdrawal" }].map(({ val, label }) => (
+                                            <button key={val} type="button" onClick={() => set("category", val)}
+                                                className={`px-3 py-[7px] transition-colors
+                                                    ${form.category === val ? "bg-rose-500 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </Field>
+                            )}
 
                             {/* Amount */}
                             <Field label={t('cashDeposit.amount')} icon={<Banknote size={12} />}>
