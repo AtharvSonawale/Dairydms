@@ -17,6 +17,8 @@ import {
     HdmiPort,
     Wheat,
     FileText,
+    BanknoteArrowDown,
+    HandCoins
 } from 'lucide-react';
 
 /**
@@ -158,6 +160,14 @@ const SHARED_NAV = (isAdmin, t) => [
 
     // ── Reports ──────────────────────────────────────────────────
     { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
+    {
+        label: t('nav.expenses'), icon: <HandCoins size={16} />, to: null,
+        tourId: 'nav-expenses',
+        children: [
+            { label: t('nav.expenses'), icon: <BanknoteArrowDown size={16} />, to: '/expenses' },
+            { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: 'expensesreport' },
+        ]
+    }
 ];
 
 /**

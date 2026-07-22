@@ -8,6 +8,8 @@ router.use(protect); // all seller routes require login
 router.get('/active', ctrl.getActiveSellers);        // ← add this
 router.get('/centre', ctrl.listCentreSellers);       // if you have it
 router.get('/operator/:operatorId', ctrl.listSellersByOperator); // if you have it
+router.post('/import', protect, ctrl.importSellers);
+
 
 // ✅ Then parameterised routes (/:id) and their sub‑routes
 router.get('/', ctrl.listSellers);

@@ -28,13 +28,13 @@ exports.getEntries = async (req, res) => {
                     ca.transaction_date, ca.remarks, ca.created_at,
                     ca.operator_id,
                     s.name AS seller_name, s.seller_code, s.seller_type,
-                    o.name AS operator_name,
+                    COALESCE(o.name, 'Admin') AS operator_name,
                     (SELECT COALESCE(SUM(CASE WHEN sd.type = 'credit' THEN sd.amount ELSE -sd.amount END), 0)
                      FROM seller_deposits sd
                      WHERE sd.seller_id = ca.seller_id AND sd.centre_id = ca.centre_id) AS deposit_balance
                 FROM cash_advance ca
                 JOIN sellers s ON s.seller_id = ca.seller_id
-                JOIN operators o ON o.operator_id = ca.operator_id
+                LEFT JOIN operators o ON o.operator_id = ca.operator_id
                 WHERE ca.centre_id = ?
                 AND ca.seller_id = ?
                 ORDER BY ca.created_at DESC
@@ -64,10 +64,10 @@ exports.getEntries = async (req, res) => {
                 ca.transaction_date, ca.remarks, ca.created_at,
                 ca.operator_id,
                 s.name AS seller_name, s.seller_code, s.seller_type,
-                o.name AS operator_name
+                COALESCE(o.name, 'Admin') AS operator_name
             FROM cash_advance ca
             JOIN sellers s ON s.seller_id = ca.seller_id
-            JOIN operators o ON o.operator_id = ca.operator_id
+            LEFT JOIN operators o ON o.operator_id = ca.operator_id
             WHERE ca.centre_id = ?
             ${dateCondition}
             ORDER BY ca.created_at DESC
@@ -176,9 +176,13 @@ exports.createEntry = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
-        const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const centreId = req.user.centre_id;
+        // Admin IDs live in the `admins` table, not `operators` — the
+        // cash_advance.operator_id FK only accepts real operator rows,
+        // so admin-created entries must store NULL here (column must be
+        // nullable) rather than the admin's own id.
+        const operatorId = isAdmin ? null : req.user.id;
 
         const {
             seller_id,
@@ -250,10 +254,10 @@ exports.createEntry = async (req, res) => {
                 s.name AS seller_name,
                 s.seller_code,
                 s.seller_type,
-                o.name AS operator_name
+                COALESCE(o.name, 'Admin') AS operator_name
             FROM cash_advance ca
             JOIN sellers s ON s.seller_id = ca.seller_id
-            JOIN operators o ON o.operator_id = ca.operator_id
+            LEFT JOIN operators o ON o.operator_id = ca.operator_id
             WHERE ca.id = ? AND ca.centre_id = ?`,
             [result.insertId, centreId]
         );

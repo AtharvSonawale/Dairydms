@@ -5,7 +5,7 @@ import {
     Settings, Type, Save,
     BadgeCheck, AlertTriangle, X,
     Check, Lock, Unlock, RefreshCw,
-    Users, Building2, Upload, Languages
+    Users, Building2, Upload, Languages, Percent
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -102,8 +102,7 @@ const LANGUAGES = [
 ];
 
 // ── Saved-state defaults (mirrors DB seed) ────────────────────
-const SERVER_DEFAULTS = { appName: 'MilkApp', logoUrl: '', textSize: 'base', language: 'en' };
-
+const SERVER_DEFAULTS = { appName: 'MilkApp', logoUrl: '', textSize: 'base', language: 'en', fatOnlyAutofill: false };
 
 function SectionCard({ title, icon, children, ...rest }) {
     return (
@@ -133,6 +132,7 @@ export default function AdminSettings() {
     // ── Appearance ────────────────────────────────────────────
     const [textSize, setTextSize] = useState(SERVER_DEFAULTS.textSize);
     const [language, setLanguage] = useState(SERVER_DEFAULTS.language);
+    const [fatOnlyAutofill, setFatOnlyAutofill] = useState(SERVER_DEFAULTS.fatOnlyAutofill);
     
     // ── Saved snapshot – used by Reset to restore last-saved values ──
     const [savedState, setSavedState] = useState(SERVER_DEFAULTS);
@@ -191,12 +191,14 @@ export default function AdminSettings() {
                     logoUrl: data.logo_url || SERVER_DEFAULTS.logoUrl,
                     textSize: data.text_size || SERVER_DEFAULTS.textSize,
                     language: data.language || SERVER_DEFAULTS.language,
+                    fatOnlyAutofill: data.fat_only_autofill === '1' || data.fat_only_autofill === true,
                 };
                 setAppName(snap.appName);
                 setLogoUrl(snap.logoUrl);
                 setLogoPreview(snap.logoUrl);
                 setTextSize(snap.textSize);
                 setLanguage(snap.language);
+                setFatOnlyAutofill(snap.fatOnlyAutofill);
                 setSavedState(snap);          // remember what we loaded
             })
             .catch(() => { /* keep defaults */ });
@@ -273,19 +275,21 @@ export default function AdminSettings() {
         setSaving(true);
         try {
             // 1. Save global settings (app name, logo, language, text size)
+            // 1. Save global settings (app name, logo, language, text size, fat-only autofill)
             await api.post('/settings/global', {
                 app_name: appName,
                 logo_url: logoUrl,
                 text_size: textSize,
                 language: language,
+                fat_only_autofill: fatOnlyAutofill ? '1' : '0',
             });
 
             // 2. Update the saved snapshot so Reset reflects latest saved values
-            const newSnap = { appName, logoUrl, textSize, language };
+            const newSnap = { appName, logoUrl, textSize, language, fatOnlyAutofill };
             setSavedState(newSnap);
 
             // 3. Propagate immediately to the whole app (context + i18next)
-            updateConfig({ appName, logoUrl, textSize, language });
+            updateConfig({ appName, logoUrl, textSize, language, fatOnlyAutofill });
 
             // 4. Save operator permissions if one is selected
             if (selectedOp) {
@@ -307,6 +311,7 @@ export default function AdminSettings() {
         setLogoPreview(savedState.logoUrl);
         setTextSize(savedState.textSize);
         setLanguage(savedState.language);
+        setFatOnlyAutofill(savedState.fatOnlyAutofill);
         if (selectedOp) setOpAccess(buildDefaultAccess());
         showFlash('success', t('settings.resetSuccess'));
     };
@@ -535,6 +540,37 @@ export default function AdminSettings() {
                         ))}
                     </div>
                     <p className="text-[11px] text-gray-400 mt-3">{t('settings.languageHint')}</p>
+                </SectionCard>
+
+                {/* ── Fat-Only Rate Auto-Fill ── */}
+                <SectionCard title="Fat-Only Rate Auto-Fill" icon={<Percent size={15} className="text-white" />} data-tour="fat-only-autofill">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="max-w-lg">
+                            <p className="text-sm text-gray-700">
+                                When enabled, the milk entry rate auto-fill looks up the rate using only the
+                                entered <strong>FAT %</strong>, always paired with a fixed <strong>SNF of 8.5</strong> —
+                                regardless of the SNF the fat machine actually reads. Use this if your centre prices
+                                strictly off a standard SNF slab.
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-2">
+                                When off (default), the auto-fill uses the actual measured FAT and SNF together.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setFatOnlyAutofill(v => !v)}
+                            className={`relative inline-flex items-center h-8 w-14 rounded-full transition-colors shrink-0
+                                ${fatOnlyAutofill ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                        >
+                            <span className={`inline-block w-6 h-6 bg-white rounded-full shadow transform transition-transform
+                                ${fatOnlyAutofill ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+                    {fatOnlyAutofill && (
+                        <div className="mt-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                            <AlertTriangle size={13} /> Active — rate lookups in Milk Entry will use FAT + fixed SNF 8.5, not the measured SNF.
+                        </div>
+                    )}
                 </SectionCard>
 
                 {/* ── Per-Operator Access ── */}

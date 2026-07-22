@@ -535,7 +535,7 @@ exports.createSeller = async (req, res) => {
  VALUES (?, ?, ?, ?, ?, ?, ?, ?,
          ?, ?,
          ?, ?, ?,
-         ?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?, ?, ?, ?, ?,
          ?, ?, ?,
          ?, ?, ?, ?)`,
             [
@@ -841,5 +841,139 @@ exports.getActiveSellers = async (req, res) => {
     } catch (err) {
         console.error('getActiveSellers error:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── POST /api/sellers/import ──────────────────────────────
+// Bulk import sellers from Excel data
+exports.importSellers = async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        const { sellers } = req.body;
+        if (!sellers || !Array.isArray(sellers) || sellers.length === 0) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'No seller data provided.' });
+        }
+
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operator_id = isAdmin ? null : req.user.id;
+        const created_by_admin_id = isAdmin ? req.user.id : null;
+
+        // Get dairy_id for the centre
+        const [[centreRow]] = await conn.query(
+            `SELECT dairy_id FROM centres WHERE centre_id = ?`,
+            [centreId]
+        );
+        if (!centreRow) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Invalid centre.' });
+        }
+        const dairy_id = centreRow.dairy_id;
+
+        const results = {
+            added: 0,
+            skipped: 0,
+            errors: []
+        };
+
+        for (let i = 0; i < sellers.length; i++) {
+            const row = sellers[i];
+            const {
+                seller_code, name, mobile, aadhaar,
+                pan_number, seller_id_code,
+                seller_type, milk_type, jamin,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
+                advance_enabled, advance_deduction, product_sale_enabled,
+                deposit_enabled, deposit_per_litre, password
+            } = row;
+
+            // Basic validation
+            if (!name || !mobile) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: 'Name and mobile are required.' });
+                continue;
+            }
+
+            // Check duplicate within centre (seller_code) and global (mobile)
+            const [existing] = await conn.query(
+                `SELECT seller_id FROM sellers
+                 WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
+                [seller_code, centreId, mobile]
+            );
+            if (existing.length > 0) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: 'Seller code or mobile already exists in your centre.' });
+                continue;
+            }
+
+            // Hash password if provided
+            const password_hash = password ? await bcrypt.hash(password, 10) : null;
+
+            try {
+                const [result] = await conn.query(
+                    `INSERT INTO sellers
+ (operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
+  pan_number, seller_id_code,
+  seller_type, milk_type, jamin,
+  bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
+  advance_enabled, advance_deduction, product_sale_enabled,
+  deposit_enabled, deposit_per_litre, password_hash, must_change_password)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?,
+         ?, ?, ?,
+         ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?,
+         ?, ?, ?, ?)`,
+                    [
+                        operator_id,
+                        created_by_admin_id,
+                        centreId,
+                        dairy_id,
+                        seller_code || null,
+                        name,
+                        mobile,
+                        aadhaar || null,
+                        pan_number || null,
+                        seller_id_code || null,
+                        seller_type || 'Utpadak',
+                        milk_type || 'mixed',
+                        jamin || null,
+                        bank_account || null,
+                        bank_name || null,
+                        account_holder_name || null,
+                        branch_name || null,
+                        ifsc_code || null,
+                        address || null,
+                        pincode || null,
+                        advance_enabled !== undefined ? advance_enabled : 1,
+                        advance_deduction || null,
+                        product_sale_enabled !== undefined ? product_sale_enabled : 0,
+                        deposit_enabled !== undefined ? deposit_enabled : 0,
+                        deposit_per_litre || null,
+                        password_hash,
+                        password_hash ? 0 : 1
+                    ]
+                );
+                results.added++;
+            } catch (err) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: err.message });
+            }
+        }
+
+        await conn.commit();
+        res.status(201).json({
+            message: `Added ${results.added} sellers, skipped ${results.skipped}.`,
+            ...results
+        });
+    } catch (err) {
+        await conn.rollback();
+        console.error('importSellers error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    } finally {
+        conn.release();
     }
 };

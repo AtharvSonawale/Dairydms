@@ -410,6 +410,18 @@ exports.markPaid = async (req, res) => {
             );
         }
 
+        let installmentTransId = null;
+        if (finalInstallmentCut > 0) {
+            const [installRes] = await conn.query(
+                `INSERT INTO cash_advance
+         (seller_id, operator_id, centre_id, type, amount, transaction_date, remarks)
+         VALUES (?, ?, ?, 'received', ?, ?, ?)`,
+                [seller_id, operatorId, centreId, finalInstallmentCut, to_date,
+                    `Installment cut for ${from_date} to ${to_date}`]
+            );
+            installmentTransId = installRes.insertId;   // capture the ID
+        }
+
         // 7. Add deposit to seller_deposits (if applicable)
         if (finalDepositAmount > 0) {
             await conn.query(
@@ -420,6 +432,19 @@ exports.markPaid = async (req, res) => {
                     `Deposit for ${from_date} to ${to_date}`]
             );
         }
+
+        let depositTransId = null;
+        if (finalDepositAmount > 0) {
+            const [depRes] = await conn.query(
+                `INSERT INTO seller_deposits
+         (seller_id, operator_id, centre_id, type, amount, transaction_date, remarks)
+         VALUES (?, ?, ?, 'credit', ?, ?, ?)`,
+                [seller_id, operatorId, centreId, finalDepositAmount, to_date,
+                    `Deposit for ${from_date} to ${to_date}`]
+            );
+            depositTransId = depRes.insertId;          // capture the ID
+        }
+
 
         // 8. Fetch product deductions
         const [[productRows]] = await conn.query(
@@ -496,28 +521,33 @@ exports.markPaid = async (req, res) => {
         // 13. Insert into seller_payments (tds_amount always 0)
         await conn.query(
             `INSERT INTO seller_payments
-             (seller_id, operator_id, centre_id, from_date, to_date, milk_amount, advance_given,
-              installment_cut, deposit_amount, product_deduction, walkin_deduction, cattle_feed_deduction,
-              tds_amount, final_payable, cash_paid, bill_no, paid_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NOW())
-             ON DUPLICATE KEY UPDATE
-               installment_cut         = VALUES(installment_cut),
-               deposit_amount          = VALUES(deposit_amount),
-               product_deduction       = VALUES(product_deduction),
-               walkin_deduction        = VALUES(walkin_deduction),
-               cattle_feed_deduction   = VALUES(cattle_feed_deduction),
-               tds_amount              = 0,
-               final_payable           = VALUES(final_payable),
-               cash_paid               = VALUES(cash_paid),
-               bill_no                 = VALUES(bill_no),
-               paid_at                 = NOW()`,
+     (seller_id, operator_id, centre_id, from_date, to_date, milk_amount, advance_given,
+      installment_cut, deposit_amount, product_deduction, walkin_deduction, cattle_feed_deduction,
+      tds_amount, final_payable, cash_paid, bill_no, paid_at,
+      installment_transaction_id, deposit_transaction_id)   -- new columns
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NOW(), ?, ?)
+     ON DUPLICATE KEY UPDATE
+       installment_cut              = VALUES(installment_cut),
+       deposit_amount               = VALUES(deposit_amount),
+       product_deduction            = VALUES(product_deduction),
+       walkin_deduction             = VALUES(walkin_deduction),
+       cattle_feed_deduction        = VALUES(cattle_feed_deduction),
+       tds_amount                   = 0,
+       final_payable                = VALUES(final_payable),
+       cash_paid                    = VALUES(cash_paid),
+       bill_no                      = VALUES(bill_no),
+       paid_at                      = NOW(),
+       installment_transaction_id   = VALUES(installment_transaction_id),
+       deposit_transaction_id       = VALUES(deposit_transaction_id)`,
             [
                 seller_id, operatorId, centreId, from_date, to_date, milkAmount,
                 advanceBalanceBefore, finalInstallmentCut, finalDepositAmount,
                 productDeduction, walkinDeduction, cattleFeedDeduction,
-                finalPayable, finalPayable, bill_no
+                finalPayable, finalPayable, bill_no,
+                installmentTransId, depositTransId
             ]
         );
+
 
         await conn.commit();
 
@@ -935,6 +965,7 @@ exports.deleteBill = async (req, res) => {
         const operatorId = req.user.role === 'admin' ? null : req.user.id;
         const centreId = req.user.centre_id;
 
+        // Fetch the bill including the stored transaction IDs
         const [bills] = await conn.query(
             `SELECT * FROM seller_payments WHERE bill_no = ? AND centre_id = ?`,
             [bill_no, centreId]
@@ -947,26 +978,40 @@ exports.deleteBill = async (req, res) => {
 
         const bill = bills[0];
 
-        // Reverse installment cut
-        if (parseFloat(bill.installment_cut || 0) > 0) {
+        // ---- NEW: Delete the original transactions using stored IDs ----
+        if (bill.installment_transaction_id) {
+            await conn.query(
+                `DELETE FROM cash_advance WHERE id = ? AND centre_id = ?`,
+                [bill.installment_transaction_id, centreId]
+            );
+        } else if (parseFloat(bill.installment_cut || 0) > 0) {
+            // Fallback for old bills: reverse via insert (kept for compatibility)
             await conn.query(
                 `INSERT INTO cash_advance
                  (seller_id, operator_id, centre_id, type, amount, transaction_date, remarks)
                  VALUES (?, ?, ?, 'given', ?, NOW(), ?)`,
-                [bill.seller_id, operatorId, centreId, bill.installment_cut, `Reversal of installment cut for bill ${bill_no}`]
+                [bill.seller_id, operatorId, centreId, bill.installment_cut,
+                `Reversal of installment cut for bill ${bill_no}`]
             );
         }
 
-        // Reverse deposit credit
-        if (parseFloat(bill.deposit_amount || 0) > 0) {
+        if (bill.deposit_transaction_id) {
+            await conn.query(
+                `DELETE FROM seller_deposits WHERE id = ? AND centre_id = ?`,
+                [bill.deposit_transaction_id, centreId]
+            );
+        } else if (parseFloat(bill.deposit_amount || 0) > 0) {
+            // Fallback for old bills
             await conn.query(
                 `INSERT INTO seller_deposits
                  (seller_id, operator_id, centre_id, type, amount, transaction_date, remarks)
                  VALUES (?, ?, ?, 'debit', ?, NOW(), ?)`,
-                [bill.seller_id, operatorId, centreId, bill.deposit_amount, `Reversal of deposit for bill ${bill_no}`]
+                [bill.seller_id, operatorId, centreId, bill.deposit_amount,
+                `Reversal of deposit for bill ${bill_no}`]
             );
         }
 
+        // Finally delete the payment record
         await conn.query(
             `DELETE FROM seller_payments WHERE bill_no = ? AND centre_id = ?`,
             [bill_no, centreId]

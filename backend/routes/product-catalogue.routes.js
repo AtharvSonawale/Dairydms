@@ -8,4 +8,6 @@ router.post('/', protect, ctrl.createProduct);
 router.put('/:id', protect, ctrl.updateProduct);
 router.delete('/:id', protect, ctrl.deleteProduct);
 
+
+
 module.exports = router;

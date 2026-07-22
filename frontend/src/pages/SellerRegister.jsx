@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx'; // add at top
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,7 @@ import {
     Calendar, AlertTriangle, ChevronDown, Settings, Pencil,
     Trash2, Hash, Building2, X, BadgeCheck, ExternalLink,
     Wallet, Banknote, Milk, Sprout, MapPinned, Lock,
+    UploadCloud, FileSpreadsheet, CheckCircle2, XCircle, Download, RotateCcw, Import,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +22,53 @@ const fmt = (d, t) =>
 
 const MILK_TYPES = ["cow", "buffalo", "mixed"];
 const SELLER_TYPES = ["Utpadak", "Gavali"];
+
+const columnMap = {
+    'seller code': 'seller_code',
+    'seller_code': 'seller_code',
+    'code': 'seller_code',
+    'name': 'name',
+    'seller name': 'name',
+    'full name': 'name',
+    'mobile': 'mobile',
+    'phone': 'mobile',
+    'aadhaar': 'aadhaar',
+    'pan': 'pan_number',
+    'pan number': 'pan_number',
+    'seller id code': 'seller_id_code',
+    'seller_id_code': 'seller_id_code',
+    'id code': 'seller_id_code',
+    'seller type': 'seller_type',
+    'seller_type': 'seller_type',
+    'type': 'seller_type',
+    'milk type': 'milk_type',
+    'milk_type': 'milk_type',
+    'jamin': 'jamin',
+    'bank account': 'bank_account',
+    'bank_account': 'bank_account',
+    'account no': 'bank_account',
+    'bank name': 'bank_name',
+    'bank_name': 'bank_name',
+    'account holder': 'account_holder_name',
+    'account_holder_name': 'account_holder_name',
+    'branch': 'branch_name',
+    'branch_name': 'branch_name',
+    'ifsc': 'ifsc_code',
+    'ifsc_code': 'ifsc_code',
+    'address': 'address',
+    'pincode': 'pincode',
+    'advance enabled': 'advance_enabled',
+    'advance_enabled': 'advance_enabled',
+    'advance deduction': 'advance_deduction',
+    'advance_deduction': 'advance_deduction',
+    'product sale enabled': 'product_sale_enabled',
+    'product_sale_enabled': 'product_sale_enabled',
+    'deposit enabled': 'deposit_enabled',
+    'deposit_enabled': 'deposit_enabled',
+    'deposit per litre': 'deposit_per_litre',
+    'deposit_per_litre': 'deposit_per_litre',
+    'password': 'password',
+};
 
 const EMPTY_FORM = {
     seller_code: "",
@@ -103,6 +152,152 @@ export default function SellerRegister() {
     const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 3500); };
     const handleFilterChange = (f) => { setFilter(f); setCurrentPage(1); };
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importData, setImportData] = useState([]); // array of parsed rows
+    const [importLoading, setImportLoading] = useState(false);
+    const [importErrors, setImportErrors] = useState([]);
+    const [parsingFile, setParsingFile] = useState(false);
+    const [importResult, setImportResult] = useState(null);
+    const [isDragging, setIsDragging] = useState(false); // NEW — drag-over highlight
+
+
+    const processFile = (file) => {
+        if (!file) return;
+        if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+            setImportErrors(['Please upload a .xlsx, .xls, or .csv file.']);
+            return;
+        }
+        setImportFile(file);
+        setImportErrors([]);
+        setImportData([]);
+        setParsingFile(true);
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+                if (json.length === 0) {
+                    setImportErrors(['The file is empty or has no data.']);
+                    return;
+                }
+
+                const headers = Object.keys(json[0]);
+                const mappedHeaders = headers.map(h => {
+                    const lower = h.trim().toLowerCase();
+                    return columnMap[lower] || null;
+                });
+
+                const nameIdx = mappedHeaders.indexOf('name');
+                const mobileIdx = mappedHeaders.indexOf('mobile');
+                if (nameIdx === -1 || mobileIdx === -1) {
+                    setImportErrors(['Required columns "Name" and "Mobile" not found.']);
+                    return;
+                }
+
+                const rows = json.map((row, idx) => {
+                    const obj = {};
+                    headers.forEach((h, i) => {
+                        const field = mappedHeaders[i];
+                        if (field) {
+                            let val = row[h];
+                            if (['advance_enabled', 'product_sale_enabled', 'deposit_enabled'].includes(field)) {
+                                val = val === '' ? undefined : Number(val);
+                            }
+                            if (['advance_deduction', 'deposit_per_litre'].includes(field)) {
+                                val = val === '' ? null : parseFloat(val);
+                            }
+                            obj[field] = val;
+                        }
+                    });
+                    ['advance_enabled', 'product_sale_enabled', 'deposit_enabled'].forEach(f => {
+                        if (obj[f] === undefined || obj[f] === '') obj[f] = (f === 'advance_enabled' ? 1 : 0);
+                    });
+                    return { ...obj, _rowIndex: idx + 1 };
+                });
+
+                const errors = [];
+                rows.forEach((row, idx) => {
+                    if (!row.name || !row.mobile) {
+                        errors.push(`Row ${idx + 1}: Name and Mobile are required.`);
+                    }
+                });
+                setImportErrors(errors);
+                setImportData(rows);
+            } catch (err) {
+                setImportErrors(['Failed to parse file: ' + err.message]);
+            } finally {
+                setParsingFile(false);
+            }
+        };
+        reader.onerror = () => {
+            setImportErrors(['Could not read the file.']);
+            setParsingFile(false);
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const handleFileUpload = (e) => processFile(e.target.files[0]);
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        processFile(e.dataTransfer.files[0]);
+    };
+    const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+    const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+
+    const downloadTemplate = () => {
+        const headers = ["Seller Code", "Name", "Mobile", "Aadhaar", "PAN", "Seller ID Code",
+            "Seller Type", "Milk Type", "Jamin", "Bank Account", "Bank Name", "Account Holder",
+            "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
+            "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre", "Password"];
+        const ws = XLSX.utils.aoa_to_sheet([headers]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Farmers");
+        XLSX.writeFile(wb, "farmer_import_template.xlsx");
+    };
+
+    const resetImport = () => { setImportFile(null); setImportData([]); setImportErrors([]); };
+
+    const handleImportSave = async () => {
+        if (importData.length === 0) return;
+
+        const validRows = importData.filter(r => r.name && r.mobile);
+        if (validRows.length === 0) {
+            setImportErrors(['No valid rows to import.']);
+            return;
+        }
+
+        setImportLoading(true);
+        try {
+            const response = await api.post('/sellers/import', { sellers: validRows });
+            const { added, skipped, errors: importResultErrors } = response.data;
+
+            if (importResultErrors && importResultErrors.length > 0) {
+                setImportErrors(importResultErrors.map(e => `Row ${e.row}: ${e.error}`));
+            } else {
+                setImportErrors([]);
+            }
+
+            setImportResult({ added, skipped });
+            await fetchSellers();
+
+            if (skipped === 0) {
+                setShowImportModal(false);
+                setImportFile(null);
+                setImportData([]);
+            }
+        } catch (err) {
+            setImportErrors([err.response?.data?.error || err.message]);
+        } finally {
+            setImportLoading(false);
+        }
+    };
 
     const startSellerRegisterTour = () => {
         const driverObj = driver({
@@ -276,6 +471,10 @@ export default function SellerRegister() {
                         <button onClick={openAdd} data-tour="add-seller-btn"
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-black text-white hover:bg-gray-800">
                             <span className="text-base leading-none">+</span> {t('sellerRegister.addSeller')}
+                        </button>
+                        <button onClick={() => setShowImportModal(true)}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200">
+                            <span><Import size={16} /></span> Import Farmers
                         </button>
                     </div>
                 </div>
@@ -832,6 +1031,185 @@ export default function SellerRegister() {
                             <button onClick={handleDelete}
                                 className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-100 transition active:scale-95">{t('sellerRegister.yesDelete')}</button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Import Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-4xl w-full max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                                    <FileSpreadsheet size={16} className="text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-semibold text-gray-800">Import Farmers</h2>
+                                    <p className="text-xs text-gray-400 mt-0.5">Bulk-add sellers from an Excel or CSV file</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setShowImportModal(false); resetImport(); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {!importFile ? (
+                                /* Drag & drop zone */
+                                <label
+                                    onDrop={handleDrop}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-12 px-6 cursor-pointer transition
+                            ${isDragging ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition
+                            ${isDragging ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
+                                        <UploadCloud size={22} />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-semibold text-gray-700">
+                                            {isDragging ? "Drop the file here" : "Drag & drop your file here"}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">or click to browse — .xlsx, .xls, or .csv</p>
+                                    </div>
+                                    <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
+                                </label>
+                            ) : (
+                                /* Selected file chip */
+                                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 mb-4">
+                                    <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                                        <FileSpreadsheet size={16} className="text-emerald-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-gray-800 truncate">{importFile.name}</p>
+                                        <p className="text-xs text-gray-400">{(importFile.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                    {parsingFile && (
+                                        <span className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin shrink-0" />
+                                    )}
+                                    <button onClick={resetImport}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-gray-100 text-gray-500 text-xs font-medium transition border border-gray-200 shrink-0">
+                                        <RotateCcw size={11} /> Replace
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Stat pills */}
+                            {importData.length > 0 && (
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                        {importData.length} row{importData.length === 1 ? "" : "s"} found
+                                    </span>
+                                    <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                        <CheckCircle2 size={11} />
+                                        {importData.filter(r => r.name && r.mobile).length} valid
+                                    </span>
+                                    {importData.filter(r => !r.name || !r.mobile).length > 0 && (
+                                        <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                                            <XCircle size={11} />
+                                            {importData.filter(r => !r.name || !r.mobile).length} invalid
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Errors */}
+                            {importErrors.length > 0 && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 max-h-40 overflow-y-auto">
+                                    {importErrors.map((err, i) => <div key={i}>• {err}</div>)}
+                                </div>
+                            )}
+
+                            {/* Preview Table */}
+                            {importData.length > 0 && (
+                                <div className="border border-gray-200 rounded-xl overflow-auto max-h-96">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                {Object.keys(importData[0]).filter(k => !k.startsWith('_')).map(key => (
+                                                    <th key={key} className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                                                        {key}
+                                                    </th>
+                                                ))}
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {importData.map((row, idx) => {
+                                                const valid = row.name && row.mobile;
+                                                return (
+                                                    <tr key={idx} className={`border-b border-gray-50 ${valid ? 'hover:bg-emerald-50/30' : 'bg-red-50/30'}`}>
+                                                        {Object.keys(row).filter(k => !k.startsWith('_')).map(key => (
+                                                            <td key={key} className="px-3 py-2 text-gray-700 max-w-[150px] truncate">
+                                                                {row[key] !== undefined && row[key] !== null ? String(row[key]) : ''}
+                                                            </td>
+                                                        ))}
+                                                        <td className="px-3 py-2">
+                                                            {valid
+                                                                ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> Valid</span>
+                                                                : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> Invalid</span>}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+                            <button onClick={downloadTemplate}
+                                className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
+                                <Download size={12} /> Download sample template
+                            </button>
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => { setShowImportModal(false); resetImport(); }}
+                                    className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
+                                    Cancel
+                                </button>
+                                <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || importErrors.some(e => e.includes('Required'))}
+                                    className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
+                                    {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                    <Save size={13} />
+                                    Save All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Result Popup */}
+            {importResult && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center border
+                    ${importResult.skipped === 0
+                                    ? "bg-emerald-50 border-emerald-100"
+                                    : "bg-amber-50 border-amber-100"}`}>
+                                {importResult.skipped === 0
+                                    ? <BadgeCheck size={22} className="text-emerald-500" />
+                                    : <AlertTriangle size={22} className="text-amber-500" />}
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">Import Complete</h2>
+                            <p className="text-gray-500 text-sm leading-relaxed">
+                                <span className="font-semibold text-emerald-600">{importResult.added}</span> seller{importResult.added === 1 ? "" : "s"} added
+                                {importResult.skipped > 0 && (
+                                    <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> skipped</>
+                                )}
+                                .
+                            </p>
+                            {importResult.skipped > 0 && (
+                                <p className="text-xs text-gray-400">See the details in the import window for why.</p>
+                            )}
+                        </div>
+                        <button onClick={() => setImportResult(null)}
+                            className="w-full py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition active:scale-95">
+                            OK
+                        </button>
                     </div>
                 </div>
             )}

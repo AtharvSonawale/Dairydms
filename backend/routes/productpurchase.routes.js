@@ -2,7 +2,7 @@
 
 const router = require('express').Router();
 const protect = require('../middleware/auth');
-const ctrl = require('../controllers/productpurchase.controller.');
+const ctrl = require('../controllers/productpurchase.controller');
 
 // ── Products catalogue ────────────────────────────────────────
 // GET  /api/products      → list all products (with current stock)

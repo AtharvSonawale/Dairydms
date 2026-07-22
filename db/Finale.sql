@@ -297,27 +297,30 @@ CREATE TABLE cash_advance (
    CONSTRAINT cash_advance_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
 ) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE cattle_feed_purchases (
-   purchase_id int NOT NULL AUTO_INCREMENT,
-   feed_id int NOT NULL,
-   centre_id int NOT NULL,
-   feed_name varchar(255) DEFAULT NULL,
-   operator_id int NOT NULL,
-   supplier_name varchar(150) NOT NULL,
-   quantity decimal(10,2) NOT NULL,
-   rate decimal(8,2) NOT NULL,
-   mrp_rate decimal(10,2) DEFAULT '0.00',
-   total_amount decimal(12,2) NOT NULL,
-   purchase_date date NOT NULL,
-   created_at datetime DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (purchase_id),
-   KEY feed_id (feed_id),
-   KEY operator_id (operator_id),
-   KEY centre_id (centre_id),
-   CONSTRAINT cattle_feed_purchases_ibfk_1 FOREIGN KEY (feed_id) REFERENCES cattle_feeds (feed_id),
-   CONSTRAINT cattle_feed_purchases_ibfk_2 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
-   CONSTRAINT cattle_feed_purchases_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `cattle_feed_purchases` (
+   `purchase_id` int NOT NULL AUTO_INCREMENT,
+   `feed_id` int NOT NULL,
+   `centre_id` int NOT NULL,
+   `feed_name` varchar(255) DEFAULT NULL,
+   `operator_id` int NOT NULL,
+   `supplier_name` varchar(150) NOT NULL,
+   `quantity` decimal(10,2) NOT NULL,
+   `rate` decimal(8,2) NOT NULL,
+   `mrp_rate` decimal(10,2) DEFAULT '0.00',
+   `total_amount` decimal(12,2) NOT NULL,
+   `purchase_date` date NOT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   `bill_no` varchar(50) DEFAULT NULL,
+   `paid_at` datetime DEFAULT NULL,
+   `bill_id` int DEFAULT NULL,
+   PRIMARY KEY (`purchase_id`),
+   KEY `feed_id` (`feed_id`),
+   KEY `operator_id` (`operator_id`),
+   KEY `centre_id` (`centre_id`),
+   CONSTRAINT `cattle_feed_purchases_ibfk_1` FOREIGN KEY (`feed_id`) REFERENCES `cattle_feeds` (`feed_id`),
+   CONSTRAINT `cattle_feed_purchases_ibfk_2` FOREIGN KEY (`operator_id`) REFERENCES `operators` (`operator_id`),
+   CONSTRAINT `cattle_feed_purchases_ibfk_3` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`)
+ ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 
 CREATE TABLE cattle_feed_sales (
    sale_id int NOT NULL AUTO_INCREMENT,
@@ -727,34 +730,36 @@ CREATE TABLE seller_deposits (
    CONSTRAINT seller_deposits_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
 ) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE seller_payments (
-   id int NOT NULL AUTO_INCREMENT,
-   bill_no varchar(30) DEFAULT NULL,
-   seller_id int NOT NULL,
-   operator_id int DEFAULT NULL,
-   centre_id int NOT NULL,
-   from_date date NOT NULL,
-   to_date date NOT NULL,
-   milk_amount decimal(10,2) NOT NULL,
-   advance_given decimal(10,2) DEFAULT '0.00',
-   installment_cut decimal(10,2) DEFAULT '0.00',
-   deposit_amount decimal(10,2) DEFAULT '0.00',
-   product_deduction decimal(10,2) DEFAULT '0.00',
-   walkin_deduction decimal(10,2) DEFAULT '0.00',
-   cattle_feed_deduction decimal(12,2) DEFAULT '0.00',
-   tds_amount decimal(10,2) DEFAULT '0.00',
-   final_payable decimal(10,2) DEFAULT '0.00',
-   cash_paid decimal(10,2) NOT NULL,
-   paid_at datetime DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (id),
-   UNIQUE KEY unique_cycle_payment (seller_id, from_date, to_date),
-   UNIQUE KEY bill_no (bill_no),
-   KEY operator_id (operator_id),
-   KEY centre_id (centre_id),
-   CONSTRAINT seller_payments_ibfk_1 FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
-   CONSTRAINT seller_payments_ibfk_2 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
-   CONSTRAINT seller_payments_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `seller_payments` (
+   `id` int NOT NULL AUTO_INCREMENT,
+   `bill_no` varchar(30) DEFAULT NULL,
+   `seller_id` int NOT NULL,
+   `operator_id` int DEFAULT NULL,
+   `centre_id` int NOT NULL,
+   `from_date` date NOT NULL,
+   `to_date` date NOT NULL,
+   `milk_amount` decimal(10,2) NOT NULL,
+   `advance_given` decimal(10,2) DEFAULT '0.00',
+   `installment_cut` decimal(10,2) DEFAULT '0.00',
+   `installment_transaction_id` int DEFAULT NULL,
+   `deposit_amount` decimal(10,2) DEFAULT '0.00',
+   `deposit_transaction_id` int DEFAULT NULL,
+   `product_deduction` decimal(10,2) DEFAULT '0.00',
+   `walkin_deduction` decimal(10,2) DEFAULT '0.00',
+   `cattle_feed_deduction` decimal(12,2) DEFAULT '0.00',
+   `tds_amount` decimal(10,2) DEFAULT '0.00',
+   `final_payable` decimal(10,2) DEFAULT '0.00',
+   `cash_paid` decimal(10,2) NOT NULL,
+   `paid_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`id`),
+   UNIQUE KEY `unique_cycle_payment` (`seller_id`,`from_date`,`to_date`),
+   UNIQUE KEY `bill_no` (`bill_no`),
+   KEY `operator_id` (`operator_id`),
+   KEY `centre_id` (`centre_id`),
+   CONSTRAINT `seller_payments_ibfk_1` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`seller_id`),
+   CONSTRAINT `seller_payments_ibfk_2` FOREIGN KEY (`operator_id`) REFERENCES `operators` (`operator_id`),
+   CONSTRAINT `seller_payments_ibfk_3` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`)
+ ) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 
 CREATE TABLE sellers (
    seller_id int NOT NULL AUTO_INCREMENT,
@@ -1027,5 +1032,156 @@ CREATE TABLE walkin_sales (
    CONSTRAINT walkin_sales_ibfk_5 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT walkin_sales_ibfk_6 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE expenses (
+   expense_id int NOT NULL AUTO_INCREMENT,
+   expense_date date NOT NULL,
+   reason varchar(255) NOT NULL,
+   amount decimal(12,2) NOT NULL,
+   vendor_name varchar(150) DEFAULT NULL,
+   vendor_contact varchar(15) DEFAULT NULL,
+   payment_mode enum('cash','card','upi') NOT NULL DEFAULT 'cash',
+   bill_no varchar(50) DEFAULT NULL,
+   payment_status enum('paid','unpaid') NOT NULL DEFAULT 'paid',
+   operator_id int DEFAULT NULL,
+   created_by_admin_id int DEFAULT NULL,
+   centre_id int NOT NULL,
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (expense_id),
+   KEY operator_id (operator_id),
+   KEY created_by_admin_id (created_by_admin_id),
+   KEY centre_id (centre_id),
+   KEY idx_expense_date (expense_date),
+   CONSTRAINT expenses_ibfk_1 FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL,
+   CONSTRAINT expenses_ibfk_2 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL,
+   CONSTRAINT expenses_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `product_purchase_bills` (
+   `bill_id` int NOT NULL AUTO_INCREMENT,
+   `bill_no` varchar(50) NOT NULL,
+   `centre_id` int NOT NULL,
+   `supplier_name` varchar(255) NOT NULL,
+   `from_date` date NOT NULL,
+   `to_date` date NOT NULL,
+   `total_amount` decimal(12,2) NOT NULL,
+   `paid_at` datetime NOT NULL,
+   `operator_id` int DEFAULT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`bill_id`),
+   UNIQUE KEY `bill_no` (`bill_no`),
+   KEY `centre_id` (`centre_id`),
+   KEY `supplier_name` (`supplier_name`),
+   KEY `fk_ppb_operator` (`operator_id`),
+   CONSTRAINT `fk_ppb_centre` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`),
+   CONSTRAINT `fk_ppb_operator` FOREIGN KEY (`operator_id`) REFERENCES `operators` (`operator_id`) ON DELETE SET NULL
+ ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+ CREATE TABLE `product_purchase_bill_items` (
+   `id` int NOT NULL AUTO_INCREMENT,
+   `bill_id` int NOT NULL,
+   `purchase_id` int NOT NULL,
+   `amount` decimal(12,2) NOT NULL,
+   PRIMARY KEY (`id`),
+   KEY `bill_id` (`bill_id`),
+   KEY `fk_ppbi_purchase` (`purchase_id`),
+   CONSTRAINT `fk_ppbi_bill` FOREIGN KEY (`bill_id`) REFERENCES `product_purchase_bills` (`bill_id`) ON DELETE CASCADE,
+   CONSTRAINT `fk_ppbi_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `product_purchases` (`purchase_id`) ON DELETE CASCADE
+ ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+ CREATE TABLE `product_purchase_cycle_config` (
+   `id` int NOT NULL AUTO_INCREMENT,
+   `centre_id` int NOT NULL,
+   `seed_from` date NOT NULL,
+   `days_per_cycle` int NOT NULL DEFAULT '10',
+   `operator_id` int DEFAULT NULL,
+   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (`id`),
+   UNIQUE KEY `centre_id` (`centre_id`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+ CREATE TABLE `product_purchase_payments` (
+   `payment_id` int NOT NULL AUTO_INCREMENT,
+   `supplier_name` varchar(150) NOT NULL,
+   `centre_id` int NOT NULL,
+   `operator_id` int NOT NULL,
+   `amount` decimal(12,2) NOT NULL,
+   `payment_date` date NOT NULL,
+   `remarks` text,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`payment_id`),
+   KEY `centre_id` (`centre_id`),
+   KEY `operator_id` (`operator_id`),
+   KEY `supplier_name` (`supplier_name`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+CREATE TABLE `cattle_feed_purchases` (
+   `purchase_id` int NOT NULL AUTO_INCREMENT,
+   `feed_id` int NOT NULL,
+   `centre_id` int NOT NULL,
+   `feed_name` varchar(255) DEFAULT NULL,
+   `operator_id` int NOT NULL,
+   `supplier_name` varchar(150) NOT NULL,
+   `quantity` decimal(10,2) NOT NULL,
+   `rate` decimal(8,2) NOT NULL,
+   `mrp_rate` decimal(10,2) DEFAULT '0.00',
+   `total_amount` decimal(12,2) NOT NULL,
+   `purchase_date` date NOT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   `bill_no` varchar(50) DEFAULT NULL,
+   `paid_at` datetime DEFAULT NULL,
+   `bill_id` int DEFAULT NULL,
+   PRIMARY KEY (`purchase_id`),
+   KEY `feed_id` (`feed_id`),
+   KEY `operator_id` (`operator_id`),
+   KEY `centre_id` (`centre_id`),
+   CONSTRAINT `cattle_feed_purchases_ibfk_1` FOREIGN KEY (`feed_id`) REFERENCES `cattle_feeds` (`feed_id`),
+   CONSTRAINT `cattle_feed_purchases_ibfk_2` FOREIGN KEY (`operator_id`) REFERENCES `operators` (`operator_id`),
+   CONSTRAINT `cattle_feed_purchases_ibfk_3` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`)
+ ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+ CREATE TABLE `cattle_feed_purchase_bill_items` (
+   `id` int NOT NULL AUTO_INCREMENT,
+   `bill_id` int NOT NULL,
+   `purchase_id` int NOT NULL,
+   `amount` decimal(12,2) NOT NULL,
+   PRIMARY KEY (`id`),
+   KEY `bill_id` (`bill_id`),
+   KEY `fk_cfpbi_purchase` (`purchase_id`),
+   CONSTRAINT `fk_cfpbi_bill` FOREIGN KEY (`bill_id`) REFERENCES `cattle_feed_purchase_bills` (`bill_id`) ON DELETE CASCADE,
+   CONSTRAINT `fk_cfpbi_purchase` FOREIGN KEY (`purchase_id`) REFERENCES `cattle_feed_purchases` (`purchase_id`) ON DELETE CASCADE
+ ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+ CREATE TABLE `cattle_feed_purchase_bills` (
+   `bill_id` int NOT NULL AUTO_INCREMENT,
+   `bill_no` varchar(50) NOT NULL,
+   `centre_id` int NOT NULL,
+   `supplier_name` varchar(255) NOT NULL,
+   `from_date` date NOT NULL,
+   `to_date` date NOT NULL,
+   `total_amount` decimal(12,2) NOT NULL,
+   `paid_at` datetime NOT NULL,
+   `operator_id` int DEFAULT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`bill_id`),
+   UNIQUE KEY `bill_no` (`bill_no`),
+   KEY `centre_id` (`centre_id`),
+   KEY `supplier_name` (`supplier_name`),
+   KEY `fk_cfpb_operator` (`operator_id`),
+   CONSTRAINT `fk_cfpb_centre` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`),
+   CONSTRAINT `fk_cfpb_operator` FOREIGN KEY (`operator_id`) REFERENCES `operators` (`operator_id`) ON DELETE SET NULL
+ ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+ CREATE TABLE `cattle_feed_purchase_cycle_config` (
+   `id` int NOT NULL AUTO_INCREMENT,
+   `centre_id` int NOT NULL,
+   `seed_from` date NOT NULL,
+   `days_per_cycle` int NOT NULL DEFAULT '10',
+   `operator_id` int DEFAULT NULL,
+   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (`id`),
+   UNIQUE KEY `centre_id` (`centre_id`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 
 SET FOREIGN_KEY_CHECKS = 1;

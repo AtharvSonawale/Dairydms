@@ -89,8 +89,8 @@ const requireSelf = (getResourceSellerId) => async (req, res, next) => {
 // Default export unchanged (so every existing `require('../middleware/auth')`
 // call site that does `const auth = require(...)` and uses it directly as
 // a middleware function keeps working with zero changes).
-module.exports.requireSelf = requireSelf; // ADD near the other module.exports lines
 module.exports = authenticate;
 module.exports.authenticate = authenticate;
 module.exports.requireRole = requireRole;
 module.exports.requireSameCentre = requireSameCentre;
+module.exports.requireSelf = requireSelf;

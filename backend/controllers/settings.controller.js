@@ -30,12 +30,13 @@ exports.saveGlobalSettings = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        const { app_name, logo_url, text_size, language } = req.body;
+        const { app_name, logo_url, text_size, language, fat_only_autofill } = req.body;
         const entries = [
             [dairyId, 'app_name', app_name ?? 'MilkApp'],
             [dairyId, 'logo_url', logo_url ?? ''],
             [dairyId, 'text_size', text_size ?? 'base'],
             [dairyId, 'language', language ?? 'en'],
+            [dairyId, 'fat_only_autofill', fat_only_autofill ?? '0'],
         ];
 
         await pool.query(

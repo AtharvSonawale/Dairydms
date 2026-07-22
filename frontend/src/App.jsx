@@ -9,7 +9,6 @@ import AdminLogin from './pages/auth/AdminLogin';
 import OperatorLogin from './pages/auth/OperatorLogin';
 import FarmerMilkEntries from "./pages/farmer/FarmerMilkEntries";
 
-
 // ── Admin pages ────────────────────────────────────────────
 import AdminDashboard from './pages/admin/Dashboard';
 import CreateOperator from './pages/admin/CreateOperator';
@@ -60,13 +59,33 @@ import WalkinAnonymousReport from './pages/WalkinAnonymousReports';
 import WalkinAnonymousReports from './pages/WalkinAnonymousReports';
 import UtpadakBonusReport from './pages/UtpadakBonusReport';
 import GavaliBonusReport from './pages/GavaliBonusReport';
+import Expenses from './pages/Expenses';
+import ExpensesReport from './pages/ExpensesReport';
+import PurchasedProductsBillPayment from './pages/common/PurchasedProductsBillPayment';
+import CattleFeedPayments from './pages/CattleFeedPayments';
+import FarmerLedger from './pages/FarmerLedger';
+import FarmerLedgerDetail from './pages/FarmerLedgerDetail';
 
+// ── Root redirect ──────────────────────────────────────────
+// If a valid session exists, skip the login page and go straight
+// to the right landing page for that role.
+function RootRedirect() {
+  const { user } = useAuth();
+
+  if (user?.token) {
+    if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+    if (user.role === 'operator') return <Navigate to="/milkentries" replace />;
+    if (user.role === 'seller') return <Navigate to="/farmer/dashboard" replace />;
+  }
+
+  return <AdminLogin />;
+}
 
 function AppRoutes() {
   return (
     <Routes>
 
-      <Route path="/" element={<AdminLogin />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route path="/operator/login" element={<OperatorLogin />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/farmer/login" element={<SellerLogin />} />
@@ -127,6 +146,13 @@ function AppRoutes() {
         <Route path="/walkinanonymousreports" element={<ProtectedRoute><WalkinAnonymousReports /></ProtectedRoute>} />
         <Route path="/utpadakbonusreport" element={<ProtectedRoute><UtpadakBonusReport /></ProtectedRoute>} />
         <Route path="/gavalibonusreport" element={<ProtectedRoute><GavaliBonusReport /></ProtectedRoute>} />
+        <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+        <Route path="/expensesreport" element={<ProtectedRoute><ExpensesReport /></ProtectedRoute>} />
+        <Route path="/product-purchase-payments" element={<PurchasedProductsBillPayment />} />
+        <Route path="/cattle-feed-payments" element={<CattleFeedPayments />} />
+        <Route path="/farmer-ledger" element={<FarmerLedger />} />
+        <Route path="/farmer-ledger/:seller_id" element={<FarmerLedgerDetail />} />
+
       </Route>
 
       {/* ── Fallback ── */}

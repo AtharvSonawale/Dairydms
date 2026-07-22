@@ -32,6 +32,7 @@ const fmtDate = (d) =>
 const waterRisk = (v) => parseFloat(v) > 5;
 
 const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
+const FIXED_AUTOFILL_SNF = "8.5"; // used for rate lookup when "Fat-Only Rate Auto-Fill" is enabled
 const snfBelowThreshold = (v, milk_type) =>
     v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) < (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
 const snfAboveThreshold = (v, milk_type) =>
@@ -570,7 +571,7 @@ export default function MilkEntry() {
     const [editingEntry, setEditingEntry] = useState(null);
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
-    const { appName } = useAppConfig();
+    const { appName, fatOnlyAutofill } = useAppConfig();
     const { can, loading: permLoading } = usePermission();
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -840,13 +841,16 @@ export default function MilkEntry() {
 
     const autoRateTimer = useRef(null);
     const fetchAutoRate = (fat, snf, milk_type) => {
-        if (!fat || !snf || !milk_type) return;
-        if (!isValidFat(fat) || !isValidSnf(snf)) return;
+        // When "Fat-Only Rate Auto-Fill" is on, always look up the rate using a
+        // fixed SNF of 8.5, so a lower/higher measured SNF never blocks the fill.
+        const snfForLookup = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : snf;
+        if (!fat || !snfForLookup || !milk_type) return;
+        if (!isValidFat(fat) || !isValidSnf(snfForLookup)) return;
         clearTimeout(autoRateTimer.current);
         autoRateTimer.current = setTimeout(async () => {
             try {
                 const { data } = await api.get(
-                    `/rates/lookup?fat=${fat}&snf=${snf}&milk_type=${milk_type}&date=${selectedDate}`
+                    `/rates/lookup?fat=${fat}&snf=${snfForLookup}&milk_type=${milk_type}&date=${selectedDate}`
                 );
                 if (data?.rate) {
                     set("rate_applied", data.rate);

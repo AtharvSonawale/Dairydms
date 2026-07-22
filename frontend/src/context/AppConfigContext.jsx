@@ -9,6 +9,7 @@ const AppConfigContext = createContext({
     logoUrl: '',
     language: 'en',
     textSize: 'base',
+    fatOnlyAutofill: false,
     updateConfig: () => { },
     loaded: false,
 });
@@ -19,8 +20,8 @@ export function AppConfigProvider({ children }) {
     const [logoUrl, setLogoUrl] = useState('');
     const [language, setLanguage] = useState('en');
     const [textSize, setTextSize] = useState('base');
+    const [fatOnlyAutofill, setFatOnlyAutofill] = useState(false);
     const [loaded, setLoaded] = useState(false);
-
     // Re-fetch on mount AND whenever auth state changes (login/logout/role
     // switch) — settings can be dairy/centre-scoped server-side, so the
     // response before login (no token) can differ from the response after.
@@ -39,6 +40,7 @@ export function AppConfigProvider({ children }) {
                     setTextSize(data.text_size);
                     applyFontSize(data.text_size);
                 }
+                setFatOnlyAutofill(data.fat_only_autofill === '1' || data.fat_only_autofill === true);
             })
             .catch(() => { })
             .finally(() => setLoaded(true));
@@ -61,10 +63,13 @@ export function AppConfigProvider({ children }) {
             setTextSize(patch.textSize);
             applyFontSize(patch.textSize);
         }
+        if (patch.fatOnlyAutofill !== undefined) {
+            setFatOnlyAutofill(patch.fatOnlyAutofill);
+        }
     };
 
     return (
-        <AppConfigContext.Provider value={{ appName, logoUrl, language, textSize, updateConfig, loaded }}>
+        <AppConfigContext.Provider value={{ appName, logoUrl, language, textSize, fatOnlyAutofill, updateConfig, loaded }}>
             {children}
         </AppConfigContext.Provider>
     );

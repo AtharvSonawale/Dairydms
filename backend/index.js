@@ -35,6 +35,10 @@ const weightMachine = require('./services/weightMachine.service');
 const fatMachine = require('./services/fatMachine.service');
 const cattleFeedPurcahseRoutes = require('./routes/cattlefeedpurchase.routes')
 const cattleFeedSaleRoutes = require('./routes/cattleFeedSale.routes');
+const expenses = require('./routes/expenses.routes');
+const productPurchasePaymentRoutes = require('./routes/productPurchasePayment.routes');
+const cattleFeedPaymentRoutes = require('./routes/cattleFeedPayment.routes');
+const ledgerRoutes = require('./routes/ledger.routes');
 
 const tourRoutes = require('./routes/tour.routes');
 
@@ -72,6 +76,10 @@ app.use('/api/admin', tourRoutes);
 app.use('/api/settings/ports', portsRouter);
 app.use('/api/cattle-feeds', cattleFeedPurcahseRoutes);
 app.use('/api/cattle-feed-sales', cattleFeedSaleRoutes);
+app.use('/api/expenses', expenses);
+app.use('/api/product-purchase-payments', productPurchasePaymentRoutes);
+app.use('/api/cattle-feed-payments', cattleFeedPaymentRoutes);
+app.use('/api/ledger', ledgerRoutes);
 
 setInterval(async () => {
     try {
