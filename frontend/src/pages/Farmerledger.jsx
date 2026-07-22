@@ -1,51 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
-    BookOpen, Search, RefreshCw, ChevronDown, ChevronUp,
-    ArrowUpCircle, ArrowDownCircle, Wallet, Hash, User,
+    BookOpen, Search, RefreshCw, Wallet, Banknote, User, Receipt,
 } from "lucide-react";
 
 import api from "../api/axios";
 import { usePermission } from "../context/PermissionContext";
 import AccessDenied from "../components/AccessDenied";
 
-const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
-const fmtDateTime = (d) =>
-    d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+// Helper: format currency
+const fmt = (n) => n === null || n === undefined ? "—" : `₹${parseFloat(n || 0).toFixed(2)}`;
+const fmtDate = (d) =>
+    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-const TYPE_OPTIONS = [
-    { value: "", label: "All Types" },
-    { value: "milk_sale", label: "Milk Sale" },
-    { value: "advance_given", label: "Advance Given" },
-    { value: "advance_repayment", label: "Advance Repayment" },
-    { value: "advance_recovered", label: "Advance Installment Recovered" },
-    { value: "deposit_taken", label: "Deposit Taken" },
-    { value: "deposit_held", label: "Deposit Held" },
-    { value: "deposit_refund", label: "Deposit Refunded" },
-    { value: "deposit_withdrawn", label: "Deposit Withdrawn" },
-    { value: "product_purchase", label: "Product Purchase" },
-    { value: "cattle_feed_purchase", label: "Cattle Feed Purchase" },
-    { value: "walkin_purchase", label: "Milk Purchase (Walk-in)" },
-    { value: "cash_paid", label: "Payment Settled" },
-];
-
-const TYPE_STYLE = {
-    milk_sale: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    advance_given: "bg-violet-50 text-violet-700 border-violet-100",
-    advance_repayment: "bg-violet-50 text-violet-700 border-violet-100",
-    advance_recovered: "bg-rose-50 text-rose-700 border-rose-100",
-    deposit_taken: "bg-blue-50 text-blue-700 border-blue-100",
-    deposit_held: "bg-blue-50 text-blue-700 border-blue-100",
-    deposit_refund: "bg-blue-50 text-blue-700 border-blue-100",
-    deposit_withdrawn: "bg-rose-50 text-rose-700 border-rose-100",
-    deposit_refund: "bg-blue-50 text-blue-700 border-blue-100",
-    deposit_withdrawn: "bg-rose-50 text-rose-700 border-rose-100",
-    product_purchase: "bg-amber-50 text-amber-700 border-amber-100",
-    cattle_feed_purchase: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    walkin_purchase: "bg-orange-50 text-orange-700 border-orange-100",
-    cash_paid: "bg-gray-900 text-white border-gray-900",
-};
-
+// Summary stat card
 function StatCard({ label, value, icon, color }) {
     return (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
@@ -58,40 +26,49 @@ function StatCard({ label, value, icon, color }) {
     );
 }
 
+// Balance chip: green when balance is negative (farmer owes us less),
+// red when positive (farmer owes us more), grey when zero.
+function BalanceChip({ value }) {
+    const v = parseFloat(value || 0);
+    const positive = v > 0;
+    const zero = v === 0;
+    return (
+        <span className={`font-mono text-xs font-bold ${zero ? "text-gray-400" : positive ? "text-rose-600" : "text-emerald-600"}`}>
+            {fmt(v)}
+        </span>
+    );
+}
+
 export default function FarmerLedger() {
     const { can, loading: permLoading } = usePermission();
 
     const [search, setSearch] = useState("");
-    const [type, setType] = useState("");
-    const [from, setFrom] = useState("");
-    const [to, setTo] = useState("");
     const [page, setPage] = useState(1);
     const [limit] = useState(25);
 
-    const [data, setData] = useState({ rows: [], total: 0, total_credit: 0, total_debit: 0, closing_balance: 0 });
+    const [data, setData] = useState({
+        rows: [], total: 0, total_advance_outstanding: 0, total_deposit_held: 0,
+    });
     const [loading, setLoading] = useState(false);
 
-    const fetchLedger = useCallback(async () => {
+    const fetchSummary = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
             if (search) params.set("search", search);
-            if (type) params.set("type", type);
-            if (from) params.set("from", from);
-            if (to) params.set("to", to);
             params.set("page", page);
             params.set("limit", limit);
 
-            const { data } = await api.get(`/ledger?${params.toString()}`);
+            const { data } = await api.get(`/ledger/summary?${params.toString()}`);
             setData(data);
         } catch (err) {
-            console.error("Failed to load ledger:", err);
+            console.error("Failed to load farmer summary:", err);
         } finally {
             setLoading(false);
         }
-    }, [search, type, from, to, page, limit]);
+    }, [search, page, limit]);
 
-    useEffect(() => { fetchLedger(); }, [fetchLedger]);
+    useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
     const totalPages = Math.ceil((data.total || 0) / limit);
 
@@ -115,10 +92,10 @@ export default function FarmerLedger() {
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900 leading-tight">Farmer Ledger</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">Every credit and debit across all farmers, in one running account</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Advance & deposit accounts and last paid bill, per farmer</p>
                         </div>
                     </div>
-                    <button onClick={() => { setPage(1); fetchLedger(); }}
+                    <button onClick={() => { setPage(1); fetchSummary(); }}
                         className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                             bg-gray-100 text-gray-600 hover:bg-gray-200 transition self-start sm:self-auto">
                         <RefreshCw size={13} /> Refresh
@@ -126,42 +103,26 @@ export default function FarmerLedger() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <StatCard label="Total Credit (period)" value={fmt(data.total_credit)}
-                        icon={<ArrowUpCircle size={16} />} color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                    <StatCard label="Total Debit (period)" value={fmt(data.total_debit)}
-                        icon={<ArrowDownCircle size={16} />} color="text-rose-600 bg-rose-50 border-rose-100" />
-                    <StatCard label="Net Balance" value={fmt((data.total_credit || 0) - (data.total_debit || 0))}
-                        icon={<Wallet size={16} />} color="text-violet-600 bg-violet-50 border-violet-100" />
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                    <StatCard label="Advance Outstanding (all farmers)" value={fmt(data.total_advance_outstanding)}
+                        icon={<Banknote size={16} />} color="text-violet-600 bg-violet-50 border-violet-100" />
+                    <StatCard label="Deposit Held (all farmers)" value={fmt(data.total_deposit_held)}
+                        icon={<Wallet size={16} />} color="text-blue-600 bg-blue-50 border-blue-100" />
                 </div>
 
-                {/* Filters */}
+                {/* Search */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 min-w-[220px] max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => { setPage(1); setSearch(e.target.value); }}
-                            placeholder="Search farmer, code, reference…"
+                            placeholder="Search farmer, code, mobile…"
                             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
                                 focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
                     </div>
-                    <select value={type} onChange={e => { setPage(1); setType(e.target.value); }}
-                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                            focus:outline-none focus:ring-2 focus:ring-black transition">
-                        {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                    <div className="flex items-center gap-2">
-                        <input type="date" value={from} onChange={e => { setPage(1); setFrom(e.target.value); }}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
-                        <span className="text-xs text-gray-400">to</span>
-                        <input type="date" value={to} onChange={e => { setPage(1); setTo(e.target.value); }}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
-                    </div>
-                    {(search || type || from || to) && (
-                        <button onClick={() => { setSearch(""); setType(""); setFrom(""); setTo(""); setPage(1); }}
+                    {search && (
+                        <button onClick={() => { setSearch(""); setPage(1); }}
                             className="text-xs text-gray-400 hover:text-gray-600 px-3 py-2 rounded-xl border border-gray-200 bg-white transition">
-                            Clear filters
+                            Clear
                         </button>
                     )}
                 </div>
@@ -172,9 +133,37 @@ export default function FarmerLedger() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                    {["Farmer ID", "Name", "Date & Time", "Type", "Description", "Debit", "Credit", "Running Balance", "Payment Mode", "Reference", "Operator"].map(h => (
-                                        <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                                    ))}
+                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                        Farmer ID
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                        Farmer Name
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-violet-600 uppercase tracking-wider whitespace-nowrap">
+                                        Advance Credit
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-violet-600 uppercase tracking-wider whitespace-nowrap">
+                                        Advance Debit
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-violet-600 uppercase tracking-wider whitespace-nowrap">
+                                        Advance Balance
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap">
+                                        Deposit Credit
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap">
+                                        Deposit Debit
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap">
+                                        Deposit Balance
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                                        Last Bill Amount
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                                        Last Bill Date
+                                    </th>
+                                    <th className="px-4 py-3"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -185,39 +174,64 @@ export default function FarmerLedger() {
                                 ) : data.rows.length === 0 ? (
                                     <tr><td colSpan={11} className="py-16 text-center text-gray-300">
                                         <BookOpen size={28} className="mx-auto mb-2" />
-                                        <p className="text-sm">No ledger entries found for this filter.</p>
+                                        <p className="text-sm">No farmers found.</p>
                                     </td></tr>
-                                ) : data.rows.map((r, i) => (
-                                    <tr key={`${r.reference_no}-${r.type}-${i}`}
-                                        className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition">
-                                        <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{r.seller_code}</td>
+                                ) : data.rows.map((r) => (
+                                    <tr key={r.seller_id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition">
+                                        {/* Farmer ID */}
+                                        <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-gray-500">
+                                            {r.seller_code}
+                                        </td>
+
+                                        {/* Farmer Name (linked to detail) */}
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             <Link to={`/farmer-ledger/${r.seller_id}`}
                                                 className="inline-flex items-center gap-1.5 font-semibold text-violet-700 hover:text-violet-900 hover:underline">
                                                 <User size={12} /> {r.name}
                                             </Link>
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime(r.ts)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className={`inline-block text-[10px] font-semibold px-2 py-1 rounded-full border ${TYPE_STYLE[r.type] || "bg-gray-50 text-gray-600 border-gray-100"}`}>
-                                                {r.type_label}
-                                            </span>
+
+                                        {/* Advance columns */}
+                                        <td className="px-4 py-3 text-right font-mono text-xs text-gray-600 whitespace-nowrap">
+                                            {fmt(r.advance_credit)}
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-gray-600 max-w-xs truncate" title={r.description}>{r.description}</td>
-                                        <td className="px-4 py-3 text-right font-mono text-xs text-rose-600 whitespace-nowrap">
-                                            {r.debit > 0 ? fmt(r.debit) : "—"}
+                                        <td className="px-4 py-3 text-right font-mono text-xs text-gray-600 whitespace-nowrap">
+                                            {fmt(r.advance_debit)}
                                         </td>
-                                        <td className="px-4 py-3 text-right font-mono text-xs text-emerald-600 whitespace-nowrap">
-                                            {r.credit > 0 ? fmt(r.credit) : "—"}
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            <BalanceChip value={r.advance_balance} />
                                         </td>
+
+                                        {/* Deposit columns */}
+                                        <td className="px-4 py-3 text-right font-mono text-xs text-gray-600 whitespace-nowrap">
+                                            {fmt(r.deposit_credit)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-mono text-xs text-gray-600 whitespace-nowrap">
+                                            {fmt(r.deposit_debit)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            <BalanceChip value={r.deposit_balance} />
+                                        </td>
+
+                                        {/* Last bill */}
                                         <td className="px-4 py-3 text-right font-mono text-xs font-bold text-gray-900 whitespace-nowrap">
-                                            {fmt(r.running_balance)}
+                                            {r.last_bill_no ? fmt(r.last_bill_cash_paid) : "—"}
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{r.payment_mode}</td>
-                                        <td className="px-4 py-3 text-xs font-mono text-gray-500 whitespace-nowrap">
-                                            <span className="inline-flex items-center gap-1"><Hash size={9} />{r.reference_no}</span>
+                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                                            {r.last_bill_no ? (
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Receipt size={10} /> {fmtDate(r.last_bill_paid_at)}
+                                                </span>
+                                            ) : "No bill yet"}
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{r.operator_name}</td>
+
+                                        {/* View link */}
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <Link to={`/farmer-ledger/${r.seller_id}`}
+                                                className="text-[11px] font-semibold text-gray-400 hover:text-gray-700 transition">
+                                                View →
+                                            </Link>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -228,7 +242,7 @@ export default function FarmerLedger() {
                     {data.total > 0 && (
                         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
                             <span className="text-xs text-gray-400">
-                                {(page - 1) * limit + 1}–{Math.min(page * limit, data.total)} of {data.total}
+                                {(page - 1) * limit + 1}–{Math.min(page * limit, data.total)} of {data.total} farmers
                             </span>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}

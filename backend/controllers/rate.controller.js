@@ -623,3 +623,82 @@ exports.getGeneratedRatesHistory = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
+// ── POST /api/rates/import ────────────────────────────────────
+// Bulk-imports rates from a parsed Excel/CSV file. Each row can specify
+// its own milk_type, and effective_to (if present) expands into one row
+// per day, same as createRate does for a single manual entry.
+exports.importRates = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const { rates } = req.body;
+
+        if (!Array.isArray(rates) || rates.length === 0)
+            return res.status(400).json({ message: 'rates array is required' });
+
+        let added = 0;
+        let skipped = 0;
+        const errors = [];
+
+        for (let i = 0; i < rates.length; i++) {
+            const row = rates[i];
+            const rowNum = row._rowIndex || i + 1;
+
+            const milk_type = row.milk_type === 'buffalo' ? 'buffalo' : 'cow';
+            const fat = parseFloat(row.fat);
+            const snf = parseFloat(row.snf);
+            const rate = parseFloat(row.rate);
+            const mrp = row.mrp !== '' && row.mrp != null && !isNaN(parseFloat(row.mrp))
+                ? parseFloat(row.mrp) : null;
+            const effective_from = row.effective_from;
+            const effective_to = row.effective_to || null;
+
+            if (isNaN(fat) || isNaN(snf) || isNaN(rate) || !effective_from) {
+                errors.push({ row: rowNum, error: 'Missing or invalid FAT, SNF, Rate, or Effective From.' });
+                skipped++;
+                continue;
+            }
+
+            const table = tbl(milk_type);
+
+            // build the list of dates this rate should apply to (mirrors createRate)
+            const targetDates = [];
+            if (effective_to && effective_to > effective_from) {
+                const cursor = new Date(effective_from);
+                const end = new Date(effective_to);
+                while (cursor <= end) {
+                    targetDates.push(cursor.toISOString().split('T')[0]);
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+            } else {
+                targetDates.push(effective_from);
+            }
+
+            const values = targetDates.map(date => [
+                centreId, fat, snf, rate, mrp, date, null,
+            ]);
+
+            try {
+                const [result] = await pool.query(
+                    `INSERT IGNORE INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to) VALUES ?`,
+                    [values]
+                );
+                added += result.affectedRows;
+                skipped += (targetDates.length - result.affectedRows);
+            } catch (rowErr) {
+                errors.push({ row: rowNum, error: rowErr.message });
+                skipped += targetDates.length;
+            }
+        }
+
+        res.json({
+            message: `${added} rate(s) imported, ${skipped} skipped.`,
+            added,
+            skipped,
+            errors,
+        });
+    } catch (err) {
+        console.error('importRates error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};

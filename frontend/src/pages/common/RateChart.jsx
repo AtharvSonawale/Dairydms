@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -6,7 +7,9 @@ import AccessDenied from '../../components/AccessDenied';
 import api from '../../api/axios';
 import {
     TrendingUp, FlaskConical, Pencil, Trash2, Star,
-    RefreshCw, ChevronRight, AlertTriangle, BadgeCheck, X
+    RefreshCw, ChevronRight, AlertTriangle, BadgeCheck, X,
+    UploadCloud, FileSpreadsheet, CheckCircle2, XCircle,
+    Download, RotateCcw, Import,
 } from 'lucide-react';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -28,6 +31,32 @@ const EMPTY_FORM = {
     mrp: '',
     effective_from: '',
     effective_to: '',
+};
+
+// AFTER the EMPTY_FORM constant, add:
+const rateColumnMap = {
+    'milk type': 'milk_type',
+    'milk_type': 'milk_type',
+    'type': 'milk_type',
+    'fat': 'fat',
+    'fat%': 'fat',
+    'fat percent': 'fat',
+    'snf': 'snf',
+    'snf%': 'snf',
+    'snf percent': 'snf',
+    'rate': 'rate',
+    'rate per litre': 'rate',
+    'rate_per_litre': 'rate',
+    'rate per l': 'rate',
+    'mrp': 'mrp',
+    'mrp per litre': 'mrp',
+    'mrp_per_litre': 'mrp',
+    'effective from': 'effective_from',
+    'effective_from': 'effective_from',
+    'from': 'effective_from',
+    'effective to': 'effective_to',
+    'effective_to': 'effective_to',
+    'to': 'effective_to',
 };
 
 // ── Field component ────────────────────────────────────────
@@ -91,6 +120,15 @@ export default function RateChart() {
         mrp_margin: '',
     });
     const [genPreview, setGenPreview] = useState([]);
+
+    const [showRateImportModal, setShowRateImportModal] = useState(false);
+    const [rateImportFile, setRateImportFile] = useState(null);
+    const [rateImportData, setRateImportData] = useState([]);
+    const [rateImportLoading, setRateImportLoading] = useState(false);
+    const [rateImportErrors, setRateImportErrors] = useState([]);
+    const [rateParsingFile, setRateParsingFile] = useState(false);
+    const [rateImportResult, setRateImportResult] = useState(null);
+    const [rateIsDragging, setRateIsDragging] = useState(false);
 
     // ── fetch ──
     const fetchRates = useCallback(async () => {
@@ -301,6 +339,153 @@ export default function RateChart() {
         }
     };
 
+    // ── Bulk rate import ──
+    const isValidRateRow = (row) => {
+        const milkOk = row.milk_type === 'cow' || row.milk_type === 'buffalo';
+        const fatOk = row.fat !== '' && row.fat !== undefined && !isNaN(parseFloat(row.fat));
+        const snfOk = row.snf !== '' && row.snf !== undefined && !isNaN(parseFloat(row.snf));
+        const rateOk = row.rate !== '' && row.rate !== undefined && !isNaN(parseFloat(row.rate));
+        const fromOk = !!row.effective_from;
+        return milkOk && fatOk && snfOk && rateOk && fromOk;
+    };
+
+    const processRateFile = (file) => {
+        if (!file) return;
+        if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+            setRateImportErrors(['Please upload a .xlsx, .xls, or .csv file.']);
+            return;
+        }
+        setRateImportFile(file);
+        setRateImportErrors([]);
+        setRateImportData([]);
+        setRateParsingFile(true);
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+                if (json.length === 0) {
+                    setRateImportErrors(['The file is empty or has no data.']);
+                    return;
+                }
+
+                const headers = Object.keys(json[0]);
+                const mappedHeaders = headers.map(h => rateColumnMap[h.trim().toLowerCase()] || null);
+
+                const fatIdx = mappedHeaders.indexOf('fat');
+                const snfIdx = mappedHeaders.indexOf('snf');
+                const rateIdx = mappedHeaders.indexOf('rate');
+                if (fatIdx === -1 || snfIdx === -1 || rateIdx === -1) {
+                    setRateImportErrors(['Required columns "FAT", "SNF" and "Rate" not found.']);
+                    return;
+                }
+
+                const rows = json.map((row, idx) => {
+                    const obj = {};
+                    headers.forEach((h, i) => {
+                        const field = mappedHeaders[i];
+                        if (field) {
+                            let val = row[h];
+                            if (field === 'milk_type') val = String(val).trim().toLowerCase();
+                            if (field === 'effective_from' || field === 'effective_to') {
+                                // Excel dates may come through as serials or strings; normalize to YYYY-MM-DD
+                                if (val instanceof Date) {
+                                    val = val.toISOString().split('T')[0];
+                                } else if (typeof val === 'number') {
+                                    const d = XLSX.SSF.parse_date_code(val);
+                                    val = d ? `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}` : '';
+                                }
+                            }
+                            obj[field] = val;
+                        }
+                    });
+                    if (!obj.milk_type) obj.milk_type = filter;
+                    return { ...obj, _rowIndex: idx + 1 };
+                });
+
+                const errors = [];
+                rows.forEach((row, idx) => {
+                    if (!isValidRateRow(row)) {
+                        errors.push(`Row ${idx + 1}: FAT, SNF, Rate, Effective From are required and Milk Type must be cow/buffalo.`);
+                    }
+                });
+                setRateImportErrors(errors);
+                setRateImportData(rows);
+            } catch (err) {
+                setRateImportErrors(['Failed to parse file: ' + err.message]);
+            } finally {
+                setRateParsingFile(false);
+            }
+        };
+        reader.onerror = () => {
+            setRateImportErrors(['Could not read the file.']);
+            setRateParsingFile(false);
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const handleRateFileUpload = (e) => processRateFile(e.target.files[0]);
+
+    const handleRateDrop = (e) => {
+        e.preventDefault();
+        setRateIsDragging(false);
+        processRateFile(e.dataTransfer.files[0]);
+    };
+    const handleRateDragOver = (e) => { e.preventDefault(); setRateIsDragging(true); };
+    const handleRateDragLeave = (e) => { e.preventDefault(); setRateIsDragging(false); };
+
+    const downloadRateTemplate = () => {
+        const headers = ['Milk Type', 'FAT', 'SNF', 'Rate', 'MRP', 'Effective From', 'Effective To'];
+        const ws = XLSX.utils.aoa_to_sheet([headers]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Rates');
+        XLSX.writeFile(wb, 'rate_chart_import_template.xlsx');
+    };
+
+    const resetRateImport = () => {
+        setRateImportFile(null);
+        setRateImportData([]);
+        setRateImportErrors([]);
+    };
+
+    const handleRateImportSave = async () => {
+        if (rateImportData.length === 0) return;
+        const validRows = rateImportData.filter(isValidRateRow);
+        if (validRows.length === 0) {
+            setRateImportErrors(['No valid rows to import.']);
+            return;
+        }
+
+        setRateImportLoading(true);
+        try {
+            const response = await api.post('/rates/import', { rates: validRows });
+            const { added, skipped, errors: importResultErrors } = response.data;
+
+            if (importResultErrors && importResultErrors.length > 0) {
+                setRateImportErrors(importResultErrors.map(e => `Row ${e.row}: ${e.error}`));
+            } else {
+                setRateImportErrors([]);
+            }
+
+            setRateImportResult({ added, skipped });
+            await fetchRates();
+
+            if (!skipped) {
+                setShowRateImportModal(false);
+                setRateImportFile(null);
+                setRateImportData([]);
+            }
+        } catch (err) {
+            setRateImportErrors([err.response?.data?.message || err.message]);
+        } finally {
+            setRateImportLoading(false);
+        }
+    };
+
     const toggleSeller = (id) =>
         setSelectedSellers(prev =>
             prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
@@ -384,11 +569,17 @@ export default function RateChart() {
                                 : <><ChevronRight size={13} /> {t('rateChart.carryForward')}</>}
                         </button>
 
-                        <button onClick={() => { setShowGenerateModal(true); setGenPreview([]); }}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
+                            <button onClick={() => { setShowGenerateModal(true); setGenPreview([]); }}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
             bg-violet-500 text-white hover:bg-violet-600">
-                            <FlaskConical size={13} /> {t('rateChart.generateRates')}
-                        </button>
+                                <FlaskConical size={13} /> {t('rateChart.generateRates')}
+                            </button>
+
+                            <button onClick={() => setShowRateImportModal(true)}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
+            bg-gray-500 text-gray-100 hover:bg-gray-600">
+                                <Import size={13} /> Import Rates
+                            </button>
 
                         <button onClick={openPremiumModal}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
@@ -1070,6 +1261,175 @@ export default function RateChart() {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Import Rates Modal ── */}
+                {showRateImportModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-4xl w-full max-h-[90vh] flex flex-col">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                                        <FileSpreadsheet size={16} className="text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-semibold text-gray-800">Import Rates</h2>
+                                        <p className="text-xs text-gray-400 mt-0.5">Bulk-add rate chart entries from an Excel or CSV file</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setShowRateImportModal(false); resetRateImport(); }}
+                                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                                    <X size={14} />
+                                </button>
+                            </div>
+
+                            <div className="p-6 overflow-y-auto flex-1">
+                                {!rateImportFile ? (
+                                    <label
+                                        onDrop={handleRateDrop}
+                                        onDragOver={handleRateDragOver}
+                                        onDragLeave={handleRateDragLeave}
+                                        className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-12 px-6 cursor-pointer transition
+                                ${rateIsDragging ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition
+                                ${rateIsDragging ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
+                                            <UploadCloud size={22} />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-sm font-semibold text-gray-700">
+                                                {rateIsDragging ? "Drop the file here" : "Drag & drop your file here"}
+                                            </p>
+                                            <p className="text-xs text-gray-400 mt-0.5">or click to browse — .xlsx, .xls, or .csv</p>
+                                        </div>
+                                        <input type="file" accept=".xlsx,.xls,.csv" onChange={handleRateFileUpload} className="hidden" />
+                                    </label>
+                                ) : (
+                                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 mb-4">
+                                        <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                                            <FileSpreadsheet size={16} className="text-emerald-600" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-800 truncate">{rateImportFile.name}</p>
+                                            <p className="text-xs text-gray-400">{(rateImportFile.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                        {rateParsingFile && (
+                                            <span className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin shrink-0" />
+                                        )}
+                                        <button onClick={resetRateImport}
+                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-gray-100 text-gray-500 text-xs font-medium transition border border-gray-200 shrink-0">
+                                            <RotateCcw size={11} /> Replace
+                                        </button>
+                                    </div>
+                                )}
+
+                                {rateImportData.length > 0 && (
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                            {rateImportData.length} row{rateImportData.length === 1 ? "" : "s"} found
+                                        </span>
+                                        <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                            <CheckCircle2 size={11} />
+                                            {rateImportData.filter(isValidRateRow).length} valid
+                                        </span>
+                                        {rateImportData.filter(r => !isValidRateRow(r)).length > 0 && (
+                                            <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                                                <XCircle size={11} />
+                                                {rateImportData.filter(r => !isValidRateRow(r)).length} invalid
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {rateImportErrors.length > 0 && (
+                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 max-h-40 overflow-y-auto">
+                                        {rateImportErrors.map((err, i) => <div key={i}>• {err}</div>)}
+                                    </div>
+                                )}
+
+                                {rateImportData.length > 0 && (
+                                    <div className="border border-gray-200 rounded-xl overflow-auto max-h-96">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-gray-50 sticky top-0">
+                                                <tr>
+                                                    {Object.keys(rateImportData[0]).filter(k => !k.startsWith('_')).map(key => (
+                                                        <th key={key} className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                                                            {key}
+                                                        </th>
+                                                    ))}
+                                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {rateImportData.map((row, idx) => {
+                                                    const valid = isValidRateRow(row);
+                                                    return (
+                                                        <tr key={idx} className={`border-b border-gray-50 ${valid ? 'hover:bg-emerald-50/30' : 'bg-red-50/30'}`}>
+                                                            {Object.keys(row).filter(k => !k.startsWith('_')).map(key => (
+                                                                <td key={key} className="px-3 py-2 text-gray-700 max-w-[150px] truncate">
+                                                                    {row[key] !== undefined && row[key] !== null ? String(row[key]) : ''}
+                                                                </td>
+                                                            ))}
+                                                            <td className="px-3 py-2">
+                                                                {valid
+                                                                    ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> Valid</span>
+                                                                    : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> Invalid</span>}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+                                <button onClick={downloadRateTemplate}
+                                    className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
+                                    <Download size={12} /> Download sample template
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => { setShowRateImportModal(false); resetRateImport(); }}
+                                        className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
+                                        Cancel
+                                    </button>
+                                    <button onClick={handleRateImportSave}
+                                        disabled={rateImportLoading || rateImportData.length === 0 || rateImportData.filter(isValidRateRow).length === 0}
+                                        className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
+                                        {rateImportLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                        Save All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Import Result Popup ── */}
+                {rateImportResult && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                            <div className="flex flex-col items-center gap-2 text-center">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center border
+                        ${rateImportResult.skipped === 0 ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"}`}>
+                                    {rateImportResult.skipped === 0
+                                        ? <BadgeCheck size={22} className="text-emerald-500" />
+                                        : <AlertTriangle size={22} className="text-amber-500" />}
+                                </div>
+                                <h2 className="text-gray-800 font-semibold text-base">Import Complete</h2>
+                                <p className="text-gray-500 text-sm leading-relaxed">
+                                    <span className="font-semibold text-emerald-600">{rateImportResult.added}</span> rate{rateImportResult.added === 1 ? "" : "s"} added
+                                    {rateImportResult.skipped > 0 && (
+                                        <>, <span className="font-semibold text-amber-600">{rateImportResult.skipped}</span> skipped</>
+                                    )}.
+                                </p>
+                            </div>
+                            <button onClick={() => setRateImportResult(null)}
+                                className="w-full py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition active:scale-95">
+                                OK
+                            </button>
                         </div>
                     </div>
                 )}

@@ -7,6 +7,10 @@ const router = express.Router();
 const farmerLedgerController = require('../controllers/farmerledger.controller');
 const { authenticate } = require('../middleware/auth');
 
+// Per-farmer summary (advance account, deposit account, last paid bill) —
+// used by the main Farmer Ledger list page.
+router.get('/summary', authenticate, farmerLedgerController.getFarmerSummaries);
+
 router.get('/', authenticate, farmerLedgerController.getLedger);
 router.get('/farmer/:seller_id', authenticate, farmerLedgerController.getFarmerInfo);
 router.get('/farmer/:seller_id/milk-entries', authenticate, farmerLedgerController.getFarmerMilkEntries);

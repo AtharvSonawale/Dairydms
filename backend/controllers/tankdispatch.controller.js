@@ -26,13 +26,14 @@ exports.getDispatches = async (req, res) => {
 
         // REMOVED operator filter - both admin and operator see all
         const query = `
-            SELECT td.*, o.name AS operator_name
-            FROM tank_dispatch td
-            JOIN operators o ON o.operator_id = td.operator_id
-            WHERE td.centre_id = ?
-            ${dateCondition}
-            ORDER BY td.dispatch_date ASC, FIELD(td.shift,'morning','evening') ASC, td.milk_type ASC, td.created_at ASC
-        `;
+    SELECT td.*, o.name AS operator_name, a.name AS admin_name
+    FROM tank_dispatch td
+    LEFT JOIN operators o ON o.operator_id = td.operator_id
+    LEFT JOIN admins a ON a.admin_id = td.created_by_admin_id
+    WHERE td.centre_id = ?
+    ${dateCondition}
+    ORDER BY td.dispatch_date ASC, FIELD(td.shift,'morning','evening') ASC, td.milk_type ASC, td.created_at ASC
+`;
 
         const [rows] = await pool.query(query, [centreId, ...dateParams]);
         res.json(rows);
@@ -52,7 +53,9 @@ exports.createDispatch = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const createdByAdminId = isAdmin ? req.user.id : null;
         const centreId = req.user.centre_id;
         const {
             dispatch_date,
@@ -93,12 +96,12 @@ exports.createDispatch = async (req, res) => {
         // ── insert ──
         const [result] = await conn.query(
             `INSERT INTO tank_dispatch
-            (dispatch_date, milk_type, shift, cow_liters, buffalo_liters,
-             total_liters, avg_fat, avg_snf,
-             avg_fat_cow, avg_snf_cow, avg_fat_buffalo, avg_snf_buffalo,
-             factory_name, vehicle_no, driver_name,
-             factory_rate, total_amount, operator_id, centre_id, remarks)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+(dispatch_date, milk_type, shift, cow_liters, buffalo_liters,
+ total_liters, avg_fat, avg_snf,
+ avg_fat_cow, avg_snf_cow, avg_fat_buffalo, avg_snf_buffalo,
+ factory_name, vehicle_no, driver_name,
+ factory_rate, total_amount, operator_id, created_by_admin_id, centre_id, remarks)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 dispatch_date,
                 milk_type || 'cow',
@@ -118,6 +121,7 @@ exports.createDispatch = async (req, res) => {
                 (factory_rate !== null && factory_rate !== undefined && factory_rate !== '' && !isNaN(parseFloat(factory_rate))) ? parseFloat(factory_rate) : null,
                 (total_amount != null && !isNaN(parseFloat(total_amount))) ? parseFloat(total_amount) : 0,
                 operatorId,
+                createdByAdminId,
                 centreId,
                 remarks ? String(remarks).trim() : null,
             ]
@@ -127,10 +131,11 @@ exports.createDispatch = async (req, res) => {
 
         // ── return the inserted row ──
         const [newRow] = await pool.query(
-            `SELECT td.*, o.name AS operator_name
-             FROM tank_dispatch td
-             JOIN operators o ON o.operator_id = td.operator_id
-             WHERE td.dispatch_id = ? AND td.centre_id = ?`,
+            `SELECT td.*, o.name AS operator_name, a.name AS admin_name
+ FROM tank_dispatch td
+ LEFT JOIN operators o ON o.operator_id = td.operator_id
+ LEFT JOIN admins a ON a.admin_id = td.created_by_admin_id
+ WHERE td.dispatch_id = ? AND td.centre_id = ?`,
             [result.insertId, centreId]
         );
         res.status(201).json(newRow[0]);
@@ -309,10 +314,11 @@ exports.updateDispatch = async (req, res) => {
         await pool.query(updateQuery, updateParams);
 
         const [updated] = await pool.query(
-            `SELECT td.*, o.name AS operator_name
-             FROM tank_dispatch td
-             JOIN operators o ON o.operator_id = td.operator_id
-             WHERE td.dispatch_id = ? AND td.centre_id = ?`,
+            `SELECT td.*, o.name AS operator_name, a.name AS admin_name
+ FROM tank_dispatch td
+ LEFT JOIN operators o ON o.operator_id = td.operator_id
+ LEFT JOIN admins a ON a.admin_id = td.created_by_admin_id
+ WHERE td.dispatch_id = ? AND td.centre_id = ?`,
             [id, centreId]
         );
         res.json(updated[0]);
@@ -373,12 +379,13 @@ exports.getDispatchesByFactory = async (req, res) => {
 
         // REMOVED operator filter - both admin and operator see all
         let query = `
-            SELECT td.*, o.name AS operator_name
-            FROM tank_dispatch td
-            JOIN operators o ON o.operator_id = td.operator_id
-            WHERE td.centre_id = ?
-              AND td.factory_name LIKE ?
-        `;
+    SELECT td.*, o.name AS operator_name, a.name AS admin_name
+    FROM tank_dispatch td
+    LEFT JOIN operators o ON o.operator_id = td.operator_id
+    LEFT JOIN admins a ON a.admin_id = td.created_by_admin_id
+    WHERE td.centre_id = ?
+      AND td.factory_name LIKE ?
+`;
         let params = [centreId, `%${factory}%`];
 
         if (from && to) {

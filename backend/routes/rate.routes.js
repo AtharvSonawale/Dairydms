@@ -28,5 +28,7 @@ router.delete('/all', protect, isAdmin, ctrl.deleteAllRates);   // ← ADD befor
 router.put('/:id', protect, isAdmin, ctrl.updateRate);
 router.delete('/:id', protect, isAdmin, ctrl.deleteRate);
 
+router.post('/import', protect, isAdmin, ctrl.importRates);
+
 
 module.exports = router;

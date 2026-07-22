@@ -29,6 +29,23 @@ const TYPE_STYLE = {
     cash_paid: "bg-gray-900 text-white border-gray-900",
 };
 
+// Options for the "Type" filter dropdown — mirrors backend TYPE_LABELS
+const TYPE_FILTER_OPTIONS = [
+    { value: "", label: "All Types" },
+    { value: "milk_sale", label: "Milk Sale" },
+    { value: "advance_given", label: "Advance Given" },
+    { value: "advance_repayment", label: "Advance Repayment" },
+    { value: "advance_recovered", label: "Advance Installment Recovered" },
+    { value: "deposit_taken", label: "Deposit Taken" },
+    { value: "deposit_held", label: "Deposit Held" },
+    { value: "deposit_refund", label: "Deposit Refunded" },
+    { value: "deposit_withdrawn", label: "Deposit Withdrawn" },
+    { value: "product_purchase", label: "Product Purchase" },
+    { value: "cattle_feed_purchase", label: "Cattle Feed Purchase" },
+    { value: "walkin_purchase", label: "Milk Purchase (Walk-in)" },
+    { value: "cash_paid", label: "Payment Settled" },
+];
+
 // Builds a {from, to} range for a given preset, anchored on "today".
 function rangeFor(preset) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -65,7 +82,7 @@ export default function FarmerLedgerDetail() {
     const [to, setTo] = useState(() => rangeFor("month").to);
 
     const [tab, setTab] = useState("ledger"); // 'ledger' | 'milk'
-
+    const [typeFilter, setTypeFilter] = useState("");
     const [ledger, setLedger] = useState({ rows: [], opening_balance: 0, closing_balance: 0, total_credit: 0, total_debit: 0 });
     const [ledgerLoading, setLedgerLoading] = useState(false);
 
@@ -89,6 +106,7 @@ export default function FarmerLedgerDetail() {
         setLedgerLoading(true);
         try {
             const params = new URLSearchParams({ seller_id, from, to, limit: 500, page: 1 });
+            if (typeFilter) params.append("type", typeFilter);
             const { data } = await api.get(`/ledger?${params.toString()}`);
             setLedger(data);
         } catch (err) {
@@ -96,7 +114,7 @@ export default function FarmerLedgerDetail() {
         } finally {
             setLedgerLoading(false);
         }
-    }, [seller_id, from, to]);
+    }, [seller_id, from, to, typeFilter]);
 
     const fetchMilk = useCallback(async () => {
         setMilkLoading(true);
@@ -234,16 +252,28 @@ export default function FarmerLedgerDetail() {
                         icon={<CheckCircle2 size={16} />} color="text-violet-600 bg-violet-50 border-violet-100" />
                 </div>
 
-                {/* Tabs */}
-                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold w-fit">
-                    <button onClick={() => setTab("ledger")}
-                        className={`px-4 py-2.5 transition ${tab === "ledger" ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                        Ledger Transactions
-                    </button>
-                    <button onClick={() => setTab("milk")}
-                        className={`px-4 py-2.5 transition ${tab === "milk" ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                        Milk Entries
-                    </button>
+                {/* Tabs + Type filter */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold w-fit">
+                        <button onClick={() => setTab("ledger")}
+                            className={`px-4 py-2.5 transition ${tab === "ledger" ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                            Ledger Transactions
+                        </button>
+                        <button onClick={() => setTab("milk")}
+                            className={`px-4 py-2.5 transition ${tab === "milk" ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                            Milk Entries
+                        </button>
+                    </div>
+
+                    {tab === "ledger" && (
+                        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+                            className="border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-600 bg-white
+                                focus:outline-none focus:ring-2 focus:ring-black transition">
+                            {TYPE_FILTER_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 {/* Ledger tab */}

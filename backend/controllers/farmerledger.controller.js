@@ -535,3 +535,214 @@ exports.getFarmerMilkEntries = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
+// ── GET /api/ledger/summary ─────────────────────────────────────────────
+// Query params: search?, page=1, limit=25
+// Returns one row per farmer with advance/deposit account totals and the
+// last paid bill, plus centre-wide totals (unaffected by pagination).
+exports.getFarmerSummaries = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const { search, milk_type, page = 1, limit = 25 } = req.query;
+
+        const searchClause = search ? `AND (
+            s.name LIKE ? OR s.seller_code LIKE ? OR s.mobile LIKE ?
+        )` : '';
+        const searchArgs = search ? Array(3).fill(`%${search}%`) : [];
+
+        const milkTypeClause = milk_type ? `AND s.milk_type = ?` : '';
+        const milkTypeArgs = milk_type ? [milk_type] : [];
+
+        // Total farmer count (for pagination), respecting search filter.
+        const [[{ cnt }]] = await pool.query(
+            `SELECT COUNT(*) AS cnt FROM (
+                SELECT s.seller_id,
+                    COALESCE(adv_given.total, 0)    AS advance_credit,
+                    COALESCE(adv_received.total, 0) AS advance_debit,
+                    COALESCE(dep_credit.total, 0)   AS deposit_credit,
+                    COALESCE(dep_debit.total, 0)    AS deposit_debit,
+                    lastbill.bill_no                AS last_bill_no
+                FROM sellers s
+                LEFT JOIN (
+                    SELECT seller_id, SUM(amount) AS total
+                    FROM cash_advance WHERE centre_id = ? AND type = 'given'
+                    GROUP BY seller_id
+                ) adv_given ON adv_given.seller_id = s.seller_id
+                LEFT JOIN (
+                    SELECT seller_id, SUM(amount) AS total
+                    FROM cash_advance WHERE centre_id = ? AND type = 'received'
+                    GROUP BY seller_id
+                ) adv_received ON adv_received.seller_id = s.seller_id
+                LEFT JOIN (
+                    SELECT seller_id, SUM(amount) AS total
+                    FROM seller_deposits WHERE centre_id = ? AND type = 'credit'
+                    GROUP BY seller_id
+                ) dep_credit ON dep_credit.seller_id = s.seller_id
+                LEFT JOIN (
+                    SELECT seller_id, SUM(amount) AS total
+                    FROM seller_deposits WHERE centre_id = ? AND type = 'debit'
+                    GROUP BY seller_id
+                ) dep_debit ON dep_debit.seller_id = s.seller_id
+                LEFT JOIN (
+                    SELECT sp1.seller_id, sp1.bill_no
+                    FROM seller_payments sp1
+                    WHERE sp1.centre_id = ? AND sp1.paid_at IS NOT NULL
+                      AND sp1.paid_at = (
+                            SELECT MAX(sp2.paid_at) FROM seller_payments sp2
+                            WHERE sp2.seller_id = sp1.seller_id
+                              AND sp2.centre_id = ?
+                              AND sp2.paid_at IS NOT NULL
+                      )
+                ) lastbill ON lastbill.seller_id = s.seller_id
+                WHERE s.centre_id = ? ${searchClause} ${milkTypeClause}
+                HAVING NOT (
+                    advance_credit = 0 AND advance_debit = 0 AND
+                    deposit_credit = 0 AND deposit_debit = 0 AND
+                    last_bill_no IS NULL
+                )
+            ) t`,
+            [centreId, centreId, centreId, centreId, centreId, centreId, centreId, ...searchArgs, ...milkTypeArgs]
+        );
+        const start = (parseInt(page) - 1) * parseInt(limit);
+
+        const [rows] = await pool.query(
+            `SELECT
+                s.seller_id, s.seller_code, s.name, s.mobile, s.is_active,
+ 
+                COALESCE(adv_given.total, 0)    AS advance_credit,
+                COALESCE(adv_received.total, 0) AS advance_debit,
+ 
+                COALESCE(dep_credit.total, 0)   AS deposit_credit,
+                COALESCE(dep_debit.total, 0)    AS deposit_debit,
+ 
+                lastbill.bill_no        AS last_bill_no,
+                lastbill.paid_at        AS last_bill_paid_at,
+                lastbill.deposit_amount AS last_bill_deposit_amount,
+                lastbill.installment_cut AS last_bill_installment_cut,
+                lastbill.cash_paid      AS last_bill_cash_paid
+ 
+             FROM sellers s
+ 
+             -- Advances given to the farmer (increases what they owe us)
+             LEFT JOIN (
+                SELECT seller_id, SUM(amount) AS total
+                FROM cash_advance
+                WHERE centre_id = ? AND type = 'given'
+                GROUP BY seller_id
+             ) adv_given ON adv_given.seller_id = s.seller_id
+ 
+             -- Advances repaid/recovered (decreases what they owe us)
+             LEFT JOIN (
+                SELECT seller_id, SUM(amount) AS total
+                FROM cash_advance
+                WHERE centre_id = ? AND type = 'received'
+                GROUP BY seller_id
+             ) adv_received ON adv_received.seller_id = s.seller_id
+ 
+             -- Deposits taken/held (increases deposit we hold)
+             LEFT JOIN (
+                SELECT seller_id, SUM(amount) AS total
+                FROM seller_deposits
+                WHERE centre_id = ? AND type = 'credit'
+                GROUP BY seller_id
+             ) dep_credit ON dep_credit.seller_id = s.seller_id
+ 
+             -- Deposits refunded/withdrawn (decreases deposit we hold)
+             LEFT JOIN (
+                SELECT seller_id, SUM(amount) AS total
+                FROM seller_deposits
+                WHERE centre_id = ? AND type = 'debit'
+                GROUP BY seller_id
+             ) dep_debit ON dep_debit.seller_id = s.seller_id
+ 
+             -- Most recent settled bill per farmer
+             LEFT JOIN (
+                SELECT sp1.seller_id, sp1.bill_no, sp1.paid_at,
+                       sp1.deposit_amount, sp1.installment_cut, sp1.cash_paid
+                FROM seller_payments sp1
+                WHERE sp1.centre_id = ?
+                  AND sp1.paid_at IS NOT NULL
+                  AND sp1.paid_at = (
+                        SELECT MAX(sp2.paid_at) FROM seller_payments sp2
+                        WHERE sp2.seller_id = sp1.seller_id
+                          AND sp2.centre_id = ?
+                          AND sp2.paid_at IS NOT NULL
+                  )
+             ) lastbill ON lastbill.seller_id = s.seller_id
+ 
+             WHERE s.centre_id = ? ${searchClause} ${milkTypeClause}
+             HAVING NOT (
+                advance_credit = 0 AND
+                advance_debit = 0 AND
+                deposit_credit = 0 AND
+                deposit_debit = 0 AND
+                last_bill_no IS NULL
+             )
+             ORDER BY s.name ASC
+             LIMIT ? OFFSET ?`,
+            [
+                centreId, centreId, centreId, centreId, centreId, centreId,
+                centreId, ...searchArgs, ...milkTypeArgs, parseInt(limit), start,
+            ]
+        );
+
+        const mapped = rows.map(r => {
+            const advance_credit = round2(r.advance_credit);
+            const advance_debit = round2(r.advance_debit);
+            const deposit_credit = round2(r.deposit_credit);
+            const deposit_debit = round2(r.deposit_debit);
+
+            return {
+                seller_id: r.seller_id,
+                seller_code: r.seller_code,
+                name: r.name,
+                mobile: r.mobile,
+                is_active: r.is_active,
+
+                advance_credit,
+                advance_debit,
+                advance_balance: round2(advance_credit - advance_debit),
+
+                deposit_credit,
+                deposit_debit,
+                deposit_balance: round2(deposit_credit - deposit_debit),
+
+                last_bill_no: r.last_bill_no,
+                last_bill_paid_at: r.last_bill_paid_at,
+                last_bill_cash_paid: r.last_bill_no != null ? round2(r.last_bill_cash_paid) : null,
+                last_bill_amount: r.last_bill_no != null ? round2(r.last_bill_cash_paid) : null, // amount actually paid out to the farmer
+            };
+        });
+
+        // Centre-wide totals across ALL farmers (not just this page), so
+        // the summary cards on the page stay accurate under pagination.
+        const [[totals]] = await pool.query(
+            `SELECT
+                COALESCE(SUM(CASE WHEN ca.type = 'given' THEN ca.amount ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN ca.type = 'received' THEN ca.amount ELSE 0 END), 0) AS total_advance_outstanding
+             FROM cash_advance ca
+             WHERE ca.centre_id = ?`,
+            [centreId]
+        );
+        const [[depositTotals]] = await pool.query(
+            `SELECT
+                COALESCE(SUM(CASE WHEN sd.type = 'credit' THEN sd.amount ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN sd.type = 'debit' THEN sd.amount ELSE 0 END), 0) AS total_deposit_held
+             FROM seller_deposits sd
+             WHERE sd.centre_id = ?`,
+            [centreId]
+        );
+
+        res.json({
+            rows: mapped,
+            total: cnt,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total_advance_outstanding: round2(totals.total_advance_outstanding),
+            total_deposit_held: round2(depositTotals.total_deposit_held),
+        });
+    } catch (err) {
+        console.error('getFarmerSummaries error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
