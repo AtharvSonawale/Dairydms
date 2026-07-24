@@ -530,12 +530,12 @@ export default function SellerProfile() {
                                 </Field>
                                 <Field label={t('sellerProfile.editForm.milkType')} required>
                                     <div className="flex gap-2">
-                                        {MILK_TYPES.map(t => (
-                                            <label key={t} className={`flex-1 flex items-center justify-center py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
-                                                ${editForm.milk_type === t ? t === "cow" ? "bg-amber-50 border-amber-300 text-amber-800" : t === "buffalo" ? "bg-blue-50 border-blue-300 text-blue-800" : "bg-violet-50 border-violet-300 text-violet-800" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
-                                                <input type="radio" checked={editForm.milk_type === t}
-                                                    onChange={() => setEditForm(p => ({ ...p, milk_type: t }))} className="hidden" />
-                                                {t === "cow" ? t('sellerProfile.editForm.milkTypeCow') : t === "buffalo" ? t('sellerProfile.editForm.milkTypeBuffalo') : t('sellerProfile.editForm.milkTypeMixed')}
+                                        {MILK_TYPES.map(mt => (
+                                            <label key={mt} className={`flex-1 flex items-center justify-center py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                                ${editForm.milk_type === mt ? mt === "cow" ? "bg-amber-50 border-amber-300 text-amber-800" : mt === "buffalo" ? "bg-blue-50 border-blue-300 text-blue-800" : "bg-violet-50 border-violet-300 text-violet-800" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                                                <input type="radio" checked={editForm.milk_type === mt}
+                                                    onChange={() => setEditForm(p => ({ ...p, milk_type: mt }))} className="hidden" />
+                                                {mt === "cow" ? t('sellerProfile.editForm.milkTypeCow') : mt === "buffalo" ? t('sellerProfile.editForm.milkTypeBuffalo') : t('sellerProfile.editForm.milkTypeMixed')}
                                             </label>
                                         ))}
                                     </div>
