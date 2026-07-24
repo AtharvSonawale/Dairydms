@@ -19,8 +19,8 @@ const SERIAL_DEFAULTS = {
 };
 
 const MACHINE_TYPES = [
-    { value: 'weight', label: 'Weight Machine' },
-    { value: 'fat', label: 'Fat Machine' },
+    { value: 'weight', labelKey: 'portSettings.machineType.weight' },
+    { value: 'fat', labelKey: 'portSettings.machineType.fat' },
 ];
 
 const BAUD_RATES = ['300', '600', '1200', '2400', '4800', '9600', '14400', '19200', '38400', '57600', '115200'];
@@ -56,7 +56,6 @@ function PortField({ label, hint, children, required }) {
     );
 }
 
-// Line 87-95 (PortSelect component definition)
 function PortSelect({ value, onChange, options, disabled, renderLabel, placeholder, className = '' }) {
     return (
         <select
@@ -75,11 +74,11 @@ function PortSelect({ value, onChange, options, disabled, renderLabel, placehold
     );
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, t }) {
     const map = {
-        connected: { color: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-500', label: 'Connected' },
-        disconnected: { color: 'bg-rose-50 text-rose-600 border-rose-100', dot: 'bg-rose-400', label: 'Disconnected' },
-        unknown: { color: 'bg-gray-50 text-gray-500 border-gray-100', dot: 'bg-gray-300', label: 'Unknown' },
+        connected: { color: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-500', label: t('portSettings.connectionStatus.connected') },
+        disconnected: { color: 'bg-rose-50 text-rose-600 border-rose-100', dot: 'bg-rose-400', label: t('portSettings.connectionStatus.disconnected') },
+        unknown: { color: 'bg-gray-50 text-gray-500 border-gray-100', dot: 'bg-gray-300', label: t('portSettings.connectionStatus.unknown') },
     };
     const s = map[status] || map.unknown;
     return (
@@ -150,15 +149,24 @@ export default function PortSettings() {
             steps: [
                 {
                     element: '[data-tour="machine-type"]',
-                    popover: { title: 'Machine Type', description: 'Choose which machine you are configuring: Weight Machine or Fat Machine. Each has its own saved port settings.' },
+                    popover: {
+                        title: t('portSettings.tour.step1.title'),
+                        description: t('portSettings.tour.step1.description'),
+                    },
                 },
                 {
                     element: '[data-tour="scan-btn"]',
-                    popover: { title: 'Scan Ports', description: 'Refreshes the list of serial ports currently available on this computer.' },
+                    popover: {
+                        title: t('portSettings.tour.step2.title'),
+                        description: t('portSettings.tour.step2.description'),
+                    },
                 },
                 {
                     element: '[data-tour="serial-ports"]',
-                    popover: { title: 'Serial / RS232', description: 'Select the COM port and configure baud rate, data bits, stop bits, and parity for the selected machine.' },
+                    popover: {
+                        title: t('portSettings.tour.step3.title'),
+                        description: t('portSettings.tour.step3.description'),
+                    },
                 },
             ],
         });
@@ -173,12 +181,12 @@ export default function PortSettings() {
             const ports = data?.ports || [];
             setAvailablePorts(ports);
             if (ports.length === 0) {
-                showFlash('error', 'No serial ports detected on this machine.');
+                showFlash('error', t('portSettings.flash.noPortsDetected'));
             } else {
-                showFlash('success', `Found ${ports.length} serial port${ports.length === 1 ? '' : 's'}.`);
+                showFlash('success', t('portSettings.flash.foundPorts', { count: ports.length }));
             }
         } catch {
-            showFlash('error', 'Failed to scan for serial ports.');
+            showFlash('error', t('portSettings.flash.scanFailed'));
         } finally {
             setScanning(false);
         }
@@ -191,17 +199,17 @@ export default function PortSettings() {
         try {
             const { data } = await api.post('/settings/ports/test', { config: form });
             setTestResult(data.success ? 'connected' : 'disconnected');
-            let msg = data.message || (data.success ? 'Connection successful.' : 'Connection failed.');
+            let msg = data.message || (data.success ? t('portSettings.flash.connectionSuccess') : t('portSettings.flash.connectionFailed'));
             if (!data.success && /access denied/i.test(msg)) {
-                msg += ' This port may be in use by another program — close any other app using it (Arduino IDE, PuTTY, another instance of this server) and try again.';
+                msg += ' ' + t('portSettings.flash.connectionInUse');
             } else if (!data.success && /(error code 121|timeout)/i.test(msg)) {
-                msg += ' This port is registered with Windows but no device appears to be connected right now.';
+                msg += ' ' + t('portSettings.flash.connectionNoDevice');
             }
             showFlash(data.success ? 'success' : 'error', msg);
             if (data.success) scanPorts(); // refresh open/closed state in the dropdown
         } catch {
             setTestResult('disconnected');
-            showFlash('error', 'Connection test failed.');
+            showFlash('error', t('portSettings.flash.testFailed'));
         } finally {
             setTesting(false);
         }
@@ -213,11 +221,11 @@ export default function PortSettings() {
         setClosingPort(true);
         try {
             const { data } = await api.post('/settings/ports/close', { serial_port: form.serial_port });
-            showFlash(data.success ? 'success' : 'error', data.message || 'Port closed.');
+            showFlash(data.success ? 'success' : 'error', data.message || t('portSettings.flash.portClosed'));
             setTestResult(null);
             await scanPorts();
         } catch {
-            showFlash('error', 'Failed to close port.');
+            showFlash('error', t('portSettings.flash.closeFailed'));
         } finally {
             setClosingPort(false);
         }
@@ -226,7 +234,7 @@ export default function PortSettings() {
     // ── Save ──────────────────────────────────────────────────
     const handleSave = async () => {
         if (!form.serial_port) {
-            showFlash('error', 'Please select a COM port before saving. Click "Scan Ports" if the list is empty.');
+            showFlash('error', t('portSettings.flash.selectPort'));
             return;
         }
 
@@ -234,9 +242,10 @@ export default function PortSettings() {
         try {
             await api.post('/settings/ports', { ...form, machine_type: machineType });
             setSavedByMachine(p => ({ ...p, [machineType]: form }));
-            showFlash('success', `${MACHINE_TYPES.find(m => m.value === machineType)?.label} settings saved successfully.`);
+            const machineLabel = MACHINE_TYPES.find(m => m.value === machineType)?.labelKey;
+            showFlash('success', t('portSettings.flash.saveSuccess', { machineType: machineLabel ? t(machineLabel) : machineType }));
         } catch (err) {
-            showFlash('error', err.response?.data?.error || 'Failed to save port settings.');
+            showFlash('error', err.response?.data?.error || t('portSettings.flash.saveFailed'));
         } finally {
             setSaving(false);
         }
@@ -246,7 +255,7 @@ export default function PortSettings() {
     const handleReset = () => {
         setByMachine(p => ({ ...p, [machineType]: savedByMachine[machineType] }));
         setTestResult(null);
-        showFlash('success', 'Reset to last saved values.');
+        showFlash('success', t('portSettings.flash.resetSuccess'));
     };
 
     if (loading) return (
@@ -266,11 +275,11 @@ export default function PortSettings() {
                             <Plug size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Port Settings</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">Configure server, database, serial, and network ports</p>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('portSettings.title')}</h1>
+                            <p className="text-xs text-gray-400 mt-0.5">{t('portSettings.subtitle')}</p>
                         </div>
                         <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-gray-500 text-xs font-medium ml-1">
-                            Admin Only
+                            {t('portSettings.adminOnly')}
                         </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -278,13 +287,13 @@ export default function PortSettings() {
                             onClick={startTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={13} /> {t('portSettings.startTour')}
                         </button>
                         <button
                             onClick={handleReset}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
                         >
-                            <RefreshCw size={13} /> Reset
+                            <RefreshCw size={13} /> {t('portSettings.reset')}
                         </button>
                         <button
                             onClick={handleSave}
@@ -294,7 +303,7 @@ export default function PortSettings() {
                             {saving
                                 ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <Save size={13} />}
-                            {saving ? 'Saving…' : 'Save'}
+                            {saving ? t('portSettings.saving') : t('portSettings.save')}
                         </button>
                     </div>
                 </div>
@@ -315,7 +324,7 @@ export default function PortSettings() {
 
                 {/* ── Serial / RS232 ── */}
                 <SectionCard
-                    title="Serial Port / RS232"
+                    title={t('portSettings.serialSection')}
                     icon={<Terminal size={15} className="text-white" />}
                     tourId="serial-ports"
                     headerRight={
@@ -326,13 +335,17 @@ export default function PortSettings() {
                             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition disabled:opacity-50"
                         >
                             <ScanLine size={13} className={scanning ? 'animate-pulse' : ''} />
-                            {scanning ? 'Scanning…' : 'Scan Ports'}
+                            {scanning ? t('portSettings.scanning') : t('portSettings.scanPorts')}
                         </button>
                     }
                 >
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
                         {/* First row - all fields */}
-                        <PortField label="Machine Type" hint="Each machine type stores its own port settings" required>
+                        <PortField
+                            label={t('portSettings.machineType.label')}
+                            hint={t('portSettings.machineType.hint')}
+                            required
+                        >
                             <div data-tour="machine-type">
                                 <PortSelect
                                     value={machineType}
@@ -341,12 +354,16 @@ export default function PortSettings() {
                                         localStorage.setItem('lastMachineType', e.target.value);
                                     }}
                                     options={MACHINE_TYPES.map(m => m.value)}
-                                    renderLabel={v => MACHINE_TYPES.find(m => m.value === v)?.label || v}
+                                    renderLabel={v => t(MACHINE_TYPES.find(m => m.value === v)?.labelKey || v)}
                                     className="w-full"
                                 />
                             </div>
                         </PortField>
-                        <PortField label="COM Port" hint="Detected ports on this system — click Scan Ports to refresh, or type one manually (e.g. for virtual com0com ports)" required>
+                        <PortField
+                            label={t('portSettings.comPort.label')}
+                            hint={t('portSettings.comPort.hint')}
+                            required
+                        >
                             <div className="flex items-center gap-2">
                                 {manualPortEntry ? (
                                     <input
@@ -366,7 +383,7 @@ export default function PortSettings() {
                                             const p = availablePorts.find(ap => ap.path === path);
                                             return p?.isOpen ? `${path} (open)` : path;
                                         }}
-                                        placeholder={availablePorts.length ? undefined : 'No ports found — click Scan'}
+                                        placeholder={availablePorts.length ? undefined : t('portSettings.comPort.noPortsFound')}
                                         className="w-full"
                                     />
                                 )}
@@ -375,7 +392,7 @@ export default function PortSettings() {
                                     onClick={() => setManualPortEntry(v => !v)}
                                     className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-2 rounded-lg bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 transition whitespace-nowrap flex-shrink-0"
                                 >
-                                    {manualPortEntry ? 'Use List' : 'Type Manually'}
+                                    {manualPortEntry ? t('portSettings.comPort.useList') : t('portSettings.comPort.typeManually')}
                                 </button>
                                 {availablePorts.find(p => p.path === form.serial_port)?.isOpen && (
                                     <button
@@ -385,12 +402,15 @@ export default function PortSettings() {
                                         className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-2 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition disabled:opacity-50 whitespace-nowrap flex-shrink-0"
                                     >
                                         <PowerOff size={11} />
-                                        {closingPort ? 'Closing…' : 'Close Port'}
+                                        {closingPort ? t('portSettings.comPort.closing') : t('portSettings.comPort.closePort')}
                                     </button>
                                 )}
                             </div>
                         </PortField>
-                        <PortField label="Baud Rate" hint="Match the baud rate of your device">
+                        <PortField
+                            label={t('portSettings.baudRate.label')}
+                            hint={t('portSettings.baudRate.hint')}
+                        >
                             <PortSelect
                                 value={form.serial_baud_rate}
                                 onChange={e => set('serial_baud_rate', e.target.value)}
@@ -398,7 +418,7 @@ export default function PortSettings() {
                                 className="w-full"
                             />
                         </PortField>
-                        <PortField label="Data Bits">
+                        <PortField label={t('portSettings.dataBits.label')}>
                             <PortSelect
                                 value={form.serial_data_bits}
                                 onChange={e => set('serial_data_bits', e.target.value)}
@@ -406,7 +426,7 @@ export default function PortSettings() {
                                 className="w-full"
                             />
                         </PortField>
-                        <PortField label="Stop Bits">
+                        <PortField label={t('portSettings.stopBits.label')}>
                             <PortSelect
                                 value={form.serial_stop_bits}
                                 onChange={e => set('serial_stop_bits', e.target.value)}
@@ -414,7 +434,7 @@ export default function PortSettings() {
                                 className="w-full"
                             />
                         </PortField>
-                        <PortField label="Parity">
+                        <PortField label={t('portSettings.parity.label')}>
                             <PortSelect
                                 value={form.serial_parity}
                                 onChange={e => set('serial_parity', e.target.value)}
@@ -422,16 +442,16 @@ export default function PortSettings() {
                                 className="w-full"
                             />
                         </PortField>
-                        <PortField label="Connection Status">
+                        <PortField label={t('portSettings.connectionStatus.label')}>
                             <div className="flex items-center gap-3 h-[38px] px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
                                 <Plug size={13} className="text-gray-400" />
-                                <StatusBadge status={testResult || 'unknown'} />
+                                <StatusBadge status={testResult || 'unknown'} t={t} />
                                 <button
                                     onClick={testConnection}
                                     disabled={testing || !form.serial_port}
                                     className="ml-auto text-[10px] px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition disabled:opacity-50 font-semibold"
                                 >
-                                    {testing ? '…' : 'Test'}
+                                    {testing ? '…' : t('portSettings.connectionStatus.test')}
                                 </button>
                             </div>
                         </PortField>
@@ -440,12 +460,12 @@ export default function PortSettings() {
                     {/* Summary strip */}
                     <div className="flex flex-wrap items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 text-xs font-mono text-gray-600">
                         <span className="font-semibold text-gray-800">
-                            {MACHINE_TYPES.find(m => m.value === machineType)?.label}
+                            {t(MACHINE_TYPES.find(m => m.value === machineType)?.labelKey)}
                         </span>
                         <span className="text-gray-300">·</span>
-                        <span className="font-semibold text-gray-800">{form.serial_port || '— no port selected —'}</span>
+                        <span className="font-semibold text-gray-800">{form.serial_port || t('portSettings.comPort.noPortSelected')}</span>
                         <span className="text-gray-300">·</span>
-                        <span>{form.serial_baud_rate} baud</span>
+                        <span>{form.serial_baud_rate} {t('portSettings.summary.baud')}</span>
                         <span className="text-gray-300">·</span>
                         <span>{form.serial_data_bits}-{form.serial_parity.charAt(0).toUpperCase()}-{form.serial_stop_bits}</span>
                     </div>
@@ -461,7 +481,7 @@ export default function PortSettings() {
                         {saving
                             ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             : <Save size={14} />}
-                        {saving ? 'Saving…' : 'Save All Port Settings'}
+                        {saving ? t('portSettings.saving') : t('portSettings.saveAll')}
                     </button>
                 </div>
 

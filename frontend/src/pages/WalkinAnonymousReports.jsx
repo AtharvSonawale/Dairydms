@@ -1,4 +1,4 @@
-// WalkinAnonymousReports.jsx
+// src/pages/admin/WalkinAnonymousReports.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -63,9 +63,27 @@ export default function WalkinAnonymousReports() {
             showProgress: true,
             allowClose: true,
             steps: [
-                { element: '[data-tour="anon-date-filters"]', popover: { title: "Report Period", description: "Choose the period for anonymous walk‑in sales – Daily, Weekly, Monthly, or Year." } },
-                { element: '[data-tour="anon-stats"]', popover: { title: "Sales Totals", description: "Quick totals for quantity, sales amount, and number of transactions." } },
-                { element: '[data-tour="anon-table"]', popover: { title: "Anonymous Sales Table", description: "Each row represents a single anonymous sale." } },
+                {
+                    element: '[data-tour="anon-date-filters"]',
+                    popover: {
+                        title: t('anonymousReport.tour.filters.title'),
+                        description: t('anonymousReport.tour.filters.description'),
+                    },
+                },
+                {
+                    element: '[data-tour="anon-stats"]',
+                    popover: {
+                        title: t('anonymousReport.tour.stats.title'),
+                        description: t('anonymousReport.tour.stats.description'),
+                    },
+                },
+                {
+                    element: '[data-tour="anon-table"]',
+                    popover: {
+                        title: t('anonymousReport.tour.table.title'),
+                        description: t('anonymousReport.tour.table.description'),
+                    },
+                },
             ],
         });
         driverObj.drive();
@@ -80,7 +98,7 @@ export default function WalkinAnonymousReports() {
             setSales(anon);
         } catch (err) {
             console.error("Failed to fetch anonymous sales:", err);
-            showFlash("error", "Failed to load anonymous sales.");
+            showFlash("error", t('anonymousReport.fetchError'));
             setSales([]);
         } finally {
             setLoading(false);
@@ -174,7 +192,7 @@ export default function WalkinAnonymousReports() {
     // ── PDF export ────────────────────────────────────────────────
     const handleExportPDF = () => {
         const win = window.open("", "_blank", "width=1400,height=900");
-        if (!win) { showFlash("error", "Popup blocked."); return; }
+        if (!win) { showFlash("error", t('anonymousReport.popupBlocked')); return; }
 
         const periodLabel = dateRange.from === dateRange.to ? fmtDate(dateRange.from) : `${fmtDate(dateRange.from)} – ${fmtDate(dateRange.to)}`;
         const rows = filteredSales.map((s, i) => `
@@ -197,7 +215,7 @@ export default function WalkinAnonymousReports() {
         };
 
         win.document.write(`<!DOCTYPE html>
-<html><head><title>Anonymous Walk‑in Sales — ${periodLabel}</title>
+<html><head><title>${t('anonymousReport.pdf.title')} — ${periodLabel}</title>
 <style>
   * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body { font-family:Arial,Helvetica,sans-serif; font-size:10px; color:#111; margin:0; padding:16px; }
@@ -219,19 +237,19 @@ export default function WalkinAnonymousReports() {
 <body>
 <div class="report-header">
   <div>
-    <div class="report-title">Anonymous Walk‑in Sales</div>
-    <div class="report-sub">${periodLabel} · ${filteredSales.length} transactions</div>
+    <div class="report-title">${t('anonymousReport.pdf.title')}</div>
+    <div class="report-sub">${periodLabel} · ${filteredSales.length} ${t('anonymousReport.pdf.transactions')}</div>
   </div>
-  <div class="report-gen">Generated: ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+  <div class="report-gen">${t('anonymousReport.pdf.generated')}: ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
 </div>
 <table>
   <thead>
-    <tr><th>#</th><th>Date</th><th>Shift</th><th>Milk Type</th><th>Qty (L)</th><th>Total Amt</th><th>Paid</th><th>Balance</th></tr>
+    <tr><th>#</th><th>${t('anonymousReport.pdf.date')}</th><th>${t('anonymousReport.pdf.shift')}</th><th>${t('anonymousReport.pdf.milkType')}</th><th>${t('anonymousReport.pdf.qty')}</th><th>${t('anonymousReport.pdf.totalAmt')}</th><th>${t('anonymousReport.pdf.paid')}</th><th>${t('anonymousReport.pdf.balance')}</th></tr>
   </thead>
   <tbody>
     ${rows}
     <tr class="grand-row">
-      <td colspan="4">GRAND TOTAL</td>
+      <td colspan="4">${t('anonymousReport.pdf.grandTotal')}</td>
       <td>${grand.qty.toFixed(2)} L</td>
       <td>${fmt(grand.total)}</td>
       <td>${fmt(grand.paid)}</td>
@@ -240,10 +258,10 @@ export default function WalkinAnonymousReports() {
   </tbody>
 </table>
 <div class="report-footer">
-  <span>Anonymous Walk‑in Sales · Printed ${new Date().toLocaleString()}</span>
+  <span>${t('anonymousReport.pdf.footer')} ${new Date().toLocaleString()}</span>
   <div style="text-align:center">
     <div class="signatory-line"></div>
-    <span class="signatory-label">Authorised Signatory</span>
+    <span class="signatory-label">${t('anonymousReport.pdf.signatory')}</span>
   </div>
 </div>
 <script>window.onload = () => window.print();</script>
@@ -272,10 +290,10 @@ export default function WalkinAnonymousReports() {
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                Anonymous Walk‑in Sales
+                                {t('anonymousReport.title')}
                             </h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                All sales without a named buyer or seller
+                                {t('anonymousReport.subtitle')}
                             </p>
                         </div>
                     </div>
@@ -285,13 +303,13 @@ export default function WalkinAnonymousReports() {
                             onClick={startTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={13} /> {t('anonymousReport.takeTour')}
                         </button>
                         <button
                             onClick={handleExportPDF}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition"
                         >
-                            <Download size={14} /> Export PDF
+                            <Download size={14} /> {t('anonymousReport.exportPDF')}
                         </button>
                     </div>
                 </div>
@@ -303,7 +321,7 @@ export default function WalkinAnonymousReports() {
                             { v: "daily", l: t("payments.day") },
                             { v: "weekly", l: t("payments.week") },
                             { v: "monthly", l: t("payments.month") },
-                            { v: "yearly", l: "Year" },
+                            { v: "yearly", l: t('anonymousReport.rangeYear') },
                         ].map(({ v, l }) => (
                             <button key={v} type="button" onClick={() => handleDateRangeChange(v)}
                                 className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
@@ -364,36 +382,58 @@ export default function WalkinAnonymousReports() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="anon-stats">
-                    <StatCard label="Total Milk" value={`${overall.totalQty.toFixed(2)} L`} icon={<Milk size={14} />} color="text-violet-600 bg-violet-50 border-violet-100" />
-                    <StatCard label="Sales Amount" value={fmt(overall.totalAmt)} icon={<TrendingUp size={14} />} color="text-blue-600 bg-blue-50 border-blue-100" />
-                    <StatCard label="Amount Paid" value={fmt(overall.totalPaid)} icon={<DollarSign size={14} />} color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                    <StatCard label="Outstanding" value={fmt(overall.outstanding)}
-                        sub={`${overall.count} transactions`}
-                        icon={<Clock size={14} />} color="text-rose-600 bg-rose-50 border-rose-100" />
+                    <StatCard
+                        label={t('anonymousReport.stats.totalMilk')}
+                        value={`${overall.totalQty.toFixed(2)} L`}
+                        icon={<Milk size={14} />}
+                        color="text-violet-600 bg-violet-50 border-violet-100"
+                    />
+                    <StatCard
+                        label={t('anonymousReport.stats.salesAmount')}
+                        value={fmt(overall.totalAmt)}
+                        icon={<TrendingUp size={14} />}
+                        color="text-blue-600 bg-blue-50 border-blue-100"
+                    />
+                    <StatCard
+                        label={t('anonymousReport.stats.amountPaid')}
+                        value={fmt(overall.totalPaid)}
+                        icon={<DollarSign size={14} />}
+                        color="text-emerald-600 bg-emerald-50 border-emerald-100"
+                    />
+                    <StatCard
+                        label={t('anonymousReport.stats.outstanding')}
+                        value={fmt(overall.outstanding)}
+                        sub={t('anonymousReport.stats.outstandingSub', { count: overall.count })}
+                        icon={<Clock size={14} />}
+                        color="text-rose-600 bg-rose-50 border-rose-100"
+                    />
                 </div>
 
                 {/* Search + Sort */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-                            placeholder="Search by sale ID, shift, or milk type"
+                        <input
+                            value={search}
+                            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                            placeholder={t('anonymousReport.searchPlaceholder')}
                             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300"
+                        />
                     </div>
 
                     <div className="flex items-center gap-1.5 text-xs">
                         <ArrowUpDown size={12} className="text-gray-400" />
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                             className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
-                            <option value="date">Sort: Date (oldest)</option>
-                            <option value="qty">Sort: Quantity</option>
-                            <option value="amount">Sort: Amount</option>
+                            <option value="date">{t('anonymousReport.sort.date')}</option>
+                            <option value="qty">{t('anonymousReport.sort.qty')}</option>
+                            <option value="amount">{t('anonymousReport.sort.amount')}</option>
                         </select>
                     </div>
 
                     <span className="ml-auto text-xs text-gray-400">
-                        {filteredSales.length} {filteredSales.length !== 1 ? "sales" : "sale"}
+                        {t('anonymousReport.saleCount', { count: filteredSales.length })}
                     </span>
                 </div>
 
@@ -406,7 +446,7 @@ export default function WalkinAnonymousReports() {
                     ) : paginated.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
                             <FileText size={32} />
-                            <p className="text-sm">No anonymous sales found for this period</p>
+                            <p className="text-sm">{t('anonymousReport.noSales')}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -414,13 +454,13 @@ export default function WalkinAnonymousReports() {
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                                         <th className="px-4 py-3 w-10">#</th>
-                                        <th className="px-4 py-3 min-w-[90px]">Date</th>
-                                        <th className="px-4 py-3">Shift</th>
-                                        <th className="px-4 py-3">Milk Type</th>
-                                        <th className="px-4 py-3 text-right">Qty (L)</th>
-                                        <th className="px-4 py-3 text-right">Total Amt</th>
-                                        <th className="px-4 py-3 text-right">Paid</th>
-                                        <th className="px-4 py-3 text-right">Balance</th>
+                                        <th className="px-4 py-3 min-w-[90px]">{t('anonymousReport.table.date')}</th>
+                                        <th className="px-4 py-3">{t('anonymousReport.table.shift')}</th>
+                                        <th className="px-4 py-3">{t('anonymousReport.table.milkType')}</th>
+                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.qty')}</th>
+                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.totalAmt')}</th>
+                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.paid')}</th>
+                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.balance')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>

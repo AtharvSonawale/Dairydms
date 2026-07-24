@@ -1,4 +1,4 @@
-// WalkinNamedBuyerReports.jsx
+// src/pages/admin/WalkinNamedBuyerReports.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -71,9 +71,27 @@ export default function WalkinNamedBuyerReports() {
             showProgress: true,
             allowClose: true,
             steps: [
-                { element: '[data-tour="buyer-date-filters"]', popover: { title: "Report Period", description: "Choose the period – Daily, Weekly, Monthly, or Year." } },
-                { element: '[data-tour="buyer-stats"]', popover: { title: "Buyer Totals", description: "Quick totals for milk purchased, amount collected, and outstanding balance." } },
-                { element: '[data-tour="buyer-table"]', popover: { title: "Named Buyer Ledger Table", description: "All named buyers listed with key metrics. Click the expand icon to see detailed statement." } },
+                {
+                    element: '[data-tour="buyer-date-filters"]',
+                    popover: {
+                        title: t('namedBuyerReport.tour.filters.title'),
+                        description: t('namedBuyerReport.tour.filters.description'),
+                    },
+                },
+                {
+                    element: '[data-tour="buyer-stats"]',
+                    popover: {
+                        title: t('namedBuyerReport.tour.stats.title'),
+                        description: t('namedBuyerReport.tour.stats.description'),
+                    },
+                },
+                {
+                    element: '[data-tour="buyer-table"]',
+                    popover: {
+                        title: t('namedBuyerReport.tour.table.title'),
+                        description: t('namedBuyerReport.tour.table.description'),
+                    },
+                },
             ],
         });
         driverObj.drive();
@@ -301,15 +319,15 @@ export default function WalkinNamedBuyerReports() {
         if (willOpen) buildStatement(buyer);
     };
 
-    // ── PDF: consolidated named buyer report (simplified) ──────
+    // ── PDF: consolidated named buyer report ──────────────────────
     const handleExportPDF = () => {
         const win = window.open("", "_blank", "width=1200,height=900");
-        if (!win) { showFlash("error", "Popup blocked."); return; }
+        if (!win) { showFlash("error", t('namedBuyerReport.popupBlocked')); return; }
 
         const modeLabel = rangeMode === "daily" ? t("payments.daily") :
             rangeMode === "weekly" ? t("payments.weekly") :
                 rangeMode === "monthly" ? t("payments.monthly") :
-                    rangeMode === "yearly" ? "Yearly" :
+                    rangeMode === "yearly" ? t('namedBuyerReport.rangeYear') :
                         t("payments.custom");
         const periodLabel = dateRange.from === dateRange.to ? fmtDate(dateRange.from) : `${fmtDate(dateRange.from)} – ${fmtDate(dateRange.to)}`;
 
@@ -324,7 +342,7 @@ export default function WalkinNamedBuyerReports() {
                 <td class="td-num td-bold">${b.range_sales_amt > 0 ? fmt(b.range_sales_amt) : "—"}</td>
                 <td class="td-num td-bold" style="color:#1d4ed8">${b.range_paid > 0 ? fmt(b.range_paid) : "—"}</td>
                 <td class="td-num td-bold" style="color:${b.outstanding_balance > 0.01 ? '#b91c1c' : '#15803d'}">
-                    ${b.outstanding_balance > 0.01 ? fmt(b.outstanding_balance) : "✓ Nil"}
+                    ${b.outstanding_balance > 0.01 ? fmt(b.outstanding_balance) : t('namedBuyerReport.pdf.nil')}
                 </td>
                 <td class="td-center">${b.last_payment_date ? fmtShort(b.last_payment_date) : "—"}</td>
             </tr>`).join("");
@@ -337,7 +355,7 @@ export default function WalkinNamedBuyerReports() {
         };
 
         win.document.write(`<!DOCTYPE html>
-<html><head><title>Named Buyer Report — ${periodLabel}</title>
+<html><head><title>${t('namedBuyerReport.pdf.title')} — ${periodLabel}</title>
 <style>
   * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body { font-family:Arial,Helvetica,sans-serif; font-size:10px; color:#111; margin:0; padding:16px; }
@@ -363,17 +381,17 @@ export default function WalkinNamedBuyerReports() {
 <body>
 <div class="report-header">
   <div>
-    <div class="report-title">Named Buyer Payments Report</div>
-    <div class="report-sub">${modeLabel} Report &nbsp;·&nbsp; ${periodLabel} &nbsp;·&nbsp; ${filteredBuyers.length} buyers</div>
+    <div class="report-title">${t('namedBuyerReport.pdf.title')}</div>
+    <div class="report-sub">${t('namedBuyerReport.pdf.period', { mode: modeLabel, period: periodLabel, count: filteredBuyers.length })}</div>
   </div>
-  <div class="report-gen">Generated: ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+  <div class="report-gen">${t('namedBuyerReport.pdf.generated')}: ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
   <div class="badges">
     <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;padding:4px 10px;border-radius:6px;text-align:center;min-width:70px">
-      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">Collected</div>
+      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">${t('namedBuyerReport.pdf.collected')}</div>
       <div style="font-size:12px;font-weight:900;color:#15803d">${fmt(overall.totalCollected)}</div>
     </div>
     <div style="background:#fee2e2;border:1.5px solid #fca5a5;padding:4px 10px;border-radius:6px;text-align:center;min-width:70px">
-      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">Outstanding</div>
+      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">${t('namedBuyerReport.pdf.outstanding')}</div>
       <div style="font-size:12px;font-weight:900;color:#b91c1c">${fmt(overall.totalOutstanding)}</div>
     </div>
   </div>
@@ -381,14 +399,14 @@ export default function WalkinNamedBuyerReports() {
 <table>
   <thead>
     <tr>
-      <th>#</th><th style="text-align:left">Buyer</th><th>Qty</th><th>Purchase Amt</th>
-      <th>Total Paid</th><th>Balance</th><th>Last Paid</th>
+      <th>#</th><th style="text-align:left">${t('namedBuyerReport.table.buyer')}</th><th>${t('namedBuyerReport.table.qty')}</th><th>${t('namedBuyerReport.table.purchaseAmt')}</th>
+      <th>${t('namedBuyerReport.table.totalPaid')}</th><th>${t('namedBuyerReport.table.balance')}</th><th>${t('namedBuyerReport.table.lastPaid')}</th>
     </tr>
   </thead>
   <tbody>
     ${rows}
     <tr class="grand-row">
-      <td colspan="2">GRAND TOTAL</td>
+      <td colspan="2">${t('namedBuyerReport.pdf.grandTotal')}</td>
       <td>${grand.qty.toFixed(2)} L</td>
       <td>${fmt(grand.salesAmt)}</td>
       <td>${fmt(grand.paid)}</td>
@@ -398,10 +416,10 @@ export default function WalkinNamedBuyerReports() {
   </tbody>
 </table>
 <div class="report-footer">
-  <span>Named Buyer Report · Printed ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</span>
+  <span>${t('namedBuyerReport.pdf.footer')} ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</span>
   <div style="text-align:center">
     <div class="signatory-line"></div>
-    <span class="signatory-label">Authorised Signatory</span>
+    <span class="signatory-label">${t('namedBuyerReport.pdf.signatory')}</span>
   </div>
 </div>
 <script>window.onload = () => window.print();</script>
@@ -430,10 +448,10 @@ export default function WalkinNamedBuyerReports() {
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                Named Buyer Payments Report
+                                {t('namedBuyerReport.title')}
                             </h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Purchases, collections, and outstanding balances — named buyers only
+                                {t('namedBuyerReport.subtitle')}
                             </p>
                         </div>
                     </div>
@@ -443,13 +461,13 @@ export default function WalkinNamedBuyerReports() {
                             onClick={startTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={13} /> {t('namedBuyerReport.takeTour')}
                         </button>
                         <button
                             onClick={handleExportPDF}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition"
                         >
-                            <Download size={14} /> Export PDF
+                            <Download size={14} /> {t('namedBuyerReport.exportPDF')}
                         </button>
                     </div>
                 </div>
@@ -461,7 +479,7 @@ export default function WalkinNamedBuyerReports() {
                             { v: "daily", l: t("payments.day") },
                             { v: "weekly", l: t("payments.week") },
                             { v: "monthly", l: t("payments.month") },
-                            { v: "yearly", l: "Year" },
+                            { v: "yearly", l: t('namedBuyerReport.rangeYear') },
                         ].map(({ v, l }) => (
                             <button key={v} type="button" onClick={() => handleDateRangeChange(v)}
                                 className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
@@ -522,22 +540,47 @@ export default function WalkinNamedBuyerReports() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="buyer-stats">
-                    <StatCard label="Milk Purchased" value={`${overall.totalQty.toFixed(2)} L`} icon={<Milk size={14} />} color="text-violet-600 bg-violet-50 border-violet-100" />
-                    <StatCard label="Purchase Amount" value={fmt(overall.totalSalesAmt)} icon={<TrendingUp size={14} />} color="text-blue-600 bg-blue-50 border-blue-100" />
-                    <StatCard label="Amount Collected" value={fmt(overall.totalCollected)} icon={<DollarSign size={14} />} color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                    <StatCard label="Total Outstanding" value={fmt(overall.totalOutstanding)}
-                        sub={`${overall.outstandingCount} of ${overall.activeBuyers} buyers`}
-                        icon={<Clock size={14} />} color="text-rose-600 bg-rose-50 border-rose-100" />
+                    <StatCard
+                        label={t('namedBuyerReport.stats.milkPurchased')}
+                        value={`${overall.totalQty.toFixed(2)} L`}
+                        icon={<Milk size={14} />}
+                        color="text-violet-600 bg-violet-50 border-violet-100"
+                    />
+                    <StatCard
+                        label={t('namedBuyerReport.stats.purchaseAmount')}
+                        value={fmt(overall.totalSalesAmt)}
+                        icon={<TrendingUp size={14} />}
+                        color="text-blue-600 bg-blue-50 border-blue-100"
+                    />
+                    <StatCard
+                        label={t('namedBuyerReport.stats.amountCollected')}
+                        value={fmt(overall.totalCollected)}
+                        icon={<DollarSign size={14} />}
+                        color="text-emerald-600 bg-emerald-50 border-emerald-100"
+                    />
+                    <StatCard
+                        label={t('namedBuyerReport.stats.totalOutstanding')}
+                        value={fmt(overall.totalOutstanding)}
+                        sub={t('namedBuyerReport.stats.outstandingSub', {
+                            count: overall.outstandingCount,
+                            total: overall.activeBuyers,
+                        })}
+                        icon={<Clock size={14} />}
+                        color="text-rose-600 bg-rose-50 border-rose-100"
+                    />
                 </div>
 
                 {/* Search + Filter + Sort */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-                            placeholder="Search buyers by name or mobile"
+                        <input
+                            value={search}
+                            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                            placeholder={t('namedBuyerReport.searchPlaceholder')}
                             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300"
+                        />
                     </div>
 
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
@@ -558,15 +601,15 @@ export default function WalkinNamedBuyerReports() {
                         <ArrowUpDown size={12} className="text-gray-400" />
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                             className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
-                            <option value="outstanding">Sort: Outstanding</option>
-                            <option value="sales">Sort: Purchase Amount</option>
-                            <option value="paid">Sort: Amount Paid</option>
-                            <option value="name">Sort: Name</option>
+                            <option value="outstanding">{t('namedBuyerReport.sort.outstanding')}</option>
+                            <option value="sales">{t('namedBuyerReport.sort.purchaseAmount')}</option>
+                            <option value="paid">{t('namedBuyerReport.sort.paid')}</option>
+                            <option value="name">{t('namedBuyerReport.sort.name')}</option>
                         </select>
                     </div>
 
                     <span className="ml-auto text-xs text-gray-400">
-                        {filteredBuyers.length} {filteredBuyers.length !== 1 ? "buyers" : "buyer"}
+                        {t('namedBuyerReport.buyerCount', { count: filteredBuyers.length })}
                     </span>
                 </div>
 
@@ -579,7 +622,7 @@ export default function WalkinNamedBuyerReports() {
                     ) : paginated.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
                             <Users size={32} />
-                            <p className="text-sm">No named buyers found for this period</p>
+                            <p className="text-sm">{t('namedBuyerReport.noBuyers')}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -587,13 +630,13 @@ export default function WalkinNamedBuyerReports() {
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                                         <th className="px-4 py-3 w-10">#</th>
-                                        <th className="px-4 py-3 min-w-[130px]">Buyer</th>
-                                        <th className="px-4 py-3 text-right">Qty (L)</th>
-                                        <th className="px-4 py-3 text-right">Purchase Amt</th>
-                                        <th className="px-4 py-3 text-right">Total Paid</th>
-                                        <th className="px-4 py-3 text-right">Balance</th>
-                                        <th className="px-4 py-3 text-center">Last Paid</th>
-                                        <th className="px-4 py-3 text-center">Actions</th>
+                                        <th className="px-4 py-3 min-w-[130px]">{t('namedBuyerReport.table.buyer')}</th>
+                                        <th className="px-4 py-3 text-right">{t('namedBuyerReport.table.qty')}</th>
+                                        <th className="px-4 py-3 text-right">{t('namedBuyerReport.table.purchaseAmt')}</th>
+                                        <th className="px-4 py-3 text-right">{t('namedBuyerReport.table.totalPaid')}</th>
+                                        <th className="px-4 py-3 text-right">{t('namedBuyerReport.table.balance')}</th>
+                                        <th className="px-4 py-3 text-center">{t('namedBuyerReport.table.lastPaid')}</th>
+                                        <th className="px-4 py-3 text-center">{t('namedBuyerReport.table.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -633,7 +676,7 @@ export default function WalkinNamedBuyerReports() {
                                                         {buyer.range_paid > 0 ? fmt(buyer.range_paid) : "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-right font-bold ${hasOutstanding ? "text-rose-600" : "text-emerald-600"}`}>
-                                                        {hasOutstanding ? fmt(buyer.outstanding_balance) : "✓ Nil"}
+                                                        {hasOutstanding ? fmt(buyer.outstanding_balance) : "✓ " + t('namedBuyerReport.nil')}
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-xs text-gray-400">
                                                         {buyer.last_payment_date ? fmtShort(buyer.last_payment_date) : "—"}
@@ -654,7 +697,10 @@ export default function WalkinNamedBuyerReports() {
                                                         <td colSpan="8" className="px-4 py-4 bg-gray-50/80 border-t border-gray-100">
                                                             <div className="flex flex-col gap-3">
                                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                                                                    Statement · {fmtShort(dateRange.from)} → {fmtShort(dateRange.to)}
+                                                                    {t('namedBuyerReport.statement.label', {
+                                                                        from: fmtShort(dateRange.from),
+                                                                        to: fmtShort(dateRange.to)
+                                                                    })}
                                                                 </p>
 
                                                                 {loadingStatement[buyer.buyer_id] ? (
@@ -662,13 +708,21 @@ export default function WalkinNamedBuyerReports() {
                                                                         <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
                                                                     </div>
                                                                 ) : entries.length === 0 ? (
-                                                                    <p className="text-xs text-gray-400 py-2">No purchases or payments recorded in this period.</p>
+                                                                    <p className="text-xs text-gray-400 py-2">{t('namedBuyerReport.statement.noTransactions')}</p>
                                                                 ) : (
                                                                     <div className="rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
                                                                         <div className="min-w-[640px]">
                                                                             <div className="grid bg-gray-100 border-b border-gray-200"
                                                                                 style={{ gridTemplateColumns: "90px 1fr 80px 100px 100px 110px 80px" }}>
-                                                                                {["Date", "Description", "Qty (L)", "Purchase Amt", "Paid", "Balance", ""].map(h => (
+                                                                                {[
+                                                                                    t('namedBuyerReport.statement.headers.date'),
+                                                                                    t('namedBuyerReport.statement.headers.description'),
+                                                                                    t('namedBuyerReport.statement.headers.qty'),
+                                                                                    t('namedBuyerReport.statement.headers.purchaseAmt'),
+                                                                                    t('namedBuyerReport.statement.headers.paid'),
+                                                                                    t('namedBuyerReport.statement.headers.balance'),
+                                                                                    "",
+                                                                                ].map(h => (
                                                                                     <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{h}</div>
                                                                                 ))}
                                                                             </div>
@@ -679,7 +733,7 @@ export default function WalkinNamedBuyerReports() {
                                                                                     <div className="px-3 py-2 text-xs text-gray-700">
                                                                                         {e.type === 'sale' ? e.label : (
                                                                                             <span className="flex items-center gap-1.5">
-                                                                                                <span className="text-xs font-medium text-gray-500">Payment</span>
+                                                                                                <span className="text-xs font-medium text-gray-500">{t("payments.payment_recorded", "Payment")}</span>
                                                                                                 {e.remarks && <span className="text-gray-400 truncate">· {e.remarks}</span>}
                                                                                             </span>
                                                                                         )}

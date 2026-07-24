@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'; // add at top
+import * as XLSX from 'xlsx';
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -67,6 +67,10 @@ const columnMap = {
     'deposit_enabled': 'deposit_enabled',
     'deposit per litre': 'deposit_per_litre',
     'deposit_per_litre': 'deposit_per_litre',
+    'cattle feed enabled': 'cattle_feed_sale_enabled',
+    'cattle_feed_sale_enabled': 'cattle_feed_sale_enabled',
+    'payment term': 'payment_term',
+    'payment_term': 'payment_term',
     'password': 'password',
 };
 
@@ -94,6 +98,8 @@ const EMPTY_FORM = {
     deposit_per_litre: "",
     bank_account_confirm: "",
     product_sale_enabled: 0,
+    cattle_feed_sale_enabled: 0,
+    payment_term: "postpaid",
     is_active: 1,
 };
 
@@ -154,18 +160,17 @@ export default function SellerRegister() {
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
     const [showImportModal, setShowImportModal] = useState(false);
     const [importFile, setImportFile] = useState(null);
-    const [importData, setImportData] = useState([]); // array of parsed rows
+    const [importData, setImportData] = useState([]);
     const [importLoading, setImportLoading] = useState(false);
     const [importErrors, setImportErrors] = useState([]);
     const [parsingFile, setParsingFile] = useState(false);
     const [importResult, setImportResult] = useState(null);
-    const [isDragging, setIsDragging] = useState(false); // NEW — drag-over highlight
-
+    const [isDragging, setIsDragging] = useState(false);
 
     const processFile = (file) => {
         if (!file) return;
         if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
-            setImportErrors(['Please upload a .xlsx, .xls, or .csv file.']);
+            setImportErrors([t('sellerRegister.invalidFileFormat') || 'Please upload a .xlsx, .xls, or .csv file.']);
             return;
         }
         setImportFile(file);
@@ -182,7 +187,7 @@ export default function SellerRegister() {
                 const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
 
                 if (json.length === 0) {
-                    setImportErrors(['The file is empty or has no data.']);
+                    setImportErrors([t('sellerRegister.emptyFileError') || 'The file is empty or has no data.']);
                     return;
                 }
 
@@ -195,7 +200,7 @@ export default function SellerRegister() {
                 const nameIdx = mappedHeaders.indexOf('name');
                 const mobileIdx = mappedHeaders.indexOf('mobile');
                 if (nameIdx === -1 || mobileIdx === -1) {
-                    setImportErrors(['Required columns "Name" and "Mobile" not found.']);
+                    setImportErrors([t('sellerRegister.missingRequiredColumns') || 'Required columns "Name" and "Mobile" not found.']);
                     return;
                 }
 
@@ -205,7 +210,7 @@ export default function SellerRegister() {
                         const field = mappedHeaders[i];
                         if (field) {
                             let val = row[h];
-                            if (['advance_enabled', 'product_sale_enabled', 'deposit_enabled'].includes(field)) {
+                            if (['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'].includes(field)) {
                                 val = val === '' ? undefined : Number(val);
                             }
                             if (['advance_deduction', 'deposit_per_litre'].includes(field)) {
@@ -214,28 +219,30 @@ export default function SellerRegister() {
                             obj[field] = val;
                         }
                     });
-                    ['advance_enabled', 'product_sale_enabled', 'deposit_enabled'].forEach(f => {
+                    ['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'].forEach(f => {
                         if (obj[f] === undefined || obj[f] === '') obj[f] = (f === 'advance_enabled' ? 1 : 0);
                     });
+                    // Default payment_term
+                    if (!obj.payment_term) obj.payment_term = 'postpaid';
                     return { ...obj, _rowIndex: idx + 1 };
                 });
 
                 const errors = [];
                 rows.forEach((row, idx) => {
                     if (!row.name || !row.mobile) {
-                        errors.push(`Row ${idx + 1}: Name and Mobile are required.`);
+                        errors.push(t('sellerRegister.rowNameMobileRequired', { row: idx + 1 }) || `Row ${idx + 1}: Name and Mobile are required.`);
                     }
                 });
                 setImportErrors(errors);
                 setImportData(rows);
             } catch (err) {
-                setImportErrors(['Failed to parse file: ' + err.message]);
+                setImportErrors([t('sellerRegister.parseError', { error: err.message }) || 'Failed to parse file: ' + err.message]);
             } finally {
                 setParsingFile(false);
             }
         };
         reader.onerror = () => {
-            setImportErrors(['Could not read the file.']);
+            setImportErrors([t('sellerRegister.fileReadError') || 'Could not read the file.']);
             setParsingFile(false);
         };
         reader.readAsArrayBuffer(file);
@@ -255,7 +262,8 @@ export default function SellerRegister() {
         const headers = ["Seller Code", "Name", "Mobile", "Aadhaar", "PAN", "Seller ID Code",
             "Seller Type", "Milk Type", "Jamin", "Bank Account", "Bank Name", "Account Holder",
             "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
-            "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre", "Password"];
+            "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre",
+            "Cattle Feed Enabled", "Payment Term", "Password"];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Farmers");
@@ -269,7 +277,7 @@ export default function SellerRegister() {
 
         const validRows = importData.filter(r => r.name && r.mobile);
         if (validRows.length === 0) {
-            setImportErrors(['No valid rows to import.']);
+            setImportErrors([t('sellerRegister.noValidRows') || 'No valid rows to import.']);
             return;
         }
 
@@ -306,19 +314,19 @@ export default function SellerRegister() {
             steps: [
                 {
                     element: '[data-tour="add-seller-btn"]',
-                    popover: { title: t('sellerRegister.addSeller'), description: 'Click here to register a new seller.' },
+                    popover: { title: t('sellerRegister.addSeller'), description: t('sellerRegister.tourAddSellerDesc') || 'Click here to register a new seller.' },
                 },
                 {
                     element: '[data-tour="seller-stats"]',
-                    popover: { title: t('sellerRegister.totalSellers'), description: 'See your total sellers, broken down by milk type.' },
+                    popover: { title: t('sellerRegister.totalSellers'), description: t('sellerRegister.tourStatsDesc') || 'See your total sellers, broken down by milk type.' },
                 },
                 {
                     element: '[data-tour="filter-tabs"]',
-                    popover: { title: t('sellerRegister.all'), description: 'Filter the seller list by cow, buffalo, or mixed milk type.' },
+                    popover: { title: t('sellerRegister.all'), description: t('sellerRegister.tourFilterDesc') || 'Filter the seller list by cow, buffalo, or mixed milk type.' },
                 },
                 {
                     element: '[data-tour="seller-table"]',
-                    popover: { title: t('sellerRegister.actions'), description: 'Click a seller\'s name to view their profile, or use Edit/Delete here.' },
+                    popover: { title: t('sellerRegister.actions'), description: t('sellerRegister.tourTableDesc') || 'Click a seller\'s name to view their profile, or use Edit/Delete here.' },
                 },
             ],
         });
@@ -376,6 +384,8 @@ export default function SellerRegister() {
             deposit_enabled: s.deposit_enabled ?? 0,
             deposit_per_litre: s.deposit_per_litre || "",
             product_sale_enabled: s.product_sale_enabled ?? 0,
+            cattle_feed_sale_enabled: s.cattle_feed_sale_enabled ?? 0,
+            payment_term: s.payment_term || "postpaid",
             is_active: s.is_active ?? 1,
         });
         setEditingId(s.seller_id);
@@ -391,13 +401,15 @@ export default function SellerRegister() {
         if (/\d/.test(form.name)) { showFlash("error", t('sellerRegister.nameNoNumbersError')); return; }
         const mobileClean = form.mobile.replace(/^\+/, "");
         if (!/^\d{10,12}$/.test(mobileClean)) { showFlash("error", t('sellerRegister.mobileInvalidError')); return; }
-        if (form.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(form.pan_number)) { showFlash("error", "PAN number must be alphanumeric and up to 12 characters."); return; }
-        if (form.seller_id_code && !/^\d{1,18}$/.test(form.seller_id_code)) { showFlash("error", "Seller ID Code must be numeric and up to 18 digits."); return; }
-        if (form.bank_account && form.bank_account.length < 10) { showFlash("error", t('sellerRegister.bankAccountMinError')); return; }        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", t('sellerRegister.bankAccountMismatchError')); return; }
+        if (form.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(form.pan_number)) { showFlash("error", t('sellerRegister.panInvalidError') || "PAN number must be alphanumeric and up to 12 characters."); return; }
+        if (form.seller_id_code && !/^\d{1,18}$/.test(form.seller_id_code)) { showFlash("error", t('sellerRegister.sellerIdCodeInvalidError') || "Seller ID Code must be numeric and up to 18 digits."); return; }
+        if (form.bank_account && form.bank_account.length < 10) { showFlash("error", t('sellerRegister.bankAccountMinError')); return; }
+        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", t('sellerRegister.bankAccountMismatchError')); return; }
         if (form.address && form.address.length < 10) { showFlash("error", t('sellerRegister.addressMinError')); return; }
         if (form.address && form.address.length > 200) { showFlash("error", t('sellerRegister.addressMaxError')); return; }
-        if (form.pincode && !/^\d{6}$/.test(form.pincode)) { showFlash("error", "Pincode must be a valid 6-digit number."); return; }
-        if (form.password && form.password.length < 6) { showFlash("error", "Password must be at least 6 characters."); return; } setSaving(true);
+        if (form.pincode && !/^\d{6}$/.test(form.pincode)) { showFlash("error", t('sellerRegister.pincodeInvalidError') || "Pincode must be a valid 6-digit number."); return; }
+        if (form.password && form.password.length < 6) { showFlash("error", t('sellerRegister.passwordMinError') || "Password must be at least 6 characters."); return; }
+        setSaving(true);
         try {
             const payload = { ...form };
             if (!payload.password) delete payload.password;
@@ -439,12 +451,14 @@ export default function SellerRegister() {
         { label: t('sellerRegister.advance'), icon: <Wallet size={11} /> },
         { label: t('sellerRegister.advRecovery'), icon: <Banknote size={11} /> },
         { label: t('sellerRegister.depPerL'), icon: <Banknote size={11} /> },
+        { label: 'Payment Term', icon: <CreditCard size={11} /> },
         { label: t('sellerRegister.status'), icon: <Settings size={11} /> },
         { label: t('sellerRegister.registered'), icon: <Calendar size={11} /> },
         { label: t('sellerRegister.actions'), icon: <Settings size={11} /> },
     ];
 
-    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 72px 85px 100px";
+    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 72px 85px 100px";
+
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
             <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
@@ -463,7 +477,7 @@ export default function SellerRegister() {
                             </p>
                         </div>
                     </div>
-                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <button onClick={startSellerRegisterTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200">
                             <BadgeCheck size={13} /> {t('sellerRegister.startTour') || 'Take a Tour'}
@@ -474,11 +488,11 @@ export default function SellerRegister() {
                         </button>
                         <button onClick={() => setShowImportModal(true)}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200">
-                            <span><Import size={16} /></span> Import Farmers
+                            <span><Import size={16} /></span> {t('sellerRegister.importFarmers') || 'Import Farmers'}
                         </button>
                     </div>
                 </div>
-                
+
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" data-tour="seller-stats">
                     {[
@@ -582,12 +596,11 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.milkType')} required t={t}>
                                     <div className="flex gap-2">
                                         {MILK_TYPES.map((type) => (
-                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
-                                                ${form.milk_type === type
-                                                    ? type === "cow" ? "bg-amber-50 border-amber-300 text-amber-800"
-                                                        : type === "buffalo" ? "bg-blue-50 border-blue-300 text-blue-800"
-                                                            : "bg-violet-50 border-violet-300 text-violet-800"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition                                                ${form.milk_type === type
+                                                ? type === "cow" ? "bg-amber-50 border-amber-300 text-amber-800"
+                                                    : type === "buffalo" ? "bg-blue-50 border-blue-300 text-blue-800"
+                                                        : "bg-violet-50 border-violet-300 text-violet-800"
+                                                : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
                                                 <input type="radio" name="milk_type" value={type} checked={form.milk_type === type} onChange={handleChange} className="hidden" />
                                                 {type === "cow" ? t('sellerRegister.cow') : type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.mixed')}
                                             </label>
@@ -767,10 +780,57 @@ export default function SellerRegister() {
                                         ))}
                                     </div>
                                 </Field>
+
+                                {/* NEW: Cattle Feed Sale Toggle */}
+                                <Field label={t('sellerRegister.cattleFeedSale') || "Cattle Feed Sale"} t={t}>
+                                    <div className="flex gap-2">
+                                        {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
+                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                                ${form.cattle_feed_sale_enabled === val
+                                                    ? val === 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-red-50 border-red-300 text-red-700"
+                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="cattle_feed_sale_enabled"
+                                                    value={val}
+                                                    checked={form.cattle_feed_sale_enabled === val}
+                                                    onChange={() => setForm(p => ({
+                                                        ...p,
+                                                        cattle_feed_sale_enabled: val,
+                                                    }))}
+                                                    className="hidden"
+                                                />
+                                                {label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </Field>
                             </div>
 
-                            {/* Active Status */}
+                            {/* NEW: Payment Term */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Field label={t('sellerRegister.paymentTerm') || "Payment Term"} t={t}>
+                                    <div className="flex gap-2">
+                                        {["postpaid", "prepaid"].map((term) => (
+                                            <label key={term} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                                ${form.payment_term === term
+                                                    ? term === "postpaid" ? "bg-blue-50 border-blue-300 text-blue-800" : "bg-amber-50 border-amber-300 text-amber-800"
+                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="payment_term"
+                                                    value={term}
+                                                    checked={form.payment_term === term}
+                                                    onChange={handleChange}
+                                                    className="hidden"
+                                                />
+                                                {term === "postpaid" ? "Postpaid" : "Prepaid"}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </Field>
+
+                                {/* Active Status */}
                                 <Field label={t('sellerRegister.sellerStatus')} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.active'), val: 1 }, { label: t('sellerRegister.inactive'), val: 0 }].map(({ label, val }) => (
@@ -802,7 +862,7 @@ export default function SellerRegister() {
                     </div>
                 )}
 
-               {/* Filter Tabs */}
+                {/* Filter Tabs */}
                 <div className="flex items-center gap-2 mb-4" data-tour="filter-tabs">
                     {["all", "cow", "buffalo", "mixed"].map((f) => (
                         <button key={f} onClick={() => handleFilterChange(f)}
@@ -833,8 +893,8 @@ export default function SellerRegister() {
                         </div>
                     ) : filtered.length === 0 ? (
                         <div className="text-center py-20">
-                                <div className="flex justify-center mb-3"><Sprout size={32} className="text-gray-300" /></div>
-                                <p className="text-gray-500 text-sm font-medium">{t('sellerRegister.noSellersFound')}</p>
+                            <div className="flex justify-center mb-3"><Sprout size={32} className="text-gray-300" /></div>
+                            <p className="text-gray-500 text-sm font-medium">{t('sellerRegister.noSellersFound')}</p>
                             <p className="text-gray-400 text-xs mt-1">{t('sellerRegister.addFirstSeller')}</p>
                         </div>
                     ) : (
@@ -926,6 +986,17 @@ export default function SellerRegister() {
                                             ? `₹${parseFloat(s.deposit_per_litre).toFixed(2)}/L`
                                             : "—"}
                                     </TableCell>
+
+                                    {/* NEW: Payment Term column */}
+                                    <TableCell>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border
+                                            ${s.payment_term === 'prepaid'
+                                                ? "bg-amber-50 text-amber-700 border-amber-100"
+                                                : "bg-blue-50 text-blue-700 border-blue-100"}`}>
+                                            {s.payment_term === 'prepaid' ? 'Prepaid' : 'Postpaid'}
+                                        </span>
+                                    </TableCell>
+
                                     <TableCell>
                                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
                                             ${s.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-gray-50 text-gray-400 border-gray-100"}`}>
@@ -1044,8 +1115,8 @@ export default function SellerRegister() {
                                     <FileSpreadsheet size={16} className="text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-semibold text-gray-800">Import Farmers</h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">Bulk-add sellers from an Excel or CSV file</p>
+                                    <h2 className="text-base font-semibold text-gray-800">{t('sellerRegister.importFarmers') || 'Import Farmers'}</h2>
+                                    <p className="text-xs text-gray-400 mt-0.5">{t('sellerRegister.importDescription') || 'Bulk-add sellers from an Excel or CSV file'}</p>
                                 </div>
                             </div>
                             <button onClick={() => { setShowImportModal(false); resetImport(); }}
@@ -1069,9 +1140,9 @@ export default function SellerRegister() {
                                     </div>
                                     <div className="text-center">
                                         <p className="text-sm font-semibold text-gray-700">
-                                            {isDragging ? "Drop the file here" : "Drag & drop your file here"}
+                                            {isDragging ? t('sellerRegister.dropFileHere') || "Drop the file here" : t('sellerRegister.dragDropPrompt') || "Drag & drop your file here"}
                                         </p>
-                                        <p className="text-xs text-gray-400 mt-0.5">or click to browse — .xlsx, .xls, or .csv</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">{t('sellerRegister.browsePrompt') || "or click to browse — .xlsx, .xls, or .csv"}</p>
                                     </div>
                                     <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
                                 </label>
@@ -1090,7 +1161,7 @@ export default function SellerRegister() {
                                     )}
                                     <button onClick={resetImport}
                                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-gray-100 text-gray-500 text-xs font-medium transition border border-gray-200 shrink-0">
-                                        <RotateCcw size={11} /> Replace
+                                        <RotateCcw size={11} /> {t('sellerRegister.replaceFile') || 'Replace'}
                                     </button>
                                 </div>
                             )}
@@ -1099,16 +1170,16 @@ export default function SellerRegister() {
                             {importData.length > 0 && (
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-                                        {importData.length} row{importData.length === 1 ? "" : "s"} found
+                                        {importData.length} {t('sellerRegister.rowsFound') || 'row(s) found'}
                                     </span>
                                     <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                                         <CheckCircle2 size={11} />
-                                        {importData.filter(r => r.name && r.mobile).length} valid
+                                        {importData.filter(r => r.name && r.mobile).length} {t('sellerRegister.valid') || 'valid'}
                                     </span>
                                     {importData.filter(r => !r.name || !r.mobile).length > 0 && (
                                         <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
                                             <XCircle size={11} />
-                                            {importData.filter(r => !r.name || !r.mobile).length} invalid
+                                            {importData.filter(r => !r.name || !r.mobile).length} {t('sellerRegister.invalid') || 'invalid'}
                                         </span>
                                     )}
                                 </div>
@@ -1132,7 +1203,7 @@ export default function SellerRegister() {
                                                         {key}
                                                     </th>
                                                 ))}
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">Status</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">{t('sellerRegister.status') || 'Status'}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1147,8 +1218,8 @@ export default function SellerRegister() {
                                                         ))}
                                                         <td className="px-3 py-2">
                                                             {valid
-                                                                ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> Valid</span>
-                                                                : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> Invalid</span>}
+                                                                ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> {t('sellerRegister.valid') || 'Valid'}</span>
+                                                                : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> {t('sellerRegister.invalid') || 'Invalid'}</span>}
                                                         </td>
                                                     </tr>
                                                 );
@@ -1162,18 +1233,18 @@ export default function SellerRegister() {
                         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
                             <button onClick={downloadTemplate}
                                 className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
-                                <Download size={12} /> Download sample template
+                                <Download size={12} /> {t('sellerRegister.downloadTemplate') || 'Download sample template'}
                             </button>
                             <div className="flex items-center gap-3">
                                 <button onClick={() => { setShowImportModal(false); resetImport(); }}
                                     className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
-                                    Cancel
+                                    {t('sellerRegister.cancel')}
                                 </button>
                                 <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || importErrors.some(e => e.includes('Required'))}
                                     className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
                                     {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     <Save size={13} />
-                                    Save All
+                                    {t('sellerRegister.saveAll') || 'Save All'}
                                 </button>
                             </div>
                         </div>
@@ -1194,16 +1265,16 @@ export default function SellerRegister() {
                                     ? <BadgeCheck size={22} className="text-emerald-500" />
                                     : <AlertTriangle size={22} className="text-amber-500" />}
                             </div>
-                            <h2 className="text-gray-800 font-semibold text-base">Import Complete</h2>
+                            <h2 className="text-gray-800 font-semibold text-base">{t('sellerRegister.importComplete') || 'Import Complete'}</h2>
                             <p className="text-gray-500 text-sm leading-relaxed">
-                                <span className="font-semibold text-emerald-600">{importResult.added}</span> seller{importResult.added === 1 ? "" : "s"} added
+                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {t('sellerRegister.importResultsAdded') || 'seller(s) added'}
                                 {importResult.skipped > 0 && (
-                                    <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> skipped</>
+                                    <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> {t('sellerRegister.importResultsSkipped') || 'skipped'}</>
                                 )}
                                 .
                             </p>
                             {importResult.skipped > 0 && (
-                                <p className="text-xs text-gray-400">See the details in the import window for why.</p>
+                                <p className="text-xs text-gray-400">{t('sellerRegister.importResultsDetails') || 'See the details in the import window for why.'}</p>
                             )}
                         </div>
                         <button onClick={() => setImportResult(null)}

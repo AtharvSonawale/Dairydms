@@ -95,8 +95,6 @@ export default function RateChart() {
     const [flash, setFlash] = useState(null);
     const [copyingForward, setCopyingForward] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    // 'matrix' mirrors the paper rate-chart format (FAT rows × SNF columns) and
-    // is the default; 'list' is the original flat table, kept as an option.
     const [viewMode, setViewMode] = useState('matrix');
 
     const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -159,19 +157,19 @@ export default function RateChart() {
             steps: [
                 {
                     element: '[data-tour="date-picker"]',
-                    popover: { title: t('rateChart.dateLabel'), description: 'Pick the date to view or add rates for.' },
+                    popover: { title: t('rateChart.dateLabel'), description: t('rateChart.tourDateDesc', 'Pick the date to view or add rates for.') },
                 },
                 {
                     element: '[data-tour="action-buttons"]',
-                    popover: { title: t('rateChart.addRate'), description: 'Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific sellers, or add a single rate manually.' },
+                    popover: { title: t('rateChart.addRate'), description: t('rateChart.tourActionsDesc', 'Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific sellers, or add a single rate manually.') },
                 },
                 {
                     element: '[data-tour="filter-tabs"]',
-                    popover: { title: t('rateChart.cow'), description: 'Switch between cow and buffalo rate charts.' },
+                    popover: { title: t('rateChart.cow'), description: t('rateChart.tourFilterDesc', 'Switch between cow and buffalo rate charts.') },
                 },
                 {
                     element: '[data-tour="rates-table"]',
-                    popover: { title: t('rateChart.ratePerL'), description: 'Each row shows the rate for a specific FAT/SNF combination. Edit or delete rates here.' },
+                    popover: { title: t('rateChart.ratePerL'), description: t('rateChart.tourTableDesc', 'Each row shows the rate for a specific FAT/SNF combination. Edit or delete rates here.') },
                 },
             ],
         });
@@ -352,7 +350,7 @@ export default function RateChart() {
     const processRateFile = (file) => {
         if (!file) return;
         if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
-            setRateImportErrors(['Please upload a .xlsx, .xls, or .csv file.']);
+            setRateImportErrors([t('rateChart.import.errors.invalidFile')]);
             return;
         }
         setRateImportFile(file);
@@ -369,7 +367,7 @@ export default function RateChart() {
                 const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
 
                 if (json.length === 0) {
-                    setRateImportErrors(['The file is empty or has no data.']);
+                    setRateImportErrors([t('rateChart.import.errors.emptyFile')]);
                     return;
                 }
 
@@ -380,7 +378,7 @@ export default function RateChart() {
                 const snfIdx = mappedHeaders.indexOf('snf');
                 const rateIdx = mappedHeaders.indexOf('rate');
                 if (fatIdx === -1 || snfIdx === -1 || rateIdx === -1) {
-                    setRateImportErrors(['Required columns "FAT", "SNF" and "Rate" not found.']);
+                    setRateImportErrors([t('rateChart.import.errors.missingColumns')]);
                     return;
                 }
 
@@ -392,7 +390,6 @@ export default function RateChart() {
                             let val = row[h];
                             if (field === 'milk_type') val = String(val).trim().toLowerCase();
                             if (field === 'effective_from' || field === 'effective_to') {
-                                // Excel dates may come through as serials or strings; normalize to YYYY-MM-DD
                                 if (val instanceof Date) {
                                     val = val.toISOString().split('T')[0];
                                 } else if (typeof val === 'number') {
@@ -410,19 +407,19 @@ export default function RateChart() {
                 const errors = [];
                 rows.forEach((row, idx) => {
                     if (!isValidRateRow(row)) {
-                        errors.push(`Row ${idx + 1}: FAT, SNF, Rate, Effective From are required and Milk Type must be cow/buffalo.`);
+                        errors.push(t('rateChart.import.errors.rowRequired', { row: idx + 1 }));
                     }
                 });
                 setRateImportErrors(errors);
                 setRateImportData(rows);
             } catch (err) {
-                setRateImportErrors(['Failed to parse file: ' + err.message]);
+                setRateImportErrors([t('rateChart.import.errors.parseFailed', { message: err.message })]);
             } finally {
                 setRateParsingFile(false);
             }
         };
         reader.onerror = () => {
-            setRateImportErrors(['Could not read the file.']);
+            setRateImportErrors([t('rateChart.import.errors.readFailed')]);
             setRateParsingFile(false);
         };
         reader.readAsArrayBuffer(file);
@@ -439,10 +436,18 @@ export default function RateChart() {
     const handleRateDragLeave = (e) => { e.preventDefault(); setRateIsDragging(false); };
 
     const downloadRateTemplate = () => {
-        const headers = ['Milk Type', 'FAT', 'SNF', 'Rate', 'MRP', 'Effective From', 'Effective To'];
+        const headers = [
+            t('rateChart.import.templateHeaders.milkType'),
+            t('rateChart.import.templateHeaders.fat'),
+            t('rateChart.import.templateHeaders.snf'),
+            t('rateChart.import.templateHeaders.rate'),
+            t('rateChart.import.templateHeaders.mrp'),
+            t('rateChart.import.templateHeaders.effectiveFrom'),
+            t('rateChart.import.templateHeaders.effectiveTo'),
+        ];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Rates');
+        XLSX.utils.book_append_sheet(wb, ws, t('rateChart.import.templateSheetName'));
         XLSX.writeFile(wb, 'rate_chart_import_template.xlsx');
     };
 
@@ -456,7 +461,7 @@ export default function RateChart() {
         if (rateImportData.length === 0) return;
         const validRows = rateImportData.filter(isValidRateRow);
         if (validRows.length === 0) {
-            setRateImportErrors(['No valid rows to import.']);
+            setRateImportErrors([t('rateChart.import.errors.noValidRows')]);
             return;
         }
 
@@ -466,7 +471,7 @@ export default function RateChart() {
             const { added, skipped, errors: importResultErrors } = response.data;
 
             if (importResultErrors && importResultErrors.length > 0) {
-                setRateImportErrors(importResultErrors.map(e => `Row ${e.row}: ${e.error}`));
+                setRateImportErrors(importResultErrors.map(e => t('rateChart.import.errors.rowError', { row: e.row, error: e.error })));
             } else {
                 setRateImportErrors([]);
             }
@@ -513,10 +518,6 @@ export default function RateChart() {
     const paginated = rates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     // ── matrix view data ──
-    // Rows = unique FAT values, Columns = unique SNF values, cell = the rate
-    // for that combo. Only combinations actually present in `rates` appear,
-    // so a handful of manually-entered rates still renders a sensible (if
-    // sparse) grid rather than requiring a full auto-generated chart.
     const fatValues = [...new Set(rates.map(r => parseFloat(r.fat).toFixed(1)))]
         .sort((a, b) => parseFloat(a) - parseFloat(b));
     const snfValues = [...new Set(rates.map(r => parseFloat(r.snf).toFixed(1)))]
@@ -555,50 +556,49 @@ export default function RateChart() {
                     <div className="flex items-end gap-2 flex-wrap">
                         <button onClick={startRateChartTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-            bg-gray-100 text-gray-600 hover:bg-gray-200">
-                            <BadgeCheck size={13} /> {t('rateChart.startTour') || 'Take a Tour'}
+                                bg-gray-100 text-gray-600 hover:bg-gray-200">
+                            <BadgeCheck size={13} /> {t('rateChart.startTour')}
                         </button>
-                        
 
                         <div className="flex items-end gap-2 flex-wrap" data-tour="action-buttons">
-                        <button onClick={() => { setShowCopyModal(true); setCopyStartDate(''); setCopyEndDate(''); }} disabled={copyingForward}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-    bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50">
-                            {copyingForward
-                                ? <><RefreshCw size={13} className="animate-spin" /> {t('rateChart.copying')}</>
-                                : <><ChevronRight size={13} /> {t('rateChart.carryForward')}</>}
-                        </button>
+                            <button onClick={() => { setShowCopyModal(true); setCopyStartDate(''); setCopyEndDate(''); }} disabled={copyingForward}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
+                                    bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50">
+                                {copyingForward
+                                    ? <><RefreshCw size={13} className="animate-spin" /> {t('rateChart.copying')}</>
+                                    : <><ChevronRight size={13} /> {t('rateChart.carryForward')}</>}
+                            </button>
 
                             <button onClick={() => { setShowGenerateModal(true); setGenPreview([]); }}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-            bg-violet-500 text-white hover:bg-violet-600">
+                                    bg-violet-500 text-white hover:bg-violet-600">
                                 <FlaskConical size={13} /> {t('rateChart.generateRates')}
                             </button>
 
                             <button onClick={() => setShowRateImportModal(true)}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-            bg-gray-500 text-gray-100 hover:bg-gray-600">
-                                <Import size={13} /> Import Rates
+                                    bg-gray-500 text-gray-100 hover:bg-gray-600">
+                                <Import size={13} /> {t('rateChart.import.button')}
                             </button>
 
-                        <button onClick={openPremiumModal}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-            bg-amber-500 text-white hover:bg-amber-600">
-                            <Star size={13} /> {t('rateChart.premiumRates')}
-                        </button>
-
-                        <button onClick={openAdd}
-                            className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-            ${isAdmin ? 'bg-black text-white hover:bg-gray-800' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
-                            <span className="text-base leading-none">+</span> {t('rateChart.addRate')}
-                        </button>
-                        {rates.length > 0 && (
-                            <button onClick={handleDeleteAllRates}
+                            <button onClick={openPremiumModal}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
-        bg-rose-500 text-white hover:bg-rose-600">
-                                <Trash2 size={13} /> {t('rateChart.deleteAll')}
+                                    bg-amber-500 text-white hover:bg-amber-600">
+                                <Star size={13} /> {t('rateChart.premiumRates')}
                             </button>
-                        )}
+
+                            <button onClick={openAdd}
+                                className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
+                                    ${isAdmin ? 'bg-black text-white hover:bg-gray-800' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
+                                <span className="text-base leading-none">+</span> {t('rateChart.addRate')}
+                            </button>
+                            {rates.length > 0 && (
+                                <button onClick={handleDeleteAllRates}
+                                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl self-end transition
+                                        bg-rose-500 text-white hover:bg-rose-600">
+                                    <Trash2 size={13} /> {t('rateChart.deleteAll')}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -708,8 +708,8 @@ export default function RateChart() {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border ${filter === f
-                                    ? 'bg-gray-900 text-white border-gray-900'
-                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                ? 'bg-gray-900 text-white border-gray-900'
+                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                                 }`}
                         >
                             {f === 'cow' ? t('rateChart.cow') : t('rateChart.buffalo')}
@@ -726,7 +726,7 @@ export default function RateChart() {
                                 value={selectedDate}
                                 onChange={e => setSelectedDate(e.target.value)}
                                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                    focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition"
+                                    focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition"
                             />
                         </div>
                     </div>
@@ -735,12 +735,12 @@ export default function RateChart() {
                         <button onClick={() => setViewMode('matrix')}
                             className={`text-xs font-semibold px-3 py-1.5 rounded-md transition
                                 ${viewMode === 'matrix' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                            {t('rateChart.matrixView', { defaultValue: 'Rate Sheet' })}
+                            {t('rateChart.viewMatrix')}
                         </button>
                         <button onClick={() => setViewMode('list')}
                             className={`text-xs font-semibold px-3 py-1.5 rounded-md transition
                                 ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                            {t('rateChart.listView', { defaultValue: 'List' })}
+                            {t('rateChart.viewList')}
                         </button>
                     </div>
 
@@ -806,8 +806,8 @@ export default function RateChart() {
                     ) : (
                         <div className="overflow-x-auto overflow-y-auto max-h-[360px]">
                             <table className="w-full text-sm">
-                                        <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100">
-                                            <tr>
+                                <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100">
+                                    <tr>
                                         {[t('rateChart.type'), t('rateChart.fat'), t('rateChart.snf'), t('rateChart.ratePerL'), t('rateChart.mrpPerL'), t('rateChart.from'), t('rateChart.to'), isAdmin ? t('rateChart.actions') : null]
                                             .filter(Boolean)
                                             .map((h, i) => (
@@ -1112,7 +1112,7 @@ export default function RateChart() {
                                     <input type="date" value={copyStartDate}
                                         onChange={e => setCopyStartDate(e.target.value)}
                                         className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition" />
+                                            focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -1122,7 +1122,7 @@ export default function RateChart() {
                                         min={copyStartDate || undefined}
                                         onChange={e => setCopyEndDate(e.target.value)}
                                         className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition" />
+                                            focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition" />
                                     {copyStartDate && copyEndDate && copyEndDate >= copyStartDate && (
                                         <p className="text-[11px] text-emerald-600 font-medium mt-1">
                                             {(() => {
@@ -1255,7 +1255,7 @@ export default function RateChart() {
                                     <button type="button" onClick={handleGenerateSubmit}
                                         disabled={generating || genPreview.length === 0}
                                         className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl
-                            text-white bg-violet-500 hover:bg-violet-600 transition disabled:opacity-50">
+                                            text-white bg-violet-500 hover:bg-violet-600 transition disabled:opacity-50">
                                         {generating && <RefreshCw size={12} className="animate-spin" />}
                                         {generating ? t('rateChart.saving') : t('rateChart.saveRates', { count: genPreview.length || 0 })}
                                     </button>
@@ -1275,8 +1275,8 @@ export default function RateChart() {
                                         <FileSpreadsheet size={16} className="text-white" />
                                     </div>
                                     <div>
-                                        <h2 className="text-base font-semibold text-gray-800">Import Rates</h2>
-                                        <p className="text-xs text-gray-400 mt-0.5">Bulk-add rate chart entries from an Excel or CSV file</p>
+                                        <h2 className="text-base font-semibold text-gray-800">{t('rateChart.import.title')}</h2>
+                                        <p className="text-xs text-gray-400 mt-0.5">{t('rateChart.import.subtitle')}</p>
                                     </div>
                                 </div>
                                 <button onClick={() => { setShowRateImportModal(false); resetRateImport(); }}
@@ -1292,16 +1292,16 @@ export default function RateChart() {
                                         onDragOver={handleRateDragOver}
                                         onDragLeave={handleRateDragLeave}
                                         className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-12 px-6 cursor-pointer transition
-                                ${rateIsDragging ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            ${rateIsDragging ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center transition
-                                ${rateIsDragging ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
+                                            ${rateIsDragging ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
                                             <UploadCloud size={22} />
                                         </div>
                                         <div className="text-center">
                                             <p className="text-sm font-semibold text-gray-700">
-                                                {rateIsDragging ? "Drop the file here" : "Drag & drop your file here"}
+                                                {rateIsDragging ? t('rateChart.import.dropHere') : t('rateChart.import.dragDrop')}
                                             </p>
-                                            <p className="text-xs text-gray-400 mt-0.5">or click to browse — .xlsx, .xls, or .csv</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">{t('rateChart.import.browseOr')}</p>
                                         </div>
                                         <input type="file" accept=".xlsx,.xls,.csv" onChange={handleRateFileUpload} className="hidden" />
                                     </label>
@@ -1319,7 +1319,7 @@ export default function RateChart() {
                                         )}
                                         <button onClick={resetRateImport}
                                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-gray-100 text-gray-500 text-xs font-medium transition border border-gray-200 shrink-0">
-                                            <RotateCcw size={11} /> Replace
+                                            <RotateCcw size={11} /> {t('rateChart.import.replace')}
                                         </button>
                                     </div>
                                 )}
@@ -1327,16 +1327,16 @@ export default function RateChart() {
                                 {rateImportData.length > 0 && (
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-                                            {rateImportData.length} row{rateImportData.length === 1 ? "" : "s"} found
+                                            {t('rateChart.import.rowCount', { count: rateImportData.length })}
                                         </span>
                                         <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                                             <CheckCircle2 size={11} />
-                                            {rateImportData.filter(isValidRateRow).length} valid
+                                            {t('rateChart.import.valid', { count: rateImportData.filter(isValidRateRow).length })}
                                         </span>
                                         {rateImportData.filter(r => !isValidRateRow(r)).length > 0 && (
                                             <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
                                                 <XCircle size={11} />
-                                                {rateImportData.filter(r => !isValidRateRow(r)).length} invalid
+                                                {t('rateChart.import.invalid', { count: rateImportData.filter(r => !isValidRateRow(r)).length })}
                                             </span>
                                         )}
                                     </div>
@@ -1358,7 +1358,7 @@ export default function RateChart() {
                                                             {key}
                                                         </th>
                                                     ))}
-                                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">Status</th>
+                                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">{t('rateChart.import.status')}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1373,8 +1373,8 @@ export default function RateChart() {
                                                             ))}
                                                             <td className="px-3 py-2">
                                                                 {valid
-                                                                    ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> Valid</span>
-                                                                    : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> Invalid</span>}
+                                                                    ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> {t('rateChart.import.validLabel')}</span>
+                                                                    : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> {t('rateChart.import.invalidLabel')}</span>}
                                                             </td>
                                                         </tr>
                                                     );
@@ -1388,18 +1388,18 @@ export default function RateChart() {
                             <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
                                 <button onClick={downloadRateTemplate}
                                     className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
-                                    <Download size={12} /> Download sample template
+                                    <Download size={12} /> {t('rateChart.import.downloadTemplate')}
                                 </button>
                                 <div className="flex items-center gap-3">
                                     <button onClick={() => { setShowRateImportModal(false); resetRateImport(); }}
                                         className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
-                                        Cancel
+                                        {t('rateChart.import.cancel')}
                                     </button>
                                     <button onClick={handleRateImportSave}
                                         disabled={rateImportLoading || rateImportData.length === 0 || rateImportData.filter(isValidRateRow).length === 0}
                                         className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
                                         {rateImportLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                        Save All
+                                        {t('rateChart.import.saveAll')}
                                     </button>
                                 </div>
                             </div>
@@ -1413,22 +1413,22 @@ export default function RateChart() {
                         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
                             <div className="flex flex-col items-center gap-2 text-center">
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border
-                        ${rateImportResult.skipped === 0 ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"}`}>
+                                    ${rateImportResult.skipped === 0 ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"}`}>
                                     {rateImportResult.skipped === 0
                                         ? <BadgeCheck size={22} className="text-emerald-500" />
                                         : <AlertTriangle size={22} className="text-amber-500" />}
                                 </div>
-                                <h2 className="text-gray-800 font-semibold text-base">Import Complete</h2>
+                                <h2 className="text-gray-800 font-semibold text-base">{t('rateChart.import.complete')}</h2>
                                 <p className="text-gray-500 text-sm leading-relaxed">
-                                    <span className="font-semibold text-emerald-600">{rateImportResult.added}</span> rate{rateImportResult.added === 1 ? "" : "s"} added
+                                    {t('rateChart.import.resultAdded', { count: rateImportResult.added })}
                                     {rateImportResult.skipped > 0 && (
-                                        <>, <span className="font-semibold text-amber-600">{rateImportResult.skipped}</span> skipped</>
+                                        <>, {t('rateChart.import.resultSkipped', { count: rateImportResult.skipped })}</>
                                     )}.
                                 </p>
                             </div>
                             <button onClick={() => setRateImportResult(null)}
                                 className="w-full py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition active:scale-95">
-                                OK
+                                {t('rateChart.import.ok')}
                             </button>
                         </div>
                     </div>

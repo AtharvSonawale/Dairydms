@@ -1,4 +1,4 @@
-// WalkinSellerReports.jsx
+// src/pages/admin/WalkinSellerReports.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -95,9 +95,27 @@ export default function WalkinSellerReports() {
             showProgress: true,
             allowClose: true,
             steps: [
-                { element: '[data-tour="seller-date-filters"]', popover: { title: "Report Period", description: "Choose the period this seller report should cover, and filter by payment mode." } },
-                { element: '[data-tour="seller-stats"]', popover: { title: "Seller Totals", description: "Quick totals for milk collected, amount collected, and outstanding balance across all sellers." } },
-                { element: '[data-tour="seller-table"]', popover: { title: "Seller Ledger Table", description: "Click the expand icon (or row) to view the full statement with sales and payments." } },
+                {
+                    element: '[data-tour="seller-date-filters"]',
+                    popover: {
+                        title: t("sellerPaymentsReport.tour.filters.title"),
+                        description: t("sellerPaymentsReport.tour.filters.description"),
+                    },
+                },
+                {
+                    element: '[data-tour="seller-stats"]',
+                    popover: {
+                        title: t("sellerPaymentsReport.tour.stats.title"),
+                        description: t("sellerPaymentsReport.tour.stats.description"),
+                    },
+                },
+                {
+                    element: '[data-tour="seller-table"]',
+                    popover: {
+                        title: t("sellerPaymentsReport.tour.table.title"),
+                        description: t("sellerPaymentsReport.tour.table.description"),
+                    },
+                },
             ],
         });
         driverObj.drive();
@@ -369,7 +387,7 @@ export default function WalkinSellerReports() {
         const periodLabel = dateRange.from === dateRange.to ? fmtDate(dateRange.from) : `${fmtDate(dateRange.from)} – ${fmtDate(dateRange.to)}`;
 
         win.document.write(`<!DOCTYPE html>
-<html><head><title>Seller Statement - ${seller.name}</title>
+<html><head><title>${t("sellerPaymentsReport.pdf.statementTitle")} - ${seller.name}</title>
 <style>
   * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body { font-family:Arial,sans-serif; font-size:12px; margin:20px; color:#111; }
@@ -385,23 +403,23 @@ export default function WalkinSellerReports() {
 </style></head>
 <body>
   <div class="header">
-    <h2>Seller Statement</h2>
-    <p>${seller.name}${seller.mobile ? ` · ${seller.mobile}` : ""} · Seller</p>
-    <p>Period: ${periodLabel} · Generated: ${new Date().toLocaleString()}</p>
+    <h2>${t("sellerPaymentsReport.pdf.statementHeader")}</h2>
+    <p>${seller.name}${seller.mobile ? ` · ${seller.mobile}` : ""} · ${t("sellerPaymentsReport.pdf.sellerType")}</p>
+    <p>${t("sellerPaymentsReport.pdf.period")}: ${periodLabel} · ${t("sellerPaymentsReport.pdf.generated")}: ${new Date().toLocaleString()}</p>
   </div>
   <div class="summary">
-    <div class="box">Milk Sold: ${seller.range_qty.toFixed(2)} L</div>
-    <div class="box">Sales Amount: ${fmt(seller.range_sales_amt)}</div>
-    <div class="box">Paid This Period: ${fmt(seller.range_paid)}</div>
-    <div class="box">Outstanding Balance: ${fmt(seller.outstanding_balance)}</div>
+    <div class="box">${t("sellerPaymentsReport.pdf.milkSold")}: ${seller.range_qty.toFixed(2)} L</div>
+    <div class="box">${t("sellerPaymentsReport.pdf.salesAmount")}: ${fmt(seller.range_sales_amt)}</div>
+    <div class="box">${t("sellerPaymentsReport.pdf.paidPeriod")}: ${fmt(seller.range_paid)}</div>
+    <div class="box">${t("sellerPaymentsReport.pdf.outstanding")}: ${fmt(seller.outstanding_balance)}</div>
   </div>
   <table>
-    <thead><tr><th>Date</th><th>Description</th><th>Qty (L)</th><th>Sale Amt</th><th>Paid</th><th>Running Balance</th></tr></thead>
+    <thead><tr><th>${t("sellerPaymentsReport.pdf.date")}</th><th>${t("sellerPaymentsReport.pdf.description")}</th><th>${t("sellerPaymentsReport.pdf.qty")}</th><th>${t("sellerPaymentsReport.pdf.saleAmt")}</th><th>${t("sellerPaymentsReport.pdf.paid")}</th><th>${t("sellerPaymentsReport.pdf.runningBal")}</th></tr></thead>
     <tbody>
       ${entries.map(e => `
         <tr>
           <td>${fmtDate(e.date)}</td>
-          <td>${e.type === 'sale' ? e.label : `Payment · ${(e.payment_mode || '').toUpperCase()}${e.remarks ? ' · ' + e.remarks : ''}`}</td>
+          <td>${e.type === 'sale' ? e.label : `${t("payments.payment_recorded")} · ${(e.payment_mode || '').toUpperCase()}${e.remarks ? ' · ' + e.remarks : ''}`}</td>
           <td>${e.qty != null ? e.qty.toFixed(2) : "—"}</td>
           <td class="debit">${e.debit > 0 ? fmt(e.debit) : "—"}</td>
           <td class="credit">${e.credit > 0 ? fmt(e.credit) : "—"}</td>
@@ -417,7 +435,7 @@ export default function WalkinSellerReports() {
     // ── PDF: consolidated seller report ───────────────────────────
     const handleExportPDF = () => {
         const win = window.open("", "_blank", "width=1400,height=900");
-        if (!win) { showFlash("error", "Popup blocked."); return; }
+        if (!win) { showFlash("error", t("sellerPaymentsReport.popupBlocked")); return; }
 
         const modeLabel = rangeMode === "daily" ? t("payments.daily") : rangeMode === "weekly" ? t("payments.weekly") : rangeMode === "monthly" ? t("payments.monthly") : t("payments.custom");
         const filterLabel = filterMode === "all" ? t("payments.all_modes") : filterMode === "cash" ? t("payments.cash_only") : filterMode === "upi" ? t("payments.upi_only") : t("payments.credit_only");
@@ -437,7 +455,7 @@ export default function WalkinSellerReports() {
                 <td class="td-num" style="color:#c2410c">${s.range_credit > 0 ? fmt(s.range_credit) : "—"}</td>
                 <td class="td-num td-bold" style="color:#1d4ed8">${s.range_paid > 0 ? fmt(s.range_paid) : "—"}</td>
                 <td class="td-num td-bold" style="color:${s.outstanding_balance > 0.01 ? '#b91c1c' : '#15803d'}">
-                    ${s.outstanding_balance > 0.01 ? fmt(s.outstanding_balance) : "✓ Nil"}
+                    ${s.outstanding_balance > 0.01 ? fmt(s.outstanding_balance) : t("sellerPaymentsReport.pdf.nil")}
                 </td>
                 <td class="td-center">${s.last_payment_date ? fmtShort(s.last_payment_date) : "—"}</td>
             </tr>`).join("");
@@ -453,7 +471,7 @@ export default function WalkinSellerReports() {
         };
 
         win.document.write(`<!DOCTYPE html>
-<html><head><title>Seller Payments Report — ${periodLabel}</title>
+<html><head><title>${t("sellerPaymentsReport.pdf.consolidatedTitle")} — ${periodLabel}</title>
 <style>
   * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body { font-family:Arial,Helvetica,sans-serif; font-size:10px; color:#111; margin:0; padding:16px; }
@@ -480,25 +498,25 @@ export default function WalkinSellerReports() {
 <body>
 <div class="report-header">
   <div>
-    <div class="report-title">Seller Payments Report</div>
-    <div class="report-sub">${modeLabel} Report &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${periodLabel} &nbsp;·&nbsp; ${filteredSellers.length} sellers</div>
+    <div class="report-title">${t("sellerPaymentsReport.pdf.consolidatedTitle")}</div>
+    <div class="report-sub">${modeLabel} ${t("sellerPaymentsReport.pdf.report")} · ${filterLabel} · ${periodLabel} · ${filteredSellers.length} ${t("sellerPaymentsReport.pdf.sellers")}</div>
   </div>
-  <div class="report-gen">Generated: ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+  <div class="report-gen">${t("sellerPaymentsReport.pdf.generated")}: ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
   <div class="badges">
     <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;padding:4px 10px;border-radius:6px;text-align:center;min-width:70px">
-      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">Cash</div>
+      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">${t("payments.cash")}</div>
       <div style="font-size:12px;font-weight:900;color:#15803d">${fmt(overall.cashTotal)}</div>
     </div>
     <div style="background:#eff6ff;border:1.5px solid #bfdbfe;padding:4px 10px;border-radius:6px;text-align:center;min-width:70px">
-      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">UPI</div>
+      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">${t("payments.upi")}</div>
       <div style="font-size:12px;font-weight:900;color:#1d4ed8">${fmt(overall.upiTotal)}</div>
     </div>
     <div style="background:#fff7ed;border:1.5px solid #fed7aa;padding:4px 10px;border-radius:6px;text-align:center;min-width:70px">
-      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">Credit</div>
+      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">${t("payments.credit")}</div>
       <div style="font-size:12px;font-weight:900;color:#c2410c">${fmt(overall.creditTotal)}</div>
     </div>
     <div style="background:#f8fafc;border:1.5px solid #cbd5e1;padding:4px 10px;border-radius:6px;text-align:center;min-width:70px">
-      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">Outstanding</div>
+      <div style="font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase">${t("sellerPaymentsReport.pdf.outstanding")}</div>
       <div style="font-size:12px;font-weight:900;color:#b91c1c">${fmt(overall.totalOutstanding)}</div>
     </div>
   </div>
@@ -506,14 +524,14 @@ export default function WalkinSellerReports() {
 <table>
   <thead>
     <tr>
-      <th>#</th><th style="text-align:left">Seller</th><th>Qty</th><th>Sales Amt</th>
-      <th>Cash</th><th>UPI</th><th>Credit</th><th>Total Paid</th><th>Balance</th><th>Last Paid</th>
+      <th>#</th><th style="text-align:left">${t("sellerPaymentsReport.pdf.seller")}</th><th>${t("sellerPaymentsReport.pdf.qty")}</th><th>${t("sellerPaymentsReport.pdf.salesAmt")}</th>
+      <th>${t("payments.cash")}</th><th>${t("payments.upi")}</th><th>${t("payments.credit")}</th><th>${t("sellerPaymentsReport.pdf.totalPaid")}</th><th>${t("sellerPaymentsReport.pdf.balance")}</th><th>${t("sellerPaymentsReport.pdf.lastPaid")}</th>
     </tr>
   </thead>
   <tbody>
     ${rows}
     <tr class="grand-row">
-      <td colspan="2">GRAND TOTAL</td>
+      <td colspan="2">${t("sellerPaymentsReport.pdf.grandTotal")}</td>
       <td>${grand.qty.toFixed(2)} L</td>
       <td>${fmt(grand.salesAmt)}</td>
       <td>${fmt(grand.cash)}</td>
@@ -526,10 +544,10 @@ export default function WalkinSellerReports() {
   </tbody>
 </table>
 <div class="report-footer">
-  <span>Seller Payments Report · Printed ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</span>
+  <span>${t("sellerPaymentsReport.pdf.footer")} · ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</span>
   <div style="text-align:center">
     <div class="signatory-line"></div>
-    <span class="signatory-label">Authorised Signatory</span>
+    <span class="signatory-label">${t("sellerPaymentsReport.pdf.signatory")}</span>
   </div>
 </div>
 <script>window.onload = () => window.print();</script>
@@ -558,10 +576,10 @@ export default function WalkinSellerReports() {
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                Seller Payments Report
+                                {t("sellerPaymentsReport.title")}
                             </h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Sales, collections, and outstanding balances — sellers only
+                                {t("sellerPaymentsReport.subtitle")}
                             </p>
                         </div>
                     </div>
@@ -571,13 +589,13 @@ export default function WalkinSellerReports() {
                             onClick={startTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={13} /> {t("sellerPaymentsReport.takeTour")}
                         </button>
                         <button
                             onClick={handleExportPDF}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition"
                         >
-                            <Download size={14} /> Export PDF
+                            <Download size={14} /> {t("sellerPaymentsReport.exportPDF")}
                         </button>
                     </div>
                 </div>
@@ -647,22 +665,47 @@ export default function WalkinSellerReports() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="seller-stats">
-                    <StatCard label="Milk Collected" value={`${overall.totalQty.toFixed(2)} L`} icon={<Milk size={14} />} color="text-violet-600 bg-violet-50 border-violet-100" />
-                    <StatCard label="Sales Amount" value={fmt(overall.totalSalesAmt)} icon={<TrendingUp size={14} />} color="text-blue-600 bg-blue-50 border-blue-100" />
-                    <StatCard label="Amount Collected" value={fmt(overall.totalCollected)} icon={<DollarSign size={14} />} color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                    <StatCard label="Total Outstanding" value={fmt(overall.totalOutstanding)}
-                        sub={`${overall.outstandingCount} of ${overall.activeSellers} sellers`}
-                        icon={<Clock size={14} />} color="text-rose-600 bg-rose-50 border-rose-100" />
+                    <StatCard
+                        label={t("sellerPaymentsReport.stats.milkCollected")}
+                        value={`${overall.totalQty.toFixed(2)} L`}
+                        icon={<Milk size={14} />}
+                        color="text-violet-600 bg-violet-50 border-violet-100"
+                    />
+                    <StatCard
+                        label={t("sellerPaymentsReport.stats.salesAmount")}
+                        value={fmt(overall.totalSalesAmt)}
+                        icon={<TrendingUp size={14} />}
+                        color="text-blue-600 bg-blue-50 border-blue-100"
+                    />
+                    <StatCard
+                        label={t("sellerPaymentsReport.stats.amountCollected")}
+                        value={fmt(overall.totalCollected)}
+                        icon={<DollarSign size={14} />}
+                        color="text-emerald-600 bg-emerald-50 border-emerald-100"
+                    />
+                    <StatCard
+                        label={t("sellerPaymentsReport.stats.totalOutstanding")}
+                        value={fmt(overall.totalOutstanding)}
+                        sub={t("sellerPaymentsReport.stats.outstandingSub", {
+                            count: overall.outstandingCount,
+                            total: overall.activeSellers,
+                        })}
+                        icon={<Clock size={14} />}
+                        color="text-rose-600 bg-rose-50 border-rose-100"
+                    />
                 </div>
 
                 {/* Search + Filter + Sort */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-                            placeholder="Search sellers by name or mobile"
+                        <input
+                            value={search}
+                            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                            placeholder={t("sellerPaymentsReport.searchPlaceholder")}
                             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300"
+                        />
                     </div>
 
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
@@ -683,15 +726,15 @@ export default function WalkinSellerReports() {
                         <ArrowUpDown size={12} className="text-gray-400" />
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                             className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
-                            <option value="outstanding">Sort: Outstanding</option>
-                            <option value="sales">Sort: Sales Amount</option>
-                            <option value="paid">Sort: Amount Paid</option>
-                            <option value="name">Sort: Name</option>
+                            <option value="outstanding">{t("sellerPaymentsReport.sort.outstanding")}</option>
+                            <option value="sales">{t("sellerPaymentsReport.sort.salesAmount")}</option>
+                            <option value="paid">{t("sellerPaymentsReport.sort.paid")}</option>
+                            <option value="name">{t("sellerPaymentsReport.sort.name")}</option>
                         </select>
                     </div>
 
                     <span className="ml-auto text-xs text-gray-400">
-                        {filteredSellers.length} {filteredSellers.length !== 1 ? "sellers" : "seller"}
+                        {t("sellerPaymentsReport.sellerCount", { count: filteredSellers.length })}
                     </span>
                 </div>
 
@@ -704,7 +747,7 @@ export default function WalkinSellerReports() {
                     ) : paginated.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
                             <Users size={32} />
-                            <p className="text-sm">No sellers found for this period</p>
+                            <p className="text-sm">{t("sellerPaymentsReport.noSellers")}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -712,13 +755,13 @@ export default function WalkinSellerReports() {
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                                         <th className="px-4 py-3 w-10">#</th>
-                                        <th className="px-4 py-3 min-w-[130px]">Seller</th>
-                                        <th className="px-4 py-3 text-right">Qty (L)</th>
-                                        <th className="px-4 py-3 text-right">Sales Amt</th>
-                                        <th className="px-4 py-3 text-right">Total Paid</th>
-                                        <th className="px-4 py-3 text-right">Balance</th>
-                                        <th className="px-4 py-3 text-center">Last Paid</th>
-                                        <th className="px-4 py-3 text-center">Actions</th>
+                                        <th className="px-4 py-3 min-w-[130px]">{t("sellerPaymentsReport.table.seller")}</th>
+                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.qty")}</th>
+                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.salesAmt")}</th>
+                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.totalPaid")}</th>
+                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.balance")}</th>
+                                        <th className="px-4 py-3 text-center">{t("sellerPaymentsReport.table.lastPaid")}</th>
+                                        <th className="px-4 py-3 text-center">{t("sellerPaymentsReport.table.actions")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -759,7 +802,7 @@ export default function WalkinSellerReports() {
                                                         {seller.range_paid > 0 ? fmt(seller.range_paid) : "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-right font-bold ${hasOutstanding ? "text-rose-600" : "text-emerald-600"}`}>
-                                                        {hasOutstanding ? fmt(seller.outstanding_balance) : "✓ Nil"}
+                                                        {hasOutstanding ? fmt(seller.outstanding_balance) : "✓ " + t("sellerPaymentsReport.nil")}
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-xs text-gray-400">
                                                         {seller.last_payment_date ? fmtShort(seller.last_payment_date) : "—"}
@@ -787,7 +830,7 @@ export default function WalkinSellerReports() {
                                                                 }}
                                                                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition shadow-sm"
                                                             >
-                                                                <Printer size={10} /> PDF
+                                                                <Printer size={10} /> {t("sellerPaymentsReport.pdfLabel")}
                                                             </button>
                                                             <button
                                                                 onClick={(e) => {
@@ -809,10 +852,10 @@ export default function WalkinSellerReports() {
                                                             <div className="flex flex-col gap-3">
                                                                 <div className="flex items-center justify-between">
                                                                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                                                                        Statement · {fmtShort(dateRange.from)} → {fmtShort(dateRange.to)}
+                                                                        {t("sellerPaymentsReport.statement")} · {fmtShort(dateRange.from)} → {fmtShort(dateRange.to)}
                                                                     </p>
                                                                     <div className="flex items-center gap-3 text-[10px]">
-                                                                        <span className="text-gray-400">Mode: </span>
+                                                                        <span className="text-gray-400">{t("sellerPaymentsReport.mode")}: </span>
                                                                         {seller.range_cash > 0 && <PaymentBadge mode="cash" />}
                                                                         {seller.range_upi > 0 && <PaymentBadge mode="upi" />}
                                                                         {seller.range_credit > 0 && <PaymentBadge mode="credit" />}
@@ -824,13 +867,21 @@ export default function WalkinSellerReports() {
                                                                         <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
                                                                     </div>
                                                                 ) : entries.length === 0 ? (
-                                                                    <p className="text-xs text-gray-400 py-2">No sales or payments recorded in this period.</p>
+                                                                    <p className="text-xs text-gray-400 py-2">{t("sellerPaymentsReport.noTransactions")}</p>
                                                                 ) : (
                                                                     <div className="rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
                                                                         <div className="min-w-[640px]">
                                                                             <div className="grid bg-gray-100 border-b border-gray-200"
                                                                                 style={{ gridTemplateColumns: "90px 1fr 80px 100px 100px 110px 80px" }}>
-                                                                                {["Date", "Description", "Qty (L)", "Sale Amt", "Paid", "Balance", ""].map(h => (
+                                                                                {[
+                                                                                    t("sellerPaymentsReport.statementHeaders.date"),
+                                                                                    t("sellerPaymentsReport.statementHeaders.description"),
+                                                                                    t("sellerPaymentsReport.statementHeaders.qty"),
+                                                                                    t("sellerPaymentsReport.statementHeaders.saleAmt"),
+                                                                                    t("sellerPaymentsReport.statementHeaders.paid"),
+                                                                                    t("sellerPaymentsReport.statementHeaders.balance"),
+                                                                                    "",
+                                                                                ].map(h => (
                                                                                     <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{h}</div>
                                                                                 ))}
                                                                             </div>

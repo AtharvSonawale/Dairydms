@@ -124,7 +124,7 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
                         </div>
                         <div>
                             <p className="text-sm font-semibold text-gray-800">{feed.feed_name}</p>
-                            <p className="text-[10px] text-gray-400 font-mono">ID #{feed.feed_id}</p>
+                            <p className="text-[10px] text-gray-400 font-mono">{t('cattleFeedCatalogue.idLabel', { id: feed.feed_id })}</p>
                         </div>
                     </div>
                 )}
@@ -137,7 +137,7 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
                         value={draft.unit}
                         onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
-                        placeholder="kg, bag..."
+                        placeholder={t('cattleFeedCatalogue.unitPlaceholder')}
                         className="w-full border border-blue-300 rounded-lg px-2.5 py-1.5 text-sm text-gray-900
                             bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                     />
@@ -177,7 +177,7 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
                         value={draft.supplier_name}
                         onChange={(e) => setDraft((d) => ({ ...d, supplier_name: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") cancelEdit(); }}
-                        placeholder="Supplier name"
+                        placeholder={t('cattleFeedCatalogue.supplierPlaceholder')}
                         className="w-full border border-blue-300 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                     />
                 ) : (
@@ -225,15 +225,15 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
             <div className="px-4 py-3 flex items-center border-r border-gray-50">
                 {stockVal <= 0 ? (
                     <span className="flex items-center gap-1 text-[10px] font-semibold text-red-500">
-                        <TrendingDown size={11} /> Out
+                        <TrendingDown size={11} /> {t('cattleFeedCatalogue.statusOut')}
                     </span>
                 ) : stockVal < 5 ? (
                     <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-500">
-                        <AlertTriangle size={11} /> Low
+                        <AlertTriangle size={11} /> {t('cattleFeedCatalogue.statusLow')}
                     </span>
                 ) : (
                     <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-500">
-                        <TrendingUp size={11} /> OK
+                        <TrendingUp size={11} /> {t('cattleFeedCatalogue.statusOk')}
                     </span>
                 )}
             </div>
@@ -250,7 +250,7 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
                             {saving
                                 ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <Check size={11} />}
-                            {saving ? "Saving…" : "Save"}
+                            {saving ? t('cattleFeedCatalogue.saving') : t('cattleFeedCatalogue.save')}
                         </button>
                         <button
                             onClick={cancelEdit}
@@ -264,7 +264,7 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
                         onClick={startEdit}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 text-xs font-semibold hover:border-gray-400 hover:text-gray-800 transition"
                     >
-                        <Pencil size={11} /> Edit
+                        <Pencil size={11} /> {t('cattleFeedCatalogue.edit')}
                     </button>
                 ))}
             </div>
@@ -275,7 +275,7 @@ function FeedRow({ feed, onSave, onDelete, t, can }) {
                     <button
                         onClick={() => onDelete(feed)}
                         className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
-                        title="Remove feed"
+                        title={t('cattleFeedCatalogue.removeFeed')}
                     >
                         <X size={13} />
                     </button>
@@ -311,15 +311,24 @@ export default function CattleFeedCatalogue() {
             steps: [
                 {
                     element: '[data-tour="feed-actions"]',
-                    popover: { title: "Add Feed", description: "Search existing feeds or add a new one to your inventory." },
+                    popover: {
+                        title: t('cattleFeedCatalogue.tour.actions.title'),
+                        description: t('cattleFeedCatalogue.tour.actions.description'),
+                    },
                 },
                 {
                     element: '[data-tour="feed-stats"]',
-                    popover: { title: "Feed Statistics", description: "View total feeds, low stock alerts, out-of-stock count, and overall stock quantity." },
+                    popover: {
+                        title: t('cattleFeedCatalogue.tour.stats.title'),
+                        description: t('cattleFeedCatalogue.tour.stats.description'),
+                    },
                 },
                 {
                     element: '[data-tour="feeds-table"]',
-                    popover: { title: "Manage Feeds", description: "Click Edit on any row to update feed details inline. Use the × button to remove a feed." },
+                    popover: {
+                        title: t('cattleFeedCatalogue.tour.table.title'),
+                        description: t('cattleFeedCatalogue.tour.table.description'),
+                    },
                 },
             ],
         });
@@ -333,7 +342,7 @@ export default function CattleFeedCatalogue() {
             const { data } = await api.get("/cattle-feeds");
             setFeeds(data);
         } catch {
-            showFlash("error", "Failed to load feeds.");
+            showFlash("error", t('cattleFeedCatalogue.loadError'));
         } finally {
             setLoading(false);
         }
@@ -368,9 +377,9 @@ export default function CattleFeedCatalogue() {
             await fetchFeeds();
             setNewFeed(EMPTY_NEW);
             setShowAdd(false);
-            showFlash("success", `"${newFeed.feed_name.trim()}" added successfully.`);
+            showFlash("success", t('cattleFeedCatalogue.addSuccess', { name: newFeed.feed_name.trim() }));
         } catch (err) {
-            showFlash("error", err.response?.data?.error || "Failed to add feed.");
+            showFlash("error", err.response?.data?.error || t('cattleFeedCatalogue.addError'));
         } finally {
             setSavingNew(false);
         }
@@ -381,9 +390,9 @@ export default function CattleFeedCatalogue() {
         try {
             await api.put(`/cattle-feeds/${feedId}`, payload);
             await fetchFeeds();
-            showFlash("success", "Feed updated successfully.");
+            showFlash("success", t('cattleFeedCatalogue.updateSuccess'));
         } catch (err) {
-            showFlash("error", err.response?.data?.error || "Update failed.");
+            showFlash("error", err.response?.data?.error || t('cattleFeedCatalogue.updateError'));
         }
     };
 
@@ -394,9 +403,9 @@ export default function CattleFeedCatalogue() {
         try {
             await api.delete(`/cattle-feeds/${deleteTarget.feed_id}`);
             await fetchFeeds();
-            showFlash("success", `"${deleteTarget.feed_name}" deleted.`);
+            showFlash("success", t('cattleFeedCatalogue.deleteSuccess', { name: deleteTarget.feed_name }));
         } catch (err) {
-            showFlash("error", err.response?.data?.error || "Delete failed.");
+            showFlash("error", err.response?.data?.error || t('cattleFeedCatalogue.deleteError'));
         } finally {
             setDeleting(false);
             setDeleteTarget(null);
@@ -413,9 +422,15 @@ export default function CattleFeedCatalogue() {
     const totalStock = feeds.reduce((a, f) => a + parseFloat(f.current_stock || 0), 0);
 
     const COLS = [
-        "Feed Name", "Unit", "Stock",
-        "Supplier", "Rate", "MRP",
-        "Status", "Actions", ""
+        t('cattleFeedCatalogue.table.feedName'),
+        t('cattleFeedCatalogue.table.unit'),
+        t('cattleFeedCatalogue.table.stock'),
+        t('cattleFeedCatalogue.table.supplier'),
+        t('cattleFeedCatalogue.table.rate'),
+        t('cattleFeedCatalogue.table.mrp'),
+        t('cattleFeedCatalogue.table.status'),
+        t('cattleFeedCatalogue.table.actions'),
+        "",
     ];
     const GRID = "2fr 1fr 120px 150px 100px 100px 90px 90px 50px";
 
@@ -438,9 +453,9 @@ export default function CattleFeedCatalogue() {
                             <Wheat size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Cattle Feed Catalogue</h1>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('cattleFeedCatalogue.pageTitle')}</h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Manage your cattle feed inventory
+                                {t('cattleFeedCatalogue.pageSubtitle')}
                             </p>
                         </div>
                     </div>
@@ -450,14 +465,14 @@ export default function CattleFeedCatalogue() {
                             onClick={startTour}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={13} /> {t('cattleFeedCatalogue.takeTour')}
                         </button>
                         {can('cattle_feeds', 'C') && (
                             <button
                                 onClick={() => { setShowAdd(true); setNewFeed(EMPTY_NEW); }}
                                 className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 active:scale-95 transition shadow-md"
                             >
-                                <Plus size={14} /> Add Feed
+                                <Plus size={14} /> {t('cattleFeedCatalogue.addFeed')}
                             </button>
                         )}
                     </div>
@@ -466,10 +481,10 @@ export default function CattleFeedCatalogue() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="feed-stats">
                     {[
-                        { label: "Total Feeds", value: totalFeeds, icon: <Package size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: "Low Stock", value: lowStock, icon: <AlertTriangle size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
-                        { label: "Out of Stock", value: outOfStock, icon: <TrendingDown size={14} />, color: "text-red-500 bg-red-50 border-red-100" },
-                        { label: "Total Stock", value: totalStock.toFixed(1), icon: <Layers size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+                        { label: t('cattleFeedCatalogue.stats.totalFeeds'), value: totalFeeds, icon: <Package size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
+                        { label: t('cattleFeedCatalogue.stats.lowStock'), value: lowStock, icon: <AlertTriangle size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
+                        { label: t('cattleFeedCatalogue.stats.outOfStock'), value: outOfStock, icon: <TrendingDown size={14} />, color: "text-red-500 bg-red-50 border-red-100" },
+                        { label: t('cattleFeedCatalogue.stats.totalStock'), value: totalStock.toFixed(1), icon: <Layers size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                     ].map(({ label, value, icon, color }) => (
                         <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
                             <div className="shrink-0">{icon}</div>
@@ -504,7 +519,7 @@ export default function CattleFeedCatalogue() {
                         <input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search by name, unit, supplier, or ID"
+                            placeholder={t('cattleFeedCatalogue.searchPlaceholder')}
                             className="flex-1 text-sm text-gray-800 bg-transparent placeholder:text-gray-300
                                 focus:outline-none"
                         />
@@ -514,7 +529,7 @@ export default function CattleFeedCatalogue() {
                             </button>
                         )}
                         <span className="text-[11px] text-gray-400 font-medium shrink-0">
-                            {filtered.length} of {feeds.length}
+                            {t('cattleFeedCatalogue.resultCount', { count: filtered.length, total: feeds.length })}
                         </span>
                     </div>
 
@@ -538,14 +553,14 @@ export default function CattleFeedCatalogue() {
                             <div className="flex flex-col items-center justify-center py-20 gap-2 text-gray-300">
                                 <Wheat size={36} />
                                 <p className="text-sm">
-                                    {search ? "No feeds match your search." : "No feeds added yet."}
+                                    {search ? t('cattleFeedCatalogue.noMatch') : t('cattleFeedCatalogue.noFeeds')}
                                 </p>
                                 {!search && (
                                     <button
                                         onClick={() => setShowAdd(true)}
                                         className="mt-2 text-xs font-semibold text-gray-500 border border-dashed border-gray-300 px-4 py-2 rounded-xl hover:border-gray-500 hover:text-gray-700 transition"
                                     >
-                                        + Add your first feed
+                                        {t('cattleFeedCatalogue.addFirstFeed')}
                                     </button>
                                 )}
                             </div>
@@ -566,11 +581,11 @@ export default function CattleFeedCatalogue() {
                         {filtered.length > 0 && (
                             <div className="grid border-t-2 border-gray-100 bg-gray-50/80 min-w-max" style={{ gridTemplateColumns: GRID }}>
                                 <div className="px-4 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
-                                    {filtered.length} {filtered.length === 1 ? "feed" : "feeds"}
+                                    {t('cattleFeedCatalogue.footerCount', { count: filtered.length })}
                                 </div>
                                 <div className="px-4 py-2.5 border-r border-gray-100" />
                                 <div className="px-4 py-2.5 text-xs font-bold text-emerald-600 border-r border-gray-100">
-                                    {filtered.reduce((a, f) => a + parseFloat(f.current_stock || 0), 0).toFixed(1)} total
+                                    {filtered.reduce((a, f) => a + parseFloat(f.current_stock || 0), 0).toFixed(1)} {t('cattleFeedCatalogue.footerTotal')}
                                 </div>
                                 <div className="px-4 py-2.5 border-r border-gray-100" />
                                 <div className="px-4 py-2.5 border-r border-gray-100" />
@@ -585,9 +600,9 @@ export default function CattleFeedCatalogue() {
 
                 {/* Legend */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-                    <span>• Click <strong>Edit</strong> to modify any field inline.</span>
-                    <span>• <strong className="text-amber-500">Low</strong> = stock &lt; 5 units · <strong className="text-red-500">Out</strong> = zero stock.</span>
-                    <span>• Stock updates are applied instantly.</span>
+                    <span>• {t('cattleFeedCatalogue.legendEdit')}</span>
+                    <span>• {t('cattleFeedCatalogue.legendStatus')}</span>
+                    <span>• {t('cattleFeedCatalogue.legendStockUpdate')}</span>
                 </div>
 
             </main>
@@ -598,8 +613,8 @@ export default function CattleFeedCatalogue() {
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h2 className="text-gray-800 font-semibold text-base">Add New Feed</h2>
-                                <p className="text-gray-400 text-xs mt-0.5">Create a new cattle feed entry</p>
+                                <h2 className="text-gray-800 font-semibold text-base">{t('cattleFeedCatalogue.addModal.title')}</h2>
+                                <p className="text-gray-400 text-xs mt-0.5">{t('cattleFeedCatalogue.addModal.subtitle')}</p>
                             </div>
                             <button
                                 onClick={() => setShowAdd(false)}
@@ -610,11 +625,11 @@ export default function CattleFeedCatalogue() {
                         </div>
 
                         <form onSubmit={handleAdd} className="flex flex-col gap-3">
-                            <Field label="Feed Name *" icon={<Package size={11} />}>
+                            <Field label={t('cattleFeedCatalogue.addModal.feedName') + " *"} icon={<Package size={11} />}>
                                 <input
                                     value={newFeed.feed_name}
                                     onChange={(e) => setNewFeed((p) => ({ ...p, feed_name: e.target.value }))}
-                                    placeholder="e.g., Dairy Pellet"
+                                    placeholder={t('cattleFeedCatalogue.addModal.feedNamePlaceholder')}
                                     required autoFocus
                                     className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
                                         placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
@@ -622,17 +637,17 @@ export default function CattleFeedCatalogue() {
                             </Field>
 
                             <div className="grid grid-cols-2 gap-3">
-                                <Field label="Unit *" icon={<Hash size={11} />}>
+                                <Field label={t('cattleFeedCatalogue.addModal.unit') + " *"} icon={<Hash size={11} />}>
                                     <input
                                         value={newFeed.unit}
                                         onChange={(e) => setNewFeed((p) => ({ ...p, unit: e.target.value }))}
-                                        placeholder="kg, bag, ton"
+                                        placeholder={t('cattleFeedCatalogue.addModal.unitPlaceholder')}
                                         required
                                         className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
                                             placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
                                     />
                                 </Field>
-                                <Field label="Current Stock" icon={<Layers size={11} />}>
+                                <Field label={t('cattleFeedCatalogue.addModal.currentStock')} icon={<Layers size={11} />}>
                                     <input
                                         value={newFeed.current_stock || ""}
                                         onChange={(e) => setNewFeed((p) => ({ ...p, current_stock: e.target.value }))}
@@ -643,18 +658,18 @@ export default function CattleFeedCatalogue() {
                                 </Field>
                             </div>
 
-                            <Field label="Supplier Name" icon={<Package size={11} />}>
+                            <Field label={t('cattleFeedCatalogue.addModal.supplierName')} icon={<Package size={11} />}>
                                 <input
                                     value={newFeed.supplier_name}
                                     onChange={(e) => setNewFeed((p) => ({ ...p, supplier_name: e.target.value }))}
-                                    placeholder="Supplier name (optional)"
+                                    placeholder={t('cattleFeedCatalogue.addModal.supplierPlaceholder')}
                                     className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
                                         placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
                                 />
                             </Field>
 
                             <div className="grid grid-cols-2 gap-3">
-                                <Field label="Purchase Rate" icon={<IndianRupee size={11} />}>
+                                <Field label={t('cattleFeedCatalogue.addModal.rate')} icon={<IndianRupee size={11} />}>
                                     <input
                                         value={newFeed.rate}
                                         onChange={(e) => setNewFeed((p) => ({ ...p, rate: e.target.value }))}
@@ -663,7 +678,7 @@ export default function CattleFeedCatalogue() {
                                             placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
                                     />
                                 </Field>
-                                <Field label="MRP" icon={<IndianRupee size={11} />}>
+                                <Field label={t('cattleFeedCatalogue.addModal.mrp')} icon={<IndianRupee size={11} />}>
                                     <input
                                         value={newFeed.mrp_rate}
                                         onChange={(e) => setNewFeed((p) => ({ ...p, mrp_rate: e.target.value }))}
@@ -680,7 +695,7 @@ export default function CattleFeedCatalogue() {
                                     onClick={() => setShowAdd(false)}
                                     className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
                                 >
-                                    Cancel
+                                    {t('cattleFeedCatalogue.cancel')}
                                 </button>
                                 <button
                                     type="submit"
@@ -690,7 +705,7 @@ export default function CattleFeedCatalogue() {
                                     {savingNew && (
                                         <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     )}
-                                    {savingNew ? "Adding…" : "Add Feed"}
+                                    {savingNew ? t('cattleFeedCatalogue.adding') : t('cattleFeedCatalogue.addFeed')}
                                 </button>
                             </div>
                         </form>
@@ -706,13 +721,16 @@ export default function CattleFeedCatalogue() {
                             <AlertTriangle size={18} className="text-red-500" />
                         </div>
                         <div>
-                            <h2 className="text-gray-800 font-semibold text-base">Remove Feed?</h2>
+                            <h2 className="text-gray-800 font-semibold text-base">{t('cattleFeedCatalogue.deleteModal.title')}</h2>
                             <p className="text-gray-400 text-sm mt-1">
-                                This will permanently delete <span className="font-semibold text-gray-700">"{deleteTarget.feed_name}"</span> and all related sales/purchases.
+                                {t('cattleFeedCatalogue.deleteModal.warning', { name: deleteTarget.feed_name })}
                             </p>
                             {parseFloat(deleteTarget.current_stock || 0) > 0 && (
                                 <p className="text-amber-600 text-xs font-semibold mt-2 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
-                                    ⚠ {fmtStock(deleteTarget.current_stock)} {deleteTarget.unit} in stock – this will be lost.
+                                    {t('cattleFeedCatalogue.deleteModal.stockWarning', {
+                                        stock: fmtStock(deleteTarget.current_stock),
+                                        unit: deleteTarget.unit,
+                                    })}
                                 </p>
                             )}
                         </div>
@@ -721,7 +739,7 @@ export default function CattleFeedCatalogue() {
                                 onClick={() => setDeleteTarget(null)}
                                 className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
                             >
-                                Cancel
+                                {t('cattleFeedCatalogue.cancel')}
                             </button>
                             <button
                                 onClick={confirmDelete}
@@ -731,7 +749,7 @@ export default function CattleFeedCatalogue() {
                                 {deleting && (
                                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 )}
-                                {deleting ? "Removing…" : "Yes, Remove"}
+                                {deleting ? t('cattleFeedCatalogue.removing') : t('cattleFeedCatalogue.yesRemove')}
                             </button>
                         </div>
                     </div>

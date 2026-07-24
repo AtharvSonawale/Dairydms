@@ -1,6 +1,7 @@
 // pages/admin/AdminProfile.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
     ArrowLeft, BadgeCheck, AlertTriangle, X, Mail, Phone,
     Building2, Calendar, Power, Trash2, Save, Eye, EyeOff,
@@ -9,6 +10,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AdminProfile() {
+    const { t } = useTranslation();
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -36,7 +38,7 @@ export default function AdminProfile() {
             setAdmin(data);
             setForm({ name: data.name, email: data.email, mobile: data.mobile || '', password: '' });
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to load admin.');
+            showFlash('error', err.response?.data?.message || t('adminProfile.loadError'));
         } finally {
             setLoading(false);
         }
@@ -61,9 +63,9 @@ export default function AdminProfile() {
             const { data } = await api.put(`/admin-management/${id}`, payload);
             setAdmin(data);
             setForm(f => ({ ...f, password: '' }));
-            showFlash('success', 'Profile updated successfully.');
+            showFlash('success', t('adminProfile.updateSuccess'));
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to update profile.');
+            showFlash('error', err.response?.data?.message || t('adminProfile.updateError'));
         } finally {
             setSaving(false);
         }
@@ -75,10 +77,10 @@ export default function AdminProfile() {
                 is_active: admin.is_active ? 0 : 1,
             });
             setAdmin(prev => ({ ...prev, is_active: data.is_active }));
-            showFlash('success', `Admin ${data.is_active ? 'reactivated' : 'deactivated'} successfully.`);
+            showFlash('success', t(`adminProfile.statusToggle.${data.is_active ? 'reactivated' : 'deactivated'}`));
             setDeactivateConfirmOpen(false);
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to update status.');
+            showFlash('error', err.response?.data?.message || t('adminProfile.statusToggleError'));
             setDeactivateConfirmOpen(false);
         }
     };
@@ -95,9 +97,9 @@ export default function AdminProfile() {
         return (
             <div className="min-h-screen bg-[#f5f4f0] flex flex-col items-center justify-center gap-3 text-gray-400">
                 <AlertTriangle size={28} />
-                <p className="text-sm">Admin not found.</p>
+                <p className="text-sm">{t('adminProfile.notFound')}</p>
                 <Link to="/admin/admins" className="text-blue-600 text-sm font-medium hover:underline">
-                    Back to Admins
+                    {t('adminProfile.backToList')}
                 </Link>
             </div>
         );
@@ -110,7 +112,7 @@ export default function AdminProfile() {
                 {/* Back link */}
                 <button onClick={() => navigate('/admin/admins')}
                     className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition self-start">
-                    <ArrowLeft size={14} /> Back to Admins
+                    <ArrowLeft size={14} /> {t('adminProfile.backToList')}
                 </button>
 
                 {/* Flash */}
@@ -138,12 +140,12 @@ export default function AdminProfile() {
                             <h1 className="text-lg font-bold text-gray-900 truncate">{admin.name}</h1>
                             {isSelf && (
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                                    You
+                                    {t('adminProfile.youBadge')}
                                 </span>
                             )}
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
                                 ${admin.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                                {admin.is_active ? 'Active' : 'Inactive'}
+                                {admin.is_active ? t('status.active') : t('status.inactive')}
                             </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-400">
@@ -151,7 +153,7 @@ export default function AdminProfile() {
                             {admin.mobile && <span className="flex items-center gap-1"><Phone size={11} /> {admin.mobile}</span>}
                             <span className="flex items-center gap-1"><Building2 size={11} /> {admin.centre_name}</span>
                             <span className="flex items-center gap-1">
-                                <Calendar size={11} /> Joined {new Date(admin.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                <Calendar size={11} /> {t('adminProfile.joinedLabel')} {new Date(admin.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
                         </div>
                     </div>
@@ -159,36 +161,36 @@ export default function AdminProfile() {
 
                 {/* Edit form */}
                 <form onSubmit={handleSave} className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
-                    <h2 className="text-sm font-bold text-gray-900">Edit Profile</h2>
+                    <h2 className="text-sm font-bold text-gray-900">{t('adminProfile.editTitle')}</h2>
 
                     <div className="grid sm:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-gray-700">Full Name</label>
+                            <label className="text-xs font-medium text-gray-700">{t('adminProfile.fullName')}</label>
                             <input name="name" value={form.name} onChange={handleChange} required
                                 className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-gray-700">Email</label>
+                            <label className="text-xs font-medium text-gray-700">{t('adminProfile.email')}</label>
                             <input name="email" type="email" value={form.email} onChange={handleChange} required
                                 className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-gray-700">Mobile</label>
+                            <label className="text-xs font-medium text-gray-700">{t('adminProfile.mobile')}</label>
                             <input name="mobile" type="tel" value={form.mobile} onChange={handleChange}
-                                pattern="^\+?[0-9]{10,15}$" placeholder="+91XXXXXXXXXX"
+                                pattern="^\+?[0-9]{10,15}$" placeholder={t('adminProfile.mobilePlaceholder')}
                                 className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-medium text-gray-700">
-                                New Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span>
+                                {t('adminProfile.newPassword')} <span className="text-gray-400 font-normal">{t('adminProfile.leaveBlankHint')}</span>
                             </label>
                             <div className="relative">
                                 <input name="password" type={showPass ? 'text' : 'password'}
                                     value={form.password} onChange={handleChange}
-                                    placeholder="Min 6 characters"
+                                    placeholder={t('adminProfile.passwordPlaceholder')}
                                     className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 pr-10 text-sm w-full
                                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                                 <button type="button" onClick={() => setShowPass(p => !p)}
@@ -205,7 +207,7 @@ export default function AdminProfile() {
                             {saving
                                 ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <Save size={14} />}
-                            {saving ? 'Saving...' : 'Save Changes'}
+                            {saving ? t('adminProfile.saving') : t('adminProfile.saveChanges')}
                         </button>
                     </div>
                 </form>
@@ -215,12 +217,10 @@ export default function AdminProfile() {
                     <div className="bg-white rounded-2xl border border-rose-100 p-6 flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-sm font-bold text-rose-700">
-                                {admin.is_active ? 'Deactivate this admin' : 'Reactivate this admin'}
+                                {admin.is_active ? t('adminProfile.deactivateTitle') : t('adminProfile.reactivateTitle')}
                             </h2>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                {admin.is_active
-                                    ? 'They will no longer be able to log in. Their history is preserved.'
-                                    : 'They will regain access to log in.'}
+                                {admin.is_active ? t('adminProfile.deactivateDesc') : t('adminProfile.reactivateDesc')}
                             </p>
                         </div>
                         <button onClick={() => setDeactivateConfirmOpen(true)}
@@ -228,14 +228,14 @@ export default function AdminProfile() {
                                 ${admin.is_active
                                     ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
                                     : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
-                            <Power size={14} /> {admin.is_active ? 'Deactivate' : 'Reactivate'}
+                            <Power size={14} /> {admin.is_active ? t('adminProfile.deactivateButton') : t('adminProfile.reactivateButton')}
                         </button>
                     </div>
                 )}
                 {isSelf && (
                     <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 text-xs text-gray-400 flex items-center gap-2">
                         <AlertTriangle size={13} />
-                        You cannot deactivate your own account from here.
+                        {t('adminProfile.selfDeactivateWarning')}
                     </div>
                 )}
             </main>
@@ -249,23 +249,25 @@ export default function AdminProfile() {
                                 <Trash2 size={16} className="text-rose-600" />
                             </div>
                             <h2 className="text-sm font-bold text-gray-900">
-                                {admin.is_active ? 'Confirm deactivation' : 'Confirm reactivation'}
+                                {admin.is_active ? t('adminProfile.confirmDeactivate') : t('adminProfile.confirmReactivate')}
                             </h2>
                         </div>
                         <div className="px-6 py-5">
                             <p className="text-sm text-gray-600">
-                                Are you sure you want to {admin.is_active ? 'deactivate' : 'reactivate'}{' '}
-                                <strong>{admin.name}</strong>?
+                                {t('adminProfile.confirmMessage', {
+                                    action: admin.is_active ? t('adminProfile.deactivateAction') : t('adminProfile.reactivateAction'),
+                                    name: admin.name
+                                })}
                             </p>
                         </div>
                         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
                             <button onClick={() => setDeactivateConfirmOpen(false)}
                                 className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
-                                Cancel
+                                {t('adminProfile.cancel')}
                             </button>
                             <button onClick={handleToggleStatus}
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition">
-                                <Power size={12} /> Yes, {admin.is_active ? 'Deactivate' : 'Reactivate'}
+                                <Power size={12} /> {t('adminProfile.confirmYes', { action: admin.is_active ? t('adminProfile.deactivateAction') : t('adminProfile.reactivateAction') })}
                             </button>
                         </div>
                     </div>

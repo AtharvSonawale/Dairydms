@@ -1,6 +1,7 @@
 // pages/admin/AdminList.jsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
     Users, Plus, Search, X, BadgeCheck, AlertTriangle,
     Mail, Phone, Power, ChevronRight, Building2,
@@ -10,7 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
-function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
+function CreateAdminModal({ open, onClose, onCreated, showFlash, t }) {
     const [form, setForm] = useState({ name: '', email: '', password: '', mobile: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -26,11 +27,11 @@ function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
         try {
             const { data } = await api.post('/admin-management', form);
             onCreated(data);
-            showFlash('success', `Admin "${data.name}" created successfully.`);
+            showFlash('success', t('adminList.createSuccess', { name: data.name }));
             setForm({ name: '', email: '', password: '', mobile: '' });
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create admin.');
+            setError(err.response?.data?.message || t('adminList.createError'));
         } finally {
             setSaving(false);
         }
@@ -44,7 +45,7 @@ function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
                         <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
                             <Plus size={16} className="text-white" />
                         </div>
-                        <h2 className="text-sm font-bold text-gray-900">Add New Admin</h2>
+                        <h2 className="text-sm font-bold text-gray-900">{t('adminList.modal.title')}</h2>
                     </div>
                     <button onClick={onClose}
                         className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
@@ -60,32 +61,32 @@ function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
                         </div>
                     )}
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-gray-700">Full Name</label>
+                        <label className="text-xs font-medium text-gray-700">{t('adminList.modal.fullName')}</label>
                         <input name="name" value={form.name} onChange={handleChange} required
-                            placeholder="Enter full name"
+                            placeholder={t('adminList.modal.namePlaceholder')}
                             className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-gray-700">Email</label>
+                        <label className="text-xs font-medium text-gray-700">{t('adminList.modal.email')}</label>
                         <input name="email" type="email" value={form.email} onChange={handleChange} required
-                            placeholder="admin@example.com"
+                            placeholder={t('adminList.modal.emailPlaceholder')}
                             className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-gray-700">
-                            Mobile <span className="text-gray-400 font-normal">(optional)</span>
+                            {t('adminList.modal.mobile')} <span className="text-gray-400 font-normal">{t('adminList.modal.optional')}</span>
                         </label>
                         <input name="mobile" type="tel" value={form.mobile} onChange={handleChange}
-                            placeholder="+91XXXXXXXXXX" pattern="^\+?[0-9]{10,15}$"
+                            placeholder={t('adminList.modal.mobilePlaceholder')} pattern="^\+?[0-9]{10,15}$"
                             className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-gray-700">Password</label>
+                        <label className="text-xs font-medium text-gray-700">{t('adminList.modal.password')}</label>
                         <input name="password" type="password" value={form.password} onChange={handleChange} required
-                            placeholder="Min 6 characters"
+                            placeholder={t('adminList.modal.passwordPlaceholder')}
                             className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm
                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
                     </div>
@@ -93,14 +94,14 @@ function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
                     <div className="flex justify-end gap-2 mt-2">
                         <button type="button" onClick={onClose}
                             className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
-                            Cancel
+                            {t('adminList.modal.cancel')}
                         </button>
                         <button type="submit" disabled={saving}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50">
                             {saving
                                 ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <BadgeCheck size={12} />}
-                            {saving ? 'Creating...' : 'Create Admin'}
+                            {saving ? t('adminList.modal.creating') : t('adminList.modal.create')}
                         </button>
                     </div>
                 </form>
@@ -110,6 +111,7 @@ function CreateAdminModal({ open, onClose, onCreated, showFlash }) {
 }
 
 export default function AdminList() {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [admins, setAdmins] = useState([]);
@@ -120,7 +122,7 @@ export default function AdminList() {
     const [flash, setFlash] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
 
-const showFlash = (type, msg) => {
+    const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
@@ -132,15 +134,24 @@ const showFlash = (type, msg) => {
             steps: [
                 {
                     element: '[data-tour="add-admin-btn"]',
-                    popover: { title: 'Add Admin', description: 'Create a new admin account for your centre.' },
+                    popover: {
+                        title: t('adminList.tour.addAdmin.title'),
+                        description: t('adminList.tour.addAdmin.description'),
+                    },
                 },
                 {
                     element: '[data-tour="search-filter"]',
-                    popover: { title: 'Search & Filter', description: 'Search by name or email, or filter by active/inactive status.' },
+                    popover: {
+                        title: t('adminList.tour.searchFilter.title'),
+                        description: t('adminList.tour.searchFilter.description'),
+                    },
                 },
                 {
                     element: '[data-tour="admin-list"]',
-                    popover: { title: 'Admin List', description: 'Click any admin to view their profile, or use the toggle to deactivate/reactivate their account.' },
+                    popover: {
+                        title: t('adminList.tour.adminList.title'),
+                        description: t('adminList.tour.adminList.description'),
+                    },
                 },
             ],
         });
@@ -153,7 +164,7 @@ const showFlash = (type, msg) => {
             const { data } = await api.get('/admin-management');
             setAdmins(data);
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to load admins.');
+            showFlash('error', err.response?.data?.message || t('adminList.loadError'));
         } finally {
             setLoading(false);
         }
@@ -169,10 +180,10 @@ const showFlash = (type, msg) => {
             await api.patch(`/admin-management/${admin.admin_id}/status`, {
                 is_active: admin.is_active ? 0 : 1,
             });
-            showFlash('success', `${admin.name} ${admin.is_active ? 'deactivated' : 'reactivated'}.`);
+            showFlash('success', admin.is_active ? t('adminList.deactivated', { name: admin.name }) : t('adminList.reactivated', { name: admin.name }));
             await fetchAdmins();
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to update status.');
+            showFlash('error', err.response?.data?.message || t('adminList.statusError'));
         } finally {
             setTogglingId(null);
         }
@@ -199,9 +210,9 @@ const showFlash = (type, msg) => {
                             <Users size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Admins</h1>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('adminList.title')}</h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Manage admin accounts in your centre
+                                {t('adminList.subtitle')}
                             </p>
                         </div>
                     </div>
@@ -209,12 +220,12 @@ const showFlash = (type, msg) => {
                         <button onClick={startAdminListTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                                 bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={13} /> {t('adminList.takeTour')}
                         </button>
                         <button onClick={() => setCreateOpen(true)} data-tour="add-admin-btn"
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                                 bg-blue-600 text-white hover:bg-blue-700 transition">
-                            <Plus size={14} /> Add Admin
+                            <Plus size={14} /> {t('adminList.addAdmin')}
                         </button>
                     </div>
                 </div>
@@ -232,18 +243,22 @@ const showFlash = (type, msg) => {
                         </button>
                     </div>
                 )}
-                
+
                 {/* Search + Filter */}
                 <div className="flex items-center gap-2" data-tour="search-filter">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder="Search by name or email..."
+                            placeholder={t('adminList.searchPlaceholder')}
                             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
                                 focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
                     </div>
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                        {[['all', 'All'], ['active', 'Active'], ['inactive', 'Inactive']].map(([v, l]) => (
+                        {[
+                            ['all', t('adminList.filterAll')],
+                            ['active', t('adminList.filterActive')],
+                            ['inactive', t('adminList.filterInactive')]
+                        ].map(([v, l]) => (
                             <button key={v} onClick={() => setFilterStatus(v)}
                                 className={`px-3 py-2 transition
                                     ${filterStatus === v ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
@@ -252,7 +267,7 @@ const showFlash = (type, msg) => {
                         ))}
                     </div>
                 </div>
-                
+
                 {/* List */}
                 <div className="flex flex-col gap-2" data-tour="admin-list">
                     {loading ? (
@@ -262,7 +277,7 @@ const showFlash = (type, msg) => {
                     ) : filtered.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200 gap-2 text-gray-300">
                             <Users size={32} />
-                            <p className="text-sm">No admins found.</p>
+                            <p className="text-sm">{t('adminList.noAdmins')}</p>
                         </div>
                     ) : filtered.map(admin => (
                         <div key={admin.admin_id}
@@ -281,12 +296,12 @@ const showFlash = (type, msg) => {
                                     <p className="text-sm font-semibold text-gray-800 truncate">{admin.name}</p>
                                     {admin.admin_id === user?.id && (
                                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                                            You
+                                            {t('adminList.youBadge')}
                                         </span>
                                     )}
                                     {!admin.is_active && (
                                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                                            Inactive
+                                            {t('status.inactive')}
                                         </span>
                                     )}
                                 </div>
@@ -310,13 +325,13 @@ const showFlash = (type, msg) => {
                                 <button
                                     onClick={(e) => handleToggleStatus(e, admin)}
                                     disabled={togglingId === admin.admin_id}
-                                    title={admin.is_active ? 'Deactivate' : 'Reactivate'}
+                                    title={admin.is_active ? t('adminList.deactivateTitle') : t('adminList.reactivateTitle')}
                                     className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition disabled:opacity-50
                                         ${admin.is_active
                                             ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
                                             : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
                                     <Power size={11} />
-                                    {admin.is_active ? 'Deactivate' : 'Reactivate'}
+                                    {admin.is_active ? t('adminList.deactivateButton') : t('adminList.reactivateButton')}
                                 </button>
                             )}
 
@@ -331,6 +346,7 @@ const showFlash = (type, msg) => {
                 onClose={() => setCreateOpen(false)}
                 onCreated={() => fetchAdmins()}
                 showFlash={showFlash}
+                t={t}
             />
         </div>
     );

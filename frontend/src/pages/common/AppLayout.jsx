@@ -49,7 +49,7 @@ const SHARED_NAV = (isAdmin, t) => [
                 { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
                 { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
                 { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
-                { label: 'Ports Settings', icon: <HdmiPort size={14} />, to: '/admin/ports' },
+                { label: t('nav.portSettings'), icon: <HdmiPort size={14} />, to: '/admin/ports' },
                 { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
             ],
         },
@@ -93,17 +93,17 @@ const SHARED_NAV = (isAdmin, t) => [
             { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers' },
             // ─── New Report Links ──────────────────────────────
             {
-                label: 'Sellers Report',
+                label: t('nav.sellerReport'),
                 icon: <Users2 size={14} />,
                 to: '/walkinsellersreport',
             },
             {
-                label: 'Named-Buyers Report',
+                label: t('nav.namedBuyerReports'),
                 icon: <User2Icon size={14} />,
                 to: '/walkinnamedbuyersreports',
             },
             {
-                label: 'Anon-Sellers Report',
+                label: t('nav.anonReports'),
                 icon: <FileText size={14} />,
                 to: '/walkinanonymousreports',
             },

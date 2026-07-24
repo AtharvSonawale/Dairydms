@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
     BookOpen, Search, RefreshCw, Wallet, Banknote, User, Receipt,
 } from "lucide-react";
@@ -13,7 +14,7 @@ const fmt = (n) => n === null || n === undefined ? "—" : `₹${parseFloat(n ||
 const fmtDate = (d) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-// Summary stat card
+// Summary stat card – localized labels are passed via props
 function StatCard({ label, value, icon, color }) {
     return (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
@@ -26,20 +27,22 @@ function StatCard({ label, value, icon, color }) {
     );
 }
 
-// Balance chip: green when balance is negative (farmer owes us less),
-// red when positive (farmer owes us more), grey when zero.
+// Balance chip – uses translation for "—" fallback
 function BalanceChip({ value }) {
+    const { t } = useTranslation();
     const v = parseFloat(value || 0);
     const positive = v > 0;
     const zero = v === 0;
+    const display = v === 0 ? t('farmerLedger.zeroBalance', '—') : fmt(v);
     return (
         <span className={`font-mono text-xs font-bold ${zero ? "text-gray-400" : positive ? "text-rose-600" : "text-emerald-600"}`}>
-            {fmt(v)}
+            {display}
         </span>
     );
 }
 
 export default function FarmerLedger() {
+    const { t } = useTranslation();
     const { can, loading: permLoading } = usePermission();
 
     const [search, setSearch] = useState("");
@@ -91,38 +94,49 @@ export default function FarmerLedger() {
                             <BookOpen size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Farmer Ledger</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">Advance & deposit accounts and last paid bill, per farmer</p>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('farmerLedger.title')}</h1>
+                            <p className="text-xs text-gray-400 mt-0.5">{t('farmerLedger.subtitle')}</p>
                         </div>
                     </div>
                     <button onClick={() => { setPage(1); fetchSummary(); }}
                         className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                             bg-gray-100 text-gray-600 hover:bg-gray-200 transition self-start sm:self-auto">
-                        <RefreshCw size={13} /> Refresh
+                        <RefreshCw size={13} /> {t('farmerLedger.refresh')}
                     </button>
                 </div>
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-                    <StatCard label="Advance Outstanding (all farmers)" value={fmt(data.total_advance_outstanding)}
-                        icon={<Banknote size={16} />} color="text-violet-600 bg-violet-50 border-violet-100" />
-                    <StatCard label="Deposit Held (all farmers)" value={fmt(data.total_deposit_held)}
-                        icon={<Wallet size={16} />} color="text-blue-600 bg-blue-50 border-blue-100" />
+                    <StatCard
+                        label={t('farmerLedger.stats.advanceOutstanding')}
+                        value={fmt(data.total_advance_outstanding)}
+                        icon={<Banknote size={16} />}
+                        color="text-violet-600 bg-violet-50 border-violet-100"
+                    />
+                    <StatCard
+                        label={t('farmerLedger.stats.depositHeld')}
+                        value={fmt(data.total_deposit_held)}
+                        icon={<Wallet size={16} />}
+                        color="text-blue-600 bg-blue-50 border-blue-100"
+                    />
                 </div>
 
                 {/* Search */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 min-w-[220px] max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => { setPage(1); setSearch(e.target.value); }}
-                            placeholder="Search farmer, code, mobile…"
+                        <input
+                            value={search}
+                            onChange={e => { setPage(1); setSearch(e.target.value); }}
+                            placeholder={t('farmerLedger.searchPlaceholder')}
                             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300"
+                        />
                     </div>
                     {search && (
                         <button onClick={() => { setSearch(""); setPage(1); }}
                             className="text-xs text-gray-400 hover:text-gray-600 px-3 py-2 rounded-xl border border-gray-200 bg-white transition">
-                            Clear
+                            {t('farmerLedger.clear')}
                         </button>
                     )}
                 </div>
@@ -134,34 +148,34 @@ export default function FarmerLedger() {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                                        Farmer ID
+                                        {t('farmerLedger.table.farmerId')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                                        Farmer Name
+                                        {t('farmerLedger.table.farmerName')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-violet-600 uppercase tracking-wider whitespace-nowrap">
-                                        Advance Credit
+                                        {t('farmerLedger.table.advanceCredit')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-violet-600 uppercase tracking-wider whitespace-nowrap">
-                                        Advance Debit
+                                        {t('farmerLedger.table.advanceDebit')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-violet-600 uppercase tracking-wider whitespace-nowrap">
-                                        Advance Balance
+                                        {t('farmerLedger.table.advanceBalance')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap">
-                                        Deposit Credit
+                                        {t('farmerLedger.table.depositCredit')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap">
-                                        Deposit Debit
+                                        {t('farmerLedger.table.depositDebit')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap">
-                                        Deposit Balance
+                                        {t('farmerLedger.table.depositBalance')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                        Last Bill Amount
+                                        {t('farmerLedger.table.lastBillAmount')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                        Last Bill Date
+                                        {t('farmerLedger.table.lastBillDate')}
                                     </th>
                                     <th className="px-4 py-3"></th>
                                 </tr>
@@ -174,7 +188,7 @@ export default function FarmerLedger() {
                                 ) : data.rows.length === 0 ? (
                                     <tr><td colSpan={11} className="py-16 text-center text-gray-300">
                                         <BookOpen size={28} className="mx-auto mb-2" />
-                                        <p className="text-sm">No farmers found.</p>
+                                        <p className="text-sm">{t('farmerLedger.noFarmers')}</p>
                                     </td></tr>
                                 ) : data.rows.map((r) => (
                                     <tr key={r.seller_id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition">
@@ -222,14 +236,14 @@ export default function FarmerLedger() {
                                                 <span className="inline-flex items-center gap-1">
                                                     <Receipt size={10} /> {fmtDate(r.last_bill_paid_at)}
                                                 </span>
-                                            ) : "No bill yet"}
+                                            ) : t('farmerLedger.noBillYet')}
                                         </td>
 
                                         {/* View link */}
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             <Link to={`/farmer-ledger/${r.seller_id}`}
                                                 className="text-[11px] font-semibold text-gray-400 hover:text-gray-700 transition">
-                                                View →
+                                                {t('farmerLedger.view')} →
                                             </Link>
                                         </td>
                                     </tr>
@@ -242,17 +256,19 @@ export default function FarmerLedger() {
                     {data.total > 0 && (
                         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
                             <span className="text-xs text-gray-400">
-                                {(page - 1) * limit + 1}–{Math.min(page * limit, data.total)} of {data.total} farmers
+                                {(page - 1) * limit + 1}–{Math.min(page * limit, data.total)} {t('farmerLedger.of')} {data.total} {t('farmerLedger.farmers')}
                             </span>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                                     className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
-                                    Prev
+                                    {t('farmerLedger.prev')}
                                 </button>
-                                <span className="text-xs text-gray-500">Page {page} of {totalPages || 1}</span>
+                                <span className="text-xs text-gray-500">
+                                    {t('farmerLedger.page')} {page} {t('farmerLedger.of')} {totalPages || 1}
+                                </span>
                                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
                                     className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
-                                    Next
+                                    {t('farmerLedger.next')}
                                 </button>
                             </div>
                         </div>

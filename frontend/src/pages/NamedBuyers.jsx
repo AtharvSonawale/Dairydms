@@ -1,3 +1,4 @@
+// src/pages/admin/NamedBuyersManagement.jsx
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -42,32 +43,34 @@ function TableCell({ children, className = "" }) {
     );
 }
 
-// ── Status Badge ──────────────────────────────────────────────
+// ── Status Badge (localized) ──────────────────────────────────
 function StatusBadge({ active }) {
+    const { t } = useTranslation();
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
             ${active
                 ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                 : "bg-gray-100 text-gray-400 border-gray-200"}`}>
             {active ? (
-                <><CheckCircle2 size={10} /> Active</>
+                <><CheckCircle2 size={10} /> {t('namedBuyers.active')}</>
             ) : (
-                <><AlertCircle size={10} /> Inactive</>
+                <><AlertCircle size={10} /> {t('namedBuyers.inactive')}</>
             )}
         </span>
     );
 }
 
 function MilkTypeBadge({ type }) {
+    const { t } = useTranslation();
     const map = {
-        cow: { label: "Cow", bg: "bg-amber-50 text-amber-700 border-amber-100" },
-        buffalo: { label: "Buffalo", bg: "bg-blue-50 text-blue-700 border-blue-100" },
-        mixed: { label: "Mixed", bg: "bg-purple-50 text-purple-700 border-purple-100" },
+        cow: { label: t('namedBuyers.cow'), bg: "bg-amber-50 text-amber-700 border-amber-100" },
+        buffalo: { label: t('namedBuyers.buffalo'), bg: "bg-blue-50 text-blue-700 border-blue-100" },
+        mixed: { label: t('namedBuyers.mixed'), bg: "bg-purple-50 text-purple-700 border-purple-100" },
     };
-    const t = map[type] || map.mixed;
+    const style = map[type] || map.mixed;
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${t.bg}`}>
-            {t.label}
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${style.bg}`}>
+            {style.label}
         </span>
     );
 }
@@ -147,15 +150,15 @@ export default function NamedBuyersManagement() {
             steps: [
                 {
                     element: '[data-tour="search-add"]',
-                    popover: { title: t('namedBuyers.addBuyer'), description: 'Search existing buyers by name, mobile, address, or code — or register a new one.' },
+                    popover: { title: t('namedBuyers.addBuyer'), description: t('namedBuyers.tourSearchAddDesc', 'Search existing buyers by name, mobile, address, or code — or register a new one.') },
                 },
                 {
                     element: '[data-tour="buyer-stats"]',
-                    popover: { title: t('namedBuyers.total'), description: 'See your total buyers, and how many are active vs inactive.' },
+                    popover: { title: t('namedBuyers.total'), description: t('namedBuyers.tourStatsDesc', 'See your total buyers, and how many are active vs inactive.') },
                 },
                 {
                     element: '[data-tour="buyers-table"]',
-                    popover: { title: t('namedBuyers.colStatus'), description: 'Click the status badge to toggle active/inactive. Use Edit or Delete to manage a buyer.' },
+                    popover: { title: t('namedBuyers.colStatus'), description: t('namedBuyers.tourTableDesc', 'Click the status badge to toggle active/inactive. Use Edit or Delete to manage a buyer.') },
                 },
             ],
         });
@@ -316,7 +319,7 @@ export default function NamedBuyersManagement() {
                             onClick={startNamedBuyersTour}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
                         >
-                            <CheckCircle2 size={13} /> Take a Tour
+                            <CheckCircle2 size={13} /> {t('namedBuyers.takeTour')}
                         </button>
                         <div className="relative">
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />

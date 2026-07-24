@@ -73,6 +73,24 @@ export default function ExpensesReport() {
     const [loading, setLoading] = useState(false);
     const [flash, setFlash] = useState(null);
 
+    // ── Helpers for translations of mode and status ──
+    const getModeLabel = (mode) => {
+        const map = {
+            cash: t('expenses.paymentModeCash'),
+            card: t('expenses.paymentModeCard'),
+            upi: t('expenses.paymentModeUpi'),
+        };
+        return map[mode] || mode;
+    };
+
+    const getStatusLabel = (status) => {
+        const map = {
+            paid: t('expenses.statusPaid'),
+            unpaid: t('expenses.statusUnpaid'),
+        };
+        return map[status] || status;
+    };
+
     // ── Flash ──
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
@@ -90,7 +108,7 @@ export default function ExpensesReport() {
             setSummary(summaryRes.data);
             setEntries(entriesRes.data);
         } catch (err) {
-            showFlash("error", "Failed to load report data");
+            showFlash("error", t('expensesReport.loadError'));
         } finally {
             setLoading(false);
         }
@@ -137,7 +155,7 @@ export default function ExpensesReport() {
         // Header
         doc.setFontSize(18);
         doc.setTextColor(40);
-        doc.text("Expenses Report", pageWidth / 2, 50, { align: "center" });
+        doc.text(t('expensesReport.pdfTitle'), pageWidth / 2, 50, { align: "center" });
 
         doc.setFontSize(11);
         doc.setTextColor(100);
@@ -145,14 +163,14 @@ export default function ExpensesReport() {
             fromDate === toDate
                 ? fmtDate(fromDate)
                 : `${fmtDate(fromDate)} – ${fmtDate(toDate)}`;
-        doc.text(`Period: ${dateRangeStr}`, pageWidth / 2, 75, { align: "center" });
+        doc.text(t('expensesReport.pdfPeriod', { period: dateRangeStr }), pageWidth / 2, 75, { align: "center" });
 
         // Summary cards
         const summaryData = [
-            ["Total Expenses", fmtCurrency(totalAmount)],
-            ["Paid", fmtCurrency(paidAmount)],
-            ["Unpaid", fmtCurrency(unpaidAmount)],
-            ["Entries", entries.length],
+            [t('expensesReport.totalExpenses'), fmtCurrency(totalAmount)],
+            [t('expensesReport.paid'), fmtCurrency(paidAmount)],
+            [t('expensesReport.unpaid'), fmtCurrency(unpaidAmount)],
+            [t('expensesReport.entries'), entries.length],
         ];
         autoTable(doc, {
             startY: 100,
@@ -165,14 +183,14 @@ export default function ExpensesReport() {
 
         // Breakdown by payment mode
         const modeRows = Object.entries(modeBreakdown).map(([mode, amount]) => [
-            mode.charAt(0).toUpperCase() + mode.slice(1),
+            getModeLabel(mode),
             fmtCurrency(amount),
         ]);
         if (modeRows.length) {
-            doc.text("Breakdown by Payment Mode", 40, doc.lastAutoTable.finalY + 30);
+            doc.text(t('expensesReport.pdfBreakdownMode'), 40, doc.lastAutoTable.finalY + 30);
             autoTable(doc, {
                 startY: doc.lastAutoTable.finalY + 40,
-                head: [["Mode", "Amount"]],
+                head: [[t('expensesReport.mode'), t('expensesReport.amount')]],
                 body: modeRows,
                 theme: "striped",
                 styles: { fontSize: 9 },
@@ -183,14 +201,14 @@ export default function ExpensesReport() {
 
         // Breakdown by status
         const statusRows = Object.entries(statusBreakdown).map(([status, amount]) => [
-            status.charAt(0).toUpperCase() + status.slice(1),
+            getStatusLabel(status),
             fmtCurrency(amount),
         ]);
         if (statusRows.length) {
-            doc.text("Breakdown by Payment Status", 40, doc.lastAutoTable.finalY + 30);
+            doc.text(t('expensesReport.pdfBreakdownStatus'), 40, doc.lastAutoTable.finalY + 30);
             autoTable(doc, {
                 startY: doc.lastAutoTable.finalY + 40,
-                head: [["Status", "Amount"]],
+                head: [[t('expensesReport.status'), t('expensesReport.amount')]],
                 body: statusRows,
                 theme: "striped",
                 styles: { fontSize: 9 },
@@ -201,19 +219,29 @@ export default function ExpensesReport() {
 
         // Detailed entries table
         if (entries.length) {
-            doc.text("Detailed Entries", 40, doc.lastAutoTable.finalY + 30);
+            doc.text(t('expensesReport.pdfDetailedEntries'), 40, doc.lastAutoTable.finalY + 30);
             const tableBody = entries.map(e => [
                 fmtDate(e.expense_date),
                 e.reason || "—",
                 e.vendor_name || "—",
                 e.bill_no || "—",
-                e.payment_mode || "cash",
-                e.payment_status || "paid",
+                getModeLabel(e.payment_mode || "cash"),
+                getStatusLabel(e.payment_status || "paid"),
                 fmtCurrency(e.amount),
             ]);
             autoTable(doc, {
                 startY: doc.lastAutoTable.finalY + 40,
-                head: [["Date", "Reason", "Vendor", "Bill No.", "Mode", "Status", "Amount"]],
+                head: [
+                    [
+                        t('expensesReport.date'),
+                        t('expensesReport.reason'),
+                        t('expensesReport.vendor'),
+                        t('expensesReport.billNo'),
+                        t('expensesReport.mode'),
+                        t('expensesReport.status'),
+                        t('expensesReport.amount'),
+                    ]
+                ],
                 body: tableBody,
                 theme: "striped",
                 styles: { fontSize: 8 },
@@ -238,7 +266,11 @@ export default function ExpensesReport() {
             doc.setFontSize(8);
             doc.setTextColor(150);
             doc.text(
-                `Generated on ${new Date().toLocaleString()} · Page ${i} of ${pageCount}`,
+                t('expensesReport.pdfGenerated', {
+                    date: new Date().toLocaleString(),
+                    page: i,
+                    total: pageCount,
+                }),
                 pageWidth / 2,
                 doc.internal.pageSize.getHeight() - 20,
                 { align: "center" }
@@ -269,16 +301,16 @@ export default function ExpensesReport() {
                             <PieChart size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Expenses Report</h1>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('expensesReport.title')}</h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Summary and analytics for your centre
+                                {t('expensesReport.subtitle')}
                             </p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Anchor Date</span>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expensesReport.anchorDate')}</span>
                             <input
                                 type="date"
                                 value={selectedDate}
@@ -289,15 +321,15 @@ export default function ExpensesReport() {
                         </div>
 
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Period</span>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expensesReport.period')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
                                 <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                                     {[
-                                        { v: "daily", l: "Day" },
-                                        { v: "weekly", l: "Week" },
-                                        { v: "monthly", l: "Month" },
-                                        { v: "yearly", l: "Year" },
-                                        { v: "custom", l: "Custom" },
+                                        { v: "daily", l: t('expensesReport.periodDay') },
+                                        { v: "weekly", l: t('expensesReport.periodWeek') },
+                                        { v: "monthly", l: t('expensesReport.periodMonth') },
+                                        { v: "yearly", l: t('expensesReport.periodYear') },
+                                        { v: "custom", l: t('expensesReport.periodCustom') },
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button"
                                             onClick={() => handleRangeModeChange(v)}
@@ -349,10 +381,10 @@ export default function ExpensesReport() {
                 {!loading && summary && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
-                            { label: "Total Expenses", value: fmtCurrency(summary.total_amount), icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                            { label: "Paid", value: fmtCurrency(summary.paid_amount), icon: <CheckCircle2 size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                            { label: "Unpaid", value: fmtCurrency(summary.unpaid_amount), icon: <Circle size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
-                            { label: "Entries", value: summary.total_entries, icon: <Layers size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
+                            { label: t('expensesReport.totalExpenses'), value: fmtCurrency(summary.total_amount), icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
+                            { label: t('expensesReport.paid'), value: fmtCurrency(summary.paid_amount), icon: <CheckCircle2 size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+                            { label: t('expensesReport.unpaid'), value: fmtCurrency(summary.unpaid_amount), icon: <Circle size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
+                            { label: t('expensesReport.entries'), value: summary.total_entries, icon: <Layers size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
                         ].map(({ label, value, icon, color }) => (
                             <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
                                 <div className="shrink-0">{icon}</div>
@@ -370,7 +402,7 @@ export default function ExpensesReport() {
                     {/* Payment Mode Breakdown */}
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                         <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                            <CreditCard size={14} /> Payment Modes
+                            <CreditCard size={14} /> {t('expensesReport.paymentModes')}
                         </div>
                         {loading ? (
                             <div className="flex justify-center py-6">
@@ -380,12 +412,12 @@ export default function ExpensesReport() {
                             <div className="space-y-2">
                                 {Object.entries(modeBreakdown).map(([mode, amount]) => (
                                     <div key={mode} className="flex items-center justify-between">
-                                        <span className="text-sm capitalize text-gray-700">{mode}</span>
+                                        <span className="text-sm capitalize text-gray-700">{getModeLabel(mode)}</span>
                                         <span className="text-sm font-semibold text-gray-900">{fmtCurrency(amount)}</span>
                                     </div>
                                 ))}
                                 {Object.keys(modeBreakdown).length === 0 && (
-                                    <p className="text-sm text-gray-400">No data</p>
+                                    <p className="text-sm text-gray-400">{t('expensesReport.noData')}</p>
                                 )}
                             </div>
                         )}
@@ -394,7 +426,7 @@ export default function ExpensesReport() {
                     {/* Payment Status Breakdown */}
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                         <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                            <CheckCircle2 size={14} /> Payment Status
+                            <CheckCircle2 size={14} /> {t('expensesReport.paymentStatus')}
                         </div>
                         {loading ? (
                             <div className="flex justify-center py-6">
@@ -404,7 +436,7 @@ export default function ExpensesReport() {
                             <div className="space-y-2">
                                 {Object.entries(statusBreakdown).map(([status, amount]) => (
                                     <div key={status} className="flex items-center justify-between">
-                                        <span className="text-sm capitalize text-gray-700">{status}</span>
+                                        <span className="text-sm capitalize text-gray-700">{getStatusLabel(status)}</span>
                                         <span className="text-sm font-semibold text-gray-900">{fmtCurrency(amount)}</span>
                                     </div>
                                 ))}
@@ -416,8 +448,8 @@ export default function ExpensesReport() {
                 {/* Entries Table (compact) */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60">
-                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Detailed Entries</span>
-                        <span className="text-xs text-gray-400">{entries.length} entries</span>
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('expensesReport.detailedEntries')}</span>
+                        <span className="text-xs text-gray-400">{t('expensesReport.entriesCount', { count: entries.length })}</span>
                     </div>
 
                     {loading ? (
@@ -427,20 +459,20 @@ export default function ExpensesReport() {
                     ) : entries.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
                             <Receipt size={32} />
-                            <p className="text-sm">No expenses in this period</p>
+                            <p className="text-sm">{t('expensesReport.noExpenses')}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50/80 text-xs text-gray-400 uppercase tracking-wide">
                                     <tr>
-                                        <th className="px-3 py-2 text-left">Date</th>
-                                        <th className="px-3 py-2 text-left">Reason</th>
-                                        <th className="px-3 py-2 text-left">Vendor</th>
-                                        <th className="px-3 py-2 text-left">Bill No.</th>
-                                        <th className="px-3 py-2 text-left">Mode</th>
-                                        <th className="px-3 py-2 text-left">Status</th>
-                                        <th className="px-3 py-2 text-right">Amount</th>
+                                        <th className="px-3 py-2 text-left">{t('expensesReport.date')}</th>
+                                        <th className="px-3 py-2 text-left">{t('expensesReport.reason')}</th>
+                                        <th className="px-3 py-2 text-left">{t('expensesReport.vendor')}</th>
+                                        <th className="px-3 py-2 text-left">{t('expensesReport.billNo')}</th>
+                                        <th className="px-3 py-2 text-left">{t('expensesReport.mode')}</th>
+                                        <th className="px-3 py-2 text-left">{t('expensesReport.status')}</th>
+                                        <th className="px-3 py-2 text-right">{t('expensesReport.amount')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -455,7 +487,7 @@ export default function ExpensesReport() {
                                                     ${e.payment_mode === "cash" ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                                         : e.payment_mode === "card" ? "bg-blue-50 text-blue-700 border border-blue-100"
                                                             : "bg-violet-50 text-violet-700 border border-violet-100"}`}>
-                                                    {e.payment_mode}
+                                                    {getModeLabel(e.payment_mode)}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-2">
@@ -464,7 +496,7 @@ export default function ExpensesReport() {
                                                         ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                                         : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
                                                     {e.payment_status === "paid" ? <CheckCircle2 size={9} /> : <Circle size={9} />}
-                                                    {e.payment_status}
+                                                    {getStatusLabel(e.payment_status)}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-2 text-gray-900 font-mono font-bold text-xs text-right">
@@ -477,7 +509,7 @@ export default function ExpensesReport() {
                                     <tfoot>
                                         <tr>
                                             <td colSpan="7" className="px-3 py-2 text-xs text-gray-400 text-center">
-                                                Showing first 20 of {entries.length} entries
+                                                {t('expensesReport.showingFirst', { count: 20, total: entries.length })}
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -498,7 +530,7 @@ export default function ExpensesReport() {
                                 : "bg-black hover:bg-gray-800 active:scale-95"}`}
                     >
                         <Download size={15} />
-                        Download PDF Report
+                        {t('expensesReport.downloadPDF')}
                     </button>
                 </div>
 

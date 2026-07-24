@@ -15,53 +15,53 @@ import "driver.js/dist/driver.css";
 // ── All pages with their CRUD labels ─────────────────────────
 const ALL_PAGES = [
     {
-        group: 'Dashboard',
+        groupKey: 'dashboard',
         pages: [
-            { key: 'operator_dashboard', label: 'Dashboard Access', ops: ['C', 'R', 'U', 'D'] }
+            { key: 'operator_dashboard', ops: ['C', 'R', 'U', 'D'] }
         ]
     },
     {
-        group: 'Milk & Collection',
+        groupKey: 'milkCollection',
         pages: [
-            { key: 'milk_entry', label: 'Milk Entry', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'walkin_sales', label: 'Walk-in Sale', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'walkin_payments', label: 'Walk-in Payments', ops: ['C', 'R', 'U', 'D'] },  // ← NEW
-            { key: 'named_buyers', label: 'Named Buyers', ops: ['C', 'R', 'U', 'D'] },          // ← NEW
-            { key: 'tank_dispatch', label: 'Tank Dispatch', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'owner_usage', label: 'Owner Usage', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'milk_entry', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'walkin_sales', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'walkin_payments', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'named_buyers', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'tank_dispatch', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'owner_usage', ops: ['C', 'R', 'U', 'D'] },
         ],
     },
     {
-        group: 'Sellers & Payments',
+        groupKey: 'sellersPayments',
         pages: [
-            { key: 'seller_register', label: 'Seller Register', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'seller_payments', label: 'Seller Payments', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'cash_advance', label: 'Cash Advance', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'cash_deposit', label: 'Cash Deposit', ops: ['C', 'R', 'U', 'D'] },          // ← NEW
+            { key: 'seller_register', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'seller_payments', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'cash_advance', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'cash_deposit', ops: ['C', 'R', 'U', 'D'] },
         ],
     },
     {
-        group: 'Products',
+        groupKey: 'products',
         pages: [
-            { key: 'products', label: 'Products Catalogue', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'product_purchases', label: 'Product Purchase', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'product_sales', label: 'Product Sales', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'products', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'product_purchases', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'product_sales', ops: ['C', 'R', 'U', 'D'] },
         ],
     },
     {
-        group: 'Reports & Analytics',
+        groupKey: 'reportsAnalytics',
         pages: [
-            { key: 'sum_report', label: 'Sum Report', ops: ['R'] },
-            { key: 'daily_collection', label: 'Daily Collection', ops: ['R'] },
-            { key: 'utpadak_bonus_register', label: 'Utpadak Bonus Register', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'gavali_bonus_register', label: 'Gavali Bonus Register', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'sum_report', ops: ['R'] },
+            { key: 'daily_collection', ops: ['R'] },
+            { key: 'utpadak_bonus_register', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'gavali_bonus_register', ops: ['C', 'R', 'U', 'D'] },
         ],
     },
     {
-        group: 'Rates',
+        groupKey: 'rates',
         pages: [
-            { key: 'rate_chart', label: 'Rate Chart', ops: ['C', 'R', 'U', 'D'] },
-            { key: 'premium_rates', label: 'Premium Rates', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'rate_chart', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'premium_rates', ops: ['C', 'R', 'U', 'D'] },
         ],
     },
 ];
@@ -101,7 +101,7 @@ const LANGUAGES = [
     { key: 'hi', label: 'Hindi', native: 'हिंदी' },
 ];
 
-// ── Saved-state defaults (mirrors DB seed) ────────────────────
+// ── Saved-state defaults ──────────────────────────────────────
 const SERVER_DEFAULTS = { appName: 'MilkApp', logoUrl: '', textSize: 'base', language: 'en', fatOnlyAutofill: false };
 
 function SectionCard({ title, icon, children, ...rest }) {
@@ -122,28 +122,23 @@ export default function AdminSettings() {
     const { t } = useTranslation();
     const { updateConfig } = useAppConfig();
 
-    // ── App Identity ──────────────────────────────────────────
     const [appName, setAppName] = useState(SERVER_DEFAULTS.appName);
     const [logoUrl, setLogoUrl] = useState(SERVER_DEFAULTS.logoUrl);
     const [logoPreview, setLogoPreview] = useState(SERVER_DEFAULTS.logoUrl);
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef(null);
 
-    // ── Appearance ────────────────────────────────────────────
     const [textSize, setTextSize] = useState(SERVER_DEFAULTS.textSize);
     const [language, setLanguage] = useState(SERVER_DEFAULTS.language);
     const [fatOnlyAutofill, setFatOnlyAutofill] = useState(SERVER_DEFAULTS.fatOnlyAutofill);
-    
-    // ── Saved snapshot – used by Reset to restore last-saved values ──
+
     const [savedState, setSavedState] = useState(SERVER_DEFAULTS);
 
-    // ── Operator access ───────────────────────────────────────
     const [operators, setOperators] = useState([]);
     const [selectedOp, setSelectedOp] = useState(null);
     const [opAccess, setOpAccess] = useState({});
     const [loadingOps, setLoadingOps] = useState(false);
 
-    // ── UI state ──────────────────────────────────────────────
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
 
@@ -159,30 +154,30 @@ export default function AdminSettings() {
             steps: [
                 {
                     element: '[data-tour="app-identity"]',
-                    popover: { title: t('settings.appIdentity'), description: 'Set your app name and upload a logo — this appears across the whole app.' },
+                    popover: { title: t('settings.appIdentity'), description: t('settings.tour.appIdentity') },
                 },
                 {
                     element: '[data-tour="text-size"]',
-                    popover: { title: t('settings.textSize'), description: 'Choose how large text appears throughout the app.' },
+                    popover: { title: t('settings.textSize'), description: t('settings.tour.textSize') },
                 },
                 {
                     element: '[data-tour="language"]',
-                    popover: { title: t('settings.language'), description: 'Switch the app language for all users.' },
+                    popover: { title: t('settings.language'), description: t('settings.tour.language') },
                 },
                 {
                     element: '[data-tour="operator-access"]',
-                    popover: { title: t('settings.operatorAccess'), description: 'Select an operator below to control exactly what they can create, view, edit, or delete on each page.' },
+                    popover: { title: t('settings.operatorAccess'), description: t('settings.tour.operatorAccess') },
                 },
                 {
                     element: '[data-tour="save-btn"]',
-                    popover: { title: t('actions.save'), description: 'Save all changes — app identity, appearance, and operator permissions.' },
+                    popover: { title: t('actions.save'), description: t('settings.tour.save') },
                 },
             ],
         });
         driverObj.drive();
     };
 
-    // ── Load global settings on mount ─────────────────────────
+    // ── Load global settings ──────────────────────────────────
     useEffect(() => {
         api.get('/settings/global')
             .then(({ data }) => {
@@ -199,12 +194,12 @@ export default function AdminSettings() {
                 setTextSize(snap.textSize);
                 setLanguage(snap.language);
                 setFatOnlyAutofill(snap.fatOnlyAutofill);
-                setSavedState(snap);          // remember what we loaded
+                setSavedState(snap);
             })
             .catch(() => { /* keep defaults */ });
     }, []);
 
-    // ── Fetch operators ───────────────────────────────────────
+    // ── Fetch operators ──────────────────────────────────────
     useEffect(() => {
         setLoadingOps(true);
         api.get('/operators')
@@ -213,7 +208,7 @@ export default function AdminSettings() {
             .finally(() => setLoadingOps(false));
     }, []);
 
-    // ── Load per-operator permissions when selection changes ──
+    // ── Load permissions for selected operator ──────────────
     useEffect(() => {
         if (!selectedOp) { setOpAccess({}); return; }
         api.get(`/settings/permissions/${selectedOp}`)
@@ -225,7 +220,7 @@ export default function AdminSettings() {
             .catch(() => setOpAccess(buildDefaultAccess()));
     }, [selectedOp]);
 
-    // ── Logo handlers ─────────────────────────────────────────
+    // ── Logo handlers ────────────────────────────────────────
     const processLogoFile = (file) => {
         if (!file || !file.type.startsWith('image/')) {
             showFlash('error', t('settings.logoTypeError')); return;
@@ -274,8 +269,6 @@ export default function AdminSettings() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // 1. Save global settings (app name, logo, language, text size)
-            // 1. Save global settings (app name, logo, language, text size, fat-only autofill)
             await api.post('/settings/global', {
                 app_name: appName,
                 logo_url: logoUrl,
@@ -284,14 +277,11 @@ export default function AdminSettings() {
                 fat_only_autofill: fatOnlyAutofill ? '1' : '0',
             });
 
-            // 2. Update the saved snapshot so Reset reflects latest saved values
             const newSnap = { appName, logoUrl, textSize, language, fatOnlyAutofill };
             setSavedState(newSnap);
 
-            // 3. Propagate immediately to the whole app (context + i18next)
             updateConfig({ appName, logoUrl, textSize, language, fatOnlyAutofill });
 
-            // 4. Save operator permissions if one is selected
             if (selectedOp) {
                 await api.post(`/settings/permissions/${selectedOp}`, { access: opAccess });
             }
@@ -304,7 +294,7 @@ export default function AdminSettings() {
         }
     };
 
-    // ── Reset – restores last saved values (not just permission defaults) ──
+    // ── Reset ─────────────────────────────────────────────────
     const handleReset = () => {
         setAppName(savedState.appName);
         setLogoUrl(savedState.logoUrl);
@@ -316,7 +306,7 @@ export default function AdminSettings() {
         showFlash('success', t('settings.resetSuccess'));
     };
 
-    // ── Render permission grid for one page ───────────────────
+    // ── Render permission grid ───────────────────────────────
     const renderAccessGrid = (pageKey, ops) => (
         <div className="flex items-center gap-1.5">
             {ops.map(op => {
@@ -360,7 +350,7 @@ export default function AdminSettings() {
                             onClick={startSettingsTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
                         >
-                            <BadgeCheck size={13} /> {t('settings.startTour') || 'Take a Tour'}
+                            <BadgeCheck size={13} /> {t('settings.startTour')}
                         </button>
                         <button
                             onClick={handleReset}
@@ -520,6 +510,7 @@ export default function AdminSettings() {
                     <p className="text-[11px] text-gray-400 mt-3">{t('settings.textSizeHint')}</p>
                 </SectionCard>
 
+                {/* ── Language ── */}
                 <SectionCard title={t('settings.language')} icon={<Languages size={15} className="text-white" />} data-tour="language">
                     <div className="flex gap-3 flex-wrap">
                         {LANGUAGES.map(lang => (
@@ -527,7 +518,7 @@ export default function AdminSettings() {
                                 key={lang.key}
                                 onClick={() => setLanguage(lang.key)}
                                 className={`flex flex-col items-center gap-1.5 px-6 py-4 rounded-xl border-2 transition-all duration-150 min-w-[110px]
-                    ${language === lang.key
+                                    ${language === lang.key
                                         ? 'bg-gray-900 border-gray-900 text-white'
                                         : 'bg-white border-gray-200 text-gray-700 hover:border-gray-400'}`}
                             >
@@ -543,18 +534,17 @@ export default function AdminSettings() {
                 </SectionCard>
 
                 {/* ── Fat-Only Rate Auto-Fill ── */}
-                <SectionCard title="Fat-Only Rate Auto-Fill" icon={<Percent size={15} className="text-white" />} data-tour="fat-only-autofill">
+                <SectionCard title={t('settings.fatOnlyAutofill.title')} icon={<Percent size={15} className="text-white" />} data-tour="fat-only-autofill">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                         <div className="max-w-lg">
-                            <p className="text-sm text-gray-700">
-                                When enabled, the milk entry rate auto-fill looks up the rate using only the
-                                entered <strong>FAT %</strong>, always paired with a fixed <strong>SNF of 8.5</strong> —
-                                regardless of the SNF the fat machine actually reads. Use this if your centre prices
-                                strictly off a standard SNF slab.
-                            </p>
-                            <p className="text-[11px] text-gray-400 mt-2">
-                                When off (default), the auto-fill uses the actual measured FAT and SNF together.
-                            </p>
+                            <p
+                                className="text-sm text-gray-700"
+                                dangerouslySetInnerHTML={{ __html: t('settings.fatOnlyAutofill.description') }}
+                            />
+                            <p
+                                className="text-[11px] text-gray-400 mt-2"
+                                dangerouslySetInnerHTML={{ __html: t('settings.fatOnlyAutofill.hint') }}
+                            />
                         </div>
                         <button
                             type="button"
@@ -568,7 +558,7 @@ export default function AdminSettings() {
                     </div>
                     {fatOnlyAutofill && (
                         <div className="mt-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
-                            <AlertTriangle size={13} /> Active — rate lookups in Milk Entry will use FAT + fixed SNF 8.5, not the measured SNF.
+                            <AlertTriangle size={13} /> {t('settings.fatOnlyAutofill.activeNotification')}
                         </div>
                     )}
                 </SectionCard>
@@ -635,9 +625,9 @@ export default function AdminSettings() {
 
                             <div className="flex flex-col gap-5">
                                 {ALL_PAGES.map(group => (
-                                    <div key={group.group}>
+                                    <div key={group.groupKey}>
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                                            {group.group}
+                                            {t(`settings.permissions.groups.${group.groupKey}`)}
                                         </p>
                                         <div className="rounded-xl border border-gray-100 overflow-hidden">
                                             {group.pages.map((page, idx) => {
@@ -661,7 +651,9 @@ export default function AdminSettings() {
                                                             >
                                                                 {allOn ? <Unlock size={12} /> : <Lock size={12} />}
                                                             </button>
-                                                            <span className="text-sm font-medium text-gray-700">{page.label}</span>
+                                                            <span className="text-sm font-medium text-gray-700">
+                                                                {t(`settings.permissions.pages.${page.key}`)}
+                                                            </span>
                                                         </div>
                                                         {renderAccessGrid(page.key, page.ops)}
                                                     </div>

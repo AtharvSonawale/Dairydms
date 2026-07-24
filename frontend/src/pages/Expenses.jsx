@@ -29,14 +29,14 @@ const EMPTY_FORM = {
 };
 
 const PAYMENT_MODES = [
-    { value: "cash", label: "Cash", activeClass: "bg-emerald-500 text-white" },
-    { value: "card", label: "Card", activeClass: "bg-blue-500 text-white" },
-    { value: "upi", label: "UPI", activeClass: "bg-violet-500 text-white" },
+    { value: "cash", labelKey: "expenses.paymentModeCash", activeClass: "bg-emerald-500 text-white" },
+    { value: "card", labelKey: "expenses.paymentModeCard", activeClass: "bg-blue-500 text-white" },
+    { value: "upi", labelKey: "expenses.paymentModeUpi", activeClass: "bg-violet-500 text-white" },
 ];
 
 const PAYMENT_STATUS = [
-    { value: "paid", label: "Paid", icon: <CheckCircle2 size={12} />, activeClass: "bg-emerald-500 text-white" },
-    { value: "unpaid", label: "Unpaid", icon: <Circle size={12} />, activeClass: "bg-rose-500 text-white" },
+    { value: "paid", labelKey: "expenses.statusPaid", icon: <CheckCircle2 size={12} />, activeClass: "bg-emerald-500 text-white" },
+    { value: "unpaid", labelKey: "expenses.statusUnpaid", icon: <Circle size={12} />, activeClass: "bg-rose-500 text-white" },
 ];
 
 // ── sub-components ────────────────────────────────────────────
@@ -62,7 +62,7 @@ function TinyInput({ className = "", ...props }) {
     );
 }
 
-function ToggleGroup({ value, onChange, options }) {
+function ToggleGroup({ value, onChange, options, t }) {
     return (
         <div className="flex rounded-xl border border-gray-200 overflow-hidden h-[35px]">
             {options.map((opt, i) => (
@@ -74,7 +74,7 @@ function ToggleGroup({ value, onChange, options }) {
                         ${i > 0 ? "border-l border-gray-200" : ""}
                         ${value === opt.value ? opt.activeClass : "bg-white text-gray-500 hover:bg-gray-50"}`}
                 >
-                    {opt.icon}{opt.label}
+                    {opt.icon}{t(opt.labelKey)}
                 </button>
             ))}
         </div>
@@ -172,7 +172,7 @@ export default function Expenses() {
             const { data } = await api.get(url);
             setEntries(data);
         } catch {
-            showFlash("error", "Failed to load expenses");
+            showFlash("error", t('expenses.loadError'));
         } finally {
             setLoading(false);
         }
@@ -200,10 +200,10 @@ export default function Expenses() {
         setSaving(true);
         try {
             await api.delete(`/expenses/${id}`);
-            showFlash("success", "Expense deleted");
+            showFlash("success", t('expenses.deleteSuccess'));
             await fetchEntries(fromDate, toDate);
         } catch (err) {
-            showFlash("error", err.response?.data?.error || "Failed to delete expense");
+            showFlash("error", err.response?.data?.error || t('expenses.deleteError'));
         } finally {
             setSaving(false);
             setDeleteConfirmId(null);
@@ -224,35 +224,35 @@ export default function Expenses() {
     });
 
     const handleSave = async () => {
-        if (!form.reason.trim()) { showFlash("error", "Reason is required"); return; }
-        if (!form.amount || parseFloat(form.amount) <= 0) { showFlash("error", "Enter a valid amount"); return; }
+        if (!form.reason.trim()) { showFlash("error", t('expenses.reasonRequired')); return; }
+        if (!form.amount || parseFloat(form.amount) <= 0) { showFlash("error", t('expenses.amountRequired')); return; }
         if (saving) return;
         setSaving(true);
         try {
             await api.post("/expenses", buildPayload());
-            showFlash("success", "Expense saved");
+            showFlash("success", t('expenses.saveSuccess'));
             await fetchEntries(fromDate, toDate);
             setForm({ ...EMPTY_FORM, expense_date: form.expense_date });
         } catch (err) {
-            showFlash("error", err.response?.data?.error || "Failed to save expense");
+            showFlash("error", err.response?.data?.error || t('expenses.saveError'));
         } finally {
             setSaving(false);
         }
     };
 
     const handleUpdate = async () => {
-        if (!form.reason.trim()) { showFlash("error", "Reason is required"); return; }
-        if (!form.amount || parseFloat(form.amount) <= 0) { showFlash("error", "Enter a valid amount"); return; }
+        if (!form.reason.trim()) { showFlash("error", t('expenses.reasonRequired')); return; }
+        if (!form.amount || parseFloat(form.amount) <= 0) { showFlash("error", t('expenses.amountRequired')); return; }
         if (saving) return;
         setSaving(true);
         try {
             await api.put(`/expenses/${editingId}`, buildPayload());
-            showFlash("success", "Expense updated");
+            showFlash("success", t('expenses.updateSuccess'));
             await fetchEntries(fromDate, toDate);
             setForm(EMPTY_FORM);
             setEditingId(null);
         } catch (err) {
-            showFlash("error", err.response?.data?.error || "Failed to update expense");
+            showFlash("error", err.response?.data?.error || t('expenses.updateError'));
         } finally {
             setSaving(false);
         }
@@ -283,7 +283,15 @@ export default function Expenses() {
     const paidAmount = entries.filter(e => e.payment_status === "paid").reduce((a, e) => a + parseFloat(e.amount || 0), 0);
     const unpaidAmount = entries.filter(e => e.payment_status === "unpaid").reduce((a, e) => a + parseFloat(e.amount || 0), 0);
 
-    const COLS = ["Date", "Reason", "Vendor", "Bill No.", "Mode", "Status", "Amount"];
+    const COLS = [
+        t('expenses.table.date'),
+        t('expenses.table.reason'),
+        t('expenses.table.vendor'),
+        t('expenses.table.billNo'),
+        t('expenses.table.mode'),
+        t('expenses.table.status'),
+        t('expenses.table.amount'),
+    ];
     const GRID = "90px 1.4fr 1fr 100px 90px 90px 100px";
 
     if (permLoading) return (
@@ -305,17 +313,18 @@ export default function Expenses() {
                             <Receipt size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Expenses</h1>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('expenses.title')}</h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Track centre expenses —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                                {t('expenses.subtitle', {
+                                    date: new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
+                                })}
                             </p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Anchor Date</span>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expenses.anchorDate')}</span>
                             <input
                                 type="date"
                                 value={selectedDate}
@@ -326,15 +335,15 @@ export default function Expenses() {
                         </div>
 
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Period</span>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expenses.period')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
                                 <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                                     {[
-                                        { v: "daily", l: "Day" },
-                                        { v: "weekly", l: "Week" },
-                                        { v: "monthly", l: "Month" },
-                                        { v: "yearly", l: "Year" },
-                                        { v: "custom", l: "Custom" },
+                                        { v: "daily", l: t('expenses.periodDay') },
+                                        { v: "weekly", l: t('expenses.periodWeek') },
+                                        { v: "monthly", l: t('expenses.periodMonth') },
+                                        { v: "yearly", l: t('expenses.periodYear') },
+                                        { v: "custom", l: t('expenses.periodCustom') },
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button"
                                             onClick={() => handleRangeModeChange(v)}
@@ -371,10 +380,10 @@ export default function Expenses() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                        { label: "Total Expenses", value: "₹" + totalAmount.toFixed(2), icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: "Paid", value: "₹" + paidAmount.toFixed(2), icon: <CheckCircle2 size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                        { label: "Unpaid", value: "₹" + unpaidAmount.toFixed(2), icon: <Circle size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
-                        { label: "Entries", value: entries.length, icon: <Layers size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
+                        { label: t('expenses.stats.total'), value: "₹" + totalAmount.toFixed(2), icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
+                        { label: t('expenses.stats.paid'), value: "₹" + paidAmount.toFixed(2), icon: <CheckCircle2 size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+                        { label: t('expenses.stats.unpaid'), value: "₹" + unpaidAmount.toFixed(2), icon: <Circle size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
+                        { label: t('expenses.stats.entries'), value: entries.length, icon: <Layers size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
                     ].map(({ label, value, icon, color }) => (
                         <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
                             <div className="shrink-0">{icon}</div>
@@ -404,19 +413,19 @@ export default function Expenses() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                            {editingId ? "Edit Expense" : "New Expense"}
+                            {editingId ? t('expenses.editExpense') : t('expenses.newExpense')}
                         </p>
                         {editingId && (
                             <button onClick={handleCancelEdit}
                                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
-                                <X size={12} /> Cancel edit
+                                <X size={12} /> {t('expenses.cancelEdit')}
                             </button>
                         )}
                     </div>
 
                     <div className="flex items-start gap-4 flex-wrap" onKeyDown={handleFormKeyDown}>
 
-                        <Field label="Date" icon={<Calendar size={12} />}>
+                        <Field label={t('expenses.date')} icon={<Calendar size={12} />}>
                             <TinyInput
                                 type="date"
                                 value={form.expense_date}
@@ -425,16 +434,16 @@ export default function Expenses() {
                             />
                         </Field>
 
-                        <Field label="Reason" icon={<FileText size={12} />}>
+                        <Field label={t('expenses.reason')} icon={<FileText size={12} />}>
                             <TinyInput
                                 value={form.reason}
                                 onChange={(e) => set("reason", e.target.value)}
-                                placeholder="e.g. Diesel, Repairs, Electricity"
+                                placeholder={t('expenses.reasonPlaceholder')}
                                 className="w-56"
                             />
                         </Field>
 
-                        <Field label="Amount" icon={<Wallet size={12} />}>
+                        <Field label={t('expenses.amount')} icon={<Wallet size={12} />}>
                             <TinyInput
                                 type="number" min="0" step="0.01"
                                 value={form.amount}
@@ -444,48 +453,58 @@ export default function Expenses() {
                             />
                         </Field>
 
-                        <Field label="Vendor Name" icon={<Building2 size={12} />}>
+                        <Field label={t('expenses.vendorName')} icon={<Building2 size={12} />}>
                             <TinyInput
                                 value={form.vendor_name}
                                 onChange={(e) => set("vendor_name", e.target.value)}
-                                placeholder="Vendor / supplier"
+                                placeholder={t('expenses.vendorPlaceholder')}
                                 className="w-44"
                             />
                         </Field>
 
-                        <Field label="Vendor Contact" icon={<Building2 size={12} />}>
+                        <Field label={t('expenses.vendorContact')} icon={<Building2 size={12} />}>
                             <TinyInput
                                 value={form.vendor_contact}
                                 onChange={(e) => set("vendor_contact", e.target.value)}
-                                placeholder="+91XXXXXXXXXX"
+                                placeholder={t('expenses.contactPlaceholder')}
                                 className="w-36"
                             />
                         </Field>
 
-                        <Field label="Payment Mode" icon={<CreditCard size={12} />}>
-                            <ToggleGroup value={form.payment_mode} onChange={(v) => set("payment_mode", v)} options={PAYMENT_MODES} />
+                        <Field label={t('expenses.paymentMode')} icon={<CreditCard size={12} />}>
+                            <ToggleGroup
+                                value={form.payment_mode}
+                                onChange={(v) => set("payment_mode", v)}
+                                options={PAYMENT_MODES}
+                                t={t}
+                            />
                         </Field>
 
-                        <Field label="Bill No." icon={<Hash size={12} />}>
+                        <Field label={t('expenses.billNo')} icon={<Hash size={12} />}>
                             <TinyInput
                                 value={form.bill_no}
                                 onChange={(e) => set("bill_no", e.target.value)}
-                                placeholder="Optional"
+                                placeholder={t('expenses.billPlaceholder')}
                                 className="w-32"
                             />
                         </Field>
 
-                        <Field label="Status" icon={<CheckCircle2 size={12} />}>
-                            <ToggleGroup value={form.payment_status} onChange={(v) => set("payment_status", v)} options={PAYMENT_STATUS} />
+                        <Field label={t('expenses.status')} icon={<CheckCircle2 size={12} />}>
+                            <ToggleGroup
+                                value={form.payment_status}
+                                onChange={(v) => set("payment_status", v)}
+                                options={PAYMENT_STATUS}
+                                t={t}
+                            />
                         </Field>
                     </div>
 
                     {/* Footer */}
                     <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
                         <p className="text-xs text-gray-400">
-                            {entries.length} {entries.length === 1 ? "entry" : "entries"} in this period
+                            {t('expenses.entryCount', { count: entries.length })}
                             {totalAmount > 0 && (
-                                <span className="ml-2 text-gray-600 font-semibold">· ₹{totalAmount.toFixed(2)} total</span>
+                                <span className="ml-2 text-gray-600 font-semibold">· {t('expenses.totalAmount', { amount: totalAmount.toFixed(2) })}</span>
                             )}
                         </p>
                         <button
@@ -498,7 +517,7 @@ export default function Expenses() {
                                     : editingId ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}
                         >
                             <Save size={15} />
-                            {saving ? (editingId ? "Updating…" : "Saving…") : editingId ? "Update Expense" : "Save Expense"}
+                            {saving ? (editingId ? t('expenses.updating') : t('expenses.saving')) : editingId ? t('expenses.updateButton') : t('expenses.saveButton')}
                         </button>
                     </div>
                 </div>
@@ -511,7 +530,7 @@ export default function Expenses() {
                             type="text"
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
-                            placeholder="Search reason, vendor, bill no…"
+                            placeholder={t('expenses.searchPlaceholder')}
                             className="border border-gray-200 bg-white rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition w-64"
                         />
                         {searchText && (
@@ -520,7 +539,7 @@ export default function Expenses() {
                             </button>
                         )}
                         <span className="ml-auto text-xs text-gray-400">
-                            {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
+                            {t('expenses.entryCount', { count: filteredEntries.length })}
                         </span>
                     </div>
 
@@ -530,7 +549,7 @@ export default function Expenses() {
                                 {label}
                             </div>
                         ))}
-                        <div className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Actions</div>
+                        <div className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{t('expenses.actions')}</div>
                     </div>
 
                     {loading ? (
@@ -540,7 +559,7 @@ export default function Expenses() {
                     ) : filteredEntries.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
                             <Receipt size={32} />
-                            <p className="text-sm">No expenses recorded for this period</p>
+                            <p className="text-sm">{t('expenses.noEntries')}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -575,7 +594,9 @@ export default function Expenses() {
                                                 ${e.payment_mode === "cash" ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                                     : e.payment_mode === "card" ? "bg-blue-50 text-blue-700 border border-blue-100"
                                                         : "bg-violet-50 text-violet-700 border border-violet-100"}`}>
-                                                {e.payment_mode}
+                                                {e.payment_mode === "cash" ? t('expenses.paymentModeCash')
+                                                    : e.payment_mode === "card" ? t('expenses.paymentModeCard')
+                                                        : t('expenses.paymentModeUpi')}
                                             </span>
                                         </TableCell>
 
@@ -585,7 +606,7 @@ export default function Expenses() {
                                                     ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                                     : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
                                                 {e.payment_status === "paid" ? <CheckCircle2 size={9} /> : <Circle size={9} />}
-                                                {e.payment_status === "paid" ? "Paid" : "Unpaid"}
+                                                {e.payment_status === "paid" ? t('expenses.statusPaid') : t('expenses.statusUnpaid')}
                                             </span>
                                         </TableCell>
 
@@ -617,7 +638,7 @@ export default function Expenses() {
                     {filteredEntries.length > 0 && (
                         <div className="grid border-t-2 border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: `${GRID} 100px` }}>
                             <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
-                                {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
+                                {t('expenses.entryCount', { count: filteredEntries.length })}
                             </div>
                             <div className="px-3 py-2.5 border-r border-gray-100" />
                             <div className="px-3 py-2.5 border-r border-gray-100" />
@@ -635,20 +656,20 @@ export default function Expenses() {
                 {deleteConfirmId && (
                     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 max-w-sm w-full">
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete this expense?</h3>
-                            <p className="text-sm text-gray-500 mb-4">This action cannot be undone.</p>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('expenses.deleteTitle')}</h3>
+                            <p className="text-sm text-gray-500 mb-4">{t('expenses.deleteConfirm')}</p>
                             <div className="flex gap-2 justify-end">
                                 <button
                                     onClick={() => setDeleteConfirmId(null)}
                                     className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
                                 >
-                                    Cancel
+                                    {t('expenses.cancel')}
                                 </button>
                                 <button
                                     onClick={() => handleDelete(deleteConfirmId)}
                                     className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition"
                                 >
-                                    Delete
+                                    {t('expenses.delete')}
                                 </button>
                             </div>
                         </div>
