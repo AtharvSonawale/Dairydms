@@ -149,7 +149,7 @@ function AppRoutes() {
         <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
         <Route path="/expensesreport" element={<ProtectedRoute><ExpensesReport /></ProtectedRoute>} />
         <Route path="/product-purchase-payments" element={<PurchasedProductsBillPayment />} />
-        <Route path="/cattle-feed-payments" element={<CattleFeedPayments />} />
+        <Route path="/cattlefeed-purchase-payments" element={<CattleFeedPayments />} />
         <Route path="/farmer-ledger" element={<FarmerLedger />} />
         <Route path="/farmer-ledger/:seller_id" element={<FarmerLedgerDetail />} />
 

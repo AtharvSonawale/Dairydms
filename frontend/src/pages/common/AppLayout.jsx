@@ -19,7 +19,8 @@ import {
     FileText,
     BanknoteArrowDown,
     HandCoins,
-    ArrowLeftRight
+    ArrowLeftRight,
+    ShoppingBasket
 } from 'lucide-react';
 
 /**
@@ -120,6 +121,7 @@ const SHARED_NAV = (isAdmin, t) => [
             { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products' },
             { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase' },
             { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales' },
+            { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments'}
         ],
     },
     {
@@ -132,6 +134,8 @@ const SHARED_NAV = (isAdmin, t) => [
                 label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue' },
             { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase' },
             { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales' },
+            { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments' }
+
         ],
     },
 

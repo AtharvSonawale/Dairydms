@@ -1760,8 +1760,11 @@ const en = {
 
         // ── Navigation ───────────────────────────────────────────────
         nav: {
+
+            productPurchasePayment: "Bill Payments",
+            cattlefeedPurchasePayment: "Bill Payments",
             namedBuyerReports: "Named Buyer Reports",
-            anonReports: "Anonymous Buyer Reports",
+            anonReports: "Anon Buyer Reports",
             portSettings : "Port Settings",
             sellerReport: "Seller Report",
             cattleFeed: "Cattle Feed",
