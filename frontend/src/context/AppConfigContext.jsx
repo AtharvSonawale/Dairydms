@@ -28,22 +28,33 @@ export function AppConfigProvider({ children }) {
     // Without `user` as a dependency this only ever ran once at boot,
     // which is why settings looked stale until a hard browser refresh.
     useEffect(() => {
+        // Dairy-wide branding + business rules
         api.get('/settings/global')
             .then(({ data }) => {
                 if (data.app_name) setAppName(data.app_name);
                 if (data.logo_url) setLogoUrl(data.logo_url);
-                if (data.language) {
-                    setLanguage(data.language);
-                    i18n.changeLanguage(data.language);
-                }
-                if (data.text_size) {
-                    setTextSize(data.text_size);
-                    applyFontSize(data.text_size);
-                }
                 setFatOnlyAutofill(data.fat_only_autofill === '1' || data.fat_only_autofill === true);
             })
-            .catch(() => { })
-            .finally(() => setLoaded(true));
+            .catch(() => { /* keep defaults */ });
+
+        // Per-user (admin or operator) preferences — needs auth, so gate on `user`
+        if (user) {
+            api.get('/settings/app')
+                .then(({ data }) => {
+                    if (data.language) {
+                        setLanguage(data.language);
+                        i18n.changeLanguage(data.language);
+                    }
+                    if (data.text_size) {
+                        setTextSize(data.text_size);
+                        applyFontSize(data.text_size);
+                    }
+                })
+                .catch(() => { /* keep defaults */ })
+                .finally(() => setLoaded(true));
+        } else {
+            setLoaded(true);
+        }
     }, [user?.id, user?.role]);
 
     // Sync title + favicon whenever appName or logoUrl changes

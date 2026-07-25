@@ -11,11 +11,12 @@ exports.getEntries = async (req, res) => {
 
         // REMOVED operator filter - both admin and operator see all
         let query = `
-            SELECT ou.*, o.name AS operator_name
-            FROM owner_usage ou
-            JOIN operators o ON o.operator_id = ou.operator_id
-            WHERE ou.centre_id = ?
-        `;
+    SELECT ou.*, o.name AS operator_name, a.name AS admin_name
+    FROM owner_usage ou
+    LEFT JOIN operators o ON o.operator_id = ou.operator_id
+    LEFT JOIN admins a ON a.admin_id = ou.created_by_admin_id
+    WHERE ou.centre_id = ?
+`;
         let params = [centreId];
 
         if (from && to) {
@@ -87,9 +88,10 @@ exports.createEntry = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const createdByAdminId = isAdmin ? req.user.id : null;
         const { usage_date, shift, milk_type, quantity, purpose } = req.body;
 
         // ── validation ──
@@ -149,8 +151,8 @@ exports.createEntry = async (req, res) => {
         // ── insert ──
         const [result] = await conn.query(
             `INSERT INTO owner_usage
-                (usage_date, shift, milk_type, quantity, purpose, operator_id, centre_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    (usage_date, shift, milk_type, quantity, purpose, operator_id, created_by_admin_id, centre_id)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 usage_date,
                 shift,
@@ -158,6 +160,7 @@ exports.createEntry = async (req, res) => {
                 parseFloat(quantity),
                 purpose ? String(purpose).trim() : 'Personal use',
                 operatorId,
+                createdByAdminId,
                 centreId,
             ]
         );
@@ -166,10 +169,11 @@ exports.createEntry = async (req, res) => {
 
         // ── return inserted row ──
         const [newRow] = await pool.query(
-            `SELECT ou.*, o.name AS operator_name
-             FROM owner_usage ou
-             JOIN operators o ON o.operator_id = ou.operator_id
-             WHERE ou.usage_id = ? AND ou.centre_id = ?`,
+                `SELECT ou.*, o.name AS operator_name, a.name AS admin_name
+ FROM owner_usage ou
+ LEFT JOIN operators o ON o.operator_id = ou.operator_id
+ LEFT JOIN admins a ON a.admin_id = ou.created_by_admin_id
+ WHERE ou.usage_id = ? AND ou.centre_id = ?`,
             [result.insertId, centreId]
         );
         res.status(201).json(newRow[0]);
@@ -317,10 +321,11 @@ exports.updateEntry = async (req, res) => {
 
         // ── return updated row ──
         const [updated] = await pool.query(
-            `SELECT ou.*, o.name AS operator_name
-             FROM owner_usage ou
-             JOIN operators o ON o.operator_id = ou.operator_id
-             WHERE ou.usage_id = ? AND ou.centre_id = ?`,
+            `SELECT ou.*, o.name AS operator_name, a.name AS admin_name
+ FROM owner_usage ou
+ LEFT JOIN operators o ON o.operator_id = ou.operator_id
+ LEFT JOIN admins a ON a.admin_id = ou.created_by_admin_id
+ WHERE ou.usage_id = ? AND ou.centre_id = ?`,
             [id, centreId]
         );
         res.json(updated[0]);

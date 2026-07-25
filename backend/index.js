@@ -39,6 +39,7 @@ const expenses = require('./routes/expenses.routes');
 const productPurchasePaymentRoutes = require('./routes/productPurchasePayment.routes');
 const cattleFeedPaymentRoutes = require('./routes/cattleFeedPayment.routes');
 const ledgerRoutes = require('./routes/ledger.routes');
+const centresRoutes = require('./routes/centres.routes');
 
 const tourRoutes = require('./routes/tour.routes');
 
@@ -80,6 +81,8 @@ app.use('/api/expenses', expenses);
 app.use('/api/product-purchase-payments', productPurchasePaymentRoutes);
 app.use('/api/cattle-feed-payments', cattleFeedPaymentRoutes);
 app.use('/api/ledger', ledgerRoutes);
+app.use('/api/centres', centresRoutes);
+
 
 setInterval(async () => {
     try {

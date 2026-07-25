@@ -269,12 +269,17 @@ export default function AdminSettings() {
     const handleSave = async () => {
         setSaving(true);
         try {
+            // Dairy-wide branding + business rules
             await api.post('/settings/global', {
                 app_name: appName,
                 logo_url: logoUrl,
+                fat_only_autofill: fatOnlyAutofill ? '1' : '0',
+            });
+
+            // Personal preferences (this admin/operator only)
+            await api.post('/settings/app', {
                 text_size: textSize,
                 language: language,
-                fat_only_autofill: fatOnlyAutofill ? '1' : '0',
             });
 
             const newSnap = { appName, logoUrl, textSize, language, fatOnlyAutofill };

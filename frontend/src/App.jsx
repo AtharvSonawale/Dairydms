@@ -65,6 +65,7 @@ import PurchasedProductsBillPayment from './pages/common/PurchasedProductsBillPa
 import CattleFeedPayments from './pages/CattleFeedPayments';
 import FarmerLedger from './pages/Farmerledger';
 import FarmerLedgerDetail from './pages/FarmerLedgerDetail';
+import Centres from './pages/admin/Centres';
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -152,7 +153,7 @@ function AppRoutes() {
         <Route path="/cattlefeed-purchase-payments" element={<CattleFeedPayments />} />
         <Route path="/farmer-ledger" element={<FarmerLedger />} />
         <Route path="/farmer-ledger/:seller_id" element={<FarmerLedgerDetail />} />
-
+        <Route path="/admin/centres" element={<ProtectedRoute role="admin"><Centres /></ProtectedRoute>} />
       </Route>
 
       {/* ── Fallback ── */}

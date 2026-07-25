@@ -46,6 +46,7 @@ const SHARED_NAV = (isAdmin, t) => [
             tourId: 'nav-administration',
             children: [
                 { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings' },
+                { label: t('nav.centres', { defaultValue: 'Centres' }), icon: <Building2 size={14} />, to: '/admin/centres' },
                 { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates' },
                 { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
                 { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },

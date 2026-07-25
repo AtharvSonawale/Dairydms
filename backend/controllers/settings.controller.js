@@ -30,12 +30,10 @@ exports.saveGlobalSettings = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        const { app_name, logo_url, text_size, language, fat_only_autofill } = req.body;
+        const { app_name, logo_url, fat_only_autofill } = req.body;
         const entries = [
             [dairyId, 'app_name', app_name ?? 'MilkApp'],
             [dairyId, 'logo_url', logo_url ?? ''],
-            [dairyId, 'text_size', text_size ?? 'base'],
-            [dairyId, 'language', language ?? 'en'],
             [dairyId, 'fat_only_autofill', fat_only_autofill ?? '0'],
         ];
 
@@ -201,23 +199,26 @@ exports.applyDefaults = async (req, res) => {
 // GET /api/settings/app
 exports.getAppSettings = async (req, res) => {
     try {
-        const operatorId = req.user.id;
         const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const adminId = isAdmin ? req.user.id : null;
 
-        // Get operator-specific settings
+        // Get user-specific settings (admin or operator)
         const [rows] = await pool.query(
-            `SELECT setting_key, setting_value
-             FROM app_settings WHERE operator_id = ? AND centre_id = ?`,
-            [operatorId, centreId]
+            isAdmin
+                ? `SELECT setting_key, setting_value FROM app_settings WHERE admin_id = ? AND centre_id = ?`
+                : `SELECT setting_key, setting_value FROM app_settings WHERE operator_id = ? AND centre_id = ?`,
+            isAdmin ? [adminId, centreId] : [operatorId, centreId]
         );
         const result = {};
         rows.forEach(r => { result[r.setting_key] = r.setting_value; });
 
-        // Get centre-level defaults if operator doesn't have specific settings
+        // Get centre-level defaults if this user has no specific settings yet
         if (Object.keys(result).length === 0) {
             const [centreRows] = await pool.query(
                 `SELECT setting_key, setting_value
-                 FROM app_settings WHERE centre_id = ? AND operator_id IS NULL`,
+                 FROM app_settings WHERE centre_id = ? AND operator_id IS NULL AND admin_id IS NULL`,
                 [centreId]
             );
             centreRows.forEach(r => {
@@ -237,34 +238,27 @@ exports.getAppSettings = async (req, res) => {
 // POST /api/settings/app
 exports.saveAppSettings = async (req, res) => {
     try {
-        const operatorId = req.user.id;
         const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const adminId = isAdmin ? req.user.id : null;
         const { text_size, theme, language, date_format, time_format } = req.body;
 
         const entries = [];
+        const push = (key, val) => entries.push([operatorId, adminId, centreId, key, val]);
 
-        if (text_size !== undefined) {
-            entries.push([operatorId, centreId, 'text_size', text_size]);
-        }
-        if (theme !== undefined) {
-            entries.push([operatorId, centreId, 'theme', theme]);
-        }
-        if (language !== undefined) {
-            entries.push([operatorId, centreId, 'language', language]);
-        }
-        if (date_format !== undefined) {
-            entries.push([operatorId, centreId, 'date_format', date_format]);
-        }
-        if (time_format !== undefined) {
-            entries.push([operatorId, centreId, 'time_format', time_format]);
-        }
+        if (text_size !== undefined) push('text_size', text_size);
+        if (theme !== undefined) push('theme', theme);
+        if (language !== undefined) push('language', language);
+        if (date_format !== undefined) push('date_format', date_format);
+        if (time_format !== undefined) push('time_format', time_format);
 
         if (entries.length === 0) {
             return res.json({ message: 'No settings to save.' });
         }
 
         await pool.query(
-            `INSERT INTO app_settings (operator_id, centre_id, setting_key, setting_value)
+            `INSERT INTO app_settings (operator_id, admin_id, centre_id, setting_key, setting_value)
              VALUES ?
              ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
             [entries]
@@ -276,7 +270,6 @@ exports.saveAppSettings = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
-
 // ─── Centre Settings (Admin only) ─────────────────────────────────────────────
 
 // GET /api/settings/centre
