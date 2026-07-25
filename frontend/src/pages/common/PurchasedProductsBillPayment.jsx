@@ -4,7 +4,7 @@ import {
     ShoppingBag, Package, Users, Banknote, TrendingUp,
     ChevronDown, ChevronUp, CheckCircle2, Clock,
     RefreshCw, Printer, BadgeCheck, AlertTriangle,
-    X, Search, Calendar, Download, FileSearch, Hash,
+    X, Search, Download, FileSearch, Hash,
     FileText, Trash2
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -21,30 +21,6 @@ import html2canvas from 'html2canvas';
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
 const fmtDate = (d) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
-
-const computeCycles = (seedFrom, daysPerCycle, count = 50) => {
-    const cycles = [];
-    const seed = new Date(seedFrom + 'T00:00:00');
-    for (let i = 0; i < count; i++) {
-        const start = new Date(seed);
-        start.setDate(start.getDate() + i * daysPerCycle);
-        const end = new Date(start);
-        end.setDate(end.getDate() + daysPerCycle - 1);
-        cycles.push({ from: start.toISOString().split('T')[0], to: end.toISOString().split('T')[0] });
-    }
-    return cycles;
-};
-
-const getActiveCycle = (seedFrom, daysPerCycle) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cycles = computeCycles(seedFrom, daysPerCycle, 200);
-    return cycles.find(c => {
-        const s = new Date(c.from + 'T00:00:00');
-        const e = new Date(c.to + 'T00:00:00');
-        return today >= s && today <= e;
-    }) || null;
-};
 
 // Get first and last day of current month
 const getCurrentMonthRange = () => {
@@ -105,94 +81,6 @@ function StatCard({ label, value, sub, icon, color }) {
     );
 }
 
-// ── CycleConfigModal (reused) ──────────────────────────────
-function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, computeCycles }) {
-    const { t } = useTranslation();
-    const [localSeed, setLocalSeed] = useState(initialSeed);
-    const [localDays, setLocalDays] = useState(initialDays);
-    if (!open) return null;
-    const previewCycles = computeCycles(localSeed, Math.max(1, localDays), 6);
-    const handleSave = () => onSave(localSeed, Math.max(1, localDays));
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
-                            <BadgeCheck size={16} className="text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-gray-900">{t('productPurchasePayments.configureCycle')}</h2>
-                            <p className="text-[10px] text-gray-400">{t('productPurchasePayments.cycleConfigDesc')}</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                        <X size={15} />
-                    </button>
-                </div>
-                <div className="px-6 py-5 flex flex-col gap-4">
-                    <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-                        <AlertTriangle size={14} className="text-blue-500 mt-0.5 shrink-0" />
-                        <p className="text-xs text-blue-700 leading-relaxed"
-                            dangerouslySetInnerHTML={{
-                                __html: t('productPurchasePayments.cycleInfo', {
-                                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                                })
-                            }}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.seedStartDate')}</label>
-                            <input type="date" value={localSeed} onChange={e => setLocalSeed(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.daysPerCycle')}</label>
-                            <input type="number" min={1} max={31} value={localDays}
-                                onChange={e => setLocalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
-                        </div>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('productPurchasePayments.upcomingCycles')}</p>
-                        <div className="flex flex-col gap-1.5">
-                            {previewCycles.map((c, i) => {
-                                const today = new Date(); today.setHours(0, 0, 0, 0);
-                                const s = new Date(c.from + 'T00:00:00');
-                                const e = new Date(c.to + 'T00:00:00');
-                                const isCurrent = today >= s && today <= e;
-                                const isPayDay = today.getTime() === e.getTime();
-                                const isPast = e < today;
-                                return (
-                                    <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs ${isCurrent ? 'border-violet-200 bg-violet-50' : 'border-gray-100 bg-gray-50'}`}>
-                                        <span className="text-[10px] text-gray-400 font-medium min-w-[52px]">Cycle {i + 1}</span>
-                                        <span className="flex-1 font-medium text-gray-700">
-                                            {s.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} → {e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                            {isCurrent && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-700 font-semibold">current</span>}
-                                        </span>
-                                        {isPayDay
-                                            ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">Payment day — today!</span>
-                                            : isCurrent ? <span className="text-[10px] text-violet-500">{t('productPurchasePayments.payOn', { date: e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) })}</span>
-                                                : isPast ? <span className="text-[10px] text-gray-400">{t('productPurchasePayments.past')}</span>
-                                                    : <span className="text-[10px] text-gray-400">{t('productPurchasePayments.upcoming')}</span>
-                                        }
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-                    <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">{t('productPurchasePayments.cancel')}</button>
-                    <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-violet-600 text-white hover:bg-violet-700 transition">
-                        <BadgeCheck size={12} />{t('productPurchasePayments.saveCycleConfig')}</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ── Main Component ────────────────────────────────────────────
 export default function PurchasedProductsBillPayment() {
     const { t } = useTranslation();
@@ -212,12 +100,7 @@ export default function PurchasedProductsBillPayment() {
     const [filterPaid, setFilterPaid] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
-    const [cycleConfigOpen, setCycleConfigOpen] = useState(false);
-    const [cycleSeedFrom, setCycleSeedFrom] = useState(new Date().toISOString().split('T')[0]);
-    const [cycleDaysPerCycle, setCycleDaysPerCycle] = useState(10);
     const [cycleConfigLoaded, setCycleConfigLoaded] = useState(false);
-    const [useCustomCycle, setUseCustomCycle] = useState(false);
-    const fixedCycles = getFixedMonthCycles(new Date());
     // Default to "Month" index (3) if available, else 0
     const [activeFixedIdx, setActiveFixedIdx] = useState(() => {
         const idx = getActiveFixedCycle();
@@ -241,52 +124,16 @@ export default function PurchasedProductsBillPayment() {
     const [bulkDownloading, setBulkDownloading] = useState(false);
     const [combinedDownloading, setCombinedDownloading] = useState(false);
 
-    // ── Fetch cycle config ──────────────────────────────────────
+    // ── Initialize default date range (fixed monthly cycle) ─────
     useEffect(() => {
-        const fetchCycleConfig = async () => {
-            try {
-                const { data } = await api.get('/product-purchase-payments/cycle-config');
-                if (data) {
-                    const seed = data.seed_from.split('T')[0];
-                    const days = data.days_per_cycle;
-                    setCycleSeedFrom(seed);
-                    setCycleDaysPerCycle(days);
-                }
-            } catch (err) {
-                console.error("Failed to fetch product purchase cycle config:", err);
-            } finally {
-                // Set default to current month
-                const monthRange = getCurrentMonthRange();
-                setCustomFrom(monthRange.from);
-                setCustomTo(monthRange.to);
-                // If we have fixed cycles, set active to "Month" (index 3)
-                const cycles = getFixedMonthCycles(new Date());
-                const monthIdx = cycles.findIndex(c => c.label === "Month");
-                if (monthIdx !== -1) setActiveFixedIdx(monthIdx);
-                setCycleConfigLoaded(true);
-            }
-        };
-        fetchCycleConfig();
+        const monthRange = getCurrentMonthRange();
+        setCustomFrom(monthRange.from);
+        setCustomTo(monthRange.to);
+        const cycles = getFixedMonthCycles(new Date());
+        const monthIdx = cycles.findIndex(c => c.label === "Month");
+        if (monthIdx !== -1) setActiveFixedIdx(monthIdx);
+        setCycleConfigLoaded(true);
     }, []);
-
-    useEffect(() => {
-        if (!useCustomCycle) return;
-        const active = getActiveCycle(cycleSeedFrom, cycleDaysPerCycle);
-        if (active) {
-            setCustomFrom(active.from);
-            setCustomTo(active.to);
-        }
-    }, [cycleSeedFrom, cycleDaysPerCycle, useCustomCycle]);
-
-    const handleCycleModeToggle = (toCustom) => {
-        setUseCustomCycle(toCustom);
-        if (toCustom) {
-            const active = getActiveCycle(cycleSeedFrom, cycleDaysPerCycle);
-            if (active) { setCustomFrom(active.from); setCustomTo(active.to); }
-        } else {
-            selectFixedCycle(activeFixedIdx);
-        }
-    };
 
     const selectFixedCycle = (idx) => {
         const cycles = getFixedMonthCycles(new Date());
@@ -840,11 +687,6 @@ ${entries.length > 0 ? `
                         <button onClick={() => { setBillSearchOpen(true); searchBills(""); }} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition">
                             <FileSearch size={13} /> {t('productPurchasePayments.searchBills')}
                         </button>
-                        {useCustomCycle && (
-                            <button onClick={() => setCycleConfigOpen(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-100 text-violet-700 text-sm font-semibold hover:bg-violet-200 transition border border-violet-200">
-                                <Calendar size={13} /> {t('productPurchasePayments.configureCycle')}
-                            </button>
-                        )}
                         <button onClick={printRegister} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition">
                             <Printer size={13} /> {t('productPurchasePayments.printRegister')}
                         </button>
@@ -864,33 +706,21 @@ ${entries.length > 0 ? `
 
                 {/* Date Range */}
                 <div className="flex flex-col gap-3 no-print" data-tour="date-range">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                            <button type="button" onClick={() => handleCycleModeToggle(false)} className={`px-3 py-2 transition ${!useCustomCycle ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {t('productPurchasePayments.fixedMonthly')}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        {getFixedMonthCycles(new Date()).map((c, idx) => (
+                            <button key={c.label} type="button" onClick={() => selectFixedCycle(idx)} className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${activeFixedIdx === idx ? "bg-violet-600 text-white border-violet-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                                {c.label}
                             </button>
-                            <button type="button" onClick={() => handleCycleModeToggle(true)} className={`px-3 py-2 transition ${useCustomCycle ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {t('productPurchasePayments.customCycle')}
-                            </button>
-                        </div>
-                        {!useCustomCycle && (
-                            <div className="flex items-center gap-1.5">
-                                {getFixedMonthCycles(new Date()).map((c, idx) => (
-                                    <button key={c.label} type="button" onClick={() => selectFixedCycle(idx)} className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${activeFixedIdx === idx ? "bg-violet-600 text-white border-violet-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
-                                        {c.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        ))}
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.from')}</span>
-                            <input type="date" value={customFrom || ''} disabled={!useCustomCycle} onChange={e => setCustomFrom(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                            <input type="date" value={customFrom || ''} disabled className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
                         </div>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.to')}</span>
-                            <input type="date" value={customTo || ''} disabled={!useCustomCycle} onChange={e => setCustomTo(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                            <input type="date" value={customTo || ''} disabled className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
                         </div>
                         <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.paymentDate')}</span>
@@ -1176,28 +1006,6 @@ ${entries.length > 0 ? `
                     </div>
                 </div>
             )}
-
-            {/* Cycle Config Modal */}
-            <CycleConfigModal
-                open={cycleConfigOpen}
-                onClose={() => setCycleConfigOpen(false)}
-                onSave={async (seed, days) => {
-                    try {
-                        await api.post('/product-purchase-payments/cycle-config', { seed_from: seed, days_per_cycle: days });
-                        setCycleSeedFrom(seed);
-                        setCycleDaysPerCycle(days);
-                        const active = getActiveCycle(seed, days);
-                        if (active) { setCustomFrom(active.from); setCustomTo(active.to); }
-                        setCycleConfigOpen(false);
-                        showFlash("success", "Cycle configuration saved!");
-                    } catch (err) {
-                        showFlash("error", "Failed to save cycle config.");
-                    }
-                }}
-                initialSeed={cycleSeedFrom}
-                initialDays={cycleDaysPerCycle}
-                computeCycles={computeCycles}
-            />
 
         </div>
     );

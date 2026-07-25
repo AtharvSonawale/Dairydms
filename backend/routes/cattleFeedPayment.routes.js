@@ -14,10 +14,6 @@ router.get('/bills/search', ctrl.searchBills);
 router.get('/bill/:bill_no', ctrl.getBill);
 router.delete('/bill/:bill_no', ctrl.deleteBill);
 
-// ── Cycle configuration ──────────────────────────────────────
-router.get('/cycle-config', ctrl.getCycleConfig);
-router.post('/cycle-config', ctrl.saveCycleConfig);
-
 // ── Excel export ─────────────────────────────────────────────
 router.get('/export-excel', ctrl.exportExcel);
 

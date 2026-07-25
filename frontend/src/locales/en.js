@@ -2910,6 +2910,8 @@ const en = {
 
         // ── Seller Payments (Main) ──────────────────────────────────
         sellerPayments: {
+            cattleFeedDeductions: "Cattle Feed Deductions",
+            cattleFeed: "CattleFeed",
             cattleFeedDeduction: "Cattle Feed Deduction",
             cattleFeedCut: "Cattle Feed Cut",
             advInstallmentCut: "Advance Installment Cut",

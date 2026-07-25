@@ -310,46 +310,6 @@ exports.searchBills = async (req, res) => {
     }
 };
 
-// ── GET /api/product-purchase-payments/cycle-config ─────────
-exports.getCycleConfig = async (req, res) => {
-    try {
-        const centreId = req.user.centre_id;
-        const [[row]] = await pool.query(
-            `SELECT seed_from, days_per_cycle FROM product_purchase_cycle_config WHERE centre_id = ?`,
-            [centreId]
-        );
-        if (!row) return res.json(null);
-        res.json({ seed_from: row.seed_from, days_per_cycle: row.days_per_cycle });
-    } catch (err) {
-        console.error('getProductPurchaseCycleConfig error:', err);
-        res.status(500).json({ message: "Server error" });
-    }
-};
-
-// ── POST /api/product-purchase-payments/cycle-config ────────
-exports.saveCycleConfig = async (req, res) => {
-    try {
-        const operatorId = req.user.id;
-        const centreId = req.user.centre_id;
-        const { seed_from, days_per_cycle } = req.body;
-
-        if (!seed_from || !days_per_cycle) {
-            return res.status(400).json({ error: "seed_from and days_per_cycle are required." });
-        }
-
-        await pool.query(
-            `INSERT INTO product_purchase_cycle_config (operator_id, centre_id, seed_from, days_per_cycle)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE seed_from = VALUES(seed_from), days_per_cycle = VALUES(days_per_cycle)`,
-            [operatorId, centreId, seed_from, days_per_cycle]
-        );
-        res.json({ success: true, seed_from, days_per_cycle });
-    } catch (err) {
-        console.error('saveProductPurchaseCycleConfig error:', err);
-        res.status(500).json({ message: "Server error" });
-    }
-};
-
 // ── GET /api/product-purchase-payments/export-excel ─────────
 exports.exportExcel = async (req, res) => {
     try {
