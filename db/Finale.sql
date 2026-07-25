@@ -740,17 +740,6 @@ CREATE TABLE product_purchase_bills (
    CONSTRAINT fk_ppb_operator FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
  ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE product_purchase_cycle_config (
-   id int NOT NULL AUTO_INCREMENT,
-   centre_id int NOT NULL,
-   seed_from date NOT NULL,
-   days_per_cycle int NOT NULL DEFAULT '10',
-   operator_id int DEFAULT NULL,
-   updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   PRIMARY KEY (id),
-   UNIQUE KEY centre_id (centre_id)
- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE product_purchase_payments (
    payment_id int NOT NULL AUTO_INCREMENT,
    supplier_name varchar(150) NOT NULL,

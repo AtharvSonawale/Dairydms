@@ -399,17 +399,6 @@ exports.markPaid = async (req, res) => {
                 : 0;
         }
 
-        // 6. Deduct installment from cash_advance (if applicable)
-        if (finalInstallmentCut > 0) {
-            await conn.query(
-                `INSERT INTO cash_advance
-                 (seller_id, operator_id, centre_id, type, amount, transaction_date, remarks)
-                 VALUES (?, ?, ?, 'received', ?, ?, ?)`,
-                [seller_id, operatorId, centreId, finalInstallmentCut, to_date,
-                    `Installment cut for ${from_date} to ${to_date}`]
-            );
-        }
-
         let installmentTransId = null;
         if (finalInstallmentCut > 0) {
             const [installRes] = await conn.query(
@@ -420,17 +409,6 @@ exports.markPaid = async (req, res) => {
                     `Installment cut for ${from_date} to ${to_date}`]
             );
             installmentTransId = installRes.insertId;   // capture the ID
-        }
-
-        // 7. Add deposit to seller_deposits (if applicable)
-        if (finalDepositAmount > 0) {
-            await conn.query(
-                `INSERT INTO seller_deposits
-                 (seller_id, operator_id, centre_id, type, amount, transaction_date, remarks)
-                 VALUES (?, ?, ?, 'credit', ?, ?, ?)`,
-                [seller_id, operatorId, centreId, finalDepositAmount, to_date,
-                    `Deposit for ${from_date} to ${to_date}`]
-            );
         }
 
         let depositTransId = null;
@@ -444,7 +422,6 @@ exports.markPaid = async (req, res) => {
             );
             depositTransId = depRes.insertId;          // capture the ID
         }
-
 
         // 8. Fetch product deductions
         const [[productRows]] = await conn.query(
