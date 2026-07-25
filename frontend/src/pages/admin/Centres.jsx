@@ -27,7 +27,7 @@ export default function Centres() {
             const { data } = await api.get('/centres');
             setCentres(data);
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to load centres.');
+            showFlash('error', err.response?.data?.message || t('centres.loadError'));
         } finally {
             setLoading(false);
         }
@@ -40,12 +40,12 @@ export default function Centres() {
         setSaving(true);
         try {
             await api.post('/centres', form);
-            showFlash('success', 'Centre created successfully.');
+            showFlash('success', t('centres.createSuccess'));
             setModalOpen(false);
             setForm({ centre_name: '', centre_code: '', address: '', contact_number: '' });
             fetchCentres();
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to create centre.');
+            showFlash('error', err.response?.data?.message || t('centres.createError'));
         } finally {
             setSaving(false);
         }
@@ -55,12 +55,11 @@ export default function Centres() {
         setSwitching(centre_id);
         try {
             const { data } = await api.post('/centres/switch', { centre_id });
-            login(data); // same response shape as adminLogin -- reuse as-is
-            showFlash('success', `Switched to ${data.centre_name}.`);
-            // Reload so every page refetches data scoped to the new centre_id
+            login(data);
+            showFlash('success', t('centres.switchSuccess', { name: data.centre_name }));
             setTimeout(() => window.location.reload(), 600);
         } catch (err) {
-            showFlash('error', err.response?.data?.message || 'Failed to switch centre.');
+            showFlash('error', err.response?.data?.message || t('centres.switchError'));
             setSwitching(null);
         }
     };
@@ -75,16 +74,16 @@ export default function Centres() {
                             <Building2 size={18} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Centres</h1>
+                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('centres.title')}</h1>
                             <p className="text-xs text-gray-400 mt-0.5">
-                                Manage centres within your dairy. Switch to work within a different centre.
+                                {t('centres.subtitle')}
                             </p>
                         </div>
                     </div>
                     <button onClick={() => setModalOpen(true)}
                         className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
                             bg-violet-600 text-white hover:bg-violet-700 transition">
-                        <Plus size={14} /> New Centre
+                        <Plus size={14} /> {t('centres.newCentre')}
                     </button>
                 </div>
 
@@ -105,7 +104,7 @@ export default function Centres() {
                     ) : centres.length === 0 ? (
                         <div className="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200 gap-2 text-gray-300">
                             <Building2 size={32} />
-                            <p className="text-sm">No centres found.</p>
+                            <p className="text-sm">{t('centres.noCentres')}</p>
                         </div>
                     ) : centres.map(c => (
                         <div key={c.centre_id}
@@ -118,7 +117,7 @@ export default function Centres() {
                                 </div>
                                 {c.is_current && (
                                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
-                                        <BadgeCheck size={10} /> Current
+                                        <BadgeCheck size={10} /> {t('centres.current')}
                                     </span>
                                 )}
                             </div>
@@ -141,7 +140,7 @@ export default function Centres() {
                                     {switching === c.centre_id
                                         ? <RefreshCw size={12} className="animate-spin" />
                                         : <RefreshCw size={12} />}
-                                    Switch to this centre
+                                    {t('centres.switchButton')}
                                 </button>
                             )}
                         </div>
@@ -153,7 +152,7 @@ export default function Centres() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                            <h2 className="text-sm font-bold text-gray-900">New Centre</h2>
+                            <h2 className="text-sm font-bold text-gray-900">{t('centres.modal.title')}</h2>
                             <button onClick={() => setModalOpen(false)}
                                 className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
                                 <X size={15} />
@@ -161,25 +160,25 @@ export default function Centres() {
                         </div>
                         <form onSubmit={handleCreate} className="px-6 py-5 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Centre Name</label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('centres.modal.name')}</label>
                                 <input required value={form.centre_name}
                                     onChange={e => setForm(p => ({ ...p, centre_name: e.target.value }))}
                                     className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Centre Code</label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('centres.modal.code')}</label>
                                 <input required value={form.centre_code}
                                     onChange={e => setForm(p => ({ ...p, centre_code: e.target.value }))}
                                     className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Address (optional)</label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('centres.modal.address')}</label>
                                 <input value={form.address}
                                     onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
                                     className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Contact Number (optional)</label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('centres.modal.contact')}</label>
                                 <input value={form.contact_number}
                                     onChange={e => setForm(p => ({ ...p, contact_number: e.target.value }))}
                                     className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
@@ -187,12 +186,12 @@ export default function Centres() {
                             <div className="flex justify-end gap-2 pt-2">
                                 <button type="button" onClick={() => setModalOpen(false)}
                                     className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
-                                    Cancel
+                                    {t('centres.modal.cancel')}
                                 </button>
                                 <button type="submit" disabled={saving}
                                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-violet-600 text-white hover:bg-violet-700 transition disabled:opacity-50">
                                     {saving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    {saving ? 'Creating...' : 'Create Centre'}
+                                    {saving ? t('centres.modal.creating') : t('centres.modal.create')}
                                 </button>
                             </div>
                         </form>

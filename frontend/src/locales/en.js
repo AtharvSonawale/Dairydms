@@ -2908,6 +2908,31 @@ const en = {
             totalSellers: "Total Farmers",
         },
 
+        centres: {
+            title: 'Centres',
+            subtitle: 'Manage centres within your dairy. Switch to work within a different centre.',
+            newCentre: 'New Centre',
+            current: 'Current',
+            switchButton: 'Switch to this centre',
+            noCentres: 'No centres found.',
+            loadError: 'Failed to load centres.',
+            createSuccess: 'Centre created successfully.',
+            createError: 'Failed to create centre.',
+            switchSuccess: 'Switched to {{name}}.',
+            switchError: 'Failed to switch centre.',
+
+            modal: {
+                title: 'New Centre',
+                name: 'Centre Name',
+                code: 'Centre Code',
+                address: 'Address (optional)',
+                contact: 'Contact Number (optional)',
+                cancel: 'Cancel',
+                create: 'Create Centre',
+                creating: 'Creating...',
+            },
+        },
+
         // ── Seller Payments (Main) ──────────────────────────────────
         sellerPayments: {
             cattleFeedDeductions: "Cattle Feed Deductions",
