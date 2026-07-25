@@ -988,12 +988,17 @@ exports.deleteBill = async (req, res) => {
             );
         }
 
+        
+        await conn.query(
+            `DELETE FROM bill_master WHERE bill_no = ? AND centre_id = ?`,
+            [bill_no, centreId]
+        );
+        
         // Finally delete the payment record
         await conn.query(
             `DELETE FROM seller_payments WHERE bill_no = ? AND centre_id = ?`,
             [bill_no, centreId]
         );
-
         await conn.commit();
         return res.json({ success: true, message: `Bill ${bill_no} deleted successfully.` });
     } catch (err) {
