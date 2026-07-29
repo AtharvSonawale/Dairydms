@@ -24,6 +24,13 @@ const today = () => new Date().toISOString().split("T")[0];
 const fmtTime = (d) =>
     d ? new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—";
 
+const fmtRowDate = (s) => {
+    const raw = s.sale_date || s.created_at;
+    if (!raw) return "—";
+    const dateOnly = String(raw).split("T")[0];
+    return new Date(dateOnly + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+};
+
 const EMPTY_FORM = {
     buyer_mode: "anon",
     pay_now: true,        // ← ADD
@@ -149,7 +156,7 @@ export default function WalkinSales() {
     const [pageSize, setPageSize] = useState(5);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchName, setSearchName] = useState("");
-const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+    const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
     const startWalkinSalesTour = () => {
         const driverObj = driver({
@@ -204,11 +211,15 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
     const [clearBillAmount, setClearBillAmount] = useState("");
     const [clearingBill, setClearingBill] = useState(false);
     const [buyerBalance, setBuyerBalance] = useState(0);
-    const [amountPaid, setAmountPaid] = useState("");    const showFlash = (type, msg) => {
+    const [amountPaid, setAmountPaid] = useState(""); const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
     const [editingSaleId, setEditingSaleId] = useState(null);
+
+    // ── Custom delete confirmation modal state ──
+    const [deleteModal, setDeleteModal] = useState({ open: false, saleId: null });
+    const [processingDelete, setProcessingDelete] = useState(false);
 
     // ── Computed ────────────────────────────────────────────────
     const selectedProductType = productTypes.find(p => String(p.product_type_id) === String(form.product_type_id));
@@ -218,7 +229,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
     const amount = form.quantity && form.mrp
         ? (parseFloat(form.quantity || 0) * effectiveDisplayMrp).toFixed(2)
         : null;
-    
+
     const filteredSellers = sellerSearch
         ? sellers.filter((s) =>
             s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
@@ -405,7 +416,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
             setShowClearBillModal(false);
             setClearBillBuyer(null);
             setClearBillAmount("");
-           if (rangeMode !== "daily") await fetchRangeEntries(fromDate, toDate);
+            if (rangeMode !== "daily") await fetchRangeEntries(fromDate, toDate);
         } catch (err) {
             showFlash("error", err.response?.data?.error || "Failed to clear bill");
         } finally {
@@ -413,8 +424,15 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
         }
     };
 
-    const handleDeleteSale = async (saleId) => {
-        if (!window.confirm("Delete this sale? This cannot be undone.")) return;
+    // ── Delete handlers with custom modal ──
+    const confirmDelete = (saleId) => {
+        setDeleteModal({ open: true, saleId });
+    };
+
+    const handleConfirmDelete = async () => {
+        const { saleId } = deleteModal;
+        if (!saleId) return;
+        setProcessingDelete(true);
         try {
             await api.delete(`/walkin-sales/${saleId}`);
             await fetchSales(selectedDate, selectedDate);
@@ -423,6 +441,9 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
             showFlash("success", "Sale deleted");
         } catch (err) {
             showFlash("error", err.response?.data?.error || "Failed to delete sale");
+        } finally {
+            setProcessingDelete(false);
+            setDeleteModal({ open: false, saleId: null });
         }
     };
 
@@ -711,6 +732,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                 : `/walkin-sales?from=${fromFormatted}&to=${toFormatted}`;
             const { data } = await api.get(url);
             setRangeEntries(data);
+            setSales(data);
             const summary = await fetchBillingSummary(fromFormatted, toFormatted);
             setBillingSummary(summary);
             setPdfReady(true);
@@ -1118,11 +1140,11 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
     const paginatedSales = filteredSales.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const COLS = [
-        t('walkinSale.colBuyer'), t('walkinSale.colMilk'), t('walkinSale.colQty'),
+        t('walkinSale.colBuyer'), "Date", t('walkinSale.colMilk'), t('walkinSale.colQty'),
         t('walkinSale.colMrp'), t('walkinSale.colAmount'), t('walkinSale.colPayment'),
         t('walkinSale.colShift'), t('walkinSale.colTime'), ""
     ];
-    const GRID = "1.4fr 90px 75px 80px 95px 90px 100px 70px 72px";
+    const GRID = "1.4fr 70px 90px 75px 80px 95px 90px 100px 70px 72px";
 
     const totalQty = sales.reduce((a, s) => a + parseFloat(s.quantity || 0), 0);
     const totalRevenue = sales.reduce((a, s) => a + parseFloat(s.total_amount || 0), 0);
@@ -1225,7 +1247,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                         {t('dashboard.loading')}
                                     </div>
                                 ) : (
-<button onClick={handleDownloadPDF} disabled={loadingRange}                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-40 transition">
+                                    <button onClick={handleDownloadPDF} disabled={loadingRange} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-40 transition">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                         PDF
                                     </button>
@@ -1242,7 +1264,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                             <Milk size={13} /> Products
                         </button>
 
-                       {/* AFTER the Products button */}
+                        {/* AFTER the Products button */}
                         {namedBuyerSummaries.filter(b => b.outstanding > 0).length > 0 && (
                             <button onClick={() => setShowClearBillModal(true)}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-rose-500 text-white hover:bg-rose-600 mt-4">
@@ -1318,7 +1340,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                     </div>
                 )}
 
-                
+
                 {/* Product Types Modal */}
                 {showProductModal && (
                     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -1553,7 +1575,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                         </div>
                     </div>
 
-                  {/* Buyer Mode Selector */}
+                    {/* Buyer Mode Selector */}
                     <div className="flex gap-2 mb-5" data-tour="buyer-modes">
                         {BUYER_MODES.map(({ val, label, icon, desc }) => (
                             <button
@@ -2039,7 +2061,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                                                    ${s.buyer_name === "ANON" ? "bg-gray-100 text-gray-400" : "bg-gray-900 text-white"}`}>
+            ${s.buyer_name === "ANON" ? "bg-gray-100 text-gray-400" : "bg-gray-900 text-white"}`}>
                                                     {s.buyer_name === "ANON" ? "?" : s.buyer_name?.charAt(0)?.toUpperCase()}
                                                 </div>
                                                 <span className={`text-xs font-medium truncate ${s.buyer_name === "ANON" ? "text-gray-400 italic" : "text-gray-800"}`}>
@@ -2048,6 +2070,11 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                             </div>
                                         </TableCell>
 
+                                        {/* Date */}
+                                        <TableCell className="text-gray-500 font-mono text-xs">
+                                            {fmtRowDate(s)}
+                                        </TableCell>
+                                        
                                         {/* Milk Type */}
                                         <TableCell>
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
@@ -2110,7 +2137,7 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                                                 </button>
                                                 {can('walkin_sales', 'D') && (
                                                     <button
-                                                        onClick={() => handleDeleteSale(s.sale_id)}
+                                                        onClick={() => confirmDelete(s.sale_id)}
                                                         className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
                                                         title="Delete"
                                                     >
@@ -2211,6 +2238,41 @@ const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
                     <span>• {t('walkinSale.legendSellerBuys')}</span>
                 </div>
             </main>
+
+            {/* ── Delete Confirmation Modal ── */}
+            {deleteModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+                                <Trash2 size={22} className="text-red-500" />
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">Delete Sale</h2>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                                This action cannot be undone. Are you sure you want to delete this sale?
+                            </p>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => setDeleteModal({ open: false, saleId: null })}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                disabled={processingDelete}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                disabled={processingDelete}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-100 transition active:scale-95"
+                            >
+                                {processingDelete
+                                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                    : "Yes, Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -46,8 +46,12 @@ export default function WalkinNamedBuyerReports() {
     const [loading, setLoading] = useState(false);
 
     // ── Date range ────────────────────────────────────────────────
-    const [dateRange, setDateRange] = useState({ from: today(), to: today() });
-    const [rangeMode, setRangeMode] = useState("daily");
+    const [dateRange, setDateRange] = useState(() => {
+        const d = new Date();
+        const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+        return { from, to: today() };
+    });
+    const [rangeMode, setRangeMode] = useState("monthly");
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     // ── Search / filter / sort / pagination ─────────────────────
@@ -64,6 +68,10 @@ export default function WalkinNamedBuyerReports() {
 
     const [flash, setFlash] = useState(null);
     const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 3500); };
+
+    // ── Custom undo modal state ─────────────────────────────────
+    const [undoModal, setUndoModal] = useState({ open: false, buyerId: null, paymentId: null });
+    const [processingUndo, setProcessingUndo] = useState(false);
 
     // ── Tour ─────────────────────────────────────────────────────
     const startTour = () => {
@@ -317,6 +325,33 @@ export default function WalkinNamedBuyerReports() {
         const willOpen = !expanded[buyer.buyer_id];
         setExpanded(prev => ({ ...prev, [buyer.buyer_id]: willOpen }));
         if (willOpen) buildStatement(buyer);
+    };
+
+    // ── Undo payment with custom modal ──────────────────────────
+    const confirmUndoPayment = (buyerId, paymentId) => {
+        setUndoModal({ open: true, buyerId, paymentId });
+    };
+
+    const handleConfirmUndo = async () => {
+        const { buyerId, paymentId } = undoModal;
+        if (!buyerId || !paymentId) return;
+        setProcessingUndo(true);
+        try {
+            await api.delete(`/walkin-payments/payments/${paymentId}`);
+            showFlash("success", t("payments.payment_undone_success"));
+            // Refresh all data to keep everything in sync
+            await fetchAll(dateRange.from, dateRange.to);
+            // If this buyer's statement is open, rebuild it
+            if (expanded[buyerId]) {
+                const buyer = buyers.find(b => b.buyer_id === buyerId);
+                if (buyer) buildStatement(buyer);
+            }
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t("payments.undo_payment_failed"));
+        } finally {
+            setProcessingUndo(false);
+            setUndoModal({ open: false, buyerId: null, paymentId: null });
+        }
     };
 
     // ── PDF: consolidated named buyer report ──────────────────────
@@ -745,17 +780,7 @@ export default function WalkinNamedBuyerReports() {
                                                                                     <div className="px-3 py-2 flex items-center">
                                                                                         {e.type === 'payment' && (
                                                                                             <button
-                                                                                                onClick={async () => {
-                                                                                                    if (!window.confirm(t("payments.undo_payment_confirm"))) return;
-                                                                                                    try {
-                                                                                                        await api.delete(`/walkin-payments/payments/${e.payment_id}`);
-                                                                                                        showFlash("success", t("payments.payment_undone_success"));
-                                                                                                        await fetchAll(dateRange.from, dateRange.to);
-                                                                                                        if (expanded[buyer.buyer_id]) buildStatement(buyer);
-                                                                                                    } catch (err) {
-                                                                                                        showFlash("error", err.response?.data?.error || t("payments.undo_payment_failed"));
-                                                                                                    }
-                                                                                                }}
+                                                                                                onClick={() => confirmUndoPayment(buyer.buyer_id, e.payment_id)}
                                                                                                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold
                                                                                                     bg-rose-50 text-rose-600 border border-rose-100
                                                                                                     hover:bg-rose-100 transition"
@@ -807,6 +832,42 @@ export default function WalkinNamedBuyerReports() {
                     )}
                 </div>
             </main>
+
+            {/* ── Undo Payment Confirmation Modal ── */}
+            {undoModal.open && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
+                                <X size={22} className="text-rose-500" />
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">Undo Payment</h2>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                                {t("payments.undo_payment_confirm")}
+                            </p>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => setUndoModal({ open: false, buyerId: null, paymentId: null })}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                disabled={processingUndo}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmUndo}
+                                disabled={processingUndo}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-100 transition active:scale-95"
+                            >
+                                {processingUndo
+                                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                    : "Yes, Undo"
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

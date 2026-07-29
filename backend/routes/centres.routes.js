@@ -7,6 +7,8 @@ router.use(authenticate, requireRole('admin'));
 router.get('/', centres.listCentres);
 router.post('/', centres.createCentre);
 router.post('/switch', centres.switchCentre);
+router.put('/:id', centres.updateCentre);
+router.delete('/:id', centres.deleteCentre);
 
 module.exports = router;
 

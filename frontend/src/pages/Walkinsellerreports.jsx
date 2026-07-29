@@ -78,7 +78,10 @@ export default function WalkinSellerReports() {
     const [expanded, setExpanded] = useState({});
     const [statementMap, setStatementMap] = useState({});
     const [loadingStatement, setLoadingStatement] = useState({});
-    const [undoingPayment, setUndoingPayment] = useState(null);
+
+    // ── Custom undo modal state ────────────────────────────────
+    const [undoModal, setUndoModal] = useState({ open: false, seller: null, paymentId: null });
+    const [processingUndo, setProcessingUndo] = useState(false);
 
     // ── Clear bill ───────────────────────────────────────────────
     const [showClearBillModal, setShowClearBillModal] = useState(false);
@@ -363,9 +366,15 @@ export default function WalkinSellerReports() {
         }
     };
 
-    const undoPayment = async (seller, paymentId) => {
-        if (!window.confirm(t("payments.undo_payment_confirm"))) return;
-        setUndoingPayment(paymentId);
+    // ── Undo payment with custom modal ───────────────────────────
+    const confirmUndoPayment = (seller, paymentId) => {
+        setUndoModal({ open: true, seller, paymentId });
+    };
+
+    const handleConfirmUndo = async () => {
+        const { seller, paymentId } = undoModal;
+        if (!seller || !paymentId) return;
+        setProcessingUndo(true);
         try {
             await api.delete(`/walkin-payments/payments/${paymentId}`);
             showFlash("success", t("payments.payment_undone_success"));
@@ -374,7 +383,8 @@ export default function WalkinSellerReports() {
         } catch (err) {
             showFlash("error", err.response?.data?.error || t("payments.undo_payment_failed"));
         } finally {
-            setUndoingPayment(null);
+            setProcessingUndo(false);
+            setUndoModal({ open: false, seller: null, paymentId: null });
         }
     };
 
@@ -904,14 +914,12 @@ export default function WalkinSellerReports() {
                                                                                     <div className="px-3 py-2 flex items-center">
                                                                                         {e.type === 'payment' && (
                                                                                             <button
-                                                                                                onClick={() => undoPayment(seller, e.payment_id)}
-                                                                                                disabled={undoingPayment === e.payment_id}
+                                                                                                onClick={() => confirmUndoPayment(seller, e.payment_id)}
                                                                                                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold
                                                                                                     bg-rose-50 text-rose-600 border border-rose-100
-                                                                                                    hover:bg-rose-100 disabled:opacity-40 transition">
-                                                                                                {undoingPayment === e.payment_id
-                                                                                                    ? <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
-                                                                                                    : <X size={10} />}
+                                                                                                    hover:bg-rose-100 transition"
+                                                                                            >
+                                                                                                <X size={10} />
                                                                                                 {t("payments.undo")}
                                                                                             </button>
                                                                                         )}
@@ -958,6 +966,42 @@ export default function WalkinSellerReports() {
                     )}
                 </div>
             </main>
+
+            {/* ── Undo Payment Confirmation Modal ── */}
+            {undoModal.open && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
+                                <X size={22} className="text-rose-500" />
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">Undo Payment</h2>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                                {t("payments.undo_payment_confirm")}
+                            </p>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => setUndoModal({ open: false, seller: null, paymentId: null })}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                disabled={processingUndo}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmUndo}
+                                disabled={processingUndo}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-100 transition active:scale-95"
+                            >
+                                {processingUndo
+                                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                    : "Yes, Undo"
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Clear Bill Modal */}
             {showClearBillModal && clearBillSeller && (

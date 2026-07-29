@@ -265,9 +265,9 @@ exports.createPayment = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const operator_id = isAdmin ? null : req.user.id;
         const { buyer_id, seller_id, amount, payment_mode, remarks, payment_date } = req.body;
 
         // Validation
@@ -553,9 +553,9 @@ exports.clearBuyerBill = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const operator_id = isAdmin ? null : req.user.id;
         const { buyer_id, seller_id, amount_paid, outstanding } = req.body;
 
         if ((!buyer_id && !seller_id) || amount_paid == null) {
@@ -1057,9 +1057,9 @@ exports.saveBill = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operator_id = req.user.id;
         const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const operator_id = isAdmin ? null : req.user.id;
         const { buyer_id, seller_id, buyer_type, from_date, to_date, amount_paid } = req.body;
 
         if (!buyer_type || !from_date || !to_date) {

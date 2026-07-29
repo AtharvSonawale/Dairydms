@@ -47,7 +47,7 @@ import SellerLogin from './pages/SellerLogin';
 import FarmerDashboard from './pages/FarmerDashboard';
 import FarmerMilkBills from "./pages/farmer/FarmerMilkBills";
 import FarmerFinance from "./pages/farmer/FarmerFinance";
-import CattleFeedPurchase from './pages/common/CattleFeed';
+import CattleFeedPurchase from './pages/common/CattleFeedPurchase';
 import CattleFeedSales from './pages/common/Cattlefeedsale';
 import CattleFeedCatalogue from './pages/common/CattleFeedCatalogue';
 import FarmerCattleFeed from './pages/farmer/FarmerCattleFeed';

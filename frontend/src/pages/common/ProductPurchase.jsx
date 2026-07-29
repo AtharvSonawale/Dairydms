@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
     Package, Save, User, AlertTriangle,
     BadgeCheck, RefreshCw, X, TrendingUp,
-    ShoppingBag, Layers, Banknote, FileDown,
+    ShoppingBag, Layers, Banknote, FileDown, Trash2
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
@@ -85,6 +85,10 @@ export default function ProductPurchase() {
     const [editSaving, setEditSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
 
+    // ── Custom delete modal state ──────────────────────────────
+    const [deleteModal, setDeleteModal] = useState({ open: false, purchaseId: null });
+    const [processingDelete, setProcessingDelete] = useState(false);
+
     const handleAddProduct = async (e) => {
         e.preventDefault();
         if (!newProduct.product_name.trim()) return;
@@ -132,30 +136,30 @@ export default function ProductPurchase() {
     };
 
     const startPurchaseTour = () => {
-    const driverObj = driver({
-        showProgress: true,
-        allowClose: true,
-        steps: [
-            {
-                element: '[data-tour="purchase-date"]',
-                popover: { title: t('productPurchase.dateLabel'), description: 'Select a date to view or record purchases. Use the range buttons to switch between daily, weekly, monthly, or custom views — then download a PDF report.' },
-            },
-            {
-                element: '[data-tour="purchase-stats"]',
-                popover: { title: t('productPurchase.purchasesToday'), description: 'See total purchase entries and the total amount spent for the selected date or range.' },
-            },
-            {
-                element: '[data-tour="purchase-form"]',
-                popover: { title: t('productPurchase.newPurchaseEntry'), description: 'Select a product, enter the supplier, quantity, rate and MRP. The total is computed automatically. Hit Record Purchase to save.' },
-            },
-            {
-                element: '[data-tour="purchases-table"]',
-                popover: { title: t('productPurchase.colProduct'), description: 'All purchases for the selected period are listed here. Use the edit or delete buttons on each row to make corrections — stock is adjusted automatically.' },
-            },
-        ],
-    });
-    driverObj.drive();
-};
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="purchase-date"]',
+                    popover: { title: t('productPurchase.dateLabel'), description: 'Select a date to view or record purchases. Use the range buttons to switch between daily, weekly, monthly, or custom views — then download a PDF report.' },
+                },
+                {
+                    element: '[data-tour="purchase-stats"]',
+                    popover: { title: t('productPurchase.purchasesToday'), description: 'See total purchase entries and the total amount spent for the selected date or range.' },
+                },
+                {
+                    element: '[data-tour="purchase-form"]',
+                    popover: { title: t('productPurchase.newPurchaseEntry'), description: 'Select a product, enter the supplier, quantity, rate and MRP. The total is computed automatically. Hit Record Purchase to save.' },
+                },
+                {
+                    element: '[data-tour="purchases-table"]',
+                    popover: { title: t('productPurchase.colProduct'), description: 'All purchases for the selected period are listed here. Use the edit or delete buttons on each row to make corrections — stock is adjusted automatically.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
 
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
@@ -237,9 +241,15 @@ export default function ProductPurchase() {
         }
     };
 
-    const handleDelete = async (purchaseId) => {
-        if (!window.confirm(t('productPurchase.deleteConfirm') || "Delete this purchase? Stock will be reversed.")) return;
-        setDeletingId(purchaseId);
+    // ── Delete with custom modal ──────────────────────────────
+    const confirmDelete = (purchaseId) => {
+        setDeleteModal({ open: true, purchaseId });
+    };
+
+    const handleConfirmDelete = async () => {
+        const { purchaseId } = deleteModal;
+        if (!purchaseId) return;
+        setProcessingDelete(true);
         try {
             await api.delete(`/products/purchases/${purchaseId}`);
             await Promise.all([
@@ -251,7 +261,8 @@ export default function ProductPurchase() {
         } catch (err) {
             showFlash("error", err.response?.data?.error || "Delete failed.");
         } finally {
-            setDeletingId(null);
+            setProcessingDelete(false);
+            setDeleteModal({ open: false, purchaseId: null });
         }
     };
 
@@ -520,15 +531,15 @@ export default function ProductPurchase() {
                         </div>
                     </div>
 
-<div className="flex items-center gap-2 flex-wrap">
-    <button
-        onClick={startPurchaseTour}
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
-    >
-        <BadgeCheck size={13} /> Take a Tour
-    </button>
-    <div className="flex flex-col gap-0.5" data-tour="purchase-date">
-        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.dateLabel')}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                            onClick={startPurchaseTour}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                        >
+                            <BadgeCheck size={13} /> Take a Tour
+                        </button>
+                        <div className="flex flex-col gap-0.5" data-tour="purchase-date">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -542,57 +553,57 @@ export default function ProductPurchase() {
                                     focus:outline-none focus:ring-2 focus:ring-black transition" />
                         </div>
 
-                        </div>
-
-    <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.downloadPDF')}</span>
-
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                                    {[{ v: "daily", l: t('productPurchase.day') }, { v: "weekly", l: t('productPurchase.week') }, { v: "monthly", l: t('productPurchase.month') }, { v: "custom", l: t('productPurchase.custom') }].map(({ v, l }) => (
-                                        <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                            {l}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {rangeMode === "custom" && (
-                                    <div className="flex flex-wrap items-center gap-1">
-                                        <input type="date" value={fromDate} onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
-                                        <span className="text-gray-400 text-xs">→</span>
-                                        <input type="date" value={toDate} onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
-                                    </div>
-                                )}
-
-                                {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
-                                        {fromDate === toDate
-                                            ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
-                                            : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
-                                    </span>
-                                )}
-
-                                {loadingRange ? (
-                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
-                                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
-                                        {t('dashboard.loading')}
-                                    </div>
-                                ) : (
-                                    <button onClick={handleDownloadPDF} disabled={rangeMode === "daily" ? purchases.length === 0 : !pdfReady}
-                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
-                                        <FileDown size={13} /> PDF
-                                    </button>
-                                )}
-                            </div>
-                        </div>
                     </div>
 
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.downloadPDF')}</span>
+
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                {[{ v: "daily", l: t('productPurchase.day') }, { v: "weekly", l: t('productPurchase.week') }, { v: "monthly", l: t('productPurchase.month') }, { v: "custom", l: t('productPurchase.custom') }].map(({ v, l }) => (
+                                    <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
+                                        className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {rangeMode === "custom" && (
+                                <div className="flex flex-wrap items-center gap-1">
+                                    <input type="date" value={fromDate} onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
+                                        className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    <span className="text-gray-400 text-xs">→</span>
+                                    <input type="date" value={toDate} onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
+                                        className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                </div>
+                            )}
+
+                            {rangeMode !== "custom" && (
+                                <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    {fromDate === toDate
+                                        ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
+                                        : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
+                                </span>
+                            )}
+
+                            {loadingRange ? (
+                                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
+                                    <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
+                                    {t('dashboard.loading')}
+                                </div>
+                            ) : (
+                                <button onClick={handleDownloadPDF} disabled={rangeMode === "daily" ? purchases.length === 0 : !pdfReady}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                    <FileDown size={13} /> PDF
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Stats */}
-<div className="grid grid-cols-2 sm:grid-cols-2 gap-3" data-tour="purchase-stats">
-                        {[
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3" data-tour="purchase-stats">
+                    {[
                         { label: rangeMode === "daily" ? t('productPurchase.purchasesToday') : t('productPurchase.purchasesInRange'), value: activeData.length, icon: <Package size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('productPurchase.totalSpent'), value: "₹" + totalSpent.toFixed(2), icon: <Banknote size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                     ].map(({ label, value, icon, color }) => (
@@ -618,7 +629,7 @@ export default function ProductPurchase() {
                 )}
 
                 {/* Entry Form */}
-               {can('product_purchases', 'C') && <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="purchase-form">
+                {can('product_purchases', 'C') && <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="purchase-form">
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{t('productPurchase.newPurchaseEntry')}</p>
                         {can('products', 'C') && (
@@ -802,8 +813,8 @@ export default function ProductPurchase() {
                 {/* Purchases Table */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="purchases-table">
 
-                {/* Header */}
-                <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    {/* Header */}
+                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
                             <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
                                 {label}
@@ -895,14 +906,14 @@ export default function ProductPurchase() {
                                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                 </button>}
                                                 {can('product_purchases', 'D') && <button
-                                                    onClick={() => handleDelete(p.purchase_id)}
-                                                    disabled={deletingId === p.purchase_id}
+                                                    onClick={() => confirmDelete(p.purchase_id)}
+                                                    disabled={processingDelete && deleteModal.purchaseId === p.purchase_id}
                                                     className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition disabled:opacity-40"
                                                     title="Delete"
                                                 >
-                                                    {deletingId === p.purchase_id
+                                                    {processingDelete && deleteModal.purchaseId === p.purchase_id
                                                         ? <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0" /></svg>
-                                                        : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+                                                        : <Trash2 size={11} />
                                                     }
                                                 </button>}
                                             </div>
@@ -1147,6 +1158,41 @@ export default function ProductPurchase() {
                                     {editSaving ? t('productPurchase.saving') : "Save Changes"}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Delete Confirmation Modal ── */}
+            {deleteModal.open && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+                                <Trash2 size={22} className="text-red-500" />
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">{t('productPurchase.deleteModalTitle', "Delete Purchase")}</h2>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                                {t('productPurchase.deleteModalWarning', "This action cannot be undone. Stock will be reversed.")}
+                            </p>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => setDeleteModal({ open: false, purchaseId: null })}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                disabled={processingDelete}
+                            >
+                                {t('productPurchase.cancel')}
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                disabled={processingDelete}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-100 transition active:scale-95"
+                            >
+                                {processingDelete
+                                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                    : t('productPurchase.yesDelete', "Yes, Delete")}
+                            </button>
                         </div>
                     </div>
                 </div>

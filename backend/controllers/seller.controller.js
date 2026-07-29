@@ -483,7 +483,8 @@ exports.createSeller = async (req, res) => {
             seller_type, milk_type, jamin,
             bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled,
-            deposit_enabled, deposit_per_litre, password
+            deposit_enabled, deposit_per_litre, password,
+            cattle_feed_sale_enabled, payment_term
         } = req.body;
 
         if (!name || !mobile) {
@@ -926,39 +927,32 @@ exports.importSellers = async (req, res) => {
             const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
             try {
-                const [result] = await pool.query(
-                    `UPDATE sellers SET
-    seller_code          = ?,
-    name                 = ?,
-    mobile               = ?,
-    aadhaar              = ?,
-    pan_number           = ?,
-    seller_id_code       = ?,
-    seller_type          = ?,
-    milk_type            = ?,
-    jamin                = ?,
-    bank_account         = ?,
-    bank_name            = ?,
-    account_holder_name  = ?,
-    branch_name          = ?,
-    ifsc_code            = ?,
-    address              = ?,
-    pincode              = ?,
-    advance_enabled      = ?,
-    advance_deduction    = ?,
-    product_sale_enabled = ?,
-    deposit_enabled      = ?,
-    deposit_per_litre    = ?,
-    cattle_feed_sale_enabled = ?,
-    payment_term         = ?,
-    is_active            = ?,
-    password_hash        = COALESCE(?, password_hash),
-    must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
-  WHERE seller_id = ? AND centre_id = ?`,
+                await conn.query(
+                    `INSERT INTO sellers (
+                        operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
+                        pan_number, seller_id_code,
+                        seller_type, milk_type, jamin,
+                        bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
+                        advance_enabled, advance_deduction, product_sale_enabled,
+                        deposit_enabled, deposit_per_litre,
+                        cattle_feed_sale_enabled, payment_term,
+                        password_hash, must_change_password
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+                              ?, ?,
+                              ?, ?, ?,
+                              ?, ?, ?, ?, ?, ?, ?,
+                              ?, ?, ?,
+                              ?, ?,
+                              ?, ?,
+                              ?, ?)`,
                     [
+                        operator_id,
+                        created_by_admin_id,
+                        centreId,
+                        dairy_id,
                         seller_code || null,
-                        name || null,
-                        mobile || null,
+                        name,
+                        mobile,
                         aadhaar || null,
                         pan_number || null,
                         seller_id_code || null,
@@ -979,11 +973,8 @@ exports.importSellers = async (req, res) => {
                         deposit_per_litre || null,
                         cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                         payment_term || 'postpaid',
-                        is_active !== undefined ? is_active : 1,
                         password_hash,
-                        password_hash,
-                        req.params.id,
-                        centreId
+                        password_hash ? 0 : 1
                     ]
                 );
                 results.added++;

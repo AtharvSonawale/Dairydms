@@ -79,8 +79,8 @@ exports.createProduct = async (req, res) => {
         const [existing] = await conn.query(
             `SELECT product_id FROM products 
              WHERE product_name = ? AND centre_id = ?
-               AND (supplier_name = ? OR (supplier_name IS NULL AND ? IS NULL) OR (supplier_name = '' AND (? IS NULL OR ? = '')))`,
-            [product_name.trim(), centreId, supplier_name?.trim() || '', supplier_name?.trim() || null, supplier_name?.trim() || null, supplier_name?.trim() || '']
+               AND COALESCE(supplier_name, '') = ?`,
+            [product_name.trim(), centreId, supplier_name?.trim() || '']
         );
         if (existing.length > 0) {
             await conn.rollback();
@@ -137,7 +137,7 @@ exports.getPurchases = async (req, res) => {
                 o.name AS operator_name
             FROM product_purchases pp
             JOIN products p ON p.product_id = pp.product_id
-            JOIN operators o ON o.operator_id = pp.operator_id
+            LEFT JOIN operators o ON o.operator_id = pp.operator_id
             WHERE pp.centre_id = ?
         `;
         let params = [centreId];
@@ -201,9 +201,9 @@ exports.createPurchase = async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
         const {
             product_id,
             supplier_name,
@@ -327,7 +327,7 @@ exports.createPurchase = async (req, res) => {
             `SELECT pp.*, p.product_name, p.unit, p.supplier_name, p.rate, p.mrp_rate, o.name AS operator_name
              FROM product_purchases pp
              JOIN products p ON p.product_id = pp.product_id
-             JOIN operators o ON o.operator_id = pp.operator_id
+             LEFT JOIN operators o ON o.operator_id = pp.operator_id
              WHERE pp.purchase_id = ? AND pp.centre_id = ?`,
             [result.insertId, centreId]
         );
@@ -519,7 +519,7 @@ exports.updatePurchase = async (req, res) => {
             `SELECT pp.*, p.product_name, p.unit, o.name AS operator_name
              FROM product_purchases pp
              JOIN products p ON p.product_id = pp.product_id
-             JOIN operators o ON o.operator_id = pp.operator_id
+             LEFT JOIN operators o ON o.operator_id = pp.operator_id
              WHERE pp.purchase_id = ? AND pp.centre_id = ?`,
             [id, centreId]
         );

@@ -131,6 +131,10 @@ export default function WalkinPayments() {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    // ── Undo payment confirmation modal state ────────────────────
+    const [undoModal, setUndoModal] = useState({ open: false, buyer: null, paymentId: null });
+    const [processingUndo, setProcessingUndo] = useState(false);
+
     const fetchSalesQtyForRange = async (from, to) => {
         try {
             const { data } = await api.get(`/walkin-sales?from=${from}&to=${to}`);
@@ -553,13 +557,19 @@ ${entries.length > 0 ? `
         }
     };
 
-    const undoPayment = async (buyer, paymentId) => {
-        if (!window.confirm(t("payments.undo_payment_confirm"))) return;
-        const key = buyerKey(buyer);
-        setUndoingPayment(paymentId);
+    // ── Undo payment with custom modal ──────────────────────────
+    const confirmUndoPayment = (buyer, paymentId) => {
+        setUndoModal({ open: true, buyer, paymentId });
+    };
+
+    const handleConfirmUndo = async () => {
+        const { buyer, paymentId } = undoModal;
+        if (!buyer || !paymentId) return;
+        setProcessingUndo(true);
         try {
             await api.delete(`/walkin-payments/payments/${paymentId}`);
             showFlash("success", t("payments.payment_undone_success"));
+            const key = buyerKey(buyer);
             setTransactionsMap(prev => {
                 const copy = { ...prev };
                 delete copy[key];
@@ -571,7 +581,8 @@ ${entries.length > 0 ? `
         } catch (err) {
             showFlash("error", err.response?.data?.error || t("payments.undo_payment_failed"));
         } finally {
-            setUndoingPayment(null);
+            setProcessingUndo(false);
+            setUndoModal({ open: false, buyer: null, paymentId: null });
         }
     };
 
@@ -1284,7 +1295,7 @@ ${entries.length > 0 ? `
                         </div>
                     </div>
 
-                   <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 flex-wrap">
                         <button
                             onClick={startWalkinPaymentsTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
@@ -1307,7 +1318,7 @@ ${entries.length > 0 ? `
                     </div>
                 </div>
 
-               {/* Date Range */}
+                {/* Date Range */}
                 <div className="flex items-center gap-3 flex-wrap" data-tour="date-filters">
                     <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
                         {[
@@ -1636,7 +1647,7 @@ ${entries.length > 0 ? `
                     </span>
                 </div>
 
-              {/* Buyer Cards */}
+                {/* Buyer Cards */}
                 <div className="flex flex-col gap-3" data-tour="buyer-list">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
@@ -1778,7 +1789,7 @@ ${entries.length > 0 ? `
                                                             <div className="px-3 py-2 text-xs text-gray-500 truncate">{p.remarks || "—"}</div>
                                                             <div className="px-3 py-2 flex items-center">
                                                                 <button
-                                                                    onClick={() => undoPayment(buyer, p.payment_id)}
+                                                                    onClick={() => confirmUndoPayment(buyer, p.payment_id)}
                                                                     disabled={undoingPayment === p.payment_id}
                                                                     className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold
                                             bg-rose-50 text-rose-600 border border-rose-100
@@ -1805,7 +1816,7 @@ ${entries.length > 0 ? `
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-xs text-gray-400 truncate flex-1 mr-2">{p.remarks || "—"}</span>
                                                                 <button
-                                                                    onClick={() => undoPayment(buyer, p.payment_id)}
+                                                                    onClick={() => confirmUndoPayment(buyer, p.payment_id)}
                                                                     disabled={undoingPayment === p.payment_id}
                                                                     className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold
                                             bg-rose-50 text-rose-600 border border-rose-100
@@ -2224,6 +2235,42 @@ ${entries.length > 0 ? `
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50">
                                 {deleting ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={12} />}
                                 {deleting ? "Deleting..." : "Yes, Delete Bill"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Undo Payment Confirmation Modal ── */}
+            {undoModal.open && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
+                                <X size={22} className="text-rose-500" />
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">Undo Payment</h2>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                                {t("payments.undo_payment_confirm")}
+                            </p>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => setUndoModal({ open: false, buyer: null, paymentId: null })}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                disabled={processingUndo}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmUndo}
+                                disabled={processingUndo}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-100 transition active:scale-95"
+                            >
+                                {processingUndo
+                                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                    : "Yes, Undo"
+                                }
                             </button>
                         </div>
                     </div>

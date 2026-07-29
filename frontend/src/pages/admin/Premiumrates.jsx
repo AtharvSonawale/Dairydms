@@ -3,7 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import api from "../../api/axios";
 import { driver } from "driver.js";
-import "driver.js/dist/driver.css"; import {
+import "driver.js/dist/driver.css";
+import {
     Star, Plus, Pencil, Trash2, RefreshCw, X,
     AlertTriangle, BadgeCheck, Search, Users,
     ChevronDown, ChevronUp, Milk, Calendar,
@@ -110,6 +111,10 @@ export default function PremiumRates() {
     const [expanded, setExpanded] = useState({});
     const [sellerSearch, setSellerSearch] = useState("");
     const [formError, setFormError] = useState("");
+
+    // ── confirmation modal state ──
+    const [confirmModal, setConfirmModal] = useState({ open: false, id: null, action: null });
+    const [processing, setProcessing] = useState(false);
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
@@ -225,31 +230,33 @@ export default function PremiumRates() {
         }
     };
 
-    const handleDeactivate = async (id) => {
-        if (!window.confirm(t('premiumRates.deactivateConfirm'))) return;
-        setDeleting(id);
-        try {
-            await api.patch(`/rates/premium/${id}/deactivate`);
-            setRates(prev => prev.map(r => r.id === id ? { ...r, is_active: 0 } : r));
-            showFlash("success", t('premiumRates.deactivateSuccess'));
-        } catch (err) {
-            showFlash("error", err.response?.data?.message || t('premiumRates.deactivateError'));
-        } finally {
-            setDeleting(null);
-        }
+    // ── deactivate & delete (now using modal) ──
+    const confirmDeactivate = (id) => {
+        setConfirmModal({ open: true, id, action: 'deactivate' });
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm(t('premiumRates.deleteConfirm'))) return;
-        setDeleting(id);
+    const confirmDelete = (id) => {
+        setConfirmModal({ open: true, id, action: 'delete' });
+    };
+
+    const handleConfirmAction = async () => {
+        const { id, action } = confirmModal;
+        setProcessing(true);
         try {
-            await api.delete(`/rates/premium/${id}`);
-            setRates(prev => prev.filter(r => r.id !== id));
-            showFlash("success", t('premiumRates.deleteSuccess'));
+            if (action === 'deactivate') {
+                await api.patch(`/rates/premium/${id}/deactivate`);
+                setRates(prev => prev.map(r => r.id === id ? { ...r, is_active: 0 } : r));
+                showFlash("success", t('premiumRates.deactivateSuccess'));
+            } else if (action === 'delete') {
+                await api.delete(`/rates/premium/${id}`);
+                setRates(prev => prev.filter(r => r.id !== id));
+                showFlash("success", t('premiumRates.deleteSuccess'));
+            }
         } catch (err) {
-            showFlash("error", err.response?.data?.message || t('premiumRates.deleteError'));
+            showFlash("error", err.response?.data?.message || t('premiumRates.error'));
         } finally {
-            setDeleting(null);
+            setProcessing(false);
+            setConfirmModal({ open: false, id: null, action: null });
         }
     };
 
@@ -501,7 +508,7 @@ export default function PremiumRates() {
                         </form>
                     </div>
                 )}
-                
+
                 {/* ── Filters ── */}
                 <div className="flex items-center gap-2 flex-wrap" data-tour="filters">
                     <div className="relative flex-1 max-w-xs">
@@ -536,7 +543,7 @@ export default function PremiumRates() {
 
                     <span className="ml-auto text-xs text-gray-400">{filtered.length} {t('premiumRates.entries')}</span>
                 </div>
-                
+
                 {/* ── Rates List ── */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="rates-table">
 
@@ -553,119 +560,119 @@ export default function PremiumRates() {
                             ))}
                         </div>
 
-                    {loading ? (
-                        <div className="flex items-center justify-center py-20">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-amber-500 rounded-full animate-spin" />
-                        </div>
-                    ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Star size={32} />
-                            <p className="text-sm">{t('premiumRates.noRatesFound')}</p>
-                        </div>
-                    ) : filtered.map(rate => {
-                        const seller = sellers.find(s => s.seller_id === rate.seller_id);
-                        const isOpen = expanded[rate.id];
-                        const status = getStatus(rate);
+                        {loading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="w-6 h-6 border-2 border-gray-200 border-t-amber-500 rounded-full animate-spin" />
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
+                                <Star size={32} />
+                                <p className="text-sm">{t('premiumRates.noRatesFound')}</p>
+                            </div>
+                        ) : filtered.map(rate => {
+                            const seller = sellers.find(s => s.seller_id === rate.seller_id);
+                            const isOpen = expanded[rate.id];
+                            const status = getStatus(rate);
 
-                        return (
-                            <div key={rate.id} className="border-b border-gray-50 last:border-b-0">
-                                {/* Main row */}
-                                <div className="grid hover:bg-amber-50/20 transition-colors group min-w-max"
-                                    style={{ gridTemplateColumns: "1.4fr 90px 90px 110px 110px 100px 110px" }}>
+                            return (
+                                <div key={rate.id} className="border-b border-gray-50 last:border-b-0">
+                                    {/* Main row */}
+                                    <div className="grid hover:bg-amber-50/20 transition-colors group min-w-max"
+                                        style={{ gridTemplateColumns: "1.4fr 90px 90px 110px 110px 100px 110px" }}>
 
-                                    {/* Seller */}
-                                    <div className="px-4 py-3 flex items-center gap-2 cursor-pointer"
-                                        onClick={() => toggleExpand(rate.id)}>
-                                        <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs shrink-0">
-                                            {(seller?.name || "?").charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-semibold text-gray-800 truncate">{seller?.name || `ID:${rate.seller_id}`}</p>
-                                            <p className="text-[10px] text-gray-400 font-mono">{seller?.seller_code || "—"}</p>
-                                        </div>
-                                        <div className="ml-1 text-gray-300 shrink-0">
-                                            {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                        </div>
-                                    </div>
-
-                                    {/* Milk type */}
-                                    <div className="px-4 py-3 flex items-center">
-                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
-                                            ${rate.milk_type === "cow"
-                                                ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                : "bg-blue-50 text-blue-700 border-blue-100"}`}>
-                                            {rate.milk_type === "cow" ? t('premiumRates.cow') : t('premiumRates.buffalo')}
-                                        </span>
-                                    </div>
-
-                                    {/* Rate */}
-                                    <div className="px-4 py-3 flex items-center">
-                                        <span className="text-sm font-bold text-amber-600">{fmt(rate.rate_per_liter)}</span>
-                                    </div>
-
-                                    {/* From */}
-                                    <div className="px-4 py-3 flex items-center">
-                                        <span className="text-xs text-gray-500">{fmtDate(rate.effective_from)}</span>
-                                    </div>
-
-                                    {/* To */}
-                                    <div className="px-4 py-3 flex items-center">
-                                        {rate.effective_to
-                                            ? <span className="text-xs text-gray-500">{fmtDate(rate.effective_to)}</span>
-                                            : <span className="text-xs text-emerald-500 font-medium">{t('premiumRates.ongoing')}</span>}
-                                    </div>
-
-                                    {/* Status */}
-                                    <div className="px-4 py-3 flex items-center">
-                                        <StatusBadge rate={rate} t={t} />
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="px-4 py-3 flex items-center gap-1.5">
-                                        {isAdmin && (
-                                            <>
-                                                <button onClick={() => openEdit(rate)}
-                                                    className="flex items-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition border border-blue-100 text-xs font-medium">
-                                                    <Pencil size={10} /> {t('premiumRates.edit')}
-                                                </button>
-                                                {rate.is_active ? (
-                                                    <button onClick={() => handleDeactivate(rate.id)}
-                                                        disabled={deleting === rate.id}
-                                                        className="flex items-center gap-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition border border-amber-100 text-xs font-medium disabled:opacity-50">
-                                                        <Ban size={10} /> {deleting === rate.id ? "…" : t('premiumRates.off')}
-                                                    </button>
-                                                ) : (
-                                                    <button onClick={() => handleDelete(rate.id)}
-                                                        disabled={deleting === rate.id}
-                                                        className="flex items-center gap-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition border border-rose-100 text-xs font-medium disabled:opacity-50">
-                                                        <Trash2 size={10} /> {deleting === rate.id ? "…" : t('premiumRates.del')}
-                                                    </button>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* ── Expanded reason ── */}
-                                {isOpen && (
-                                    <div className="px-5 pb-3 pt-1 border-t border-amber-50 bg-amber-50/30">
-                                        <div className="flex items-start gap-2">
-                                            <Star size={12} className="text-amber-400 mt-0.5 shrink-0" />
-                                            <div>
-                                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{t('premiumRates.reason')}</p>
-                                                <p className="text-xs text-gray-600">{rate.reason || t('premiumRates.noReason')}</p>
+                                        {/* Seller */}
+                                        <div className="px-4 py-3 flex items-center gap-2 cursor-pointer"
+                                            onClick={() => toggleExpand(rate.id)}>
+                                            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs shrink-0">
+                                                {(seller?.name || "?").charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-gray-800 truncate">{seller?.name || `ID:${rate.seller_id}`}</p>
+                                                <p className="text-[10px] text-gray-400 font-mono">{seller?.seller_code || "—"}</p>
+                                            </div>
+                                            <div className="ml-1 text-gray-300 shrink-0">
+                                                {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                             </div>
                                         </div>
-                                        {rate.created_at && (
-                                            <p className="text-[10px] text-gray-400 mt-2 ml-5">
-                                                {t('premiumRates.assignedOn')} {fmtDate(rate.created_at)}
-                                            </p>
-                                        )}
+
+                                        {/* Milk type */}
+                                        <div className="px-4 py-3 flex items-center">
+                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
+                                            ${rate.milk_type === "cow"
+                                                    ? "bg-amber-50 text-amber-700 border-amber-100"
+                                                    : "bg-blue-50 text-blue-700 border-blue-100"}`}>
+                                                {rate.milk_type === "cow" ? t('premiumRates.cow') : t('premiumRates.buffalo')}
+                                            </span>
+                                        </div>
+
+                                        {/* Rate */}
+                                        <div className="px-4 py-3 flex items-center">
+                                            <span className="text-sm font-bold text-amber-600">{fmt(rate.rate_per_liter)}</span>
+                                        </div>
+
+                                        {/* From */}
+                                        <div className="px-4 py-3 flex items-center">
+                                            <span className="text-xs text-gray-500">{fmtDate(rate.effective_from)}</span>
+                                        </div>
+
+                                        {/* To */}
+                                        <div className="px-4 py-3 flex items-center">
+                                            {rate.effective_to
+                                                ? <span className="text-xs text-gray-500">{fmtDate(rate.effective_to)}</span>
+                                                : <span className="text-xs text-emerald-500 font-medium">{t('premiumRates.ongoing')}</span>}
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="px-4 py-3 flex items-center">
+                                            <StatusBadge rate={rate} t={t} />
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="px-4 py-3 flex items-center gap-1.5">
+                                            {isAdmin && (
+                                                <>
+                                                    <button onClick={() => openEdit(rate)}
+                                                        className="flex items-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition border border-blue-100 text-xs font-medium">
+                                                        <Pencil size={10} /> {t('premiumRates.edit')}
+                                                    </button>
+                                                    {rate.is_active ? (
+                                                        <button onClick={() => confirmDeactivate(rate.id)}
+                                                            disabled={deleting === rate.id}
+                                                            className="flex items-center gap-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition border border-amber-100 text-xs font-medium disabled:opacity-50">
+                                                            <Ban size={10} /> {deleting === rate.id ? "…" : t('premiumRates.off')}
+                                                        </button>
+                                                    ) : (
+                                                        <button onClick={() => confirmDelete(rate.id)}
+                                                            disabled={deleting === rate.id}
+                                                            className="flex items-center gap-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition border border-rose-100 text-xs font-medium disabled:opacity-50">
+                                                            <Trash2 size={10} /> {deleting === rate.id ? "…" : t('premiumRates.del')}
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+
+                                    {/* ── Expanded reason ── */}
+                                    {isOpen && (
+                                        <div className="px-5 pb-3 pt-1 border-t border-amber-50 bg-amber-50/30">
+                                            <div className="flex items-start gap-2">
+                                                <Star size={12} className="text-amber-400 mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{t('premiumRates.reason')}</p>
+                                                    <p className="text-xs text-gray-600">{rate.reason || t('premiumRates.noReason')}</p>
+                                                </div>
+                                            </div>
+                                            {rate.created_at && (
+                                                <p className="text-[10px] text-gray-400 mt-2 ml-5">
+                                                    {t('premiumRates.assignedOn')} {fmtDate(rate.created_at)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>{/* end scrollable */}
                 </div>
 
@@ -679,6 +686,57 @@ export default function PremiumRates() {
                 </div>
 
             </main>
+
+            {/* ── Confirmation Modal ── */}
+            {confirmModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                            <div className={`w-12 h-12 rounded-full border flex items-center justify-center
+                                ${confirmModal.action === 'deactivate'
+                                    ? 'bg-amber-50 border-amber-100 text-amber-500'
+                                    : 'bg-red-50 border-red-100 text-red-500'}`}>
+                                {confirmModal.action === 'deactivate'
+                                    ? <Ban size={22} />
+                                    : <Trash2 size={22} />}
+                            </div>
+                            <h2 className="text-gray-800 font-semibold text-base">
+                                {confirmModal.action === 'deactivate'
+                                    ? t('premiumRates.deactivateTitle', 'Deactivate Premium Rate')
+                                    : t('premiumRates.deleteTitle', 'Delete Premium Rate')}
+                            </h2>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                                {confirmModal.action === 'deactivate'
+                                    ? t('premiumRates.deactivateConfirm')
+                                    : t('premiumRates.deleteConfirm')}
+                            </p>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => setConfirmModal({ open: false, id: null, action: null })}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                disabled={processing}
+                            >
+                                {t('premiumRates.cancel')}
+                            </button>
+                            <button
+                                onClick={handleConfirmAction}
+                                disabled={processing}
+                                className={`flex-1 py-2 rounded-xl text-sm font-semibold text-white shadow-md transition active:scale-95
+                                    ${confirmModal.action === 'deactivate'
+                                        ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100'
+                                        : 'bg-red-500 hover:bg-red-600 shadow-red-100'}`}
+                            >
+                                {processing ? (
+                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                                ) : confirmModal.action === 'deactivate'
+                                    ? t('premiumRates.yesDeactivate', 'Yes, Deactivate')
+                                    : t('premiumRates.yesDelete', 'Yes, Delete')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

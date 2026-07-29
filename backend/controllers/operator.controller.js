@@ -88,9 +88,9 @@ exports.createOperator = async (req, res) => {
             return res.status(409).json({ message: 'An account with this email already exists.' });
         }
 
-        // Verify admin exists and is active (removed centre check since admin already has centre_id from token)
+        // Verify admin exists and is active
         const [adminCheck] = await pool.query(
-            `SELECT admin_id, centre_id FROM admins WHERE admin_id = ? AND is_active = 1`,
+            `SELECT admin_id FROM admins WHERE admin_id = ? AND is_active = 1`,
             [adminId]
         );
 
@@ -98,10 +98,18 @@ exports.createOperator = async (req, res) => {
             return res.status(403).json({ message: 'Admin not found or inactive.' });
         }
 
-        // Use the admin's centre_id from the token, but verify it matches the database
-        if (adminCheck[0].centre_id !== centreId) {
+        // Verify the centre from the token actually belongs to the admin's dairy
+        // (not their original home centre -- admins can switch centres within
+        // their dairy via /centres/switch, and the JWT centre_id is the source
+        // of truth for "which centre is this admin currently operating in").
+        const [centreCheck] = await pool.query(
+            `SELECT centre_id FROM centres WHERE centre_id = ? AND dairy_id = ? AND is_active = 1`,
+            [centreId, req.user.dairy_id]
+        );
+
+        if (!centreCheck.length) {
             return res.status(403).json({
-                message: 'Centre mismatch. Please refresh your session.'
+                message: 'Invalid or inactive centre. Please refresh your session.'
             });
         }
 
