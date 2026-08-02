@@ -243,7 +243,6 @@ exports.assignPremiumRate = async (req, res) => {
         const centreId = req.user.centre_id;
         const operatorId = req.user.id;
         const isAdmin = req.user.role === 'admin';
-
         if (!seller_ids?.length || !milk_type || !rate_per_liter || !effective_from || !reason)
             return res.status(400).json({ message: 'All fields are required' });
 
@@ -273,7 +272,7 @@ exports.assignPremiumRate = async (req, res) => {
             effective_to || null,
         ]);
 
-        await pool.query(
+        const [insertResult] = await pool.query(
             `INSERT INTO premium_rates
      (seller_id, centre_id, milk_type, rate_per_liter, reason, effective_from, effective_to)
      VALUES ?`,
@@ -340,7 +339,7 @@ exports.getPremiumRates = async (req, res) => {
                 o.name        AS operator_name
             FROM premium_rates pr
             JOIN sellers s ON s.seller_id = pr.seller_id
-            JOIN operators o ON o.operator_id = s.operator_id
+            LEFT JOIN operators o ON o.operator_id = s.operator_id
             WHERE s.centre_id = ?
             ORDER BY pr.created_at DESC
         `;
@@ -412,7 +411,7 @@ exports.updatePremiumRate = async (req, res) => {
                 o.name        AS operator_name
              FROM premium_rates pr
              JOIN sellers s ON s.seller_id = pr.seller_id
-             JOIN operators o ON o.operator_id = s.operator_id
+             LEFT JOIN operators o ON o.operator_id = s.operator_id
              WHERE pr.id = ?`,
             [id]
         );
@@ -429,22 +428,17 @@ exports.deactivatePremiumRate = async (req, res) => {
     try {
         const { id } = req.params;
         const centreId = req.user.centre_id;
-        const operatorId = req.user.id;
-        const isAdmin = req.user.role === 'admin';
 
         // Verify premium rate belongs to a seller in the centre
-        let verifyQuery = `
+        // (operator ownership check removed to match assignPremiumRate policy —
+        // any operator/admin in the centre can manage any seller's premium rate)
+        const verifyQuery = `
             SELECT pr.id, pr.is_active, pr.seller_id
             FROM premium_rates pr
             JOIN sellers s ON s.seller_id = pr.seller_id
             WHERE pr.id = ? AND s.centre_id = ?
         `;
-        let verifyParams = [id, centreId];
-
-        if (!isAdmin) {
-            verifyQuery += ` AND s.operator_id = ?`;
-            verifyParams.push(operatorId);
-        }
+        const verifyParams = [id, centreId];
 
         const [existing] = await pool.query(verifyQuery, verifyParams);
         if (!existing[0])

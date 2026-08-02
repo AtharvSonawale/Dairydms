@@ -26,156 +26,179 @@ import {
 /**
  * SHARED_NAV is a function so it re-evaluates whenever `t` or `isAdmin`
  * changes — this means nav labels update instantly when language switches.
+ * It conditionally includes admin‑only items based on the `isAdmin` flag.
  */
-const SHARED_NAV = (isAdmin, t) => [
-
-    // ── Dashboard ────────────────────────────────────────────────
-    {
-        label: t('nav.dashboard'),
-        icon: <LayoutDashboard size={16} />,
-        to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
-        tourId: 'nav-dashboard',
-    },
-
-    // ── Admin Only ───────────────────────────────────────────────
-    ...(isAdmin ? [
+const SHARED_NAV = (isAdmin, t) => {
+    // Base nav structure – we'll push admin‑only items conditionally
+    const nav = [
+        // ── Dashboard ────────────────────────────────────────────────
         {
-            label: t('nav.administration'),
-            icon: <Settings size={16} />,
+            label: t('nav.dashboard'),
+            icon: <LayoutDashboard size={16} />,
+            to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
+            tourId: 'nav-dashboard',
+        },
+
+        // ── Admin Only ───────────────────────────────────────────────
+        ...(isAdmin ? [
+            {
+                label: t('nav.administration'),
+                icon: <Settings size={16} />,
+                to: null,
+                tourId: 'nav-administration',
+                children: [
+                    { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings' },
+                    { label: t('nav.centres', { defaultValue: 'Centres' }), icon: <Building2 size={14} />, to: '/admin/centres' },
+                    { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates' },
+                    { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
+                    { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
+                    { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
+                    { label: t('nav.portSettings'), icon: <HdmiPort size={14} />, to: '/admin/ports' },
+                    { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
+                ],
+            },
+        ] : []),
+
+        // ── Sellers & Milk ───────────────────────────────────────────
+        {
+            label: t('nav.sellers'),
+            icon: <Users size={16} />,
             to: null,
-            tourId: 'nav-administration',
+            tourId: 'nav-sellers',
             children: [
-                { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings' },
-                { label: t('nav.centres', { defaultValue: 'Centres' }), icon: <Building2 size={14} />, to: '/admin/centres' },
-                { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates' },
-                { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
-                { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
-                { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
-                { label: t('nav.portSettings'), icon: <HdmiPort size={14} />, to: '/admin/ports' },
-                { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
+                { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister' },
+                { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates' },
+                { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments' },
             ],
         },
-    ] : []),
 
-    // ── Sellers & Milk ───────────────────────────────────────────
-    {
-        label: t('nav.sellers'),
-        icon: <Users size={16} />,
-        to: null,
-        tourId: 'nav-sellers',
-        children: [
-            { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister' },
-            { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates' },
-            { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments' },
-        ],
-    },
+        // ── Milk Collection ──────────────────────────────────────────
+        {
+            label: t('nav.milkCollection'),
+            icon: <Milk size={16} />,
+            to: null,
+            tourId: 'nav-milk-collection',
+            children: [
+                { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries' },
+                { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage' },
+                { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch' },
+            ],
+        },
 
-    // ── Milk Collection ──────────────────────────────────────────
-    {
-        label: t('nav.milkCollection'),
-        icon: <Milk size={16} />,
-        to: null,
-        tourId: 'nav-milk-collection',
-        children: [
-            { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries' },
-            { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage' },
-            { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch' },
-        ],
-    },
+        // ── Walk-in Sales ────────────────────────────────────────────
+        {
+            label: t('nav.walkinSales'),
+            icon: <ShoppingCart size={16} />,
+            to: null,
+            tourId: 'nav-walkin-sales',
+            children: [
+                { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales' },
+                { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments' },
+                { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers' },
+                // ─── Report links – admin only ────────────────────
+                ...(isAdmin ? [
+                    {
+                        label: t('nav.sellerReport'),
+                        icon: <Users2 size={14} />,
+                        to: '/walkinsellersreport',
+                    },
+                    {
+                        label: t('nav.namedBuyerReports'),
+                        icon: <User2Icon size={14} />,
+                        to: '/walkinnamedbuyersreports',
+                    },
+                    {
+                        label: t('nav.anonReports'),
+                        icon: <FileText size={14} />,
+                        to: '/walkinanonymousreports',
+                    },
+                ] : []),
+            ],
+        },
 
-    // ── Walk-in Sales ────────────────────────────────────────────
-    {
-        label: t('nav.walkinSales'),
-        icon: <ShoppingCart size={16} />,
-        to: null,
-        tourId: 'nav-walkin-sales',
-        children: [
-            { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales' },
-            { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments' },
-            { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers' },
-            // ─── New Report Links ──────────────────────────────
+        // ── Products ─────────────────────────────────────────────────
+        {
+            label: t('nav.products'),
+            icon: <Package size={16} />,
+            to: null,
+            tourId: 'nav-products',
+            children: [
+                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products' },
+                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase' },
+                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales' },
+                // ─── Bill Payments – admin only ───────────────────
+                ...(isAdmin ? [
+                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments' }
+                ] : []),
+            ],
+        },
+
+        // ── Cattle Feed ─────────────────────────────────────────────
+        {
+            label: t('nav.cattleFeed'),
+            icon: <Package size={16} />,
+            to: null,
+            tourId: 'nav-cattle-feed',
+            children: [
+                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue' },
+                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase' },
+                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales' },
+                // ─── Bill Payments – admin only ───────────────────
+                ...(isAdmin ? [
+                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments' }
+                ] : []),
+            ],
+        },
+
+        // ── Finance ──────────────────────────────────────────────────
+        {
+            label: t('nav.finance'),
+            icon: <Wallet size={16} />,
+            to: null,
+            tourId: 'nav-finance',
+            children: [
+                { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance' },
+                { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit' },
+            ],
+        },
+
+        // ── Bonus Registers ──────────────────────────────────────────
+        {
+            label: t('nav.bonusRegister'),
+            icon: <Star size={16} />,
+            to: null,
+            tourId: 'nav-bonus-register',
+            children: [
+                { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister' },
+                { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister' },
+            ],
+        },
+
+        // ── Reports (top level) ──────────────────────────────────────
+        { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
+
+        // ── Farmer Ledger – admin only ─────────────────────────────
+        ...(isAdmin ? [
+            { label: t('nav.farmerLedger'), icon: <ArrowLeftRight size={16} />, to: '/farmer-ledger', tourId: 'nav-farmer-ledger' }
+        ] : []),
+
+        // ── Expenses – admin only ───────────────────────────────────
+        ...(isAdmin ? [
             {
-                label: t('nav.sellerReport'),
-                icon: <Users2 size={14} />,
-                to: '/walkinsellersreport',
-            },
-            {
-                label: t('nav.namedBuyerReports'),
-                icon: <User2Icon size={14} />,
-                to: '/walkinnamedbuyersreports',
-            },
-            {
-                label: t('nav.anonReports'),
-                icon: <FileText size={14} />,
-                to: '/walkinanonymousreports',
-            },
-        ],
-    },
+                label: t('nav.expenses'),
+                icon: <HandCoins size={16} />,
+                to: null,
+                tourId: 'nav-expenses',
+                children: [
+                    { label: t('nav.expenses'), icon: <BanknoteArrowDown size={16} />, to: '/expenses' },
+                    { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: 'expensesreport' },
+                ]
+            }
+        ] : []),
+    ];
 
-    // ── Products ─────────────────────────────────────────────────
-    {
-        label: t('nav.products'),
-        icon: <Package size={16} />,
-        to: null,
-        tourId: 'nav-products',
-        children: [
-            { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products' },
-            { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase' },
-            { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales' },
-            { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments'}
-        ],
-    },
-    {
-        label: t('nav.cattleFeed'),
-        icon: <Package size={16} />,
-        to: null,
-        tourId: 'nav-cattle-feed',
-        children: [
-            {
-                label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue' },
-            { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase' },
-            { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales' },
-            { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments' }
-
-        ],
-    },
-
-    // ── Finance ──────────────────────────────────────────────────
-    {
-        label: t('nav.finance'),
-        icon: <Wallet size={16} />,
-        to: null,
-        tourId: 'nav-finance',
-        children: [
-            { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance' },
-            { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit' },
-        ],
-    },
-
-    // ── Bonus Registers ──────────────────────────────────────────
-    {
-        label: t('nav.bonusRegister'),
-        icon: <Star size={16} />,
-        to: null,
-        tourId: 'nav-bonus-register',
-        children: [
-            { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister' },
-            { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister' },
-        ],
-    },
-
-    // ── Reports ──────────────────────────────────────────────────
-    { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
-    { label: t('nav.farmerLedger'), icon: <ArrowLeftRight size={16} />, to: '/farmer-ledger', tourId: 'nav-farmer-ledger' },
-    {
-        label: t('nav.expenses'), icon: <HandCoins size={16} />, to: null,
-        tourId: 'nav-expenses',
-        children: [
-            { label: t('nav.expenses'), icon: <BanknoteArrowDown size={16} />, to: '/expenses' },
-            { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: 'expensesreport' },
-        ]
-    }
-];
+    return nav;
+};
 
 /**
  * FARMER_NAV is intentionally NOT built on top of SHARED_NAV — a farmer

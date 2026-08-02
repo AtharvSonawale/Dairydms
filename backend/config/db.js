@@ -9,6 +9,13 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     dateStrings: true,
+    decimalNumbers: true,
+    typeCast: function (field, next) {
+        if (field.type === 'TINY' && field.length === 1) {
+            return field.string() === '1'; // returns true/false
+        }
+        return next();
+    },
 });
 
 module.exports = pool;

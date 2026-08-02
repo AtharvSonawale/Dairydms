@@ -7,7 +7,6 @@ require('dotenv').config();
 const pool = require('./config/db');
 const path = require('path');
 
-
 const authRoutes = require('./routes/auth.routes');
 const operatorRoutes = require('./routes/operators.routes');
 const rateRoutes = require('./routes/rate.routes');
@@ -45,7 +44,13 @@ const tourRoutes = require('./routes/tour.routes');
 
 const app = express();
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(
+    cors({
+        origin: true,
+        credentials: true,
+    })
+);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
