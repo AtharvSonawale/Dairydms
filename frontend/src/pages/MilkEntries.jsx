@@ -580,12 +580,20 @@ export default function MilkEntry() {
     const [showFeedModal, setShowFeedModal] = useState(false);
 
     // RS232 Machine Quantity — now driven by the backend's live weight machine reader
-    const [machineQty, setMachineQty] = useState("");
-    const [machineUom, setMachineUom] = useState("");
-    const [isMachineConnected, setIsMachineConnected] = useState(false);
-    const [lastWeightRaw, setLastWeightRaw] = useState("");
-    const [weightPortConfig, setWeightPortConfig] = useState(null);
+    const [weightBySubtype, setWeightBySubtype] = useState({
+        weight_gavali: { qty: "", uom: "", connected: false, raw: "" },
+        weight_utpadak: { qty: "", uom: "", connected: false, raw: "" },
+    });
+    const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null });
     const socketRef = useRef(null);
+
+    // The scale that feeds this form is decided by the selected seller's type
+    const activeWeightKey = form.seller_type === "Gavali" ? "weight_gavali" : "weight_utpadak";
+    const activeWeightSubtypeParam = activeWeightKey === "weight_gavali" ? "gavali" : "utpadak";
+    const activeWeight = weightBySubtype[activeWeightKey];
+    const machineQty = activeWeight.qty;
+    const machineUom = activeWeight.uom;
+    const isMachineConnected = activeWeight.connected;
 
     // RS232 Fat & SNF Machine — driven by the backend's live fat-machine reader
     const [machineFat, setMachineFat] = useState("");
@@ -601,7 +609,10 @@ export default function MilkEntry() {
     useEffect(() => {
         api.get("/settings/ports")
             .then(({ data }) => {
-                setWeightPortConfig(data?.weight || null);
+                setWeightPortConfig({
+                    weight_gavali: data?.weight_gavali || null,
+                    weight_utpadak: data?.weight_utpadak || null,
+                });
                 setFatPortConfig(data?.fat || null);
             })
             .catch(() => { /* leave as null — shown as "not configured" */ });
@@ -618,18 +629,33 @@ export default function MilkEntry() {
         });
         socketRef.current = socket;
 
-        socket.on("weight:update", (reading) => {
-            setIsMachineConnected(!!reading.connected);
+        const handleWeightUpdate = (subtypeKey) => (reading) => {
+            setWeightBySubtype(prev => ({
+                ...prev,
+                [subtypeKey]: {
+                    connected: !!reading.connected,
+                    qty: reading.value !== null && reading.value !== undefined ? reading.value.toFixed(3) : prev[subtypeKey].qty,
+                    uom: reading.unit || prev[subtypeKey].uom,
+                    raw: reading.raw || prev[subtypeKey].raw,
+                },
+            }));
             if (reading.value !== null && reading.value !== undefined) {
-                const signedValue = reading.value.toFixed(3); // preserve sign instead of Math.abs
-                setMachineQty(signedValue);
-                set("machine_qty", signedValue);
-                set("quantity", signedValue); // auto-fill the Quantity field used on save
-                setMachineUom(reading.unit || "");
-                setLastWeightRaw(reading.raw || "");
-                setLastUpdateAt(Date.now()); // new — proves each event is actually arriving
+                // Only push into the form if this reading came from the scale
+                // matching the seller_type currently selected on the form.
+                setForm(p => {
+                    const isActive =
+                        (subtypeKey === "weight_gavali" && p.seller_type === "Gavali") ||
+                        (subtypeKey === "weight_utpadak" && p.seller_type === "Utpadak");
+                    if (!isActive) return p;
+                    const signedValue = reading.value.toFixed(3);
+                    return { ...p, machine_qty: signedValue, quantity: signedValue };
+                });
+                setLastUpdateAt(Date.now());
             }
-        })
+        };
+
+        socket.on("weight:update:gavali", handleWeightUpdate("weight_gavali"));
+        socket.on("weight:update:utpadak", handleWeightUpdate("weight_utpadak"));
 
         socket.on("fat:update", (reading) => {
             setIsFatConnected(!!reading.connected);
@@ -662,19 +688,19 @@ export default function MilkEntry() {
     }, []);
 
     // Manual connect/disconnect — talks to the backend, not the browser's hardware
-    const connectSerialPort = async (silent = false) => {
-        if (!silent) showFlash("success", "Connecting to weight machine…");
+    const connectSerialPort = async (subtype, silent = false) => {
+        if (!silent) showFlash("success", `Connecting to ${subtype === "gavali" ? "Gavali" : "Utpadak"} weight machine…`);
         try {
-            const { data } = await api.post("/settings/ports/weight/connect");
+            const { data } = await api.post(`/settings/ports/weight/${subtype}/connect`);
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
         } catch (err) {
             showFlash("error", err.response?.data?.message || "Failed to connect to weight machine.");
         }
     };
 
-    const disconnectMachine = async () => {
+    const disconnectMachine = async (subtype) => {
         try {
-            await api.post("/settings/ports/weight/disconnect");
+            await api.post(`/settings/ports/weight/${subtype}/disconnect`);
             showFlash("info", "Disconnected from weight machine.");
         } catch {
             showFlash("error", "Failed to disconnect.");
@@ -715,7 +741,8 @@ export default function MilkEntry() {
     useEffect(() => {
         if (autoConnectFired.current) return;
         autoConnectFired.current = true;
-        connectSerialPort(true); // silent: skip the "Connecting…" toast on auto-attempt
+        connectSerialPort("gavali", true);   // silent: skip the "Connecting…" toast on auto-attempt
+        connectSerialPort("utpadak", true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -937,8 +964,10 @@ export default function MilkEntry() {
             showFlash("success", t('milkEntry.savedSuccess'));
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
-            setMachineQty("");
-            setMachineUom("");
+            setWeightBySubtype(prev => ({
+                weight_gavali: { ...prev.weight_gavali, qty: "" },
+                weight_utpadak: { ...prev.weight_utpadak, qty: "" },
+            }));
             setMachineProtein("");
         } catch (err) {
             const msg = err.response?.data?.error ||
@@ -967,7 +996,8 @@ export default function MilkEntry() {
             machine_qty: entry.machine_qty ? String(entry.machine_qty) : "",
         });
         if (entry.machine_qty) {
-            setMachineQty(String(entry.machine_qty));
+            const key = entry.seller_type === "Gavali" ? "weight_gavali" : "weight_utpadak";
+            setWeightBySubtype(prev => ({ ...prev, [key]: { ...prev[key], qty: String(entry.machine_qty) } }));
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -999,8 +1029,10 @@ export default function MilkEntry() {
             setEditingEntry(null);
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
-            setMachineQty("");
-            setMachineUom("");
+            setWeightBySubtype(prev => ({
+                weight_gavali: { ...prev.weight_gavali, qty: "" },
+                weight_utpadak: { ...prev.weight_utpadak, qty: "" },
+            }));
             setMachineProtein("");
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
@@ -1215,6 +1247,7 @@ export default function MilkEntry() {
             <th style="padding:4px 5px;border:1px solid #555;font-size:8px;text-align:right;width:7%">${t('milkEntry.pdfQty')}</th>
             <th style="padding:4px 5px;border:1px solid #555;font-size:8px;text-align:right;width:6%">${t('milkEntry.pdfFat')}</th>
             <th style="padding:4px 5px;border:1px solid #555;font-size:8px;text-align:right;width:6%">${t('milkEntry.pdfSnf')}</th>
+            <th style="padding:4px 5px;border:1px solid #555;font-size:8px;text-align:right;width:6%">${t('milkEntry.pdfProtein')}</th>
             <th style="padding:4px 5px;border:1px solid #555;font-size:8px;text-align:right;width:6%">${t('milkEntry.pdfWater')}</th>
             <th style="padding:4px 5px;border:1px solid #555;font-size:8px;text-align:right;width:7%">${t('milkEntry.pdfRate')}</th>
             <th style="padding:4px 5px;border:1px solid #555;background:#222;font-size:8px;text-align:right;width:9%">${t('milkEntry.pdfAmountRs')}</th>
@@ -1439,6 +1472,7 @@ export default function MilkEntry() {
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
 
                         {/* Weight */}
+                        {/* Weight */}
                         <div
                             data-tour="machine-qty-field"
                             className="flex flex-wrap items-center justify-between gap-3 flex-1 px-4 py-3 rounded-2xl bg-gray-950 border-2 border-emerald-400 shadow-lg shadow-emerald-500/10"
@@ -1447,43 +1481,76 @@ export default function MilkEntry() {
                                 <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
                                     <Scale size={16} className="text-emerald-400" />
                                 </div>
+
                                 <div>
                                     <span className="block text-[10px] font-bold text-emerald-300 uppercase tracking-widest">
-                                        Weight
+                                        Weight · {form.seller_type === "Gavali" ? "Gavali Scale" : "Utpadak Scale"}
                                     </span>
-                                    <span className={`flex items-center gap-1.5 text-xs font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`} />
-                                        {weightPortConfig?.serial_port
-                                            ? <>
-                                                {weightPortConfig.serial_port} · {weightPortConfig.serial_baud_rate} baud
-                                                {isMachineConnected ? " · Live" : " · Not connected"}
+
+                                    <span
+                                        className={`flex items-center gap-1.5 text-xs font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"
+                                            }`}
+                                    >
+                                        <span
+                                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected
+                                                    ? "bg-emerald-400 animate-pulse"
+                                                    : "bg-gray-500"
+                                                }`}
+                                        />
+
+                                        {weightPortConfig[activeWeightKey]?.serial_port ? (
+                                            <>
+                                                {weightPortConfig[activeWeightKey].serial_port} ·{" "}
+                                                {weightPortConfig[activeWeightKey].serial_baud_rate} baud
+                                                {isMachineConnected
+                                                    ? " · Live"
+                                                    : " · Not connected"}
                                             </>
-                                            : "No port configured — set up in Port Settings"}
+                                        ) : (
+                                            "No port configured — set up in Port Settings"
+                                        )}
                                     </span>
                                 </div>
+
+                                {/* Qty */}
                                 <div className="relative ml-1 flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">Qty</span>
+                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
+                                        Qty
+                                    </span>
+
                                     <TinyInput
                                         value={machineQty}
                                         readOnly
                                         placeholder="0.0"
                                         type="text"
                                         inputMode="decimal"
-                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-black"}`}
+                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
+                                                ? "border-emerald-400 text-emerald-300"
+                                                : "border-white/20 text-white/70"
+                                            }`}
                                         style={{ width: "100px", padding: "8px 6px" }}
                                     />
+
                                     {isMachineConnected && (
                                         <span className="absolute top-3.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-400 animate-pulse ring-2 ring-gray-950" />
                                     )}
                                 </div>
+
+                                {/* UOM */}
                                 <div className="relative flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">UOM</span>
+                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
+                                        UOM
+                                    </span>
+
                                     <TinyInput
                                         value={machineUom}
                                         readOnly
                                         placeholder="—"
                                         type="text"
-                                        className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none ${isMachineConnected ? "bg-emerald-500/15 border-emerald-400 text-emerald-300" : "bg-white/5 border-white/20 text-white"}`}
+                                        className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
+                                                ? "border-emerald-400 text-emerald-300"
+                                                : "border-white/20 text-white/70"
+                                            }`}
                                         style={{ width: "50px", padding: "8px 4px" }}
                                     />
                                 </div>
@@ -1492,11 +1559,11 @@ export default function MilkEntry() {
                             <div className="flex items-center gap-1.5">
                                 <button
                                     type="button"
-                                    onClick={connectSerialPort}
+                                    onClick={() => connectSerialPort(activeWeightSubtypeParam)}
                                     disabled={isMachineConnected}
                                     className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isMachineConnected
-                                        ? "bg-emerald-400 text-emerald-950"
-                                        : "bg-blue-500 text-white hover:bg-blue-400"
+                                            ? "bg-emerald-400 text-emerald-950"
+                                            : "bg-blue-500 text-white hover:bg-blue-400"
                                         }`}
                                 >
                                     {isMachineConnected ? "Connected" : "Connect RS232"}
@@ -1505,7 +1572,7 @@ export default function MilkEntry() {
                                 {isMachineConnected && (
                                     <button
                                         type="button"
-                                        onClick={disconnectMachine}
+                                        onClick={() => disconnectMachine(activeWeightSubtypeParam)}
                                         className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition whitespace-nowrap"
                                     >
                                         Disconnect

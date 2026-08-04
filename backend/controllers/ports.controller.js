@@ -36,12 +36,13 @@ exports.getPortSettings = async (req, res) => {
         );
 
         const byMachine = {
-            weight: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
+            weight_gavali: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
+            weight_utpadak: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
             fat: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
         };
 
         rows.forEach(r => {
-            if (r.machine_type === 'weight' || r.machine_type === 'fat') {
+            if (byMachine[r.machine_type]) {
                 byMachine[r.machine_type] = {
                     serial_port: r.serial_port,
                     serial_baud_rate: r.serial_baud_rate,
@@ -66,8 +67,10 @@ exports.savePortSettings = async (req, res) => {
 
     try {
         const dairyId = req.user.dairy_id;
-        const machineType = (req.body.machine_type === 'fat') ? 'fat' : 'weight';
-
+        const ALLOWED_MACHINE_TYPES = ['weight_gavali', 'weight_utpadak', 'fat'];
+        const machineType = ALLOWED_MACHINE_TYPES.includes(req.body.machine_type)
+            ? req.body.machine_type
+            : 'weight_utpadak';
         const {
             serial_port = '',
             serial_baud_rate = '9600',
@@ -95,9 +98,9 @@ exports.savePortSettings = async (req, res) => {
         );
 
         // Reconnect the matching live reader with the new settings
-        if (machineType === 'weight') {
+        if (machineType === 'weight_gavali' || machineType === 'weight_utpadak') {
             try {
-                await weightMachine.connect(dairyId);
+                await weightMachine.connect(dairyId, machineType); // subtype tells the service which scale to (re)open
             } catch (connectErr) {
                 console.error('weightMachine reconnect error:', connectErr.message);
                 return res.json({
@@ -270,14 +273,16 @@ exports.testPortConnection = async (req, res) => {
 // ─── GET /api/settings/ports/weight/status ───────────────────────────────────
 exports.getWeightStatus = async (req, res) => {
     if (!requireAdmin(req, res)) return;
-    res.json(weightMachine.getLatest());
+    const subtype = req.params.subtype === 'gavali' ? 'weight_gavali' : 'weight_utpadak';
+    res.json(weightMachine.getLatest(subtype));
 };
 
 // ─── POST /api/settings/ports/weight/connect ─────────────────────────────────
 exports.connectWeightMachine = async (req, res) => {
     if (!requireAdmin(req, res)) return;
+    const subtype = req.params.subtype === 'gavali' ? 'weight_gavali' : 'weight_utpadak';
     try {
-        await weightMachine.connect(req.user.dairy_id);
+        await weightMachine.connect(req.user.dairy_id, subtype);
         res.json({ success: true, message: 'Connected to the serial port.' });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -287,8 +292,9 @@ exports.connectWeightMachine = async (req, res) => {
 // ─── POST /api/settings/ports/weight/disconnect ──────────────────────────────
 exports.disconnectWeightMachine = async (req, res) => {
     if (!requireAdmin(req, res)) return;
-    weightMachine.disconnect();
-    res.json({ success: true, message: 'Disconnected from weight machine.' });
+    const subtype = req.params.subtype === 'gavali' ? 'weight_gavali' : 'weight_utpadak';
+    weightMachine.disconnect(subtype);
+    res.json({ success: true, message: `Disconnected from ${subtype === 'weight_gavali' ? 'Gavali' : 'Utpadak'} weight machine.` });
 };
 
 // ─── GET /api/settings/ports/fat/status ──────────────────────────────────────

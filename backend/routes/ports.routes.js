@@ -23,9 +23,9 @@ router.post('/test', testPortConnection);
 router.get('/available', listAvailablePorts);
 router.post('/close', closePort);
 
-router.get('/weight/status', getWeightStatus);
-router.post('/weight/connect', connectWeightMachine);
-router.post('/weight/disconnect', disconnectWeightMachine);
+router.get('/weight/:subtype/status', getWeightStatus);
+router.post('/weight/:subtype/connect', connectWeightMachine);
+router.post('/weight/:subtype/disconnect', disconnectWeightMachine);
 
 router.get('/fat/status', getFatStatus);
 router.post('/fat/connect', connectFatMachine);

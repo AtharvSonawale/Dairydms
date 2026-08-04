@@ -19,7 +19,8 @@ const SERIAL_DEFAULTS = {
 };
 
 const MACHINE_TYPES = [
-    { value: 'weight', labelKey: 'portSettings.machineType.weight' },
+    { value: 'weight_gavali', labelKey: 'portSettings.machineType.weightGavali' },
+    { value: 'weight_utpadak', labelKey: 'portSettings.machineType.weightUtpadak' },
     { value: 'fat', labelKey: 'portSettings.machineType.fat' },
 ];
 
@@ -93,15 +94,17 @@ function StatusBadge({ status, t }) {
 export default function PortSettings() {
     const { t } = useTranslation();
 
-    const [machineType, setMachineType] = useState('weight');
+    const [machineType, setMachineType] = useState('weight_utpadak');
     // Holds settings for BOTH machine types, keyed by 'weight' | 'fat',
     // so switching the dropdown doesn't lose unsaved-but-loaded data.
     const [byMachine, setByMachine] = useState({
-        weight: { ...SERIAL_DEFAULTS },
+        weight_gavali: { ...SERIAL_DEFAULTS },
+        weight_utpadak: { ...SERIAL_DEFAULTS },
         fat: { ...SERIAL_DEFAULTS },
     });
     const [savedByMachine, setSavedByMachine] = useState({
-        weight: { ...SERIAL_DEFAULTS },
+        weight_gavali: { ...SERIAL_DEFAULTS },
+        weight_utpadak: { ...SERIAL_DEFAULTS },
         fat: { ...SERIAL_DEFAULTS },
     });
     const [saving, setSaving] = useState(false);
@@ -129,7 +132,8 @@ export default function PortSettings() {
         api.get('/settings/ports')
             .then(({ data }) => {
                 const next = {
-                    weight: { ...SERIAL_DEFAULTS, ...(data?.weight || {}) },
+                    weight_gavali: { ...SERIAL_DEFAULTS, ...(data?.weight_gavali || {}) },
+                    weight_utpadak: { ...SERIAL_DEFAULTS, ...(data?.weight_utpadak || {}) },
                     fat: { ...SERIAL_DEFAULTS, ...(data?.fat || {}) },
                 };
                 setByMachine(next);

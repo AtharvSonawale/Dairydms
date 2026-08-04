@@ -145,12 +145,6 @@ async function connect(dairyId) {
 
         const parser = sp.pipe(new ReadlineParser({ delimiter: '\n' }));
 
-        // Raw-byte diagnostic — logs every chunk that arrives on the port,
-        // independent of line-parsing. Safe to leave in; harmless overhead.
-        sp.on('data', (chunk) => {
-            console.log('[RAW BYTES]', chunk.toString('hex'), '|', JSON.stringify(chunk.toString()));
-        });
-
         parser.on('data', (line) => {
             const parsed = parseAnalyzerLine(line);
             if (parsed) {

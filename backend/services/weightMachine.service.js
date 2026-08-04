@@ -3,9 +3,17 @@ const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const pool = require('../config/db');
 
-let activePort = null;       // live SerialPort instance, or null if not connected
-let activeParser = null;
-let latestReading = { value: null, unit: null, raw: null, timestamp: null, connected: false };
+const SUBTYPES = ['weight_gavali', 'weight_utpadak'];
+const SOCKET_EVENT = { weight_gavali: 'weight:update:gavali', weight_utpadak: 'weight:update:utpadak' };
+
+// Everything that used to be a single value is now keyed by subtype so the
+// Gavali and Utpadak scales can be connected independently and simultaneously.
+const activePort = { weight_gavali: null, weight_utpadak: null };     // live SerialPort instance per subtype, or null if not connected
+const activeParser = { weight_gavali: null, weight_utpadak: null };
+const latestReading = {
+    weight_gavali: { value: null, unit: null, raw: null, timestamp: null, connected: false },
+    weight_utpadak: { value: null, unit: null, raw: null, timestamp: null, connected: false },
+};
 let ioInstance = null;        // socket.io server instance, set via init()
 
 // ─── Registry of external close functions, keyed by port path ────────────────
@@ -31,34 +39,34 @@ function parseWeightLine(line) {
 }
 
 // ─── Push the latest reading to all connected frontend clients ───────────────
-function broadcast() {
+function broadcast(subtype) {
     if (ioInstance) {
-        ioInstance.emit('weight:update', latestReading);
+        ioInstance.emit(SOCKET_EVENT[subtype], latestReading[subtype]);
     }
 }
 
 // AFTER
-function disconnect() {
-    if (activePort && activePort.isOpen) {
-        activePort.close();
+function disconnect(subtype) {
+    if (activePort[subtype] && activePort[subtype].isOpen) {
+        activePort[subtype].close();
     }
-    activePort = null;
-    activeParser = null;
+    activePort[subtype] = null;
+    activeParser[subtype] = null;
 }
 
 // Awaitable version — used internally by connect() so a reopen never races
 // the OS-level teardown of the previous handle on the same path.
-function disconnectAndWait() {
+function disconnectAndWait(subtype) {
     return new Promise((resolve) => {
-        if (activePort && activePort.isOpen) {
-            activePort.close(() => {
-                activePort = null;
-                activeParser = null;
+        if (activePort[subtype] && activePort[subtype].isOpen) {
+            activePort[subtype].close(() => {
+                activePort[subtype] = null;
+                activeParser[subtype] = null;
                 resolve();
             });
         } else {
-            activePort = null;
-            activeParser = null;
+            activePort[subtype] = null;
+            activeParser[subtype] = null;
             resolve();
         }
     });
@@ -95,17 +103,22 @@ async function forceClosePortPath(path) {
 
 // ─── Open the serial port using saved settings for the weight machine ────────
 // AFTER
-async function connect(dairyId) {
-    await disconnectAndWait(); // wait for any existing connection held by THIS module to fully release first
+async function connect(dairyId, subtype) {
+    if (!SUBTYPES.includes(subtype)) {
+        throw new Error(`Invalid weight machine subtype: ${subtype}`);
+    }
+
+    await disconnectAndWait(subtype); // wait for any existing connection held by THIS module (this subtype) to fully release first
 
     const [[settings]] = await pool.query(
         `SELECT serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity
-         FROM port_settings WHERE dairy_id = ? AND machine_type = 'weight'`,
-        [dairyId]
+         FROM port_settings WHERE dairy_id = ? AND machine_type = ?`,
+        [dairyId, subtype]
     );
 
+    const label = subtype === 'weight_gavali' ? 'Gavali' : 'Utpadak';
     if (!settings || !settings.serial_port) {
-        throw new Error('No weight machine port configured. Set it up in Port Settings first.');
+        throw new Error(`No ${label} weight machine port configured. Set it up in Port Settings first.`);
     }
 
     // Force-release any handle the test-connection flow (portController.js)
@@ -132,41 +145,35 @@ async function connect(dairyId) {
 
         const parser = sp.pipe(new ReadlineParser({ delimiter: '\n' }));
 
-        // Raw-byte diagnostic — logs every chunk that arrives on the port,
-        // independent of line-parsing. Safe to leave in; harmless overhead.
-        sp.on('data', (chunk) => {
-            console.log('[RAW BYTES]', chunk.toString('hex'), '|', JSON.stringify(chunk.toString()));
-        });
-
         parser.on('data', (line) => {
             const parsed = parseWeightLine(line);
             if (parsed) {
-                latestReading = {
+                latestReading[subtype] = {
                     value: parsed.value,
                     unit: parsed.unit,
                     raw: parsed.raw,
                     timestamp: new Date().toISOString(),
                     connected: true,
                 };
-                broadcast();
+                broadcast(subtype);
             }
         });
 
         sp.on('close', () => {
-            latestReading = { ...latestReading, connected: false };
-            broadcast();
-            activePort = null;
-            activeParser = null;
+            latestReading[subtype] = { ...latestReading[subtype], connected: false };
+            broadcast(subtype);
+            activePort[subtype] = null;
+            activeParser[subtype] = null;
         });
 
         sp.on('error', (err) => {
-            console.error('Weight machine serial error:', err.message);
+            console.error(`${label} weight machine serial error:`, err.message);
         });
 
         sp.open((err) => {
             if (err) return reject(err);
-            activePort = sp;
-            activeParser = parser;
+            activePort[subtype] = sp;
+            activeParser[subtype] = parser;
 
             // Some virtual null-modem pairs (com0com) only resume forwarding
             // once DTR/RTS are explicitly asserted by the listening side.
@@ -176,34 +183,35 @@ async function connect(dairyId) {
 
             // "connected: true" now means the OS port handle opened successfully.
             // It does NOT guarantee the machine is sending valid data — check
-            // latestReading.timestamp / isReceivingData() if you need that distinction.
-            latestReading = { value: null, unit: null, raw: null, timestamp: null, connected: true };
-            broadcast();
+            // latestReading[subtype].timestamp / isReceivingData(subtype) if you need that distinction.
+            latestReading[subtype] = { value: null, unit: null, raw: null, timestamp: null, connected: true };
+            broadcast(subtype);
             resolve();
         });
     });
 }
 
-function getLatest() {
-    return latestReading;
+function getLatest(subtype) {
+    return latestReading[subtype];
 }
 
-function isReceivingData() {
+function isReceivingData(subtype) {
     // Consider it truly "live" only if we've gotten a real frame in the last 5 seconds
-    if (!latestReading.timestamp) return false;
-    return (Date.now() - new Date(latestReading.timestamp).getTime()) < 5000;
+    const reading = latestReading[subtype];
+    if (!reading.timestamp) return false;
+    return (Date.now() - new Date(reading.timestamp).getTime()) < 5000;
 }
 
 function init(io) {
     ioInstance = io;
-    // Send the current reading immediately to any newly connected client
+    // Send the current reading for BOTH scales immediately to any newly connected client
     io.on('connection', (socket) => {
-        socket.emit('weight:update', latestReading);
+        SUBTYPES.forEach(subtype => socket.emit(SOCKET_EVENT[subtype], latestReading[subtype]));
     });
 }
 
-function isConnected() {
-    return !!(activePort && activePort.isOpen);
+function isConnected(subtype) {
+    return !!(activePort[subtype] && activePort[subtype].isOpen);
 }
 
 module.exports = {
