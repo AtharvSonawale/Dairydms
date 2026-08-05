@@ -69,8 +69,6 @@ const columnMap = {
     'deposit_per_litre': 'deposit_per_litre',
     'cattle feed enabled': 'cattle_feed_sale_enabled',
     'cattle_feed_sale_enabled': 'cattle_feed_sale_enabled',
-    'payment term': 'payment_term',
-    'payment_term': 'payment_term',
     'password': 'password',
 };
 
@@ -99,7 +97,6 @@ const EMPTY_FORM = {
     bank_account_confirm: "",
     product_sale_enabled: 0,
     cattle_feed_sale_enabled: 0,
-    payment_term: "postpaid",
     is_active: 1,
 };
 
@@ -222,8 +219,6 @@ export default function SellerRegister() {
                     ['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'].forEach(f => {
                         if (obj[f] === undefined || obj[f] === '') obj[f] = (f === 'advance_enabled' ? 1 : 0);
                     });
-                    // Default payment_term
-                    if (!obj.payment_term) obj.payment_term = 'postpaid';
                     return { ...obj, _rowIndex: idx + 1 };
                 });
 
@@ -263,7 +258,7 @@ export default function SellerRegister() {
             "Seller Type", "Milk Type", "Jamin", "Bank Account", "Bank Name", "Account Holder",
             "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
             "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre",
-            "Cattle Feed Enabled", "Payment Term", "Password"];
+            "Cattle Feed Enabled", "Password"];
         const ws = XLSX.utils.aoa_to_sheet([headers]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Farmers");
@@ -385,7 +380,6 @@ export default function SellerRegister() {
             deposit_per_litre: s.deposit_per_litre || "",
             product_sale_enabled: s.product_sale_enabled ?? 0,
             cattle_feed_sale_enabled: s.cattle_feed_sale_enabled ?? 0,
-            payment_term: s.payment_term || "postpaid",
             is_active: s.is_active ?? 1,
         });
         setEditingId(s.seller_id);
@@ -451,13 +445,12 @@ export default function SellerRegister() {
         { label: t('sellerRegister.advance'), icon: <Wallet size={11} /> },
         { label: t('sellerRegister.advRecovery'), icon: <Banknote size={11} /> },
         { label: t('sellerRegister.depPerL'), icon: <Banknote size={11} /> },
-        { label: 'Payment Term', icon: <CreditCard size={11} /> },
         { label: t('sellerRegister.status'), icon: <Settings size={11} /> },
         { label: t('sellerRegister.registered'), icon: <Calendar size={11} /> },
         { label: t('sellerRegister.actions'), icon: <Settings size={11} /> },
     ];
 
-    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 72px 85px 100px";
+    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 85px 100px";
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
@@ -807,30 +800,8 @@ export default function SellerRegister() {
                                 </Field>
                             </div>
 
-                            {/* NEW: Payment Term */}
+                            {/* Active Status */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label={t('sellerRegister.paymentTerm') || "Payment Term"} t={t}>
-                                    <div className="flex gap-2">
-                                        {["postpaid", "prepaid"].map((term) => (
-                                            <label key={term} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
-                                                ${form.payment_term === term
-                                                    ? term === "postpaid" ? "bg-blue-50 border-blue-300 text-blue-800" : "bg-amber-50 border-amber-300 text-amber-800"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="payment_term"
-                                                    value={term}
-                                                    checked={form.payment_term === term}
-                                                    onChange={handleChange}
-                                                    className="hidden"
-                                                />
-                                                {term === "postpaid" ? "Postpaid" : "Prepaid"}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-
-                                {/* Active Status */}
                                 <Field label={t('sellerRegister.sellerStatus')} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.active'), val: 1 }, { label: t('sellerRegister.inactive'), val: 0 }].map(({ label, val }) => (
@@ -985,16 +956,6 @@ export default function SellerRegister() {
                                         {s.deposit_enabled && s.deposit_per_litre
                                             ? `₹${parseFloat(s.deposit_per_litre).toFixed(2)}/L`
                                             : "—"}
-                                    </TableCell>
-
-                                    {/* NEW: Payment Term column */}
-                                    <TableCell>
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border
-                                            ${s.payment_term === 'prepaid'
-                                                ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                : "bg-blue-50 text-blue-700 border-blue-100"}`}>
-                                            {s.payment_term === 'prepaid' ? 'Prepaid' : 'Postpaid'}
-                                        </span>
                                     </TableCell>
 
                                     <TableCell>

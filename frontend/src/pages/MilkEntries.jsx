@@ -1177,6 +1177,7 @@ export default function MilkEntry() {
     <td style="${cell}font-size:8.5px;text-align:right;font-weight:700">${parseFloat(r.quantity || 0).toFixed(2)}</td>
     <td style="${cell}font-size:8.5px;text-align:right">${parseFloat(r.fat || 0).toFixed(2)}</td>
     <td style="${cell}font-size:8.5px;text-align:right">${parseFloat(r.snf || 0).toFixed(2)}</td>
+    <td style="${cell}font-size:8.5px;text-align:right">${parseFloat(r.protein || 0).toFixed(2)}</td>
     <td style="${cell}font-size:8.5px;text-align:right${parseFloat(r.water) > 5 ? ";font-weight:700;text-decoration:underline" : ""}">
         ${parseFloat(r.water || 0).toFixed(2)}${parseFloat(r.water) > 5 ? "!" : ""}
     </td>
@@ -2019,6 +2020,7 @@ export default function MilkEntry() {
                                         <TableCell className="text-blue-600 font-mono font-semibold text-xs">{r.quantity}</TableCell>
                                         <TableCell className="text-amber-600 font-mono font-semibold text-xs">{r.fat}</TableCell>
                                         <TableCell className="text-violet-600 font-mono font-semibold text-xs">{r.snf}</TableCell>
+                                        <TableCell className="text-violet-600 font-mono font-semibold text-xs">{r.protein}</TableCell>
 
                                         <TableCell>
                                             <span className={`font-mono text-xs font-semibold ${parseFloat(r.water) > 5 ? "text-red-500" : "text-emerald-600"}`}>

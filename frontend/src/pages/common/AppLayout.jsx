@@ -59,6 +59,16 @@ const SHARED_NAV = (isAdmin, t) => {
             },
         ] : []),
 
+        // ── Operator Only ────────────────────────────────────────────
+        ...(!isAdmin ? [
+            {
+                label: t('nav.settings'),
+                icon: <Settings size={16} />,
+                to: '/operator/settings',
+                tourId: 'nav-settings',
+            },
+        ] : []),
+
         // ── Sellers & Milk ───────────────────────────────────────────
         {
             label: t('nav.sellers'),
@@ -213,6 +223,12 @@ const FARMER_NAV = (t) => [
         icon: <LayoutDashboard size={16} />,
         to: '/farmer/dashboard',
         tourId: 'nav-dashboard',
+    },
+    {
+        label: t('nav.settings'),
+        icon: <Settings size={16} />,
+        to: '/farmer/settings',
+        tourId: 'nav-settings',
     },
     {
         label: t('nav.myMilkEntries', { defaultValue: 'My Milk Entries' }),

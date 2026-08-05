@@ -22,6 +22,15 @@ export function AppConfigProvider({ children }) {
     const [textSize, setTextSize] = useState('base');
     const [fatOnlyAutofill, setFatOnlyAutofill] = useState(false);
     const [loaded, setLoaded] = useState(false);
+
+    // Apply the hard defaults (medium / English) immediately on boot, before
+    // any network round-trip resolves, so there's never a flash of the
+    // browser's native font size or i18n's own internal default language.
+    useEffect(() => {
+        applyFontSize('base');
+        i18n.changeLanguage('en');
+    }, []);
+
     // Re-fetch on mount AND whenever auth state changes (login/logout/role
     // switch) — settings can be dairy/centre-scoped server-side, so the
     // response before login (no token) can differ from the response after.

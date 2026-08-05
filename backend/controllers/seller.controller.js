@@ -484,7 +484,7 @@ exports.createSeller = async (req, res) => {
             bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled,
             deposit_enabled, deposit_per_litre, password,
-            cattle_feed_sale_enabled, payment_term
+            cattle_feed_sale_enabled
         } = req.body;
 
         if (!name || !mobile) {
@@ -533,8 +533,7 @@ exports.createSeller = async (req, res) => {
     bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
     advance_enabled, advance_deduction, product_sale_enabled,
     deposit_enabled, deposit_per_litre,
-    cattle_feed_sale_enabled,   -- new
-    payment_term,               -- new
+    cattle_feed_sale_enabled,
     password_hash, must_change_password
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?,
@@ -542,7 +541,7 @@ exports.createSeller = async (req, res) => {
             ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?,
             ?, ?,
-            ?, ?,
+            ?,
             ?, ?)`,
             [
                 operator_id,
@@ -571,7 +570,6 @@ exports.createSeller = async (req, res) => {
                 deposit_enabled !== undefined ? deposit_enabled : 0,
                 deposit_per_litre || null,
                 cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
-                payment_term || 'postpaid',
                 password_hash,
                 password_hash ? 0 : 1
             ]
@@ -604,7 +602,7 @@ exports.updateSeller = async (req, res) => {
             bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled,
             deposit_enabled, deposit_per_litre, password, is_active,
-            cattle_feed_sale_enabled, payment_term
+            cattle_feed_sale_enabled
         } = req.body;
 
         const operatorId = req.user.id;
@@ -667,7 +665,6 @@ exports.updateSeller = async (req, res) => {
     deposit_enabled      = ?,
     deposit_per_litre    = ?,
     cattle_feed_sale_enabled = ?,
-    payment_term         = ?,
     is_active            = ?,
     password_hash        = COALESCE(?, password_hash),
     must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
@@ -695,7 +692,6 @@ exports.updateSeller = async (req, res) => {
                 deposit_enabled !== undefined ? deposit_enabled : 0,
                 deposit_per_litre || null,
                 cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
-                payment_term || 'postpaid',
                 is_active !== undefined ? is_active : 1,
                 password_hash,
                 password_hash,
@@ -901,7 +897,7 @@ exports.importSellers = async (req, res) => {
                 bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
                 advance_enabled, advance_deduction, product_sale_enabled,
                 deposit_enabled, deposit_per_litre, password,
-                cattle_feed_sale_enabled, payment_term
+                cattle_feed_sale_enabled
             } = row;
 
             // Basic validation
@@ -935,7 +931,7 @@ exports.importSellers = async (req, res) => {
                         bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
                         advance_enabled, advance_deduction, product_sale_enabled,
                         deposit_enabled, deposit_per_litre,
-                        cattle_feed_sale_enabled, payment_term,
+                        cattle_feed_sale_enabled,
                         password_hash, must_change_password
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                               ?, ?,
@@ -943,7 +939,7 @@ exports.importSellers = async (req, res) => {
                               ?, ?, ?, ?, ?, ?, ?,
                               ?, ?, ?,
                               ?, ?,
-                              ?, ?,
+                              ?,
                               ?, ?)`,
                     [
                         operator_id,
@@ -972,7 +968,6 @@ exports.importSellers = async (req, res) => {
                         deposit_enabled !== undefined ? deposit_enabled : 0,
                         deposit_per_litre || null,
                         cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
-                        payment_term || 'postpaid',
                         password_hash,
                         password_hash ? 0 : 1
                     ]

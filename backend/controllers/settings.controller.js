@@ -25,9 +25,15 @@ exports.saveGlobalSettings = async (req, res) => {
     try {
         const dairyId = req.user.dairy_id;
         const isAdmin = req.user.role === 'admin';
+        const isOperator = req.user.role === 'operator';
 
-        if (!isAdmin) {
-            return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        // Admins can change everything here (app name, logo, business rules).
+        // Operators are allowed to hit this same endpoint ONLY for the
+        // fat_only_autofill business rule (Operator Settings page always
+        // resends the existing app_name/logo_url unchanged alongside it,
+        // so an operator save can't clobber branding).
+        if (!isAdmin && !isOperator) {
+            return res.status(403).json({ error: 'Access denied.' });
         }
 
         const { app_name, logo_url, fat_only_autofill } = req.body;
@@ -201,16 +207,20 @@ exports.getAppSettings = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
-        const operatorId = isAdmin ? null : req.user.id;
+        const isFarmer = req.user.role === 'seller';
+        const operatorId = (!isAdmin && !isFarmer) ? req.user.id : null;
         const adminId = isAdmin ? req.user.id : null;
+        const sellerId = isFarmer ? req.user.id : null;
 
-        // Get user-specific settings (admin or operator)
-        const [rows] = await pool.query(
-            isAdmin
-                ? `SELECT setting_key, setting_value FROM app_settings WHERE admin_id = ? AND centre_id = ?`
-                : `SELECT setting_key, setting_value FROM app_settings WHERE operator_id = ? AND centre_id = ?`,
-            isAdmin ? [adminId, centreId] : [operatorId, centreId]
-        );
+        // Get user-specific settings (admin, operator, or farmer)
+        const query = isAdmin
+            ? `SELECT setting_key, setting_value FROM app_settings WHERE admin_id = ? AND centre_id = ?`
+            : isFarmer
+                ? `SELECT setting_key, setting_value FROM app_settings WHERE seller_id = ? AND centre_id = ?`
+                : `SELECT setting_key, setting_value FROM app_settings WHERE operator_id = ? AND centre_id = ?`;
+        const params = isAdmin ? [adminId, centreId] : isFarmer ? [sellerId, centreId] : [operatorId, centreId];
+
+        const [rows] = await pool.query(query, params);
         const result = {};
         rows.forEach(r => { result[r.setting_key] = r.setting_value; });
 
@@ -240,12 +250,14 @@ exports.saveAppSettings = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
-        const operatorId = isAdmin ? null : req.user.id;
+        const isFarmer = req.user.role === 'seller';
+        const operatorId = (!isAdmin && !isFarmer) ? req.user.id : null;
         const adminId = isAdmin ? req.user.id : null;
+        const sellerId = isFarmer ? req.user.id : null;
         const { text_size, theme, language, date_format, time_format } = req.body;
 
         const entries = [];
-        const push = (key, val) => entries.push([operatorId, adminId, centreId, key, val]);
+        const push = (key, val) => entries.push([operatorId, adminId, sellerId, centreId, key, val]);
 
         if (text_size !== undefined) push('text_size', text_size);
         if (theme !== undefined) push('theme', theme);
@@ -258,7 +270,7 @@ exports.saveAppSettings = async (req, res) => {
         }
 
         await pool.query(
-            `INSERT INTO app_settings (operator_id, admin_id, centre_id, setting_key, setting_value)
+            `INSERT INTO app_settings (operator_id, admin_id, seller_id, centre_id, setting_key, setting_value)
              VALUES ?
              ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
             [entries]

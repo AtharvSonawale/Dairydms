@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './pages/common/AppLayout';
 import { AppConfigProvider } from './context/AppConfigContext';
+import OperatorSettings from './pages/operator/Settings';
+import FarmerSettings from './pages/farmer/Settings';
 
 // ── Auth ───────────────────────────────────────────────────
 import AdminLogin from './pages/auth/AdminLogin';
@@ -154,6 +156,8 @@ function AppRoutes() {
         <Route path="/farmer-ledger" element={<FarmerLedger />} />
         <Route path="/farmer-ledger/:seller_id" element={<FarmerLedgerDetail />} />
         <Route path="/admin/centres" element={<ProtectedRoute role="admin"><Centres /></ProtectedRoute>} />
+        <Route path="/operator/settings" element={<OperatorSettings />} />
+        <Route path="/farmer/settings" element={<FarmerSettings />} />
       </Route>
 
       {/* ── Fallback ── */}
