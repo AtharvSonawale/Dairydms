@@ -141,6 +141,9 @@ export default function AdminSettings() {
 
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
+    const [defaultAcidity, setDefaultAcidity] = useState('12.5');
+    const [defaultTemperature, setDefaultTemperature] = useState('2');
+    const [fssaiCode, setFssaiCode] = useState('11521040000016');
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });

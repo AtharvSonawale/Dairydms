@@ -76,7 +76,7 @@ function TinyInput({ className = "", style = {}, ...props }) {
         <input
             {...props}
             style={{ minWidth: 0, ...style }}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
+            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm bg-gray-50
                 focus:outline-none focus:ring-2 focus:ring-black ${focusBg} transition
                 placeholder:text-gray-300 ${className}`}
         />
@@ -1192,7 +1192,7 @@ export default function MilkEntry() {
         ${fmtD(date)} — ${dayEntries.length} ${t('milkEntry.pdfEntries')} &nbsp;|&nbsp; ${t('milkEntry.pdfCow')} ${dayCow.toFixed(2)} L &nbsp;|&nbsp; ${t('milkEntry.pdfBuf')} ${dayBuf.toFixed(2)} L
     </td>
     <td style="${cell}font-size:8px;text-align:right;font-weight:700">${(dayCow + dayBuf).toFixed(2)}</td>
-    <td colspan="4" style="${cell}font-size:8px"></td>
+    <td colspan="5" style="${cell}font-size:8px"></td>
     <td style="${cell}font-size:8px;text-align:right;font-weight:700;background:#ccc">${dayAmt.toFixed(2)}</td>
 </tr>` : "";
 
@@ -1264,7 +1264,7 @@ export default function MilkEntry() {
             <td style="padding:5px 6px;border:1px solid #555;font-size:9px;text-align:right;font-weight:700">
                 ${(totalCow + totalBuf).toFixed(2)}
             </td>
-            <td colspan="4" style="padding:5px 6px;border:1px solid #555;font-size:9px"></td>
+            <td colspan="5" style="padding:5px 6px;border:1px solid #555;font-size:9px"></td>
             <td style="padding:5px 6px;border:1px solid #555;background:#333;font-size:9px;text-align:right;font-weight:900">
                 Rs. ${totalAmt.toFixed(2)}
             </td>
@@ -1303,14 +1303,14 @@ export default function MilkEntry() {
 
     const COLS = [
         t('milkEntry.colNo'), t('milkEntry.colSeller'), t('milkEntry.colCode'), t('milkEntry.colShift'), t('milkEntry.colMilk'),
-        t('milkEntry.colQty'), t('milkEntry.colFat'), t('milkEntry.colSnf'), t('milkEntry.colWater'),
+        t('milkEntry.colQty'), t('milkEntry.colFat'), t('milkEntry.colSnf'), t('milkEntry.colProtein'), t('milkEntry.colWater'),
         ...(isAdmin ? [t('milkEntry.colRate'), t('milkEntry.colAmount')] : []),
         t('milkEntry.colTime'), t('milkEntry.colPremium'),
         ...(isAdmin ? [t('milkEntry.colActions')] : []),
     ];
     const GRID = isAdmin
-        ? "40px 1.4fr 70px 100px 90px 72px 65px 65px 75px 80px 90px 75px 85px 120px"
-        : "40px 1.4fr 70px 100px 90px 72px 65px 65px 75px 75px 85px";
+        ? "40px 1.4fr 70px 100px 90px 72px 65px 65px 65px 75px 80px 90px 75px 85px 120px"
+        : "40px 1.4fr 70px 100px 90px 72px 65px 65px 65px 75px 75px 85px";
 
     if (permLoading) return (
         <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
@@ -1473,7 +1473,6 @@ export default function MilkEntry() {
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
 
                         {/* Weight */}
-                        {/* Weight */}
                         <div
                             data-tour="machine-qty-field"
                             className="flex flex-wrap items-center justify-between gap-3 flex-1 px-4 py-3 rounded-2xl bg-gray-950 border-2 border-emerald-400 shadow-lg shadow-emerald-500/10"
@@ -1494,8 +1493,8 @@ export default function MilkEntry() {
                                     >
                                         <span
                                             className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected
-                                                    ? "bg-emerald-400 animate-pulse"
-                                                    : "bg-gray-500"
+                                                ? "bg-emerald-400 animate-pulse"
+                                                : "bg-gray-500"
                                                 }`}
                                         />
 
@@ -1526,8 +1525,8 @@ export default function MilkEntry() {
                                         type="text"
                                         inputMode="decimal"
                                         className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
-                                                ? "border-emerald-400 text-emerald-300"
-                                                : "border-white/20 text-white/70"
+                                            ? "border-emerald-400 text-emerald-300"
+                                            : "border-white/20 text-white/70"
                                             }`}
                                         style={{ width: "100px", padding: "8px 6px" }}
                                     />
@@ -1549,8 +1548,8 @@ export default function MilkEntry() {
                                         placeholder="—"
                                         type="text"
                                         className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
-                                                ? "border-emerald-400 text-emerald-300"
-                                                : "border-white/20 text-white/70"
+                                            ? "border-emerald-400 text-emerald-300"
+                                            : "border-white/20 text-white/70"
                                             }`}
                                         style={{ width: "50px", padding: "8px 4px" }}
                                     />
@@ -1563,8 +1562,8 @@ export default function MilkEntry() {
                                     onClick={() => connectSerialPort(activeWeightSubtypeParam)}
                                     disabled={isMachineConnected}
                                     className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isMachineConnected
-                                            ? "bg-emerald-400 text-emerald-950"
-                                            : "bg-blue-500 text-white hover:bg-blue-400"
+                                        ? "bg-emerald-400 text-emerald-950"
+                                        : "bg-blue-500 text-white hover:bg-blue-400"
                                         }`}
                                 >
                                     {isMachineConnected ? "Connected" : "Connect RS232"}
@@ -2126,13 +2125,13 @@ export default function MilkEntry() {
                     <div className="bg-white rounded-b-2xl border-t-2 border-gray-100 overflow-x-auto">
                         <div className="grid bg-gray-50/80 min-w-max"
                             style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* No */}
                             <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
                                 {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
-                            </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
+                            </div> {/* Seller */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Code */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Shift */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Milk */}
                             <div className="px-3 py-2.5 border-r border-gray-100">
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-[10px] text-amber-600 font-semibold">
@@ -2142,21 +2141,22 @@ export default function MilkEntry() {
                                         {entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
                                     </span>
                                 </div>
-                            </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
+                            </div> {/* Qty */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Fat */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Snf */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Protein */}
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Water */}
                             {isAdmin && (
                                 <>
-                                    <div className="px-3 py-2.5 border-r border-gray-100" />
+                                    <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Rate */}
                                     <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
                                         ₹{entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2)}
-                                    </div>
+                                    </div> {/* Amount */}
                                 </>
                             )}
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5" />
+                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Time */}
+                            <div className={isAdmin ? "px-3 py-2.5 border-r border-gray-100" : "px-3 py-2.5"} /> {/* Premium */}
+                            {isAdmin && <div className="px-3 py-2.5" />} {/* Actions */}
                         </div>
                     </div>
                 )}

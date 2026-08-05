@@ -5,8 +5,10 @@ import {
     Wallet, ChevronDown, ChevronUp, RefreshCw, Printer,
     BadgeCheck, AlertTriangle, X, Users, Milk,
     CheckCircle2, Clock, Search, Banknote, TrendingUp,
-    FileSearch, Hash, FileText, Trash2, Calendar, Download, Package
+    FileSearch, Hash, FileText, Trash2, Calendar, Download, Package, Percent
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
 
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
@@ -333,7 +335,7 @@ export default function SellerPayments() {
     const { can, loading: permLoading } = usePermission();
 
     const { appName } = useAppConfig();
-
+    const navigate = useNavigate();
     // AFTER
     const [customFrom, setCustomFrom] = useState(null);
     const [customTo, setCustomTo] = useState(null);
@@ -792,6 +794,7 @@ export default function SellerPayments() {
             installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
             deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
             deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+            commission_amount: billData?.payment?.commission_amount ?? seller.commission_amount,
             total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
             advance_given: billData?.depositSnapshot?.[0] != null
                 ? (billData?.payment?.advance_given ?? seller.advance_given)
@@ -922,6 +925,15 @@ export default function SellerPayments() {
         <span style="font-weight:600; color:#000">${t('sellerPayments.milkBoughtBySeller')}</span>
         <span style="font-weight:700; font-size:13px; color:#000">${fmtR(walkinDed)}</span>
     </div>` : "";
+
+        const commissionAmt = parseFloat(sellerObj.commission_amount || 0);
+        const commissionBanner = (sellerObj.seller_type === 'Gavali' && commissionAmt > 0) ? `
+<div style="display:flex;justify-content:space-between;align-items:center;
+            padding:8px 12px; background:#faf5ff; border:1px solid #e9d5ff; 
+            border-radius:6px; margin-bottom:10px">
+    <span style="font-weight:600; color:#7c3aed">${t('sellerPayments.gavaliCommissionIncluded') || 'Gavali Commission (included in milk rate)'}</span>
+    <span style="font-weight:700; font-size:13px; color:#7c3aed">+ ${fmtR(commissionAmt)}</span>
+</div>` : "";
 
         return `<!DOCTYPE html>
 <html>
@@ -1200,6 +1212,7 @@ ${entries.length > 0 ? `
 ${productSalesTable}
 ${cattleFeedTable}
 ${walkinTotal}
+${commissionBanner}
 
 <div class="section-title">${t('sellerPayments.accountSummary')}</div>
 <div class="bottom-summary">
@@ -1402,6 +1415,7 @@ ${walkinTotal}
             installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
             deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
             deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+            commission_amount: billData?.payment?.commission_amount ?? seller.commission_amount,
             total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
             advance_given: billData?.depositSnapshot?.[0] != null
                 ? (billData?.payment?.advance_given ?? seller.advance_given)
@@ -1532,6 +1546,15 @@ ${walkinTotal}
         <span style="font-weight:600; color:#9a3412">${t('sellerPayments.milkBoughtBySeller')}</span>
         <span style="font-weight:700; font-size:13px; color:#ea580c">${fmtR(walkinDed)}</span>
     </div>` : "";
+
+        const commissionAmt = parseFloat(sellerObj.commission_amount || 0);
+        const commissionBanner = (sellerObj.seller_type === 'Gavali' && commissionAmt > 0) ? `
+<div style="display:flex;justify-content:space-between;align-items:center;
+            padding:8px 12px; background:#faf5ff; border:1px solid #e9d5ff; 
+            border-radius:6px; margin-bottom:10px">
+    <span style="font-weight:600; color:#7c3aed">${t('sellerPayments.gavaliCommissionIncluded') || 'Gavali Commission (included in milk rate)'}</span>
+    <span style="font-weight:700; font-size:13px; color:#7c3aed">+ ${fmtR(commissionAmt)}</span>
+</div>` : "";
 
         const win = window.open("", "_blank", "width=900,height=900");
         if (!win) {
@@ -1715,6 +1738,7 @@ ${entries.length > 0 ? `
 ${productSalesTable}
 ${cattleFeedTable}
 ${walkinTotal}
+${commissionBanner}
 
 <div class="section-title">${t('sellerPayments.accountSummary')}</div>
 <div class="bottom-summary">
@@ -2348,6 +2372,11 @@ ${walkinTotal}
                                 bg-violet-600 text-white hover:bg-violet-700 transition">
                             <FileSearch size={13} /> {t('sellerPayments.searchBills')}
                         </button>
+                        <button onClick={() => navigate('/commission-settings')}
+                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
+        bg-amber-100 text-amber-700 hover:bg-amber-200 transition border border-amber-200">
+                            <Percent size={13} /> {t('sellerPayments.commissionSettings') || 'Commission Settings'}
+                        </button>
                         {useCustomCycle && (
                             <button onClick={() => setCycleConfigOpen(true)}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
@@ -2633,6 +2662,12 @@ ${walkinTotal}
                                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('sellerPayments.milk')}</p>
                                             <p className="text-sm font-semibold text-gray-700">{fmt(milkAmt)}</p>
                                         </div>
+                                        {seller.seller_type === 'Gavali' && parseFloat(seller.commission_amount || 0) > 0 && (
+                                            <div>
+                                                <p className="text-[10px] text-fuchsia-400 uppercase tracking-wider">{t('sellerPayments.commission') || 'Commission'}</p>
+                                                <p className="text-sm font-semibold text-fuchsia-500">+ {fmt(seller.commission_amount)}</p>
+                                            </div>
+                                        )}
                                         {advGiven > 0 && (
                                             <div>
                                                 <p className="text-[10px] text-violet-400 uppercase tracking-wider">{t('sellerPayments.advPending')}</p>
@@ -2727,6 +2762,9 @@ ${walkinTotal}
                                 {/* Mobile amounts */}
                                 <div className="flex sm:hidden items-center justify-between px-5 pb-3 gap-3 text-xs flex-wrap">
                                     <span className="text-gray-400">{t('sellerPayments.milk')}: <strong className="text-gray-700">{fmt(milkAmt)}</strong></span>
+                                    {seller.seller_type === 'Gavali' && parseFloat(seller.commission_amount || 0) > 0 && (
+                                        <span className="text-fuchsia-500">{t('sellerPayments.commission') || 'Commission'}: +{fmt(seller.commission_amount)}</span>
+                                    )}
                                     {advGiven > 0 && <span className="text-violet-500">{t('sellerPayments.adv')}: {fmt(advGiven)}</span>}
                                     {parseFloat(seller.installment_cut || 0) > 0 && <span className="text-rose-500">{t('sellerPayments.advInstCut')}: −{fmt(seller.installment_cut)}</span>}
                                     {parseFloat(seller.deposit_amount || 0) > 0 && <span className="text-blue-500">{t('sellerPayments.dep')}: −{fmt(seller.deposit_amount)}</span>}
@@ -2809,6 +2847,12 @@ ${walkinTotal}
                                             <p>{t('sellerPayments.milkPayable')}:
                                                 <strong className="text-gray-800 ml-1">{fmt(milkAmt)}</strong>
                                             </p>
+                                            {seller.seller_type === 'Gavali' && parseFloat(seller.commission_amount || 0) > 0 && (
+                                                <p>{t('sellerPayments.gavaliCommissionIncluded') || 'Gavali Commission Included'}:
+                                                    <strong className="text-fuchsia-600 ml-1">+ {fmt(seller.commission_amount)}</strong>
+                                                    <span className="text-gray-400 ml-1 font-normal text-[10px]">({t('sellerPayments.addedToMilkRate') || 'already added to the milk rate per Fat/SNF'})</span>
+                                                </p>
+                                            )}
                                             {advGiven > 0 && (
                                                 <div className="flex flex-col gap-0.5">
                                                     <p>{t('sellerPayments.advancePendingBefore')}:

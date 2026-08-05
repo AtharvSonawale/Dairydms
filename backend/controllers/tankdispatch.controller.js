@@ -24,7 +24,6 @@ exports.getDispatches = async (req, res) => {
             dateParams = [singleDate];
         }
 
-        // REMOVED operator filter - both admin and operator see all
         const query = `
     SELECT td.*, o.name AS operator_name, a.name AS admin_name
     FROM tank_dispatch td
@@ -76,6 +75,9 @@ exports.createDispatch = async (req, res) => {
             factory_rate,
             total_amount,
             remarks,
+            acidity,
+            temperature,
+            fssai_code,
         } = req.body;
 
         // ── validation ──
@@ -100,8 +102,9 @@ exports.createDispatch = async (req, res) => {
  total_liters, avg_fat, avg_snf,
  avg_fat_cow, avg_snf_cow, avg_fat_buffalo, avg_snf_buffalo,
  factory_name, vehicle_no, driver_name,
- factory_rate, total_amount, operator_id, created_by_admin_id, centre_id, remarks)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+ factory_rate, total_amount, operator_id, created_by_admin_id, centre_id, remarks,
+ acidity, temperature, fssai_code)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 dispatch_date,
                 milk_type || 'cow',
@@ -124,6 +127,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 createdByAdminId,
                 centreId,
                 remarks ? String(remarks).trim() : null,
+                acidity || '12.5',
+                temperature || '2',
+                fssai_code || '11521040000016',
             ]
         );
 
@@ -198,9 +204,8 @@ exports.getHistory = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
 
-        // REMOVED operator filter - both admin and operator see all
         const query = `
-            SELECT factory_name, vehicle_no, driver_name, factory_rate, created_at
+            SELECT factory_name, vehicle_no, driver_name, factory_rate, created_at, acidity, temperature
             FROM tank_dispatch
             WHERE centre_id = ?
             ORDER BY created_at DESC LIMIT 100
@@ -246,6 +251,8 @@ exports.updateDispatch = async (req, res) => {
             cow_liters,
             buffalo_liters,
             remarks,
+            acidity,
+            temperature,
         } = req.body;
 
         // Check if dispatch exists and user has access
@@ -289,7 +296,9 @@ exports.updateDispatch = async (req, res) => {
                 cow_liters   = ?,
                 buffalo_liters = ?,
                 total_amount = ?,
-                remarks      = ?
+                remarks      = ?,
+                acidity      = ?,
+                temperature  = ?
             WHERE dispatch_id = ? AND centre_id = ?
         `;
         let updateParams = [
@@ -302,6 +311,8 @@ exports.updateDispatch = async (req, res) => {
             buffalo_liters != null ? parseFloat(buffalo_liters) : 0,
             computedAmount,
             remarks || null,
+            acidity || '12.5',
+            temperature || '2',
             id,
             centreId
         ];
@@ -329,10 +340,45 @@ exports.updateDispatch = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════════════════════
-//  GET /api/tank-dispatch/summary (Admin only)
-//  Get summary of all dispatches in the centre
+//  GET /api/settings/dispatch
+//  Get dispatch settings (acidity, temperature, FSSAI code)
 // ══════════════════════════════════════════════════════════════
-exports.getDispatchSummary = async (req, res) => {
+exports.getDispatchSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+
+        // Get from global_settings or app_settings
+        const [rows] = await pool.query(
+            `SELECT setting_key, setting_value 
+             FROM app_settings 
+             WHERE centre_id = ? 
+               AND setting_key IN ('default_acidity', 'default_temperature', 'fssai_code')
+               AND operator_id IS NULL`,
+            [centreId]
+        );
+
+        const result = {
+            default_acidity: '12.5',
+            default_temperature: '2',
+            fssai_code: '11521040000016'
+        };
+
+        rows.forEach(row => {
+            result[row.setting_key] = row.setting_value;
+        });
+
+        res.json(result);
+    } catch (err) {
+        console.error('getDispatchSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+//  POST /api/settings/dispatch
+//  Save dispatch settings (acidity, temperature, FSSAI code)
+// ══════════════════════════════════════════════════════════════
+exports.saveDispatchSettings = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
@@ -341,130 +387,24 @@ exports.getDispatchSummary = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        const [summary] = await pool.query(
-            `SELECT
-                COUNT(*) AS total_dispatches,
-                COALESCE(SUM(total_liters), 0) AS total_liters,
-                COALESCE(SUM(cow_liters), 0) AS total_cow_liters,
-                COALESCE(SUM(buffalo_liters), 0) AS total_buffalo_liters,
-                COALESCE(AVG(avg_fat), 0) AS avg_fat,
-                COALESCE(AVG(avg_snf), 0) AS avg_snf,
-                COALESCE(SUM(total_amount), 0) AS total_revenue,
-                COUNT(DISTINCT factory_name) AS unique_factories,
-                COUNT(DISTINCT operator_id) AS active_operators
-            FROM tank_dispatch
-            WHERE centre_id = ?`,
-            [centreId]
+        const { default_acidity, default_temperature, fssai_code } = req.body;
+
+        const entries = [
+            [null, centreId, 'default_acidity', default_acidity || '12.5'],
+            [null, centreId, 'default_temperature', default_temperature || '2'],
+            [null, centreId, 'fssai_code', fssai_code || '11521040000016'],
+        ];
+
+        await pool.query(
+            `INSERT INTO app_settings (operator_id, centre_id, setting_key, setting_value)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+            [entries]
         );
 
-        res.json(summary[0]);
+        res.json({ message: 'Dispatch settings saved successfully.' });
     } catch (err) {
-        console.error('getDispatchSummary error:', err);
-        res.status(500).json({ error: 'Server error', message: err.message });
-    }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  GET /api/tank-dispatch/by-factory?factory=&from=&to=
-//  Get dispatches by factory name
-// ══════════════════════════════════════════════════════════════
-exports.getDispatchesByFactory = async (req, res) => {
-    try {
-        const centreId = req.user.centre_id;
-        const { factory, from, to } = req.query;
-
-        if (!factory) {
-            return res.status(400).json({ error: 'Factory name is required.' });
-        }
-
-        // REMOVED operator filter - both admin and operator see all
-        let query = `
-    SELECT td.*, o.name AS operator_name, a.name AS admin_name
-    FROM tank_dispatch td
-    LEFT JOIN operators o ON o.operator_id = td.operator_id
-    LEFT JOIN admins a ON a.admin_id = td.created_by_admin_id
-    WHERE td.centre_id = ?
-      AND td.factory_name LIKE ?
-`;
-        let params = [centreId, `%${factory}%`];
-
-        if (from && to) {
-            query += ` AND td.dispatch_date BETWEEN ? AND ?`;
-            params.push(from, to);
-        }
-
-        query += ` ORDER BY td.dispatch_date DESC, td.created_at DESC`;
-
-        const [rows] = await pool.query(query, params);
-        res.json(rows);
-    } catch (err) {
-        console.error('getDispatchesByFactory error:', err);
-        res.status(500).json({ error: 'Server error', message: err.message });
-    }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  GET /api/tank-dispatch/factories
-//  Get list of all factories in the centre
-// ══════════════════════════════════════════════════════════════
-exports.getFactories = async (req, res) => {
-    try {
-        const centreId = req.user.centre_id;
-
-        // REMOVED operator filter - both admin and operator see all
-        const query = `
-            SELECT DISTINCT factory_name
-            FROM tank_dispatch
-            WHERE centre_id = ? AND factory_name IS NOT NULL
-            ORDER BY factory_name ASC
-        `;
-
-        const [rows] = await pool.query(query, [centreId]);
-        res.json(rows.map(r => r.factory_name));
-    } catch (err) {
-        console.error('getFactories error:', err);
-        res.status(500).json({ error: 'Server error', message: err.message });
-    }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  GET /api/tank-dispatch/monthly-summary?year=&month=
-//  Get monthly summary of dispatches
-// ══════════════════════════════════════════════════════════════
-exports.getMonthlySummary = async (req, res) => {
-    try {
-        const centreId = req.user.centre_id;
-        const { year, month } = req.query;
-
-        if (!year || !month) {
-            return res.status(400).json({ error: 'Year and month are required.' });
-        }
-
-        const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-        const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-
-        // REMOVED operator filter - both admin and operator see all
-        const query = `
-            SELECT
-                DATE(dispatch_date) AS date,
-                COUNT(*) AS dispatch_count,
-                COALESCE(SUM(total_liters), 0) AS total_liters,
-                COALESCE(SUM(cow_liters), 0) AS cow_liters,
-                COALESCE(SUM(buffalo_liters), 0) AS buffalo_liters,
-                COALESCE(SUM(total_amount), 0) AS total_revenue,
-                COALESCE(AVG(avg_fat), 0) AS avg_fat,
-                COALESCE(AVG(avg_snf), 0) AS avg_snf
-            FROM tank_dispatch
-            WHERE centre_id = ?
-              AND dispatch_date BETWEEN ? AND ?
-            GROUP BY DATE(dispatch_date)
-            ORDER BY date ASC
-        `;
-
-        const [rows] = await pool.query(query, [centreId, startDate, endDate]);
-        res.json(rows);
-    } catch (err) {
-        console.error('getMonthlySummary error:', err);
+        console.error('saveDispatchSettings error:', err);
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };

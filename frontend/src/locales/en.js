@@ -1549,6 +1549,7 @@ const en = {
             colQty: "Qty (L)",
             colFat: "FAT %",
             colSnf: "SNF",
+            colProtein: "Protein%",
             colWater: "Water %",
             colRate: "Rate",
             colAmount: "Amount",
@@ -1613,6 +1614,118 @@ const en = {
             cancel: "Cancel",
             deleteEntry: "Delete Entry",
             waterRisk: "High water",
+        },
+
+        "commission": {
+            "pageTitle": "Commission Settings",
+            "pageSubtitle": "Configure the per-litre commission added to milk rates",
+            "saveSettings": "Save Settings",
+            "saving": "Saving…",
+            "saveSuccess": "Commission settings saved successfully!",
+            "saveError": "Failed to save commission settings.",
+            "howItWorks": "How commission works",
+            "howItWorksDesc": "Commission only applies to certain seller types. At the base Fat & SNF, the standard commission is added to the milk rate per litre. For every 0.1 step above or below the base Fat, the Fat Step Cut is added or subtracted. The same applies to SNF with the SNF Step Cut. The resulting commission (never below ₹0) is added to the milk rate before the payable amount is calculated.",
+            "perLitreAddOn": "Per-litre commission add-on",
+            "active": "Active",
+            "baseFat": "Base Fat %",
+            "baseSnf": "Base SNF %",
+            "baseCommission": "Standard Commission (₹/L at base Fat & SNF)",
+            "fatStepCut": "Fat Step Cut (per 0.1)",
+            "snfStepCut": "SNF Step Cut (per 0.1)",
+            "tryIt": "Try it out",
+            "fat": "Fat",
+            "snf": "SNF",
+            "milkRate": "Milk Rate ₹",
+            "commissionAdded": "Commission",
+            "effectiveRate": "Effective Rate",
+            "cowMilk": "Cow's Milk",
+            "buffaloMilk": "Buffalo's Milk",
+            "loading": "Loading...",
+            "error": "Error",
+            "success": "Success",
+            "warning": "Warning",
+            "info": "Information",
+            "cancel": "Cancel",
+            "save": "Save",
+            "update": "Update",
+            "delete": "Delete",
+            "edit": "Edit",
+            "view": "View",
+            "manage": "Manage",
+            "settings": "Settings",
+            "commission": "Commission",
+            "milk": "Milk",
+            "rate": "Rate",
+            "fatPercent": "Fat %",
+            "snfPercent": "SNF %",
+            "baseValue": "Base Value",
+            "stepValue": "Step Value",
+            "calculation": "Calculation",
+            "preview": "Preview",
+            "result": "Result",
+            "applyTo": "Apply to",
+            "allTypes": "All Types",
+            "cowOnly": "Cow Only",
+            "buffaloOnly": "Buffalo Only",
+            "custom": "Custom",
+            "default": "Default",
+            "reset": "Reset",
+            "resetToDefault": "Reset to Default",
+            "confirmReset": "Are you sure you want to reset to default values?",
+            "resetSuccess": "Settings reset to default values",
+            "resetError": "Failed to reset settings",
+            "commissionCalculation": "Commission Calculation",
+            "totalCommission": "Total Commission",
+            "perLitre": "Per Litre",
+            "totalAmount": "Total Amount",
+            "quantity": "Quantity",
+            "litres": "Litres",
+            "ratePerLitre": "Rate per Litre",
+            "baseRate": "Base Rate",
+            "finalRate": "Final Rate",
+            "stepCalculation": "Step Calculation",
+            "fatSteps": "Fat Steps",
+            "snfSteps": "SNF Steps",
+            "aboveBase": "Above Base",
+            "belowBase": "Below Base",
+            "atBase": "At Base",
+            "commissionDetails": "Commission Details",
+            "milkType": "Milk Type",
+            "sellerType": "Seller Type",
+            "gavali": "Gavali",
+            "utpadak": "Utpadak",
+            "applicable": "Applicable",
+            "notApplicable": "Not Applicable",
+            "commissionRate": "Commission Rate",
+            "effectiveCommission": "Effective Commission",
+            "baseCommissionRate": "Base Commission Rate",
+            "fatAdjustment": "Fat Adjustment",
+            "snfAdjustment": "SNF Adjustment",
+            "totalAdjustment": "Total Adjustment",
+            "netCommission": "Net Commission",
+            "perLitreCommission": "Per-litre Commission",
+            "totalCommissionAmount": "Total Commission Amount",
+            "milkAmount": "Milk Amount",
+            "payableAmount": "Payable Amount",
+            "finalPayable": "Final Payable",
+            "calculationFormula": "Calculation Formula",
+            "formula": "Formula",
+            "example": "Example",
+            "inputValues": "Input Values",
+            "outputValues": "Output Values",
+            "commissionBreakdown": "Commission Breakdown",
+            "fatComponent": "Fat Component",
+            "snfComponent": "SNF Component",
+            "baseComponent": "Base Component",
+            "totalCommissionBreakdown": "Total Commission Breakdown",
+            "effectiveRateBreakdown": "Effective Rate Breakdown",
+            "rateBreakdown": "Rate Breakdown",
+            "viewBreakdown": "View Breakdown",
+            "hideBreakdown": "Hide Breakdown",
+            "showDetails": "Show Details",
+            "hideDetails": "Hide Details",
+            "expandAll": "Expand All",
+            "collapseAll": "Collapse All"
         },
 
         // ── Named Buyer Report ──────────────────────────────────────
@@ -2026,92 +2139,88 @@ const en = {
         },
 
         // ── Port Settings ────────────────────────────────────────────
-        portSettings: {
-            startTour: "Take a Tour",
-            title: "Port Settings",
-            subtitle: "Configure server, database, serial, and network ports",
-            adminOnly: "Admin Only",
-            reset: "Reset",
-            save: "Save",
-            saving: "Saving…",
-            serialSection: "Serial Port / RS232",
-            scanPorts: "Scan Ports",
-            scanning: "Scanning…",
-            machineType: {
-                label: "Machine Type",
-                hint: "Each machine type stores its own port settings",
-                weight: "Weight Machine",
-                fat: "Fat Machine",
+        "portSettings": {
+            "title": "Serial Port Settings",
+            "subtitle": "Configure RS232 serial ports for weight and fat machines",
+            "adminOnly": "Admin Only",
+            "startTour": "Start Tour",
+            "reset": "Reset",
+            "save": "Save",
+            "saving": "Saving…",
+            "saveAll": "Save All Settings",
+            "serialSection": "RS232 Serial Port Configuration",
+            "scanPorts": "Scan Ports",
+            "scanning": "Scanning…",
+            "summary": {
+                "baud": "bps"
             },
-            comPort: {
-                label: "COM Port",
-                hint:
-                    "Detected ports on this system — click Scan Ports to refresh, or type one manually (e.g. for virtual com0com ports)",
-                useList: "Use List",
-                typeManually: "Type Manually",
-                closePort: "Close Port",
-                closing: "Closing…",
-                noPortsFound: "No ports found — click Scan",
-                noPortSelected: "— no port selected —",
+            "machineType": {
+                "label": "Machine Type",
+                "hint": "Which machine this port is connected to",
+                "weightGavali": "Weight Machine - Gavali",
+                "weightUtpadak": "Weight Machine - Utpadak",
+                "fat": "Fat Testing Machine"
             },
-            baudRate: {
-                label: "Baud Rate",
-                hint: "Match the baud rate of your device",
+            "comPort": {
+                "label": "COM Port",
+                "hint": "The serial port address (e.g. COM3, /dev/ttyUSB0)",
+                "noPortsFound": "No ports found",
+                "noPortSelected": "No port selected",
+                "typeManually": "Type Manually",
+                "useList": "Use List",
+                "closePort": "Close Port",
+                "closing": "Closing…"
             },
-            dataBits: {
-                label: "Data Bits",
+            "baudRate": {
+                "label": "Baud Rate",
+                "hint": "Communication speed in bits per second"
             },
-            stopBits: {
-                label: "Stop Bits",
+            "dataBits": {
+                "label": "Data Bits"
             },
-            parity: {
-                label: "Parity",
+            "stopBits": {
+                "label": "Stop Bits"
             },
-            connectionStatus: {
-                label: "Connection Status",
-                test: "Test",
-                connected: "Connected",
-                disconnected: "Disconnected",
-                unknown: "Unknown",
+            "parity": {
+                "label": "Parity"
             },
-            summary: {
-                baud: "baud",
+            "connectionStatus": {
+                "label": "Connection Status",
+                "connected": "Connected",
+                "disconnected": "Disconnected",
+                "unknown": "Unknown",
+                "test": "Test"
             },
-            saveAll: "Save All Port Settings",
-            flash: {
-                noPortsDetected: "No serial ports detected on this machine.",
-                foundPorts: "Found {{count}} serial port(s).",
-                scanFailed: "Failed to scan for serial ports.",
-                connectionSuccess: "Connection successful.",
-                connectionFailed: "Connection failed.",
-                connectionInUse:
-                    "This port may be in use by another program — close any other app using it (Arduino IDE, PuTTY, another instance of this server) and try again.",
-                connectionNoDevice:
-                    "This port is registered with Windows but no device appears to be connected right now.",
-                testFailed: "Connection test failed.",
-                portClosed: "Port closed.",
-                closeFailed: "Failed to close port.",
-                selectPort: "Please select a COM port before saving. Click 'Scan Ports' if the list is empty.",
-                saveSuccess: "{{machineType}} settings saved successfully.",
-                saveFailed: "Failed to save port settings.",
-                resetSuccess: "Reset to last saved values.",
-            },
-            tour: {
-                step1: {
-                    title: "Machine Type",
-                    description:
-                        "Choose which machine you are configuring: Weight Machine or Fat Machine. Each has its own saved port settings.",
+            "tour": {
+                "step1": {
+                    "title": "Machine Type",
+                    "description": "Select which machine you're configuring: Weight Machine (Gavali/Utpadak) or Fat Testing Machine. Settings are saved separately for each type."
                 },
-                step2: {
-                    title: "Scan Ports",
-                    description: "Refreshes the list of serial ports currently available on this computer.",
+                "step2": {
+                    "title": "Scan Ports",
+                    "description": "Click here to scan for available COM ports. The dropdown will show which ports are currently open/in use."
                 },
-                step3: {
-                    title: "Serial / RS232",
-                    description:
-                        "Select the COM port and configure baud rate, data bits, stop bits, and parity for the selected machine.",
-                },
+                "step3": {
+                    "title": "Serial Configuration",
+                    "description": "Configure the COM port, baud rate, data bits, stop bits, and parity. Test the connection to verify your settings."
+                }
             },
+            "flash": {
+                "noPortsDetected": "No serial ports detected. Please check your connections.",
+                "foundPorts": "Found {count} port(s).",
+                "scanFailed": "Failed to scan ports. Please check server logs.",
+                "connectionSuccess": "Connection test successful! Port is communicating properly.",
+                "connectionFailed": "Connection test failed. Please check your settings.",
+                "connectionInUse": "The port appears to be in use by another application.",
+                "connectionNoDevice": "No device found on this port. Check the connection.",
+                "testFailed": "Connection test failed with an error.",
+                "selectPort": "Please select a COM port first.",
+                "saveSuccess": "{machineType} settings saved successfully!",
+                "saveFailed": "Failed to save settings. Please try again.",
+                "resetSuccess": "Settings reset to last saved values.",
+                "portClosed": "Port closed successfully.",
+                "closeFailed": "Failed to close the port."
+            }
         },
 
         // ── Premium Rates ────────────────────────────────────────────
@@ -2935,6 +3044,7 @@ const en = {
 
         // ── Seller Payments (Main) ──────────────────────────────────
         sellerPayments: {
+            commissionSettings: "Commission Settings",
             cattleFeedDeductions: "Cattle Feed Deductions",
             cattleFeed: "CattleFeed",
             cattleFeedDeduction: "Cattle Feed Deduction",

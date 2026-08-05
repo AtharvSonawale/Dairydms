@@ -5,7 +5,7 @@ import {
     X, TrendingUp, Milk, FlaskConical, User, Hash,
     MapPin, Warehouse, ChevronDown, Calendar, FileDown, Plus,
     PencilIcon,
-    Trash2,
+    Trash2, Thermometer
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -38,7 +38,10 @@ const EMPTY_TRUCK = {
     buffalo_qty: "",
     remarks: "",
     shift: getShiftByTime(),
+    acidity: "",
+    temperature: "",
 };
+
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
     return (
@@ -109,6 +112,13 @@ export default function TankDispatch() {
     const [pdfReady, setPdfReady] = useState(false);
     const [activeTruckIdx, setActiveTruckIdx] = useState(0);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+    const [fssaiCode, setFssaiCode] = useState("");
+    const [dispatchSettings, setDispatchSettings] = useState({
+        default_acidity: "12.5",
+        default_temperature: "2",
+        fssai_code: "11521040000016"
+    });
+
     const activeTruck = trucks[activeTruckIdx] || {};
     const setTruckField = (idx, k, v) => setTrucks(p => {
         const t = [...p];
@@ -122,6 +132,23 @@ export default function TankDispatch() {
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    // ── Fetch FSSAI and default settings ──────────────────────
+    const fetchDispatchSettings = async () => {
+        try {
+            const { data } = await api.get('/settings/dispatch');
+            if (data) {
+                setDispatchSettings({
+                    default_acidity: data.default_acidity || "12.5",
+                    default_temperature: data.default_temperature || "2",
+                    fssai_code: data.fssai_code || "11521040000016"
+                });
+                setFssaiCode(data.fssai_code || "11521040000016");
+            }
+        } catch (err) {
+            console.error("Failed to fetch dispatch settings:", err);
+        }
     };
 
     const startDispatchTour = () => {
@@ -143,7 +170,7 @@ export default function TankDispatch() {
                 },
                 {
                     element: '[data-tour="dispatch-form"]',
-                    popover: { title: t('tankDispatch.newDispatchEntry'), description: 'Fill in factory, vehicle, driver, and optional remarks. Enter cow and buffalo quantities and rates per litre — amounts are computed automatically. Add multiple trucks if needed.' },
+                    popover: { title: t('tankDispatch.newDispatchEntry'), description: 'Fill in factory, vehicle, driver, acidity, temperature, and optional remarks. Enter cow and buffalo quantities and rates per litre — amounts are computed automatically. Add multiple trucks if needed.' },
                 },
                 {
                     element: '[data-tour="dispatch-table"]',
@@ -397,14 +424,18 @@ export default function TankDispatch() {
         })();
         const fileName = `Challan_${d.factory_name || "Factory"}_${d.dispatch_date || today()}_No${challanNo}`;
 
+        const acidity = d.acidity || dispatchSettings.default_acidity || "12.5";
+        const temperature = d.temperature || dispatchSettings.default_temperature || "2";
+        const fssai = d.fssai_code || dispatchSettings.fssai_code || "11521040000016";
+
         const cowRow = d.milk_type === "cow" ? `
     <tr>
         <td style="padding:8px 12px;border:1px solid #999;color:#000">${t('tankDispatch.cowMilk')}</td>
         <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${parseFloat(d.total_liters).toFixed(1)} L</td>
         <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) : "—"}</td>
         <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) : "—"}</td>
-        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">12.5</td>
-        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">2°C</td>
+        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${acidity}</td>
+        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${temperature}°C</td>
     </tr>` : "";
 
         const bufRow = d.milk_type === "buffalo" ? `
@@ -413,8 +444,8 @@ export default function TankDispatch() {
         <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${parseFloat(d.total_liters).toFixed(1)} L</td>
         <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) : "—"}</td>
         <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) : "—"}</td>
-        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">12.5</td>
-        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">2°C</td>
+        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${acidity}</td>
+        <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${temperature}°C</td>
     </tr>` : "";
 
         const win = window.open("", "_blank", "width=850,height=950");
@@ -455,7 +486,7 @@ export default function TankDispatch() {
                 <div>${t('tankDispatch.date')}: <strong>${dispatchDate}</strong></div>
                 <div style="margin-top:4px">${t('tankDispatch.challanNo')}: <strong>${challanNo}</strong></div>
                 <div style="margin-top:4px">${t('tankDispatch.factoryLabel')}: <strong>${d.factory_name || "—"}</strong></div>
-                <div style="margin-top:4px">FSSAI Lic. No.: <strong>11521040000016</strong></div>
+                <div style="margin-top:4px">FSSAI Lic. No.: <strong>${fssai}</strong></div>
             </div>
         </div>
 
@@ -479,8 +510,8 @@ export default function TankDispatch() {
                     <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${parseFloat(d.total_liters).toFixed(1)} L</td>
                     <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) : "—"}</td>
                     <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) : "—"}</td>
-                    <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">12.5</td>
-                    <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">2°C</td>
+                    <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${acidity}</td>
+                    <td style="padding:8px 12px;border:1px solid #999;text-align:center;color:#000">${temperature}°C</td>
                 </tr>
             </tbody>
         </table>
@@ -546,6 +577,12 @@ export default function TankDispatch() {
             const weightedFat = shiftDispatches.reduce((a, d) => a + parseFloat(d.avg_fat || 0) * parseFloat(d.total_liters || 0), 0) / (totalL || 1);
             const weightedSnf = shiftDispatches.reduce((a, d) => a + parseFloat(d.avg_snf || 0) * parseFloat(d.total_liters || 0), 0) / (totalL || 1);
 
+            // Get settings from first dispatch or use defaults
+            const firstDispatch = shiftDispatches[0];
+            const acidity = firstDispatch?.acidity || dispatchSettings.default_acidity || "12.5";
+            const temperature = firstDispatch?.temperature || dispatchSettings.default_temperature || "2";
+            const fssai = firstDispatch?.fssai_code || dispatchSettings.fssai_code || "11521040000016";
+
             // Group cow+buffalo pairs by vehicle_no (or factory_name as fallback) = one physical truck
             const truckMap = new Map();
             for (const d of shiftDispatches) {
@@ -568,8 +605,8 @@ export default function TankDispatch() {
         <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${cow ? parseFloat(cow.total_liters).toFixed(1) + " L" : "—"}</td>
         <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${cow?.avg_fat ? parseFloat(cow.avg_fat).toFixed(2) : "—"}</td>
         <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${cow?.avg_snf ? parseFloat(cow.avg_snf).toFixed(2) : "—"}</td>
-        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">12.5</td>
-        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">2°C</td>
+        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${acidity}</td>
+        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${temperature}°C</td>
         <td style="padding:6px 10px;border:1px solid #999;text-align:right;font-size:11px;color:#000">${cow?.factory_rate ? "₹" + parseFloat(cow.factory_rate).toFixed(2) : "—"}</td>
         <td style="padding:6px 10px;border:1px solid #666;background:#e0e0e0;text-align:right;font-weight:700;font-size:11px;color:#000">${cow ? "₹" + parseFloat(cow.total_amount || 0).toFixed(2) : "—"}</td>
     </tr>
@@ -579,15 +616,15 @@ export default function TankDispatch() {
         <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${buffalo ? parseFloat(buffalo.total_liters).toFixed(1) + " L" : "—"}</td>
         <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${buffalo?.avg_fat ? parseFloat(buffalo.avg_fat).toFixed(2) : "—"}</td>
         <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${buffalo?.avg_snf ? parseFloat(buffalo.avg_snf).toFixed(2) : "—"}</td>
-        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">12.5</td>
-        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">2°C</td>
+        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${acidity}</td>
+        <td style="padding:6px 10px;border:1px solid #999;text-align:center;font-size:11px;color:#000">${temperature}°C</td>
         <td style="padding:6px 10px;border:1px solid #999;text-align:right;font-size:11px;color:#000">${buffalo?.factory_rate ? "₹" + parseFloat(buffalo.factory_rate).toFixed(2) : "—"}</td>
         <td style="padding:6px 10px;border:1px solid #666;background:#e0e0e0;text-align:right;font-weight:700;font-size:11px;color:#000">${buffalo ? "₹" + parseFloat(buffalo.total_amount || 0).toFixed(2) : "—"}</td>
     </tr>
     <tr style="background:#f5f5f5;font-weight:700;border-bottom:2px solid #ccc">
         <td colspan="3" style="padding:5px 10px;border:1px solid #999;font-size:10px;color:#555">Total — ${meta.vehicle_no || meta.factory_name}</td>
         <td style="padding:5px 10px;border:1px solid #999;font-size:10px;color:#333">${truckL} L combined</td>
-        <td colspan="6" style="border:1px solid #999"></td>
+        <td colspan="4" style="border:1px solid #999"></td>
         <td style="padding:5px 10px;border:1px solid #666;background:#d0d0d0;text-align:right;font-size:11px;font-weight:700;color:#000">₹${truckAmt}</td>
     </tr>`;
             }).join("");
@@ -623,12 +660,11 @@ export default function TankDispatch() {
                     <div style="font-size:15px;font-weight:bold;color:#000">${t('tankDispatch.combinedChallan')}</div>
                     <div style="font-size:11px;color:#333;margin-top:3px">${t('tankDispatch.shift')}: <strong>${shiftLabel}</strong></div>
                     <div style="font-size:11px;color:#333;margin-top:2px">${t('tankDispatch.totalTrucks')}: <strong>${[...new Set(shiftDispatches.map(d => d.vehicle_no || d.factory_name))].length}</strong></div>
-
                     <div style="font-size:11px;color:#333;margin-top:2px">${t('tankDispatch.generated')}: <strong>${dispatchTime}</strong></div>
                 </div>
                 <div style="text-align:right;font-size:11px;color:#000">
                     <div>${t('tankDispatch.date')}: <strong>${dispatchDate}</strong></div>
-                    <div style="margin-top:3px">FSSAI Lic. No.: <strong>11521040000016</strong></div>
+                    <div style="margin-top:3px">FSSAI Lic. No.: <strong>${fssai}</strong></div>
                     <div style="margin-top:8px;display:flex;gap:10px;justify-content:flex-end">
                         <div style="background:#e8e8e8;border:1px solid #999;padding:5px 10px;border-radius:4px;text-align:center">
                             <div style="font-size:9px;font-weight:600;color:#000">${t('tankDispatch.cow')}</div>
@@ -774,6 +810,7 @@ export default function TankDispatch() {
     // Effect 1: stock always uses selectedDate
     useEffect(() => {
         fetchStock(selectedDate);
+        fetchDispatchSettings();
     }, [selectedDate]);
 
     // Effect 2: dispatches use the range
@@ -834,6 +871,9 @@ export default function TankDispatch() {
                         total_amount: t.cow_rate ? parseFloat(cowAmt) : 0,
                         remarks: t.remarks?.trim() || null,
                         shift: t.shift || currentShift,
+                        acidity: t.acidity || dispatchSettings.default_acidity || "12.5",
+                        temperature: t.temperature || dispatchSettings.default_temperature || "2",
+                        fssai_code: dispatchSettings.fssai_code || "11521040000016",
                     });
                 }
 
@@ -859,6 +899,9 @@ export default function TankDispatch() {
                         total_amount: t.buffalo_rate ? parseFloat(bufAmt) : 0,
                         remarks: t.remarks?.trim() || null,
                         shift: t.shift || currentShift,
+                        acidity: t.acidity || dispatchSettings.default_acidity || "12.5",
+                        temperature: t.temperature || dispatchSettings.default_temperature || "2",
+                        fssai_code: dispatchSettings.fssai_code || "11521040000016",
                     });
                 }
             }
@@ -892,6 +935,8 @@ export default function TankDispatch() {
             cow_qty: d.milk_type === "cow" ? String(d.total_liters) : "",
             buffalo_qty: d.milk_type === "buffalo" ? String(d.total_liters) : "",
             remarks: d.remarks || "",
+            acidity: d.acidity || dispatchSettings.default_acidity || "12.5",
+            temperature: d.temperature || dispatchSettings.default_temperature || "2",
         }]);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -920,6 +965,8 @@ export default function TankDispatch() {
                 buffalo_liters: editingDispatch.milk_type === "buffalo" ? editedQty : 0,
                 total_amount: editedRate ? parseFloat((editedQty * editedRate).toFixed(2)) : editingDispatch.total_amount,
                 remarks: activeTruck.remarks?.trim() || null,
+                acidity: activeTruck.acidity || editingDispatch.acidity || dispatchSettings.default_acidity || "12.5",
+                temperature: activeTruck.temperature || editingDispatch.temperature || dispatchSettings.default_temperature || "2",
             });
             showFlash("success", t('tankDispatch.updateSuccess'));
             await fetchDispatches(fromDate, toDate);
@@ -976,6 +1023,8 @@ export default function TankDispatch() {
         t('tankDispatch.colAvgSnf'),
         t('tankDispatch.colRate'),
         t('tankDispatch.colAmount'),
+        t('tankDispatch.colAcidity'),
+        t('tankDispatch.colTemp'),
         t('tankDispatch.colRemarks'),
         t('tankDispatch.colTime'),
         "",
@@ -983,8 +1032,8 @@ export default function TankDispatch() {
     ];
 
     const GRID = isAdmin
-        ? "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 120px 70px 60px 60px 60px"
-        : "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 120px 70px 60px";
+        ? "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 60px 60px 120px 70px 60px 60px 60px"
+        : "1.2fr 75px 85px 95px 75px 75px 75px 75px 95px 60px 60px 120px 70px 60px";
 
     // Helper function to get filtered suggestions
     const getFilteredSuggestions = (field, value) => {
@@ -1004,6 +1053,8 @@ export default function TankDispatch() {
                         vehicle_no: d.vehicle_no || "",
                         driver_name: d.driver_name || "",
                         factory_rate: d.factory_rate || "",
+                        acidity: d.acidity || dispatchSettings.default_acidity || "12.5",
+                        temperature: d.temperature || dispatchSettings.default_temperature || "2",
                     });
                 }
             }
@@ -1064,7 +1115,7 @@ export default function TankDispatch() {
                                     if (rangeMode === "daily") { setFromDate(d); setToDate(d); }
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); fetchRangeDispatches(r.from, r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); fetchRangeDispatches(r.from, r.to); }
-                                }}y
+                                }}
                                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
                                     focus:outline-none focus:ring-2 focus:ring-black transition" />
                         </div>
@@ -1131,7 +1182,8 @@ export default function TankDispatch() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="dispatch-stats">                    {[
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="dispatch-stats">
+                    {[
                         { label: t('tankDispatch.dispatches'), value: `${dispatches.length} (${[...new Set(dispatches.map(d => d.shift + d.dispatch_date))].length} shifts)`, icon: <Truck size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
                         { label: t('tankDispatch.totalDispatched'), value: totalDispatched.toFixed(1) + " L", icon: <Milk size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
                         { label: t('tankDispatch.factoryRevenue'), value: "₹" + totalFactoryRev.toFixed(2), icon: <TrendingUp size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
@@ -1306,6 +1358,8 @@ export default function TankDispatch() {
                                                             setTruckField(truckIdx, "factory_name", sel.factory_name);
                                                             if (sel.vehicle_no) setTruckField(truckIdx, "vehicle_no", sel.vehicle_no);
                                                             if (sel.driver_name) setTruckField(truckIdx, "driver_name", sel.driver_name);
+                                                            if (sel.acidity) setTruckField(truckIdx, "acidity", sel.acidity);
+                                                            if (sel.temperature) setTruckField(truckIdx, "temperature", sel.temperature);
                                                             setDropdownOpen(p => ({ ...p, factory: false }));
                                                         }
                                                     } else if (e.key === "Escape") setDropdownOpen(p => ({ ...p, factory: false }));
@@ -1323,6 +1377,8 @@ export default function TankDispatch() {
                                                                 setTruckField(truckIdx, "factory_name", v.factory_name);
                                                                 if (v.vehicle_no) setTruckField(truckIdx, "vehicle_no", v.vehicle_no);
                                                                 if (v.driver_name) setTruckField(truckIdx, "driver_name", v.driver_name);
+                                                                if (v.acidity) setTruckField(truckIdx, "acidity", v.acidity);
+                                                                if (v.temperature) setTruckField(truckIdx, "temperature", v.temperature);
                                                                 setDropdownOpen(p => ({ ...p, factory: false }));
                                                             }}
                                                             className={`w-full text-left px-3 py-2 text-xs transition ${highlightedIdx.factory === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
@@ -1330,6 +1386,11 @@ export default function TankDispatch() {
                                                             {(v.vehicle_no || v.driver_name) && (
                                                                 <div className="text-[10px] text-gray-400 mt-0.5 font-mono">
                                                                     {v.vehicle_no}{v.vehicle_no && v.driver_name ? " · " : ""}{v.driver_name}
+                                                                </div>
+                                                            )}
+                                                            {(v.acidity || v.temperature) && (
+                                                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                                                    Acidity: {v.acidity || "—"} · Temp: {v.temperature || "—"}°C
                                                                 </div>
                                                             )}
                                                         </button>
@@ -1382,6 +1443,24 @@ export default function TankDispatch() {
                                             )}
                                             {truckForm.driver_name && <button type="button" onClick={() => mkSet("driver_name", "")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"><X size={12} /></button>}
                                         </div>
+                                    </Field>
+
+                                    <Field label={t('tankDispatch.acidity')} icon={<FlaskConical size={12} />}>
+                                        <TinyInput
+                                            value={truckForm.acidity || dispatchSettings.default_acidity || "12.5"}
+                                            onChange={(e) => mkSet("acidity", e.target.value)}
+                                            placeholder="Acidity"
+                                            className="w-20 bg-amber-50 border-amber-200 text-amber-700"
+                                        />
+                                    </Field>
+
+                                    <Field label={t('tankDispatch.temp')} icon={<Thermometer size={12} />}>
+                                        <TinyInput
+                                            value={truckForm.temperature || dispatchSettings.default_temperature || "2"}
+                                            onChange={(e) => mkSet("temperature", e.target.value)}
+                                            placeholder="°C"
+                                            className="w-16 bg-blue-50 border-blue-200 text-blue-700"
+                                        />
                                     </Field>
 
                                     <Field label={t('tankDispatch.remarks')} icon={<ChevronDown size={12} />}>
@@ -1534,90 +1613,96 @@ export default function TankDispatch() {
                     ) : (
                         <div className="overflow-x-auto">
                             <div className="min-w-max">
-                                        {[...dispatches].reverse().map((d, i) => (
-                                            <div
-                                                key={d.dispatch_id || i}
-                                                className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
-                                                style={{ gridTemplateColumns: GRID }}
-                                            >
-                                                {/* Existing cells (Factory, Type, Vehicle, Driver, Qty, FAT%, SNF%, Rate, Amount, Remarks, Time, PDF) */}
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
-                                                            <Truck size={11} className="text-white" />
-                                                        </div>
-                                                        <span className="text-gray-800 font-medium text-xs truncate">{d.factory_name || "—"}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
-        ${d.milk_type === "cow" ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                            : d.milk_type === "buffalo" ? "bg-blue-50 text-blue-700 border-blue-100"
-                                                                : "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                                        {d.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-blue-600 font-mono text-xs font-medium">{d.vehicle_no || "—"}</TableCell>
-                                                <TableCell className="text-gray-600 text-xs">{d.driver_name || "—"}</TableCell>
-                                                <TableCell className="text-emerald-600 font-mono font-bold text-xs">
-                                                    {parseFloat(d.total_liters).toFixed(1)} L
-                                                </TableCell>
-                                                <TableCell className="text-amber-600 font-mono text-xs">
-                                                    {d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) + "%" : "—"}
-                                                </TableCell>
-                                                <TableCell className="text-violet-600 font-mono text-xs">
-                                                    {d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) + "%" : "—"}
-                                                </TableCell>
-                                                <TableCell className="text-gray-700 font-mono text-xs">
-                                                    {d.factory_rate ? `₹${parseFloat(d.factory_rate).toFixed(2)}` : "—"}
-                                                </TableCell>
-                                                <TableCell className="text-gray-900 font-bold text-xs">
-                                                    ₹{parseFloat(d.total_amount || 0).toFixed(2)}
-                                                </TableCell>
-                                                <TableCell className="text-gray-400 text-xs truncate">
-                                                    {d.remarks || "—"}
-                                                </TableCell>
-                                                <TableCell className="text-gray-400 font-mono text-xs">
-                                                    {fmtTime(d.created_at)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <button
-                                                        onClick={(e) => printChallan(e, d)}
-                                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition"
-                                                    >
-                                                        <Truck size={10} /> PDF
-                                                    </button>
-                                                </TableCell>
-
-                                                {/* Edit button (existing) */}
-                                                {isAdmin && (
-                                                    <TableCell>
-                                                        <button
-                                                            onClick={() => handleEdit(d)}
-                                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border
-            ${editingDispatch?.dispatch_id === d.dispatch_id
-                                                                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                                    : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}
-                                                        >
-                                                            <PencilIcon size={10} />
-                                                            {editingDispatch?.dispatch_id === d.dispatch_id ? t('tankDispatch.editing') : t('tankDispatch.edit')}
-                                                        </button>
-                                                    </TableCell>
-                                                )}
-
-                                                {/* Delete button (new) */}
-                                                {isAdmin && (
-                                                    <TableCell>
-                                                        <button
-                                                            onClick={() => setDeleteConfirmId(d.dispatch_id)}
-                                                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 text-[10px] font-semibold transition"
-                                                        >
-                                                            <Trash2 size={10} /> {t('tankDispatch.delete')}
-                                                        </button>
-                                                    </TableCell>
-                                                )}
+                                {[...dispatches].reverse().map((d, i) => (
+                                    <div
+                                        key={d.dispatch_id || i}
+                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        style={{ gridTemplateColumns: GRID }}
+                                    >
+                                        {/* Existing cells (Factory, Type, Vehicle, Driver, Qty, FAT%, SNF%, Rate, Amount, Acidity, Temp, Remarks, Time, PDF) */}
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
+                                                    <Truck size={11} className="text-white" />
+                                                </div>
+                                                <span className="text-gray-800 font-medium text-xs truncate">{d.factory_name || "—"}</span>
                                             </div>
-                                        ))}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
+        ${d.milk_type === "cow" ? "bg-amber-50 text-amber-700 border-amber-100"
+                                                    : d.milk_type === "buffalo" ? "bg-blue-50 text-blue-700 border-blue-100"
+                                                        : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                                {d.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-blue-600 font-mono text-xs font-medium">{d.vehicle_no || "—"}</TableCell>
+                                        <TableCell className="text-gray-600 text-xs">{d.driver_name || "—"}</TableCell>
+                                        <TableCell className="text-emerald-600 font-mono font-bold text-xs">
+                                            {parseFloat(d.total_liters).toFixed(1)} L
+                                        </TableCell>
+                                        <TableCell className="text-amber-600 font-mono text-xs">
+                                            {d.avg_fat ? parseFloat(d.avg_fat).toFixed(2) + "%" : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-violet-600 font-mono text-xs">
+                                            {d.avg_snf ? parseFloat(d.avg_snf).toFixed(2) + "%" : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-gray-700 font-mono text-xs">
+                                            {d.factory_rate ? `₹${parseFloat(d.factory_rate).toFixed(2)}` : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-gray-900 font-bold text-xs">
+                                            ₹{parseFloat(d.total_amount || 0).toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="text-amber-600 font-mono text-xs">
+                                            {d.acidity || dispatchSettings.default_acidity || "12.5"}
+                                        </TableCell>
+                                        <TableCell className="text-blue-600 font-mono text-xs">
+                                            {d.temperature || dispatchSettings.default_temperature || "2"}°C
+                                        </TableCell>
+                                        <TableCell className="text-gray-400 text-xs truncate">
+                                            {d.remarks || "—"}
+                                        </TableCell>
+                                        <TableCell className="text-gray-400 font-mono text-xs">
+                                            {fmtTime(d.created_at)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <button
+                                                onClick={(e) => printChallan(e, d)}
+                                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition"
+                                            >
+                                                <Truck size={10} /> PDF
+                                            </button>
+                                        </TableCell>
+
+                                        {/* Edit button (existing) */}
+                                        {isAdmin && (
+                                            <TableCell>
+                                                <button
+                                                    onClick={() => handleEdit(d)}
+                                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border
+            ${editingDispatch?.dispatch_id === d.dispatch_id
+                                                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                                                            : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}
+                                                >
+                                                    <PencilIcon size={10} />
+                                                    {editingDispatch?.dispatch_id === d.dispatch_id ? t('tankDispatch.editing') : t('tankDispatch.edit')}
+                                                </button>
+                                            </TableCell>
+                                        )}
+
+                                        {/* Delete button (new) */}
+                                        {isAdmin && (
+                                            <TableCell>
+                                                <button
+                                                    onClick={() => setDeleteConfirmId(d.dispatch_id)}
+                                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 text-[10px] font-semibold transition"
+                                                >
+                                                    <Trash2 size={10} /> {t('tankDispatch.delete')}
+                                                </button>
+                                            </TableCell>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -1643,6 +1728,8 @@ export default function TankDispatch() {
                             <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
                                 ₹{totalFactoryRev.toFixed(2)}
                             </div>
+                            <div className="px-3 py-2.5" />
+                            <div className="px-3 py-2.5" />
                             <div className="px-3 py-2.5" />
                             <div className="px-3 py-2.5" />
                             {isAdmin && (

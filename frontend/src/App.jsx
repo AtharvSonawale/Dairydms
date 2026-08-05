@@ -68,6 +68,7 @@ import CattleFeedPayments from './pages/CattleFeedPayments';
 import FarmerLedger from './pages/Farmerledger';
 import FarmerLedgerDetail from './pages/FarmerLedgerDetail';
 import Centres from './pages/admin/Centres';
+import CommissionSettings from './pages/admin/CommissionSettings';
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -158,6 +159,7 @@ function AppRoutes() {
         <Route path="/admin/centres" element={<ProtectedRoute role="admin"><Centres /></ProtectedRoute>} />
         <Route path="/operator/settings" element={<OperatorSettings />} />
         <Route path="/farmer/settings" element={<FarmerSettings />} />
+        <Route path="/commission-settings" element={<CommissionSettings />} />
       </Route>
 
       {/* ── Fallback ── */}

@@ -23,18 +23,22 @@ CREATE TABLE app_settings (
    id int NOT NULL AUTO_INCREMENT,
    operator_id int DEFAULT NULL,
    admin_id int DEFAULT NULL,
+   seller_id int DEFAULT NULL,
    centre_id int NOT NULL,
    setting_key varchar(50) NOT NULL,
    setting_value varchar(100) NOT NULL,
    PRIMARY KEY (id),
    UNIQUE KEY unique_op_key (operator_id,setting_key),
    UNIQUE KEY unique_admin_key (admin_id,setting_key),
+   UNIQUE KEY unique_seller_key (seller_id,setting_key),
    KEY centre_id (centre_id),
    KEY idx_admin_id (admin_id),
+   KEY idx_seller_id (seller_id),
    CONSTRAINT app_settings_ibfk_1 FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE CASCADE,
    CONSTRAINT app_settings_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
-   CONSTRAINT app_settings_ibfk_3 FOREIGN KEY (admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE
- ) ENGINE=InnoDB AUTO_INCREMENT=71 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+   CONSTRAINT app_settings_ibfk_3 FOREIGN KEY (admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE,
+   CONSTRAINT app_settings_ibfk_4 FOREIGN KEY (seller_id) REFERENCES sellers (seller_id) ON DELETE CASCADE
+ ) ENGINE=InnoDB AUTO_INCREMENT=111 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE bill_cash_advance_snapshot (
    id bigint NOT NULL AUTO_INCREMENT,
@@ -99,6 +103,7 @@ CREATE TABLE bill_master (
    product_deduction decimal(12,2) DEFAULT '0.00',
    walkin_deduction decimal(12,2) DEFAULT '0.00',
    cattle_feed_deduction decimal(12,2) DEFAULT '0.00',
+   commission_amount decimal(12,2) DEFAULT '0.00',
    tds_amount decimal(12,2) DEFAULT '0.00',
    final_payable decimal(12,2) DEFAULT '0.00',
    cash_paid decimal(12,2) DEFAULT '0.00',
@@ -112,7 +117,7 @@ CREATE TABLE bill_master (
    KEY idx_seller (seller_id),
    KEY centre_id (centre_id),
    CONSTRAINT bill_master_ibfk_4 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=74 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE bill_milk_entries (
    id bigint NOT NULL AUTO_INCREMENT,
@@ -128,6 +133,8 @@ CREATE TABLE bill_milk_entries (
    water decimal(5,2) DEFAULT NULL,
    clr decimal(5,2) DEFAULT NULL,
    rate_applied decimal(10,2) DEFAULT NULL,
+   commission_amount decimal(8,2) DEFAULT '0.00',
+   base_rate decimal(10,2) DEFAULT NULL,
    is_premium tinyint(1) DEFAULT '0',
    total_amount decimal(12,2) DEFAULT NULL,
    created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -136,7 +143,7 @@ CREATE TABLE bill_milk_entries (
    KEY centre_id (centre_id),
    CONSTRAINT bill_milk_entries_ibfk_1 FOREIGN KEY (bill_id) REFERENCES bill_master (bill_id) ON DELETE CASCADE,
    CONSTRAINT bill_milk_entries_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=210 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE bill_product_sales (
    id bigint NOT NULL AUTO_INCREMENT,
@@ -412,6 +419,25 @@ CREATE TABLE centres (
    KEY dairy_id (dairy_id),
    CONSTRAINT centres_ibfk_1 FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id)
  ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE commission_settings (
+  id INT NOT NULL AUTO_INCREMENT,
+  centre_id INT NOT NULL,
+  milk_type ENUM('cow','buffalo') NOT NULL,
+  base_fat DECIMAL(4,2) NOT NULL,
+  base_snf DECIMAL(4,2) NOT NULL,
+  base_commission DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  fat_step_cut DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  snf_step_cut DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  updated_by INT DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_centre_milktype (centre_id, milk_type),
+  KEY idx_centre_id (centre_id),
+  CONSTRAINT commission_settings_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE cow_milk_rates (
    rate_id int NOT NULL AUTO_INCREMENT,
@@ -862,6 +888,7 @@ CREATE TABLE seller_payments (
    product_deduction decimal(10,2) DEFAULT '0.00',
    walkin_deduction decimal(10,2) DEFAULT '0.00',
    cattle_feed_deduction decimal(12,2) DEFAULT '0.00',
+   commission_amount decimal(12,2) DEFAULT '0.00',
    tds_amount decimal(10,2) DEFAULT '0.00',
    final_payable decimal(10,2) DEFAULT '0.00',
    cash_paid decimal(10,2) NOT NULL,
@@ -874,7 +901,7 @@ CREATE TABLE seller_payments (
    CONSTRAINT seller_payments_ibfk_1 FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
    CONSTRAINT seller_payments_ibfk_2 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
    CONSTRAINT seller_payments_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=74 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 
 CREATE TABLE sellers (
    seller_id int NOT NULL AUTO_INCREMENT,
@@ -908,7 +935,6 @@ CREATE TABLE sellers (
    deposit_per_litre decimal(8,2) DEFAULT NULL,
    product_sale_enabled tinyint(1) NOT NULL DEFAULT '0',
    cattle_feed_sale_enabled tinyint(1) NOT NULL DEFAULT '0',
-   payment_term enum('prepaid','postpaid') NOT NULL DEFAULT 'postpaid',
    PRIMARY KEY (seller_id),
    UNIQUE KEY uq_seller_mobile (mobile),
    UNIQUE KEY uq_seller_code_centre (centre_id,seller_code),
