@@ -581,8 +581,8 @@ export default function MilkEntry() {
 
     // RS232 Machine Quantity — now driven by the backend's live weight machine reader
     const [weightBySubtype, setWeightBySubtype] = useState({
-        weight_gavali: { qty: "", uom: "", connected: false, raw: "" },
-        weight_utpadak: { qty: "", uom: "", connected: false, raw: "" },
+        weight_gavali: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
+        weight_utpadak: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
     });
     const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null });
     const socketRef = useRef(null);
@@ -592,7 +592,9 @@ export default function MilkEntry() {
     const activeWeightSubtypeParam = activeWeightKey === "weight_gavali" ? "gavali" : "utpadak";
     const activeWeight = weightBySubtype[activeWeightKey];
     const machineQty = activeWeight.qty;
+    const machineQty2 = activeWeight.qty2;
     const machineUom = activeWeight.uom;
+    const machineUom2 = activeWeight.uom2;
     const isMachineConnected = activeWeight.connected;
 
     // RS232 Fat & SNF Machine — driven by the backend's live fat-machine reader
@@ -617,6 +619,7 @@ export default function MilkEntry() {
             })
             .catch(() => { /* leave as null — shown as "not configured" */ });
     }, []);
+
     // ── Connect to the backend's WebSocket and listen for live weight updates ──
     useEffect(() => {
         const resolvedSocketUrl =
@@ -635,7 +638,9 @@ export default function MilkEntry() {
                 [subtypeKey]: {
                     connected: !!reading.connected,
                     qty: reading.value !== null && reading.value !== undefined ? reading.value.toFixed(3) : prev[subtypeKey].qty,
+                    qty2: reading.value2 !== null && reading.value2 !== undefined ? reading.value2.toFixed(3) : prev[subtypeKey].qty2,
                     uom: reading.unit || prev[subtypeKey].uom,
+                    uom2: reading.unit2 || prev[subtypeKey].uom2,
                     raw: reading.raw || prev[subtypeKey].raw,
                 },
             }));
@@ -957,7 +962,7 @@ export default function MilkEntry() {
                 water: Number(form.water || 0),
                 rate_applied: Number(form.rate_applied),
                 total_amount: Number(amount),
-                machine_qty: form.machine_qty ? Number(form.machine_qty) : null, // Add machine quantity
+                machine_qty: form.machine_qty ? Number(form.machine_qty) : null,
             });
             await fetchEntries(selectedDate, selectedDate);
             await fetchLiveStock(selectedDate);
@@ -965,8 +970,8 @@ export default function MilkEntry() {
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
             setWeightBySubtype(prev => ({
-                weight_gavali: { ...prev.weight_gavali, qty: "" },
-                weight_utpadak: { ...prev.weight_utpadak, qty: "" },
+                weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
+                weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
             }));
             setMachineProtein("");
         } catch (err) {
@@ -1030,8 +1035,8 @@ export default function MilkEntry() {
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
             setWeightBySubtype(prev => ({
-                weight_gavali: { ...prev.weight_gavali, qty: "" },
-                weight_utpadak: { ...prev.weight_utpadak, qty: "" },
+                weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
+                weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
             }));
             setMachineProtein("");
         } catch (err) {
@@ -1058,8 +1063,10 @@ export default function MilkEntry() {
         setEditingEntry(null);
         setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
         setSellerSearch("");
-        setMachineQty("");
-        setMachineUom("");
+        setWeightBySubtype(prev => ({
+            weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
+            weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
+        }));
         setMachineProtein("");
     };
 
@@ -1512,7 +1519,7 @@ export default function MilkEntry() {
                                     </span>
                                 </div>
 
-                                {/* Qty */}
+                                {/* Qty 1 */}
                                 <div className="relative ml-1 flex flex-col gap-0.5">
                                     <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
                                         Qty
@@ -1536,7 +1543,7 @@ export default function MilkEntry() {
                                     )}
                                 </div>
 
-                                {/* UOM */}
+                                {/* UOM 1 */}
                                 <div className="relative flex flex-col gap-0.5">
                                     <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
                                         UOM
@@ -1544,6 +1551,45 @@ export default function MilkEntry() {
 
                                     <TinyInput
                                         value={machineUom}
+                                        readOnly
+                                        placeholder="—"
+                                        type="text"
+                                        className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
+                                            ? "border-emerald-400 text-emerald-300"
+                                            : "border-white/20 text-white/70"
+                                            }`}
+                                        style={{ width: "50px", padding: "8px 4px" }}
+                                    />
+                                </div>
+
+                                {/* Qty 2 */}
+                                <div className="relative ml-2 flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
+                                        Qty2
+                                    </span>
+
+                                    <TinyInput
+                                        value={machineQty2}
+                                        readOnly
+                                        placeholder="0.0"
+                                        type="text"
+                                        inputMode="decimal"
+                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
+                                            ? "border-emerald-400 text-emerald-300"
+                                            : "border-white/20 text-white/70"
+                                            }`}
+                                        style={{ width: "100px", padding: "8px 6px" }}
+                                    />
+                                </div>
+
+                                {/* UOM 2 */}
+                                <div className="relative flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
+                                        UOM2
+                                    </span>
+
+                                    <TinyInput
+                                        value={machineUom2}
                                         readOnly
                                         placeholder="—"
                                         type="text"

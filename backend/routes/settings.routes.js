@@ -1,39 +1,33 @@
-const express = require('express');
-const router = express.Router();
+const router = require('express').Router();
 const protect = require('../middleware/auth');
-const {
-    getPermissions,
-    savePermissions,
-    getAppSettings,
-    saveAppSettings,
-    getGlobalSettings,
-    saveGlobalSettings,
-    clearAllData,
-} = require('../controllers/settings.controller');
-const { getPortSettings, savePortSettings, testPortConnection, listAvailablePorts, closePort, getWeightStatus, connectWeightMachine, disconnectWeightMachine } = require('../controllers/ports.controller');
+const isAdmin = require('../middleware/isAdmin');
+const settingsController = require('../controllers/settings.controller');
 
-router.use(protect);
+// Global settings
+router.get('/global', protect, settingsController.getGlobalSettings);
+router.post('/global', protect, settingsController.saveGlobalSettings);
 
-// Global settings (app name, logo, language, text size)
-router.get('/global', getGlobalSettings);
-router.post('/global', saveGlobalSettings);
+// Dispatch settings - FSSAI Code
+router.get('/dispatch', protect, settingsController.getDispatchSettings);
+router.post('/dispatch', protect, isAdmin, settingsController.saveDispatchSettings);
 
-// Per-operator app settings
-router.get('/app', getAppSettings);
-router.post('/app', saveAppSettings);
+// App settings
+router.get('/app', protect, settingsController.getAppSettings);
+router.post('/app', protect, settingsController.saveAppSettings);
 
-// Per-operator permissions
-router.get('/permissions/:operatorId', getPermissions);
-router.post('/permissions/:operatorId', savePermissions);
-router.post('/clear-all-data', clearAllData);
+// Operator permissions
+router.get('/permissions/:operatorId', protect, settingsController.getPermissions);
+router.post('/permissions/:operatorId', protect, settingsController.savePermissions);
+router.post('/permissions/apply-defaults', protect, isAdmin, settingsController.applyDefaults);
 
-router.get('/ports', getPortSettings);
-router.post('/ports', savePortSettings);
-router.get('/ports/available', listAvailablePorts);
-router.post('/ports/test', testPortConnection);
-router.post('/ports/close', closePort);
-router.get('/ports/weight/status', getWeightStatus);
-router.post('/ports/weight/connect', connectWeightMachine);
-router.post('/ports/weight/disconnect', disconnectWeightMachine);
+// Centre settings
+router.get('/centre', protect, isAdmin, settingsController.getCentreSettings);
+router.post('/centre', protect, isAdmin, settingsController.saveCentreSettings);
+
+// Data management
+router.post('/clear-data', protect, settingsController.clearAllData);
+
+// System info
+router.get('/system-info', protect, settingsController.getSystemInfo);
 
 module.exports = router;

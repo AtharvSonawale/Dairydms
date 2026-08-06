@@ -38,7 +38,7 @@ CREATE TABLE app_settings (
    CONSTRAINT app_settings_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT app_settings_ibfk_3 FOREIGN KEY (admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE,
    CONSTRAINT app_settings_ibfk_4 FOREIGN KEY (seller_id) REFERENCES sellers (seller_id) ON DELETE CASCADE
- ) ENGINE=InnoDB AUTO_INCREMENT=111 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=147 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE bill_cash_advance_snapshot (
    id bigint NOT NULL AUTO_INCREMENT,
@@ -1027,6 +1027,9 @@ CREATE TABLE tank_dispatch (
    created_by_admin_id int DEFAULT NULL,
    centre_id int NOT NULL,
    remarks text,
+   acidity varchar(10) DEFAULT '12.5',
+   temperature varchar(10) DEFAULT '2',
+   fssai_code varchar(50) DEFAULT '11521040000016',
    created_at datetime DEFAULT CURRENT_TIMESTAMP,
    PRIMARY KEY (dispatch_id),
    KEY operator_id (operator_id),
@@ -1035,7 +1038,7 @@ CREATE TABLE tank_dispatch (
    CONSTRAINT tank_dispatch_ibfk_1 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
    CONSTRAINT tank_dispatch_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT tank_dispatch_ibfk_3 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
- ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE walkin_bill_master (
    bill_id int NOT NULL AUTO_INCREMENT,

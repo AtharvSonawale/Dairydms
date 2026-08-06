@@ -59,6 +59,61 @@ exports.saveGlobalSettings = async (req, res) => {
     }
 };
 
+// ─── Dispatch Settings (FSSAI Code Only) ────────────────────────────────────
+
+// GET /api/settings/dispatch
+exports.getDispatchSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+
+        // Get FSSAI code from app_settings
+        const [rows] = await pool.query(
+            `SELECT setting_value 
+             FROM app_settings 
+             WHERE centre_id = ? 
+               AND setting_key = 'fssai_code'
+               AND operator_id IS NULL`,
+            [centreId]
+        );
+
+        const result = {
+            fssai_code: rows.length > 0 ? rows[0].setting_value : '11521040000016'
+        };
+
+        res.json(result);
+    } catch (err) {
+        console.error('getDispatchSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// POST /api/settings/dispatch
+exports.saveDispatchSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        }
+
+        const { fssai_code } = req.body;
+
+        // Save FSSAI code
+        await pool.query(
+            `INSERT INTO app_settings (operator_id, centre_id, setting_key, setting_value)
+             VALUES (?, ?, 'fssai_code', ?)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+            [null, centreId, fssai_code || '11521040000016']
+        );
+
+        res.json({ message: 'FSSAI code saved successfully.' });
+    } catch (err) {
+        console.error('saveDispatchSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
 // ─── Operator Permissions ─────────────────────────────────────────────────────
 
 // GET /api/settings/permissions/:operatorId
@@ -282,6 +337,7 @@ exports.saveAppSettings = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
 // ─── Centre Settings (Admin only) ─────────────────────────────────────────────
 
 // GET /api/settings/centre

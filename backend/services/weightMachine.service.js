@@ -11,8 +11,8 @@ const SOCKET_EVENT = { weight_gavali: 'weight:update:gavali', weight_utpadak: 'w
 const activePort = { weight_gavali: null, weight_utpadak: null };     // live SerialPort instance per subtype, or null if not connected
 const activeParser = { weight_gavali: null, weight_utpadak: null };
 const latestReading = {
-    weight_gavali: { value: null, unit: null, raw: null, timestamp: null, connected: false },
-    weight_utpadak: { value: null, unit: null, raw: null, timestamp: null, connected: false },
+    weight_gavali: { value: null, value2: null, unit: null, unit2: null, raw: null, timestamp: null, connected: false },
+    weight_utpadak: { value: null, value2: null, unit: null, unit2: null, raw: null, timestamp: null, connected: false },
 };
 let ioInstance = null;        // socket.io server instance, set via init()
 
@@ -27,15 +27,43 @@ const externalClosers = new Map(); // path -> () => Promise<void>
 // ─── Parse a line like "+0005.460 Ltr" or "-0005.460 Ltr" ────────────────────
 // Captures the unit (e.g. "Ltr", "Kg") rather than assuming it's always Ltr,
 // so the UOM shown in the UI always reflects what the machine actually sent.
+// 
+// Supports multiple values in a single line, e.g.:
+// "+0005.460 Ltr +0003.200 Kg" → value: 5.460, unit: "Ltr", value2: 3.200, unit2: "Kg"
+// This allows weight machines that send both liters and kilograms simultaneously.
 function parseWeightLine(line) {
     const trimmed = (line || '').trim();
-    const match = trimmed.match(/^([+-])(\d+\.\d+)\s*([A-Za-z]+)/);
-    if (!match) return null;
 
-    const sign = match[1] === '-' ? -1 : 1;
-    const value = sign * parseFloat(match[2]);
-    const unit = match[3];
-    return { value, unit, raw: trimmed };
+    // Pattern to match multiple signed numbers with units
+    // Matches: [+-]digits.digits space optional unit letters
+    const pattern = /([+-])(\d+\.\d+)\s*([A-Za-z]+)/g;
+
+    let match;
+    const results = [];
+
+    while ((match = pattern.exec(trimmed)) !== null) {
+        const sign = match[1] === '-' ? -1 : 1;
+        const value = sign * parseFloat(match[2]);
+        const unit = match[3];
+        results.push({ value, unit });
+    }
+
+    if (results.length === 0) return null;
+
+    // Build the response object
+    const response = {
+        raw: trimmed,
+        value: results[0].value,
+        unit: results[0].unit,
+    };
+
+    // If we have a second value, add it as value2/unit2
+    if (results.length >= 2) {
+        response.value2 = results[1].value;
+        response.unit2 = results[1].unit;
+    }
+
+    return response;
 }
 
 // ─── Push the latest reading to all connected frontend clients ───────────────
@@ -150,7 +178,9 @@ async function connect(dairyId, subtype) {
             if (parsed) {
                 latestReading[subtype] = {
                     value: parsed.value,
+                    value2: parsed.value2 !== undefined ? parsed.value2 : null,
                     unit: parsed.unit,
+                    unit2: parsed.unit2 !== undefined ? parsed.unit2 : null,
                     raw: parsed.raw,
                     timestamp: new Date().toISOString(),
                     connected: true,
@@ -160,7 +190,12 @@ async function connect(dairyId, subtype) {
         });
 
         sp.on('close', () => {
-            latestReading[subtype] = { ...latestReading[subtype], connected: false };
+            latestReading[subtype] = {
+                ...latestReading[subtype],
+                value2: null,
+                unit2: null,
+                connected: false
+            };
             broadcast(subtype);
             activePort[subtype] = null;
             activeParser[subtype] = null;
@@ -184,7 +219,15 @@ async function connect(dairyId, subtype) {
             // "connected: true" now means the OS port handle opened successfully.
             // It does NOT guarantee the machine is sending valid data — check
             // latestReading[subtype].timestamp / isReceivingData(subtype) if you need that distinction.
-            latestReading[subtype] = { value: null, unit: null, raw: null, timestamp: null, connected: true };
+            latestReading[subtype] = {
+                value: null,
+                value2: null,
+                unit: null,
+                unit2: null,
+                raw: null,
+                timestamp: null,
+                connected: true
+            };
             broadcast(subtype);
             resolve();
         });

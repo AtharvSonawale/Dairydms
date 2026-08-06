@@ -5,7 +5,7 @@ import {
     Settings, Type, Save,
     BadgeCheck, AlertTriangle, X,
     Check, Lock, Unlock, RefreshCw,
-    Users, Building2, Upload, Languages, Percent
+    Users, Building2, Upload, Languages, Percent, Truck
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -102,7 +102,14 @@ const LANGUAGES = [
 ];
 
 // ── Saved-state defaults ──────────────────────────────────────
-const SERVER_DEFAULTS = { appName: 'MilkApp', logoUrl: '', textSize: 'base', language: 'en', fatOnlyAutofill: false };
+const SERVER_DEFAULTS = {
+    appName: 'MilkApp',
+    logoUrl: '',
+    textSize: 'base',
+    language: 'en',
+    fatOnlyAutofill: false,
+    fssaiCode: '11521040000016'
+};
 
 function SectionCard({ title, icon, children, ...rest }) {
     return (
@@ -131,6 +138,7 @@ export default function AdminSettings() {
     const [textSize, setTextSize] = useState(SERVER_DEFAULTS.textSize);
     const [language, setLanguage] = useState(SERVER_DEFAULTS.language);
     const [fatOnlyAutofill, setFatOnlyAutofill] = useState(SERVER_DEFAULTS.fatOnlyAutofill);
+    const [fssaiCode, setFssaiCode] = useState(SERVER_DEFAULTS.fssaiCode);
 
     const [savedState, setSavedState] = useState(SERVER_DEFAULTS);
 
@@ -141,9 +149,6 @@ export default function AdminSettings() {
 
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
-    const [defaultAcidity, setDefaultAcidity] = useState('12.5');
-    const [defaultTemperature, setDefaultTemperature] = useState('2');
-    const [fssaiCode, setFssaiCode] = useState('11521040000016');
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
@@ -166,6 +171,10 @@ export default function AdminSettings() {
                 {
                     element: '[data-tour="language"]',
                     popover: { title: t('settings.language'), description: t('settings.tour.language') },
+                },
+                {
+                    element: '[data-tour="dispatch-settings"]',
+                    popover: { title: t('settings.dispatchSettings'), description: t('settings.tour.dispatchSettings') },
                 },
                 {
                     element: '[data-tour="operator-access"]',
@@ -198,6 +207,13 @@ export default function AdminSettings() {
                 setLanguage(snap.language);
                 setFatOnlyAutofill(snap.fatOnlyAutofill);
                 setSavedState(snap);
+            })
+            .catch(() => { /* keep defaults */ });
+
+        // Load FSSAI code
+        api.get('/settings/dispatch')
+            .then(({ data }) => {
+                setFssaiCode(data.fssai_code || SERVER_DEFAULTS.fssaiCode);
             })
             .catch(() => { /* keep defaults */ });
     }, []);
@@ -279,13 +295,25 @@ export default function AdminSettings() {
                 fat_only_autofill: fatOnlyAutofill ? '1' : '0',
             });
 
+            // FSSAI code
+            await api.post('/settings/dispatch', {
+                fssai_code: fssaiCode,
+            });
+
             // Personal preferences (this admin/operator only)
             await api.post('/settings/app', {
                 text_size: textSize,
                 language: language,
             });
 
-            const newSnap = { appName, logoUrl, textSize, language, fatOnlyAutofill };
+            const newSnap = {
+                appName,
+                logoUrl,
+                textSize,
+                language,
+                fatOnlyAutofill,
+                fssaiCode
+            };
             setSavedState(newSnap);
 
             updateConfig({ appName, logoUrl, textSize, language, fatOnlyAutofill });
@@ -310,6 +338,7 @@ export default function AdminSettings() {
         setTextSize(savedState.textSize);
         setLanguage(savedState.language);
         setFatOnlyAutofill(savedState.fatOnlyAutofill);
+        setFssaiCode(SERVER_DEFAULTS.fssaiCode);
         if (selectedOp) setOpAccess(buildDefaultAccess());
         showFlash('success', t('settings.resetSuccess'));
     };
@@ -569,6 +598,28 @@ export default function AdminSettings() {
                             <AlertTriangle size={13} /> {t('settings.fatOnlyAutofill.activeNotification')}
                         </div>
                     )}
+                </SectionCard>
+
+                {/* ── Dispatch Settings - FSSAI Code Only ── */}
+                <SectionCard
+                    title={t('settings.dispatchSettings')}
+                    icon={<Truck size={15} className="text-white" />}
+                    data-tour="dispatch-settings"
+                >
+                    <div className="max-w-md">
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                            {t('settings.fssaiCode')}
+                        </label>
+                        <input
+                            type="text"
+                            value={fssaiCode}
+                            onChange={e => setFssaiCode(e.target.value)}
+                            placeholder="11521040000016"
+                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 text-gray-800 font-semibold text-sm
+                                focus:outline-none focus:border-gray-900 transition placeholder:font-normal placeholder:text-gray-300"
+                        />
+                        <p className="text-[11px] text-gray-400 mt-2">{t('settings.fssaiCodeHint')}</p>
+                    </div>
                 </SectionCard>
 
                 {/* ── Per-Operator Access ── */}
