@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const weightMachine = require('../services/weightMachine.service');
 
 // ─── Global Settings ──────────────────────────────────────────────────────────
 
@@ -36,21 +37,32 @@ exports.saveGlobalSettings = async (req, res) => {
             return res.status(403).json({ error: 'Access denied.' });
         }
 
-        const { app_name, logo_url, fat_only_autofill } = req.body;
+        const { app_name, logo_url, fat_only_autofill, weight_kg_to_ltr_enabled } = req.body;
         const entries = [
             [dairyId, 'app_name', app_name ?? 'MilkApp'],
             [dairyId, 'logo_url', logo_url ?? ''],
             [dairyId, 'fat_only_autofill', fat_only_autofill ?? '0'],
+            [dairyId, 'weight_kg_to_ltr_enabled', weight_kg_to_ltr_enabled ?? '0'],
         ];
 
         await pool.query(
             `INSERT INTO global_settings (dairy_id, setting_key, setting_value)
-             VALUES ?
-             ON DUPLICATE KEY UPDATE
-               setting_value = VALUES(setting_value),
-               updated_at    = CURRENT_TIMESTAMP`,
+     VALUES ?
+     ON DUPLICATE KEY UPDATE
+       setting_value = VALUES(setting_value),
+       updated_at    = CURRENT_TIMESTAMP`,
             [entries]
         );
+
+        // Make the toggle "active" immediately: reconnect both weight scales so
+        // their in-memory kgToLtrEnabled flag (read at connect-time) picks up the
+        // new value, without requiring a trip through Port Settings.
+        if (weight_kg_to_ltr_enabled !== undefined) {
+            weightMachine.connect(dairyId, 'weight_gavali').catch(err =>
+                console.error('weightMachine reconnect (gavali) after settings save failed:', err.message));
+            weightMachine.connect(dairyId, 'weight_utpadak').catch(err =>
+                console.error('weightMachine reconnect (utpadak) after settings save failed:', err.message));
+        }
 
         res.json({ message: 'Dairy settings saved.' });
     } catch (err) {

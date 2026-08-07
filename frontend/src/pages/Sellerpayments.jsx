@@ -766,7 +766,7 @@ export default function SellerPayments() {
         }
     };
 
-    // Build receipt HTML (returns HTML string) – UPDATED with cattle feed
+    // Build receipt HTML (returns HTML string) – UPDATED with rate before and after commission
     const buildReceiptHtml = async (seller, overrideCycle) => {
         const activeCycle = overrideCycle || cycle;
 
@@ -844,6 +844,7 @@ export default function SellerPayments() {
         const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
         const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
+        // Updated buildRow to include rate before commission and rate after commission
         const buildRow = (date) => {
             const m = morningEntries.find(e => e.entry_date?.startsWith(date));
             const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
@@ -854,9 +855,10 @@ export default function SellerPayments() {
                 ? `<td style="text-align:center">${parseFloat(e.quantity || 0).toFixed(2)}</td>
                <td style="text-align:center">${parseFloat(e.fat || 0).toFixed(1)}</td>
                <td style="text-align:center">${parseFloat(e.snf || 0).toFixed(1)}</td>
+               <td style="text-align:center">${parseFloat(e.base_rate || e.rate_applied || 0).toFixed(2)}</td>
                <td style="text-align:center">${parseFloat(e.rate_applied || 0).toFixed(2)}</td>
                <td style="font-weight:600;text-align:right">${parseFloat(e.total_amount || 0).toFixed(2)}</td>`
-                : `<td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:right">—</td>`;
+                : `<td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:right">—</td>`;
 
             return `<tr>
             <td style="font-weight:600;background:#f8f8f8;text-align:center">${dayStr}</td>
@@ -1173,21 +1175,25 @@ ${entries.length > 0 ? `
     <thead>
         <tr>
             <th rowspan="2" style="width:48px">${t('sellerPayments.date')}</th>
-            <th colspan="5" style="background:#d0d0d0">${t('sellerPayments.morningShift')}</th>
-            <th colspan="5" style="background:#c0c0c0">${t('sellerPayments.eveningShift')}</th>
+            <th colspan="7" style="background:#d0d0d0">${t('sellerPayments.morningShift')}</th>
+            <th colspan="7" style="background:#c0c0c0">${t('sellerPayments.eveningShift')}</th>
             <th rowspan="2" style="background:#b0b0b0;width:64px">${t('sellerPayments.dayTotal')}</th>
           </tr>
           <tr>
             <th style="background:#d0d0d0">${t('sellerPayments.qtyL')}</th>
             <th style="background:#d0d0d0">${t('sellerPayments.fat')}</th>
             <th style="background:#d0d0d0">${t('sellerPayments.snf')}</th>
-            <th style="background:#d0d0d0">${t('sellerPayments.rate')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.rateBeforeComm')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.rateAfterComm')}</th>
             <th style="background:#d0d0d0">${t('sellerPayments.amt')}</th>
+            <th style="background:#d0d0d0">${t('sellerPayments.ratePerLtr')}</th>
             <th style="background:#c0c0c0">${t('sellerPayments.qtyL')}</th>
             <th style="background:#c0c0c0">${t('sellerPayments.fat')}</th>
             <th style="background:#c0c0c0">${t('sellerPayments.snf')}</th>
-            <th style="background:#c0c0c0">${t('sellerPayments.rate')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.rateBeforeComm')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.rateAfterComm')}</th>
             <th style="background:#c0c0c0">${t('sellerPayments.amt')}</th>
+            <th style="background:#c0c0c0">${t('sellerPayments.ratePerLtr')}</th>
           </tr>
     </thead>
     <tbody>
@@ -1198,12 +1204,16 @@ ${entries.length > 0 ? `
             <td style="text-align:center">${mFat.toFixed(1)}</td>
             <td style="text-align:center">${mSnf.toFixed(1)}</td>
             <td style="text-align:center">—</td>
+            <td style="text-align:center">—</td>
             <td style="color:#000;text-align:right">${mAmt.toFixed(2)}</td>
+            <td style="text-align:center">—</td>
             <td style="text-align:center">${eQty.toFixed(2)}</td>
             <td style="text-align:center">${eFat.toFixed(1)}</td>
             <td style="text-align:center">${eSnf.toFixed(1)}</td>
             <td style="text-align:center">—</td>
+            <td style="text-align:center">—</td>
             <td style="color:#000;text-align:right">${eAmt.toFixed(2)}</td>
+            <td style="text-align:center">—</td>
             <td style="color:#000;background:#d0d0d0;text-align:right">${milkAmt.toFixed(2)}</td>
           </tr>
     </tbody>
@@ -1385,7 +1395,7 @@ ${commissionBanner}
         }
     };
 
-    // print receipt (Bill PDF) – UPDATED with cattle feed
+    // print receipt (Bill PDF) – UPDATED with rate before and after commission
     const printReceipt = async (e, seller, overrideCycle) => {
         e.stopPropagation();
         const activeCycle = overrideCycle || cycle;
@@ -1465,6 +1475,7 @@ ${commissionBanner}
         const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
         const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
+        // Updated buildRow to include rate before and after commission
         const buildRow = (date) => {
             const m = morningEntries.find(e => e.entry_date?.startsWith(date));
             const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
@@ -1475,9 +1486,10 @@ ${commissionBanner}
                 ? `<td style="text-align:center">${parseFloat(e.quantity || 0).toFixed(2)}</td>
                <td style="text-align:center">${parseFloat(e.fat || 0).toFixed(1)}</td>
                <td style="text-align:center">${parseFloat(e.snf || 0).toFixed(1)}</td>
+               <td style="text-align:center">${parseFloat(e.base_rate || e.rate_applied || 0).toFixed(2)}</td>
                <td style="text-align:center">${parseFloat(e.rate_applied || 0).toFixed(2)}</td>
                <td style="font-weight:600;text-align:right">${parseFloat(e.total_amount || 0).toFixed(2)}</td>`
-                : `<td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:right">—</td>`;
+                : `<td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:right">—</td>`;
 
             return `<tr>
             <td style="font-weight:600;background:#f8f8f8;text-align:center">${dayStr}</td>
@@ -1699,21 +1711,25 @@ ${entries.length > 0 ? `
     <thead>
         <tr>
             <th rowspan="2" style="width:48px">${t('sellerPayments.date')}</th>
-            <th colspan="5" style="background:#1d4ed8">${t('sellerPayments.morningShift')}</th>
-            <th colspan="5" style="background:#4338ca">${t('sellerPayments.eveningShift')}</th>
+            <th colspan="7" style="background:#1d4ed8">${t('sellerPayments.morningShift')}</th>
+            <th colspan="7" style="background:#4338ca">${t('sellerPayments.eveningShift')}</th>
             <th rowspan="2" style="background:#1e3a5f;width:64px">${t('sellerPayments.dayTotal')}</th>
           </tr>
           <tr>
             <th style="background:#1d4ed8">${t('sellerPayments.qtyL')}</th>
             <th style="background:#1d4ed8">${t('sellerPayments.fat')}</th>
             <th style="background:#1d4ed8">${t('sellerPayments.snf')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.rate')}</th>
+            <th style="background:#1d4ed8">${t('sellerPayments.rateBeforeComm')}</th>
+            <th style="background:#1d4ed8">${t('sellerPayments.rateAfterComm')}</th>
             <th style="background:#1d4ed8">${t('sellerPayments.amt')}</th>
+            <th style="background:#1d4ed8">${t('sellerPayments.ratePerLtr')}</th>
             <th style="background:#4338ca">${t('sellerPayments.qtyL')}</th>
             <th style="background:#4338ca">${t('sellerPayments.fat')}</th>
             <th style="background:#4338ca">${t('sellerPayments.snf')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.rate')}</th>
+            <th style="background:#4338ca">${t('sellerPayments.rateBeforeComm')}</th>
+            <th style="background:#4338ca">${t('sellerPayments.rateAfterComm')}</th>
             <th style="background:#4338ca">${t('sellerPayments.amt')}</th>
+            <th style="background:#4338ca">${t('sellerPayments.ratePerLtr')}</th>
           </tr>
     </thead>
     <tbody>
@@ -1724,12 +1740,16 @@ ${entries.length > 0 ? `
             <td style="text-align:center">${mFat.toFixed(1)}</td>
             <td style="text-align:center">${mSnf.toFixed(1)}</td>
             <td style="text-align:center">—</td>
+            <td style="text-align:center">—</td>
             <td style="color:#1d4ed8;text-align:right">${mAmt.toFixed(2)}</td>
+            <td style="text-align:center">—</td>
             <td style="text-align:center">${eQty.toFixed(2)}</td>
             <td style="text-align:center">${eFat.toFixed(1)}</td>
             <td style="text-align:center">${eSnf.toFixed(1)}</td>
             <td style="text-align:center">—</td>
+            <td style="text-align:center">—</td>
             <td style="color:#4338ca;text-align:right">${eAmt.toFixed(2)}</td>
+            <td style="text-align:center">—</td>
             <td style="color:#111;background:#e0e7ff;text-align:right">${milkAmt.toFixed(2)}</td>
           </tr>
     </tbody>
@@ -2777,7 +2797,7 @@ ${commissionBanner}
                                 {isOpen && (
                                     <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
 
-                                        {/* Day-wise entries table – safe with entries array */}
+                                        {/* Day-wise entries table – with rate before and after commission */}
                                         {entries.length > 0 && (
                                             <div>
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
@@ -2785,35 +2805,41 @@ ${commissionBanner}
                                                 </p>
                                                 <div className="rounded-xl border border-gray-100 overflow-hidden">
                                                     <div className="grid bg-gray-50 border-b border-gray-100"
-                                                        style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 95px" }}>
-                                                        {[t('sellerPayments.date'), t('sellerPayments.shift'), t('sellerPayments.qtyL'), t('sellerPayments.fat'), t('sellerPayments.snf'), t('sellerPayments.amount')].map(h => (
+                                                        style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 65px 65px 95px" }}>
+                                                        {[t('sellerPayments.date'), t('sellerPayments.shift'), t('sellerPayments.qtyL'), t('sellerPayments.fat'), t('sellerPayments.snf'), t('sellerPayments.rateBeforeComm'), t('sellerPayments.rateAfterComm'), t('sellerPayments.amount')].map(h => (
                                                             <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
                                                         ))}
                                                     </div>
-                                                    {entries.map((e, i) => (
-                                                        <div key={i}
-                                                            className="grid border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition"
-                                                            style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 95px" }}>
-                                                            <div className="px-3 py-2 text-xs text-gray-600">{fmtDate(e.entry_date)}</div>
-                                                            <div className="px-3 py-2">
-                                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
-                                                                    ${e.shift === "morning" ? "bg-yellow-50 text-yellow-700" : "bg-indigo-50 text-indigo-600"}`}>
-                                                                    {e.shift === "morning" ? "☀" : "🌙"} {e.shift === "morning" ? t('sellerPayments.morning') : t('sellerPayments.evening')}
-                                                                </span>
+                                                    {entries.map((e, i) => {
+                                                        const baseRate = parseFloat(e.base_rate || e.rate_applied || 0);
+                                                        const finalRate = parseFloat(e.rate_applied || 0);
+                                                        return (
+                                                            <div key={i}
+                                                                className="grid border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition"
+                                                                style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 65px 65px 95px" }}>
+                                                                <div className="px-3 py-2 text-xs text-gray-600">{fmtDate(e.entry_date)}</div>
+                                                                <div className="px-3 py-2">
+                                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
+                                                                        ${e.shift === "morning" ? "bg-yellow-50 text-yellow-700" : "bg-indigo-50 text-indigo-600"}`}>
+                                                                        {e.shift === "morning" ? "☀" : "🌙"} {e.shift === "morning" ? t('sellerPayments.morning') : t('sellerPayments.evening')}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="px-3 py-2 text-xs text-blue-600 font-mono font-semibold">{e.quantity}</div>
+                                                                <div className="px-3 py-2 text-xs text-amber-600 font-mono">{e.fat}</div>
+                                                                <div className="px-3 py-2 text-xs text-violet-600 font-mono">{e.snf}</div>
+                                                                <div className="px-3 py-2 text-xs text-gray-500 font-mono">₹{baseRate.toFixed(2)}</div>
+                                                                <div className="px-3 py-2 text-xs text-emerald-600 font-mono font-semibold">₹{finalRate.toFixed(2)}</div>
+                                                                <div className="px-3 py-2 text-xs font-semibold text-gray-800">{fmt(e.total_amount)}</div>
                                                             </div>
-                                                            <div className="px-3 py-2 text-xs text-blue-600 font-mono font-semibold">{e.quantity}</div>
-                                                            <div className="px-3 py-2 text-xs text-amber-600 font-mono">{e.fat}</div>
-                                                            <div className="px-3 py-2 text-xs text-violet-600 font-mono">{e.snf}</div>
-                                                            <div className="px-3 py-2 text-xs font-semibold text-gray-800">{fmt(e.total_amount)}</div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                     <div className="grid bg-gray-50 border-t border-gray-100"
-                                                        style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 95px" }}>
+                                                        style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 65px 65px 95px" }}>
                                                         <div className="px-3 py-2 text-xs font-bold text-gray-600 col-span-2">{entries.length} {t('sellerPayments.entries')}</div>
                                                         <div className="px-3 py-2 text-xs font-bold text-blue-700">
                                                             {entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
                                                         </div>
-                                                        <div className="px-3 py-2" /><div className="px-3 py-2" />
+                                                        <div className="px-3 py-2" /><div className="px-3 py-2" /><div className="px-3 py-2" /><div className="px-3 py-2" />
                                                         <div className="px-3 py-2 text-xs font-bold text-gray-900">{fmt(milkAmt)}</div>
                                                     </div>
                                                 </div>
@@ -3003,7 +3029,7 @@ ${commissionBanner}
 
             </main>
 
-            {/* Bill Search Modal */}
+            {/* Bill Search Modal - UPDATED with rate before and after commission */}
             {billSearchOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-6xl h-[90vh] flex flex-col">
@@ -3140,7 +3166,7 @@ ${commissionBanner}
                                 </div>
                             </div>
 
-                            {/* Right: Bill Detail Pane */}
+                            {/* Right: Bill Detail Pane - UPDATED with rate before and after commission */}
                             {billDetail && (
                                 <div className="flex-1 overflow-y-auto flex flex-col relative">
                                     <button
@@ -3201,7 +3227,7 @@ ${commissionBanner}
                                                     ))}
                                                 </div>
 
-                                                {/* Milk Entries Table */}
+                                                {/* Milk Entries Table - UPDATED with rate before and after commission */}
                                                 <div>
                                                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                         {t('sellerPayments.milkCollectionEntries')} ({billDetail.entries.length})
@@ -3209,36 +3235,41 @@ ${commissionBanner}
                                                     <div className="rounded-xl border border-gray-100 overflow-hidden text-xs">
                                                         <div className="grid bg-gray-900 text-white"
                                                             style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
-                                                            {[t('sellerPayments.date'), t('sellerPayments.shift'), t('sellerPayments.type'), t('sellerPayments.qtyL'), t('sellerPayments.fat'), t('sellerPayments.snf'), t('sellerPayments.rate'), t('sellerPayments.amount')].map(h => (
+                                                            {[t('sellerPayments.date'), t('sellerPayments.shift'), t('sellerPayments.type'), t('sellerPayments.qtyL'), t('sellerPayments.fat'), t('sellerPayments.snf'), t('sellerPayments.rateBeforeComm'), t('sellerPayments.rateAfterComm'), t('sellerPayments.amount')].map(h => (
                                                                 <div key={h} className="px-3 py-2 text-[10px] font-semibold uppercase">{h}</div>
                                                             ))}
                                                         </div>
-                                                        {billDetail.entries.map((e, i) => (
-                                                            <div key={i}
-                                                                className={`grid border-b border-gray-50 last:border-0 hover:bg-gray-50 transition ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
-                                                                style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
-                                                                <div className="px-3 py-2 text-gray-600">
-                                                                    {new Date(e.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                                        {billDetail.entries.map((e, i) => {
+                                                            const baseRate = parseFloat(e.base_rate || e.rate_applied || 0);
+                                                            const finalRate = parseFloat(e.rate_applied || 0);
+                                                            return (
+                                                                <div key={i}
+                                                                    className={`grid border-b border-gray-50 last:border-0 hover:bg-gray-50 transition ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
+                                                                    style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
+                                                                    <div className="px-3 py-2 text-gray-600">
+                                                                        {new Date(e.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                                                                    </div>
+                                                                    <div className="px-3 py-2">
+                                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                                                                            ${e.shift === "morning" ? "bg-yellow-100 text-yellow-700" : "bg-indigo-100 text-indigo-600"}`}>
+                                                                            {e.shift === "morning" ? "☀ M" : "🌙 E"}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="px-3 py-2">
+                                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                                                                            ${e.milk_type === "cow" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                                                                            {e.milk_type}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="px-3 py-2 text-blue-600 font-mono font-semibold">{parseFloat(e.quantity || 0).toFixed(2)}</div>
+                                                                    <div className="px-3 py-2 text-amber-600 font-mono">{parseFloat(e.fat || 0).toFixed(2)}</div>
+                                                                    <div className="px-3 py-2 text-violet-600 font-mono">{parseFloat(e.snf || 0).toFixed(2)}</div>
+                                                                    <div className="px-3 py-2 text-gray-500 font-mono">₹{baseRate.toFixed(2)}</div>
+                                                                    <div className="px-3 py-2 text-emerald-600 font-mono font-semibold">₹{finalRate.toFixed(2)}</div>
+                                                                    <div className="px-3 py-2 font-bold text-gray-800">₹{parseFloat(e.total_amount || 0).toFixed(2)}</div>
                                                                 </div>
-                                                                <div className="px-3 py-2">
-                                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
-                                                                        ${e.shift === "morning" ? "bg-yellow-100 text-yellow-700" : "bg-indigo-100 text-indigo-600"}`}>
-                                                                        {e.shift === "morning" ? "☀ M" : "🌙 E"}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="px-3 py-2">
-                                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
-                                                                        ${e.milk_type === "cow" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                                                                        {e.milk_type}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="px-3 py-2 text-blue-600 font-mono font-semibold">{parseFloat(e.quantity || 0).toFixed(2)}</div>
-                                                                <div className="px-3 py-2 text-amber-600 font-mono">{parseFloat(e.fat || 0).toFixed(2)}</div>
-                                                                <div className="px-3 py-2 text-violet-600 font-mono">{parseFloat(e.snf || 0).toFixed(2)}</div>
-                                                                <div className="px-3 py-2 text-gray-600 font-mono">₹{parseFloat(e.rate_applied || 0).toFixed(2)}</div>
-                                                                <div className="px-3 py-2 font-bold text-gray-800">₹{parseFloat(e.total_amount || 0).toFixed(2)}</div>
-                                                            </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                         <div className="grid bg-gray-100 border-t-2 border-gray-200 font-bold"
                                                             style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
                                                             <div className="px-3 py-2 text-xs col-span-3 text-gray-600">{t('sellerPayments.total')}</div>

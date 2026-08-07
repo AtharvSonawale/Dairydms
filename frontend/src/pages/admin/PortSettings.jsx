@@ -1,5 +1,5 @@
 // src/pages/admin/PortSettings.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Save, BadgeCheck, AlertTriangle, X,
@@ -16,11 +16,15 @@ const SERIAL_DEFAULTS = {
     serial_data_bits: '8',
     serial_stop_bits: '1',
     serial_parity: 'none',
+    kg_unit_label: 'Kg',
+    ltr_unit_label: 'Ltr',
+    default_weight_unit: 'ltr',
 };
 
 const MACHINE_TYPES = [
     { value: 'weight_gavali', labelKey: 'portSettings.machineType.weightGavali' },
     { value: 'weight_utpadak', labelKey: 'portSettings.machineType.weightUtpadak' },
+    { value: 'weight', labelKey: 'portSettings.machineType.weightDefault' },
     { value: 'fat', labelKey: 'portSettings.machineType.fat' },
 ];
 
@@ -100,11 +104,13 @@ export default function PortSettings() {
     const [byMachine, setByMachine] = useState({
         weight_gavali: { ...SERIAL_DEFAULTS },
         weight_utpadak: { ...SERIAL_DEFAULTS },
+        weight: { ...SERIAL_DEFAULTS },
         fat: { ...SERIAL_DEFAULTS },
     });
     const [savedByMachine, setSavedByMachine] = useState({
         weight_gavali: { ...SERIAL_DEFAULTS },
         weight_utpadak: { ...SERIAL_DEFAULTS },
+        weight: { ...SERIAL_DEFAULTS },
         fat: { ...SERIAL_DEFAULTS },
     });
     const [saving, setSaving] = useState(false);
@@ -117,7 +123,6 @@ export default function PortSettings() {
     const [closingPort, setClosingPort] = useState(false);
     const [manualPortEntry, setManualPortEntry] = useState(false);
     const form = byMachine[machineType];
-
     const set = (k, v) =>
         setByMachine(p => ({ ...p, [machineType]: { ...p[machineType], [k]: v } }));
 
@@ -134,6 +139,7 @@ export default function PortSettings() {
                 const next = {
                     weight_gavali: { ...SERIAL_DEFAULTS, ...(data?.weight_gavali || {}) },
                     weight_utpadak: { ...SERIAL_DEFAULTS, ...(data?.weight_utpadak || {}) },
+                    weight: { ...SERIAL_DEFAULTS, ...(data?.weight || {}) },
                     fat: { ...SERIAL_DEFAULTS, ...(data?.fat || {}) },
                 };
                 setByMachine(next);
@@ -446,6 +452,17 @@ export default function PortSettings() {
                                 className="w-full"
                             />
                         </PortField>
+                        {machineType !== 'fat' && (
+                            <PortField label="Default Weight Unit" hint="Which reading auto-fills Quantity in Milk Entry">
+                                <PortSelect
+                                    value={form.default_weight_unit}
+                                    onChange={e => set('default_weight_unit', e.target.value)}
+                                    options={['ltr', 'kg']}
+                                    renderLabel={v => v === 'ltr' ? 'Liters (Ltr)' : 'Kilograms (Kg)'}
+                                    className="w-full"
+                                />
+                            </PortField>
+                        )}
                         <PortField label={t('portSettings.connectionStatus.label')}>
                             <div className="flex items-center gap-3 h-[38px] px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
                                 <Plug size={13} className="text-gray-400" />

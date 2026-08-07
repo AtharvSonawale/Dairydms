@@ -108,6 +108,7 @@ const SERVER_DEFAULTS = {
     textSize: 'base',
     language: 'en',
     fatOnlyAutofill: false,
+    weightKgToLtrEnabled: false,
     fssaiCode: '11521040000016'
 };
 
@@ -138,6 +139,7 @@ export default function AdminSettings() {
     const [textSize, setTextSize] = useState(SERVER_DEFAULTS.textSize);
     const [language, setLanguage] = useState(SERVER_DEFAULTS.language);
     const [fatOnlyAutofill, setFatOnlyAutofill] = useState(SERVER_DEFAULTS.fatOnlyAutofill);
+    const [weightKgToLtrEnabled, setWeightKgToLtrEnabled] = useState(SERVER_DEFAULTS.weightKgToLtrEnabled);
     const [fssaiCode, setFssaiCode] = useState(SERVER_DEFAULTS.fssaiCode);
 
     const [savedState, setSavedState] = useState(SERVER_DEFAULTS);
@@ -193,12 +195,14 @@ export default function AdminSettings() {
     useEffect(() => {
         api.get('/settings/global')
             .then(({ data }) => {
+                // NEW
                 const snap = {
                     appName: data.app_name || SERVER_DEFAULTS.appName,
                     logoUrl: data.logo_url || SERVER_DEFAULTS.logoUrl,
                     textSize: data.text_size || SERVER_DEFAULTS.textSize,
                     language: data.language || SERVER_DEFAULTS.language,
                     fatOnlyAutofill: data.fat_only_autofill === '1' || data.fat_only_autofill === true,
+                    weightKgToLtrEnabled: data.weight_kg_to_ltr_enabled === '1' || data.weight_kg_to_ltr_enabled === true,
                 };
                 setAppName(snap.appName);
                 setLogoUrl(snap.logoUrl);
@@ -206,6 +210,7 @@ export default function AdminSettings() {
                 setTextSize(snap.textSize);
                 setLanguage(snap.language);
                 setFatOnlyAutofill(snap.fatOnlyAutofill);
+                setWeightKgToLtrEnabled(snap.weightKgToLtrEnabled);
                 setSavedState(snap);
             })
             .catch(() => { /* keep defaults */ });
@@ -293,6 +298,7 @@ export default function AdminSettings() {
                 app_name: appName,
                 logo_url: logoUrl,
                 fat_only_autofill: fatOnlyAutofill ? '1' : '0',
+                weight_kg_to_ltr_enabled: weightKgToLtrEnabled ? '1' : '0',
             });
 
             // FSSAI code
@@ -312,11 +318,12 @@ export default function AdminSettings() {
                 textSize,
                 language,
                 fatOnlyAutofill,
+                weightKgToLtrEnabled,
                 fssaiCode
             };
             setSavedState(newSnap);
 
-            updateConfig({ appName, logoUrl, textSize, language, fatOnlyAutofill });
+            updateConfig({ appName, logoUrl, textSize, language, fatOnlyAutofill, weightKgToLtrEnabled });
 
             if (selectedOp) {
                 await api.post(`/settings/permissions/${selectedOp}`, { access: opAccess });
@@ -338,6 +345,7 @@ export default function AdminSettings() {
         setTextSize(savedState.textSize);
         setLanguage(savedState.language);
         setFatOnlyAutofill(savedState.fatOnlyAutofill);
+        setWeightKgToLtrEnabled(savedState.weightKgToLtrEnabled);
         setFssaiCode(SERVER_DEFAULTS.fssaiCode);
         if (selectedOp) setOpAccess(buildDefaultAccess());
         showFlash('success', t('settings.resetSuccess'));
@@ -598,6 +606,29 @@ export default function AdminSettings() {
                             <AlertTriangle size={13} /> {t('settings.fatOnlyAutofill.activeNotification')}
                         </div>
                     )}
+                </SectionCard>
+
+                {/* ── Weight Kg→Ltr Auto-Convert ── */}
+                <SectionCard title="Weight Kg→Ltr Auto-Convert" icon={<Percent size={15} className="text-white" />} data-tour="weight-kg-ltr">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="max-w-lg">
+                            <p className="text-sm text-gray-700">
+                                When ON, a weight machine that only reports Kg will have its Ltr value auto-derived (Kg × 0.97) and shown alongside it in Milk Entry.
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-2">
+                                Uses the Kg/Ltr unit labels configured per scale in Port Settings.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setWeightKgToLtrEnabled(v => !v)}
+                            className={`relative inline-flex items-center h-8 w-14 rounded-full transition-colors shrink-0
+                ${weightKgToLtrEnabled ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                        >
+                            <span className={`inline-block w-6 h-6 bg-white rounded-full shadow transform transition-transform
+                ${weightKgToLtrEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
                 </SectionCard>
 
                 {/* ── Dispatch Settings - FSSAI Code Only ── */}

@@ -1,18 +1,17 @@
 const pool = require('../config/db');
 
 // ── GET /api/milk-entries?date=YYYY-MM-DD
-//        OR ?from=YYYY-MM-DD&to=YYYY-MM-DD ──────────────────────
+//        OR ?from=YYYY-MM-DD&to=YYYY-MM-DD
+//        + optional &seller_type=Utpadak|Gavali ──────────────────
 exports.getEntries = async (req, res) => {
     try {
-        const { date, from, to } = req.query;
+        const { date, from, to, seller_type } = req.query;
         const fromDate = from || date || new Date().toISOString().split('T')[0];
         const toDate = to || date || fromDate;
 
         const centreId = req.user.centre_id;
 
-        // Both admin and operator see all entries under their centre
-        // AFTER
-        const query = `
+        let query = `
             SELECT me.*, s.name AS seller_name, s.seller_code AS seller_code,
                    COALESCE(o.name, a.name) AS operator_name
             FROM milk_entries me
@@ -21,10 +20,18 @@ exports.getEntries = async (req, res) => {
             LEFT JOIN admins a ON a.admin_id = me.created_by_admin_id
             WHERE me.entry_date BETWEEN ? AND ?
               AND me.centre_id = ?
-            ORDER BY me.entry_date ASC, me.entry_time DESC
         `;
+        const params = [fromDate, toDate, centreId];
 
-        const [rows] = await pool.query(query, [fromDate, toDate, centreId]);
+        // Optional filter used by the dedicated Utpadak / Gavali milk-entry pages
+        if (seller_type === 'Utpadak' || seller_type === 'Gavali') {
+            query += ` AND me.seller_type = ? `;
+            params.push(seller_type);
+        }
+
+        query += ` ORDER BY me.entry_date ASC, me.entry_time DESC`;
+
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
         console.error('getEntries error:', err);
@@ -35,18 +42,17 @@ exports.getEntries = async (req, res) => {
 // ── GET /api/milk-entries/all (Admin only - get all entries in centre) ──
 exports.getAllCentreEntries = async (req, res) => {
     try {
-        const { date, from, to } = req.query;
+        const { date, from, to, seller_type } = req.query;
         const fromDate = from || date || new Date().toISOString().split('T')[0];
         const toDate = to || date || fromDate;
 
         const centreId = req.user.centre_id;
 
-        // Only admins can access this endpoint
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        const query = `
+        let query = `
             SELECT me.*, s.name AS seller_name, s.seller_code AS seller_code,
                    o.name AS operator_name
             FROM milk_entries me
@@ -54,10 +60,17 @@ exports.getAllCentreEntries = async (req, res) => {
             JOIN operators o ON o.operator_id = me.operator_id
             WHERE me.entry_date BETWEEN ? AND ?
               AND me.centre_id = ?
-            ORDER BY me.entry_date ASC, me.entry_time DESC
         `;
+        const params = [fromDate, toDate, centreId];
 
-        const [rows] = await pool.query(query, [fromDate, toDate, centreId]);
+        if (seller_type === 'Utpadak' || seller_type === 'Gavali') {
+            query += ` AND me.seller_type = ? `;
+            params.push(seller_type);
+        }
+
+        query += ` ORDER BY me.entry_date ASC, me.entry_time DESC`;
+
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
         console.error('getAllCentreEntries error:', err);
@@ -92,7 +105,7 @@ exports.createEntry = async (req, res) => {
 
         // Verify seller belongs to the same centre
         const [sellerCheck] = await conn.query(
-            `SELECT seller_id FROM sellers 
+            `SELECT seller_id, seller_type FROM sellers 
              WHERE seller_id = ? AND centre_id = ?`,
             [seller_id, centre_id]
         );
@@ -101,6 +114,15 @@ exports.createEntry = async (req, res) => {
             await conn.rollback();
             return res.status(403).json({
                 error: 'Access denied. Seller does not belong to your centre.'
+            });
+        }
+
+        // Guard against the dedicated Utpadak/Gavali pages accidentally
+        // posting an entry for a seller of the wrong type (e.g. stale UI state)
+        if (seller_type && sellerCheck[0].seller_type && seller_type !== sellerCheck[0].seller_type) {
+            await conn.rollback();
+            return res.status(400).json({
+                error: `Seller is registered as ${sellerCheck[0].seller_type}, not ${seller_type}.`
             });
         }
 
@@ -120,7 +142,6 @@ exports.createEntry = async (req, res) => {
 
         await conn.commit();
 
-        // AFTER
         const [newRow] = await pool.query(
             `SELECT me.*, s.name AS seller_name, s.seller_code,
                     COALESCE(o.name, a.name) AS operator_name
@@ -151,7 +172,6 @@ exports.getPremiumRate = async (req, res) => {
 
         const centreId = req.user.centre_id;
 
-        // Verify seller belongs to the same centre
         const [sellerCheck] = await pool.query(
             `SELECT seller_id FROM sellers 
              WHERE seller_id = ? AND centre_id = ?`,
@@ -188,20 +208,17 @@ exports.getPremiumRate = async (req, res) => {
 };
 
 // ── GET /api/milk-entries/by-operator?operator_id=&from=&to= ──
-// Admin can view entries of specific operator in their centre
 exports.getEntriesByOperator = async (req, res) => {
     try {
-        const { operator_id, from, to } = req.query;
+        const { operator_id, from, to, seller_type } = req.query;
         const fromDate = from || new Date().toISOString().split('T')[0];
         const toDate = to || fromDate;
         const centreId = req.user.centre_id;
 
-        // Only admins can access this endpoint
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        // Verify operator belongs to the same centre
         const [operatorCheck] = await pool.query(
             `SELECT operator_id FROM operators 
              WHERE operator_id = ? AND centre_id = ?`,
@@ -214,17 +231,24 @@ exports.getEntriesByOperator = async (req, res) => {
             });
         }
 
-        const query = `
+        let query = `
             SELECT me.*, s.name AS seller_name, s.seller_code AS seller_code
             FROM milk_entries me
             JOIN sellers s ON s.seller_id = me.seller_id
             WHERE me.entry_date BETWEEN ? AND ?
               AND me.operator_id = ?
               AND me.centre_id = ?
-            ORDER BY me.entry_date ASC, me.entry_time DESC
         `;
+        const params = [fromDate, toDate, operator_id, centreId];
 
-        const [rows] = await pool.query(query, [fromDate, toDate, operator_id, centreId]);
+        if (seller_type === 'Utpadak' || seller_type === 'Gavali') {
+            query += ` AND me.seller_type = ? `;
+            params.push(seller_type);
+        }
+
+        query += ` ORDER BY me.entry_date ASC, me.entry_time DESC`;
+
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
         console.error('getEntriesByOperator error:', err);
@@ -232,21 +256,19 @@ exports.getEntriesByOperator = async (req, res) => {
     }
 };
 
-// ── GET /api/milk-entries/summary?from=&to= ──
-// Admin can get summary of all entries in their centre
+// ── GET /api/milk-entries/summary?from=&to=&seller_type= ──
 exports.getCentreSummary = async (req, res) => {
     try {
-        const { from, to } = req.query;
+        const { from, to, seller_type } = req.query;
         const fromDate = from || new Date().toISOString().split('T')[0];
         const toDate = to || fromDate;
         const centreId = req.user.centre_id;
 
-        // Only admins can access this endpoint
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        const query = `
+        let query = `
             SELECT 
                 COUNT(*) as total_entries,
                 SUM(quantity) as total_quantity,
@@ -261,8 +283,14 @@ exports.getCentreSummary = async (req, res) => {
             WHERE entry_date BETWEEN ? AND ?
               AND centre_id = ?
         `;
+        const params = [fromDate, toDate, centreId];
 
-        const [rows] = await pool.query(query, [fromDate, toDate, centreId]);
+        if (seller_type === 'Utpadak' || seller_type === 'Gavali') {
+            query += ` AND seller_type = ? `;
+            params.push(seller_type);
+        }
+
+        const [rows] = await pool.query(query, params);
         res.json(rows[0]);
     } catch (err) {
         console.error('getCentreSummary error:', err);
@@ -283,7 +311,6 @@ exports.updateEntry = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        // Check if entry exists and belongs to the same centre
         const [existing] = await pool.query(
             `SELECT entry_id, seller_id, entry_date, operator_id, centre_id 
              FROM milk_entries WHERE entry_id = ?`,
@@ -294,17 +321,14 @@ exports.updateEntry = async (req, res) => {
             return res.status(404).json({ error: 'Entry not found.' });
         }
 
-        // Check centre access
         if (existing[0].centre_id !== centreId) {
             return res.status(403).json({ error: 'Access denied. Entry belongs to a different centre.' });
         }
 
-        // Check if operator owns the entry (or admin can edit any)
         if (!isAdmin && existing[0].operator_id !== operatorId) {
             return res.status(403).json({ error: 'Access denied. You can only edit your own entries.' });
         }
 
-        // Re-check premium
         const { seller_id, entry_date } = existing[0];
         const [premiumRows] = await pool.query(
             `SELECT rate_per_liter FROM premium_rates
@@ -321,7 +345,6 @@ exports.updateEntry = async (req, res) => {
         const computedTotal = (parseFloat(quantity) * parseFloat(rate_applied)).toFixed(2);
         const finalTotal = parseFloat(total_amount || computedTotal);
 
-        // Admin can update any entry in their centre, operator only their own
         let updateQuery = `
             UPDATE milk_entries SET
                 shift = ?, milk_type = ?, seller_type = ?, quantity = ?, 
@@ -372,7 +395,6 @@ exports.deleteEntry = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        // Check if entry exists and belongs to the centre
         const [existing] = await pool.query(
             `SELECT entry_id, operator_id, centre_id FROM milk_entries
              WHERE entry_id = ?`,
@@ -383,12 +405,10 @@ exports.deleteEntry = async (req, res) => {
             return res.status(404).json({ error: 'Entry not found.' });
         }
 
-        // Check centre access
         if (existing[0].centre_id !== centreId) {
             return res.status(403).json({ error: 'Access denied. Entry belongs to a different centre.' });
         }
 
-        // Check if operator owns the entry (or admin can delete any)
         if (!isAdmin && existing[0].operator_id !== operatorId) {
             return res.status(403).json({ error: 'Access denied. You can only delete your own entries.' });
         }
@@ -429,7 +449,6 @@ exports.bulkDeleteEntries = async (req, res) => {
             return res.status(400).json({ error: 'entry_ids array is required.' });
         }
 
-        // Verify all entries belong to the centre
         const placeholders = entry_ids.map(() => '?').join(',');
         const [existing] = await conn.query(
             `SELECT entry_id, operator_id, centre_id FROM milk_entries
@@ -442,7 +461,6 @@ exports.bulkDeleteEntries = async (req, res) => {
             return res.status(404).json({ error: 'Some entries not found.' });
         }
 
-        // Check centre access
         const invalidEntries = existing.filter(e => e.centre_id !== centreId);
         if (invalidEntries.length > 0) {
             await conn.rollback();
@@ -451,7 +469,6 @@ exports.bulkDeleteEntries = async (req, res) => {
             });
         }
 
-        // Check ownership (if not admin)
         if (!isAdmin) {
             const invalidOwnership = existing.filter(e => e.operator_id !== operatorId);
             if (invalidOwnership.length > 0) {
@@ -482,16 +499,15 @@ exports.bulkDeleteEntries = async (req, res) => {
     }
 };
 
-// ── GET /api/milk-entries/export?from=&to= ──────────────────
+// ── GET /api/milk-entries/export?from=&to=&seller_type= ──────────────────
 exports.exportEntries = async (req, res) => {
     try {
-        const { from, to } = req.query;
+        const { from, to, seller_type } = req.query;
         const fromDate = from || new Date().toISOString().split('T')[0];
         const toDate = to || fromDate;
         const centreId = req.user.centre_id;
 
-        // Both admin and operator see all entries under their centre
-        const query = `
+        let query = `
             SELECT 
                 me.entry_id, me.entry_date, me.shift, me.milk_type,
                 s.name AS seller_name, s.seller_code,
@@ -505,10 +521,17 @@ exports.exportEntries = async (req, res) => {
             LEFT JOIN admins a ON a.admin_id = me.created_by_admin_id
             WHERE me.entry_date BETWEEN ? AND ?
               AND me.centre_id = ?
-            ORDER BY me.entry_date ASC, me.entry_time DESC
         `;
+        const params = [fromDate, toDate, centreId];
 
-        const [rows] = await pool.query(query, [fromDate, toDate, centreId]);
+        if (seller_type === 'Utpadak' || seller_type === 'Gavali') {
+            query += ` AND me.seller_type = ? `;
+            params.push(seller_type);
+        }
+
+        query += ` ORDER BY me.entry_date ASC, me.entry_time DESC`;
+
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
         console.error('exportEntries error:', err);

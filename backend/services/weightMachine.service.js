@@ -3,16 +3,15 @@ const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const pool = require('../config/db');
 
-const SUBTYPES = ['weight_gavali', 'weight_utpadak'];
-const SOCKET_EVENT = { weight_gavali: 'weight:update:gavali', weight_utpadak: 'weight:update:utpadak' };
+const SUBTYPES = ['weight_gavali', 'weight_utpadak', 'weight'];
+const SOCKET_EVENT = { weight_gavali: 'weight:update:gavali', weight_utpadak: 'weight:update:utpadak', weight: 'weight:update:default' };
 
-// Everything that used to be a single value is now keyed by subtype so the
-// Gavali and Utpadak scales can be connected independently and simultaneously.
-const activePort = { weight_gavali: null, weight_utpadak: null };     // live SerialPort instance per subtype, or null if not connected
-const activeParser = { weight_gavali: null, weight_utpadak: null };
+const activePort = { weight_gavali: null, weight_utpadak: null, weight: null };     // live SerialPort instance per subtype, or null if not connected
+const activeParser = { weight_gavali: null, weight_utpadak: null, weight: null };
 const latestReading = {
     weight_gavali: { value: null, value2: null, unit: null, unit2: null, raw: null, timestamp: null, connected: false },
     weight_utpadak: { value: null, value2: null, unit: null, unit2: null, raw: null, timestamp: null, connected: false },
+    weight: { value: null, value2: null, unit: null, unit2: null, raw: null, timestamp: null, connected: false },
 };
 let ioInstance = null;        // socket.io server instance, set via init()
 
@@ -31,39 +30,42 @@ const externalClosers = new Map(); // path -> () => Promise<void>
 // Supports multiple values in a single line, e.g.:
 // "+0005.460 Ltr +0003.200 Kg" → value: 5.460, unit: "Ltr", value2: 3.200, unit2: "Kg"
 // This allows weight machines that send both liters and kilograms simultaneously.
-function parseWeightLine(line) {
+// NEW
+function parseWeightLine(line, kgLabel = 'Kg', ltrLabel = 'Ltr') {
     const trimmed = (line || '').trim();
+    if (!trimmed) return null;
 
-    // Pattern to match multiple signed numbers with units
-    // Matches: [+-]digits.digits space optional unit letters
-    const pattern = /([+-])(\d+\.\d+)\s*([A-Za-z]+)/g;
+    // Matches a decimal number with an OPTIONAL sign and an OPTIONAL unit
+    // suffix. The old pattern required BOTH — so a high-capacity (500+ kg)
+    // scale sending a bare "20.0" (no sign, no unit) never matched and the
+    // line was silently dropped.
+    const pattern = /([+-]?)(\d+\.\d+)\s*([A-Za-z]+)?/g;
 
+    const kgL = kgLabel.trim().toLowerCase();
+    const ltrL = ltrLabel.trim().toLowerCase();
+
+    let kg = null;   // → primary Weight fields (value / unit)
+    let ltr = null;  // → secondary Ltr fields (value2 / unit2)
     let match;
-    const results = [];
 
     while ((match = pattern.exec(trimmed)) !== null) {
         const sign = match[1] === '-' ? -1 : 1;
         const value = sign * parseFloat(match[2]);
-        const unit = match[3];
-        results.push({ value, unit });
+        const rawUnit = match[3] || null;
+
+        if (rawUnit && rawUnit.toLowerCase() === ltrL) {
+            ltr = { value, unit: rawUnit };
+        } else if (rawUnit && rawUnit.toLowerCase() === kgL) {
+            kg = { value, unit: rawUnit };
+        } else if (!rawUnit && !kg) {
+            // No unit sent at all — the high-capacity scale's format
+            // ("20.0"). Treat it as the Kg reading.
+            kg = { value, unit: kgLabel };
+        }
     }
 
-    if (results.length === 0) return null;
-
-    // Build the response object
-    const response = {
-        raw: trimmed,
-        value: results[0].value,
-        unit: results[0].unit,
-    };
-
-    // If we have a second value, add it as value2/unit2
-    if (results.length >= 2) {
-        response.value2 = results[1].value;
-        response.unit2 = results[1].unit;
-    }
-
-    return response;
+    if (!kg && !ltr) return null;
+    return { raw: trimmed, kg, ltr };
 }
 
 // ─── Push the latest reading to all connected frontend clients ───────────────
@@ -139,15 +141,31 @@ async function connect(dairyId, subtype) {
     await disconnectAndWait(subtype); // wait for any existing connection held by THIS module (this subtype) to fully release first
 
     const [[settings]] = await pool.query(
-        `SELECT serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity
-         FROM port_settings WHERE dairy_id = ? AND machine_type = ?`,
+        `SELECT serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity,
+            kg_unit_label, ltr_unit_label
+     FROM port_settings WHERE dairy_id = ? AND machine_type = ?`,
         [dairyId, subtype]
     );
 
-    const label = subtype === 'weight_gavali' ? 'Gavali' : 'Utpadak';
+const label = subtype === 'weight_gavali' ? 'Gavali'
+        : subtype === 'weight_utpadak' ? 'Utpadak'
+        : 'Default';
     if (!settings || !settings.serial_port) {
         throw new Error(`No ${label} weight machine port configured. Set it up in Port Settings first.`);
     }
+
+    // Dairy-wide toggle (Settings page → "Weight Kg→Ltr Auto-Convert"). Off by
+    // default so existing single-value machines are unaffected until an admin
+    // explicitly turns this on.
+    const [[globalSetting]] = await pool.query(
+        `SELECT setting_value FROM global_settings WHERE dairy_id = ? AND setting_key = 'weight_kg_to_ltr_enabled'`,
+        [dairyId]
+    );
+    const kgToLtrEnabled = globalSetting
+        ? (globalSetting.setting_value === '1' || globalSetting.setting_value === 'true')
+        : true;    const kgLabel = settings.kg_unit_label || 'Kg';
+    const ltrLabel = settings.ltr_unit_label || 'Ltr';
+    const KG_TO_LTR_FACTOR = 0.97;
 
     // Force-release any handle the test-connection flow (portController.js)
     // may still be holding on this exact port path, so a leftover "Test"
@@ -174,13 +192,41 @@ async function connect(dairyId, subtype) {
         const parser = sp.pipe(new ReadlineParser({ delimiter: '\n' }));
 
         parser.on('data', (line) => {
-            const parsed = parseWeightLine(line);
+            const parsed = parseWeightLine(line, kgLabel, ltrLabel);
             if (parsed) {
+                const prev = latestReading[subtype];
+
+                // A scale may send its Kg reading and its Ltr reading on two
+                // SEPARATE lines (e.g. "20.0" on one line, "+0005.460 Ltr" on the
+                // next). Merge into whatever we already had instead of wiping the
+                // other field to null every time only one of them arrives.
+                // NEW
+                let kgValue = parsed.kg ? parsed.kg.value : prev.value;
+                let kgUnit = parsed.kg ? parsed.kg.unit : prev.unit;
+                let ltrValue = parsed.ltr ? parsed.ltr.value : prev.value2;
+                let ltrUnit = parsed.ltr ? parsed.ltr.unit : prev.unit2;
+
+                // Bidirectional derive: whichever reading actually arrived on
+                // THIS line drives the other one, every time. A Kg-only scale
+                // keeps Ltr in sync; an Ltr-only scale (e.g. "+0005.460 Ltr")
+                // keeps Kg in sync too. If a line ever carries BOTH (a genuine
+                // dual-output machine), we trust the hardware's own numbers
+                // and skip deriving entirely.
+                if (kgToLtrEnabled) {
+                    if (parsed.kg && !parsed.ltr) {
+                        ltrValue = parseFloat((kgValue * KG_TO_LTR_FACTOR).toFixed(3));
+                        ltrUnit = ltrLabel;
+                    } else if (parsed.ltr && !parsed.kg) {
+                        kgValue = parseFloat((ltrValue / KG_TO_LTR_FACTOR).toFixed(3));
+                        kgUnit = kgLabel;
+                    }
+                }
+
                 latestReading[subtype] = {
-                    value: parsed.value,
-                    value2: parsed.value2 !== undefined ? parsed.value2 : null,
-                    unit: parsed.unit,
-                    unit2: parsed.unit2 !== undefined ? parsed.unit2 : null,
+                    value: kgValue,
+                    unit: kgUnit,
+                    value2: ltrValue,
+                    unit2: ltrUnit,
                     raw: parsed.raw,
                     timestamp: new Date().toISOString(),
                     connected: true,

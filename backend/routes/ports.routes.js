@@ -13,6 +13,8 @@ const {
     getFatStatus,
     connectFatMachine,
     disconnectFatMachine,
+    getWeightConfig,
+    saveWeightConfig,
 } = require('../controllers/ports.controller');
 
 router.use(protect);
@@ -30,5 +32,7 @@ router.post('/weight/:subtype/disconnect', disconnectWeightMachine);
 router.get('/fat/status', getFatStatus);
 router.post('/fat/connect', connectFatMachine);
 router.post('/fat/disconnect', disconnectFatMachine);
+router.get('/weight-config', getWeightConfig);
+router.post('/weight-config', saveWeightConfig);
 
 module.exports = router;

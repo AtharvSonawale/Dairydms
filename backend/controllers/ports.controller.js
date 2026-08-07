@@ -29,15 +29,17 @@ exports.getPortSettings = async (req, res) => {
 
         const [rows] = await pool.query(
             `SELECT machine_type, serial_port, serial_baud_rate,
-                    serial_data_bits, serial_stop_bits, serial_parity
-             FROM port_settings
-             WHERE dairy_id = ?`,
+    serial_data_bits, serial_stop_bits, serial_parity,
+    kg_unit_label, ltr_unit_label, default_weight_unit
+ FROM port_settings
+ WHERE dairy_id = ?`,
             [dairyId]
         );
 
         const byMachine = {
-            weight_gavali: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
-            weight_utpadak: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
+            weight_gavali: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none', kg_unit_label: 'Kg', ltr_unit_label: 'Ltr', default_weight_unit: 'ltr' },
+            weight_utpadak: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none', kg_unit_label: 'Kg', ltr_unit_label: 'Ltr', default_weight_unit: 'ltr' },
+            weight: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none', kg_unit_label: 'Kg', ltr_unit_label: 'Ltr', default_weight_unit: 'ltr' },
             fat: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
         };
 
@@ -49,6 +51,9 @@ exports.getPortSettings = async (req, res) => {
                     serial_data_bits: r.serial_data_bits,
                     serial_stop_bits: r.serial_stop_bits,
                     serial_parity: r.serial_parity,
+                    kg_unit_label: r.kg_unit_label ?? 'Kg',
+                    ltr_unit_label: r.ltr_unit_label ?? 'Ltr',
+                    default_weight_unit: r.default_weight_unit ?? 'ltr',
                 };
             }
         });
@@ -67,40 +72,51 @@ exports.savePortSettings = async (req, res) => {
 
     try {
         const dairyId = req.user.dairy_id;
-        const ALLOWED_MACHINE_TYPES = ['weight_gavali', 'weight_utpadak', 'fat'];
+        const ALLOWED_MACHINE_TYPES = ['weight_gavali', 'weight_utpadak', 'weight', 'fat'];
         const machineType = ALLOWED_MACHINE_TYPES.includes(req.body.machine_type)
             ? req.body.machine_type
             : 'weight_utpadak';
+
+        // AFTER
         const {
             serial_port = '',
             serial_baud_rate = '9600',
             serial_data_bits = '8',
             serial_stop_bits = '1',
             serial_parity = 'none',
+            kg_unit_label = 'Kg',
+            ltr_unit_label = 'Ltr',
+            default_weight_unit = 'ltr',
         } = req.body;
 
         if (!serial_port) {
             return res.status(400).json({ error: 'serial_port is required.' });
         }
+        if (!['kg', 'ltr'].includes(default_weight_unit)) {
+            return res.status(400).json({ error: 'default_weight_unit must be "kg" or "ltr".' });
+        }
 
         await pool.query(
             `INSERT INTO port_settings
-               (dairy_id, machine_type, serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-               serial_port       = VALUES(serial_port),
-               serial_baud_rate  = VALUES(serial_baud_rate),
-               serial_data_bits  = VALUES(serial_data_bits),
-               serial_stop_bits  = VALUES(serial_stop_bits),
-               serial_parity     = VALUES(serial_parity),
-               updated_at        = CURRENT_TIMESTAMP`,
-            [dairyId, machineType, serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity]
+   (dairy_id, machine_type, serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity, kg_unit_label, ltr_unit_label, default_weight_unit)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ ON DUPLICATE KEY UPDATE
+   serial_port         = VALUES(serial_port),
+   serial_baud_rate    = VALUES(serial_baud_rate),
+   serial_data_bits    = VALUES(serial_data_bits),
+   serial_stop_bits    = VALUES(serial_stop_bits),
+   serial_parity       = VALUES(serial_parity),
+   kg_unit_label       = VALUES(kg_unit_label),
+   ltr_unit_label      = VALUES(ltr_unit_label),
+   default_weight_unit = VALUES(default_weight_unit),
+   updated_at          = CURRENT_TIMESTAMP`,
+            [dairyId, machineType, serial_port, serial_baud_rate, serial_data_bits, serial_stop_bits, serial_parity, kg_unit_label, ltr_unit_label, default_weight_unit]
         );
 
         // Reconnect the matching live reader with the new settings
-        if (machineType === 'weight_gavali' || machineType === 'weight_utpadak') {
+        if (machineType === 'weight_gavali' || machineType === 'weight_utpadak' || machineType === 'weight') {
             try {
-                await weightMachine.connect(dairyId, machineType); // subtype tells the service which scale to (re)open
+                await weightMachine.connect(dairyId, machineType);
             } catch (connectErr) {
                 console.error('weightMachine reconnect error:', connectErr.message);
                 return res.json({
@@ -273,14 +289,20 @@ exports.testPortConnection = async (req, res) => {
 // ─── GET /api/settings/ports/weight/status ───────────────────────────────────
 exports.getWeightStatus = async (req, res) => {
     if (!requireAdmin(req, res)) return;
-    const subtype = req.params.subtype === 'gavali' ? 'weight_gavali' : 'weight_utpadak';
+    const subtype =
+    req.params.subtype === 'gavali' ? 'weight_gavali'
+    : req.params.subtype === 'utpadak' ? 'weight_utpadak'
+    : 'weight'; // 'default' subtype → the standalone Default Scale
     res.json(weightMachine.getLatest(subtype));
 };
 
 // ─── POST /api/settings/ports/weight/connect ─────────────────────────────────
 exports.connectWeightMachine = async (req, res) => {
     if (!requireAdmin(req, res)) return;
-    const subtype = req.params.subtype === 'gavali' ? 'weight_gavali' : 'weight_utpadak';
+    const subtype =
+    req.params.subtype === 'gavali' ? 'weight_gavali'
+    : req.params.subtype === 'utpadak' ? 'weight_utpadak'
+    : 'weight'; // 'default' subtype → the standalone Default Scale
     try {
         await weightMachine.connect(req.user.dairy_id, subtype);
         res.json({ success: true, message: 'Connected to the serial port.' });
@@ -292,9 +314,13 @@ exports.connectWeightMachine = async (req, res) => {
 // ─── POST /api/settings/ports/weight/disconnect ──────────────────────────────
 exports.disconnectWeightMachine = async (req, res) => {
     if (!requireAdmin(req, res)) return;
-    const subtype = req.params.subtype === 'gavali' ? 'weight_gavali' : 'weight_utpadak';
+    const subtype =
+    req.params.subtype === 'gavali' ? 'weight_gavali'
+    : req.params.subtype === 'utpadak' ? 'weight_utpadak'
+    : 'weight'; // 'default' subtype → the standalone Default Scale
     weightMachine.disconnect(subtype);
-    res.json({ success: true, message: `Disconnected from ${subtype === 'weight_gavali' ? 'Gavali' : 'Utpadak'} weight machine.` });
+    const label = subtype === 'weight_gavali' ? 'Gavali' : subtype === 'weight_utpadak' ? 'Utpadak' : 'Default';
+res.json({ success: true, message: `Disconnected from ${label} weight machine.` });
 };
 
 // ─── GET /api/settings/ports/fat/status ──────────────────────────────────────
@@ -319,4 +345,49 @@ exports.disconnectFatMachine = async (req, res) => {
     if (!requireAdmin(req, res)) return;
     fatMachine.disconnect();
     res.json({ success: true, message: 'Disconnected from Fat & SNF machine.' });
+};
+
+// ─── GET /api/settings/weight-config ─────────────────────────────────────────
+// Dairy-wide behavior toggles: whether Milk Entry auto-switches scales by
+// seller_type, and which scale to use when switching is off.
+exports.getWeightConfig = async (req, res) => {
+    try {
+        const dairyId = req.user.dairy_id;
+        const [rows] = await pool.query(
+            `SELECT setting_value FROM global_settings
+             WHERE dairy_id = ? AND setting_key = 'weight_port_switching_enabled'`,
+            [dairyId]
+        );
+        res.json({
+            portSwitchingEnabled: rows[0]?.setting_value !== '0', // default ON
+        });
+    } catch (err) {
+        console.error('getWeightConfig error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// ─── POST /api/settings/weight-config ────────────────────────────────────────
+exports.saveWeightConfig = async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+        const dairyId = req.user.dairy_id;
+        const { portSwitchingEnabled } = req.body;
+
+        if (typeof portSwitchingEnabled !== 'boolean') {
+            return res.status(400).json({ error: 'portSwitchingEnabled (boolean) is required.' });
+        }
+
+        await pool.query(
+            `INSERT INTO global_settings (dairy_id, setting_key, setting_value)
+             VALUES (?, 'weight_port_switching_enabled', ?)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP`,
+            [dairyId, portSwitchingEnabled ? '1' : '0']
+        );
+
+        res.json({ message: 'Weight config saved.' });
+    } catch (err) {
+        console.error('saveWeightConfig error:', err);
+        res.status(500).json({ error: err.message });
+    }
 };

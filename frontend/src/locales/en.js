@@ -2223,6 +2223,8 @@ const en = {
             }
         },
 
+
+
         // ── Premium Rates ────────────────────────────────────────────
         premiumRates: {
             startTour: "Start a Tour",
@@ -3044,6 +3046,10 @@ const en = {
 
         // ── Seller Payments (Main) ──────────────────────────────────
         sellerPayments: {
+            rateAfterComm: "Comm.Incl.Rate / L",
+
+            rateBeforeComm: "Rate / L",
+            commission: "Commission",
             commissionSettings: "Commission Settings",
             cattleFeedDeductions: "Cattle Feed Deductions",
             cattleFeed: "CattleFeed",

@@ -69,6 +69,8 @@ import FarmerLedger from './pages/Farmerledger';
 import FarmerLedgerDetail from './pages/FarmerLedgerDetail';
 import Centres from './pages/admin/Centres';
 import CommissionSettings from './pages/admin/CommissionSettings';
+import UtpadakMilkEntry from './pages/UtpadakMilkEntry';
+import GavaliMilkEntry from './pages/GavaliMilkEntry';
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -160,6 +162,9 @@ function AppRoutes() {
         <Route path="/operator/settings" element={<OperatorSettings />} />
         <Route path="/farmer/settings" element={<FarmerSettings />} />
         <Route path="/commission-settings" element={<CommissionSettings />} />
+        <Route path="/milkentries" element={<ProtectedRoute><MilkEntries /></ProtectedRoute>} />
+        <Route path="/utpadak-milk-entry" element={<ProtectedRoute><UtpadakMilkEntry /></ProtectedRoute>} />
+        <Route path="/gavali-milk-entry" element={<ProtectedRoute><GavaliMilkEntry /></ProtectedRoute>} />
       </Route>
 
       {/* ── Fallback ── */}

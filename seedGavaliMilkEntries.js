@@ -1,27 +1,38 @@
-const mysql = require('mysql2/promise');
+const mysql = require("mysql2/promise");
 
 async function seedMilkEntries() {
     const pool = mysql.createPool({
-        host: 'localhost',
-        user: 'root',
-        password: '1234',
-        database: 'dairy_db1',
+        host: "localhost",
+        user: "root",
+        password: "1234",
+        database: "dairy_db1",
         waitForConnections: true,
         connectionLimit: 10,
-        queueLimit: 0
     });
 
-    // Existing IDs in your database
+    // Existing IDs
     const sellerId = 11;
     const operatorId = 7;
     const centreId = 5;
-    const createdByAdminId = null; // Or use a valid admin_id like 1
+    const createdByAdminId = null;
 
-    const sellerType = 'Gavali';
-    const milkType = 'cow';
+    const sellerType = "Gavali";
+    const milkType = "cow";
 
-    const startDate = new Date('2025-01-01');
-    const endDate = new Date('2025-12-31');
+    // Load all valid cow milk rates
+    const [rateRows] = await pool.query(`
+        SELECT fat, snf, rate
+        FROM cow_milk_rates
+        WHERE centre_id = ?
+        ORDER BY fat, snf
+    `, [centreId]);
+
+    if (rateRows.length === 0) {
+        throw new Error("No cow milk rates found.");
+    }
+
+    const startDate = new Date("2025-01-01");
+    const endDate = new Date("2025-12-31");
 
     const entries = [];
 
@@ -30,29 +41,45 @@ async function seedMilkEntries() {
         date <= endDate;
         date.setDate(date.getDate() + 1)
     ) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        const entryDate = date.toISOString().split("T")[0];
 
-        const entryDate = `${year}-${month}-${day}`;
+        // Pick one existing rate row randomly
+        const rateRow =
+            rateRows[Math.floor(Math.random() * rateRows.length)];
 
-        // Random time
-        const hour = String(Math.floor(Math.random() * 24)).padStart(2, '0');
-        const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
-        const second = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+        const fat = Number(rateRow.fat);
+        const snf = Number(rateRow.snf);
+        const rateApplied = Number(rateRow.rate);
 
-        const entryTime = `${entryDate} ${hour}:${minute}:${second}`;
+        // Random quantity only
+        const quantity = Number((Math.random() * 20 + 100).toFixed(2));
+        // Water
+        const water = Number((Math.random() * 2).toFixed(2));
 
-        const shift = Math.random() > 0.5 ? 'morning' : 'evening';
-
-        const quantity = Number((Math.random() * 4 + 1).toFixed(2));      // 1-5 L
-        const fat = Number((Math.random() * 3 + 3).toFixed(2));           // 3-6
-        const snf = Number((Math.random() * 1.5 + 8).toFixed(2));         // 8-9.5
-        const water = Number((Math.random() * 2).toFixed(2));             // 0-2%
-        const rateApplied = Number((Math.random() * 10 + 50).toFixed(2)); // 50-60
         const isPremium = Math.random() < 0.3 ? 1 : 0;
 
-        const totalAmount = Number((quantity * rateApplied).toFixed(2));
+        const totalAmount = Number(
+            (quantity * rateApplied).toFixed(2)
+        );
+
+        // Morning or Evening
+        const shift = Math.random() < 0.5
+            ? "morning"
+            : "evening";
+
+        // Time according to shift
+        let hour;
+
+        if (shift === "morning") {
+            hour = Math.floor(Math.random() * 5) + 5; // 5-9 AM
+        } else {
+            hour = Math.floor(Math.random() * 5) + 16; // 4-8 PM
+        }
+
+        const minute = Math.floor(Math.random() * 60);
+        const second = Math.floor(Math.random() * 60);
+
+        const entryTime = `${entryDate} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
 
         entries.push([
             sellerId,
@@ -70,7 +97,7 @@ async function seedMilkEntries() {
             rateApplied,
             isPremium,
             totalAmount,
-            entryTime
+            entryTime,
         ]);
     }
 
@@ -102,19 +129,13 @@ async function seedMilkEntries() {
         );
 
         console.log(
-            `✅ Inserted batch ${Math.floor(i / batchSize) + 1} (${Math.min(
-                i + batchSize,
-                entries.length
-            )}/${entries.length})`
+            `Inserted ${Math.min(i + batchSize, entries.length)}/${entries.length}`
         );
     }
 
-    console.log(`✅ Successfully inserted ${entries.length} milk entries.`);
+    console.log(`Successfully inserted ${entries.length} entries.`);
 
     await pool.end();
 }
 
-seedMilkEntries().catch(err => {
-    console.error("❌ Error:", err);
-    process.exit(1);
-});
+seedMilkEntries().catch(console.error);

@@ -38,19 +38,14 @@ const snfBelowThreshold = (v, milk_type) =>
 const snfAboveThreshold = (v, milk_type) =>
     v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) >= (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
 
-const EMPTY_FORM = {
+const EMPTY_FORM = (fixedSellerType) => ({
     seller_id: "",
-    seller_type: "Utpadak",
+    seller_type: fixedSellerType || "Utpadak",
     shift: getShiftByTime(),
     milk_type: "cow",
-    quantity: "",
-    fat: "",
-    snf: "",
-    water: "",
-    protein: "",
-    rate_applied: "",
-    machine_qty: "",
-};
+    quantity: "", fat: "", snf: "", water: "", protein: "",
+    rate_applied: "", machine_qty: "",
+});
 
 const FAT_MIN = 2.5, FAT_MAX = 9.0;
 const SNF_MIN = 6.5, SNF_MAX = 10.5;
@@ -551,7 +546,7 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
 }
 
 // ── Main Page ─────────────────────────────────────────────────
-export default function MilkEntry() {
+export default function MilkEntryBase({ fixedSellerType }) {
     const { t } = useTranslation();
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [entryToDelete, setEntryToDelete] = useState(null);
@@ -583,13 +578,24 @@ export default function MilkEntry() {
     const [weightBySubtype, setWeightBySubtype] = useState({
         weight_gavali: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
         weight_utpadak: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
+        weight: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
     });
-    const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null });
+    const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null, weight: null });
     const socketRef = useRef(null);
 
+    const [portSwitchingEnabled, setPortSwitchingEnabled] = useState(true);
+    const portSwitchingEnabledRef = useRef(true);
+    const [savingWeightConfig, setSavingWeightConfig] = useState(false);
+    const weightPortConfigRef = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
+
     // The scale that feeds this form is decided by the selected seller's type
-    const activeWeightKey = form.seller_type === "Gavali" ? "weight_gavali" : "weight_utpadak";
-    const activeWeightSubtypeParam = activeWeightKey === "weight_gavali" ? "gavali" : "utpadak";
+    const activeWeightKey = portSwitchingEnabled
+        ? (form.seller_type === "Gavali" ? "weight_gavali" : "weight_utpadak")
+        : "weight";
+    const activeWeightSubtypeParam =
+        activeWeightKey === "weight_gavali" ? "gavali"
+            : activeWeightKey === "weight_utpadak" ? "utpadak"
+                : "default";
     const activeWeight = weightBySubtype[activeWeightKey];
     const machineQty = activeWeight.qty;
     const machineQty2 = activeWeight.qty2;
@@ -606,19 +612,30 @@ export default function MilkEntry() {
     const [fatPortConfig, setFatPortConfig] = useState(null);
     const [lastFatUpdateAt, setLastFatUpdateAt] = useState(null);
 
-    // ── Connect to the backend's WebSocket and listen for live weight updates ──
-    // ── Load the weight machine's configured port (for display under "Weight") ──
+    // ── Load the weight/fat machines' configured ports (for display under "Weight" / "Fat & SNF") ──
     useEffect(() => {
         api.get("/settings/ports")
             .then(({ data }) => {
                 setWeightPortConfig({
                     weight_gavali: data?.weight_gavali || null,
                     weight_utpadak: data?.weight_utpadak || null,
+                    weight: data?.weight || null,
                 });
                 setFatPortConfig(data?.fat || null);
             })
             .catch(() => { /* leave as null — shown as "not configured" */ });
     }, []);
+
+    // ── Load the port-switching toggle (for the Weight card's Switch by Seller Type control) ──
+    useEffect(() => {
+        api.get("/settings/ports/weight-config")
+            .then(({ data }) => {
+                setPortSwitchingEnabled(data?.portSwitchingEnabled ?? true);
+            })
+            .catch(() => { });
+    }, []);
+
+    useEffect(() => { portSwitchingEnabledRef.current = portSwitchingEnabled; }, [portSwitchingEnabled]);
 
     // ── Connect to the backend's WebSocket and listen for live weight updates ──
     useEffect(() => {
@@ -644,15 +661,43 @@ export default function MilkEntry() {
                     raw: reading.raw || prev[subtypeKey].raw,
                 },
             }));
-            if (reading.value !== null && reading.value !== undefined) {
-                // Only push into the form if this reading came from the scale
-                // matching the seller_type currently selected on the form.
+            // NEW
+            // Prefer the actual liters reading (value2, native or derived via
+            // the Kg↔Ltr 0.97 conversion) for what gets billed. Fall back to
+            // the raw first value only if no liters figure exists yet
+            // (e.g. the Kg→Ltr toggle is off).
+            // NEW
+            // Quantity in the entry form is ALWAYS in liters. value2/unit2 is
+            // the Ltr slot (native reading, or derived from Kg via the 0.97
+            // factor). Kg (value/unit) is never used to fill Quantity — if no
+            // Ltr figure exists yet (e.g. the Kg→Ltr toggle is off and the
+            // scale sent Kg only), Quantity simply doesn't auto-fill.
+            // NEW
+            // Quantity in the entry form is ALWAYS in liters, taken from the
+            // Ltr slot only (reading.value2). If the scale sends Ltr directly,
+            // this is that native reading. If the scale sends Kg, the backend
+            // (weightMachine.service.js) has already derived this Ltr value
+            // via the 0.97 factor before broadcasting. The Kg slot
+            // (reading.value) is NEVER used to fill Quantity.
+            // NEW
+            // Quantity (and machine_qty) in the entry form come ONLY from the
+            // Ltr slot (reading.value2) — never from reading.value (Kg).
+            // reading.value2 is either:
+            //   - the scale's own native Ltr reading, when it sends Ltr directly, or
+            //   - the Kg reading × 0.97, already computed server-side in
+            //     weightMachine.service.js, when the scale sends Kg only.
+            // Either way, this is the single source of truth for the form.
+            const unitPref = weightPortConfigRef.current[subtypeKey]?.default_weight_unit || "ltr";
+            const fillValue = unitPref === "kg" ? reading.value : reading.value2;
+
+            if (fillValue !== null && fillValue !== undefined) {
                 setForm(p => {
-                    const isActive =
-                        (subtypeKey === "weight_gavali" && p.seller_type === "Gavali") ||
-                        (subtypeKey === "weight_utpadak" && p.seller_type === "Utpadak");
+                    const isActive = portSwitchingEnabledRef.current
+                        ? ((subtypeKey === "weight_gavali" && p.seller_type === "Gavali") ||
+                            (subtypeKey === "weight_utpadak" && p.seller_type === "Utpadak"))
+                        : subtypeKey === "weight"; // toggle off → only the Default Scale drives the form
                     if (!isActive) return p;
-                    const signedValue = reading.value.toFixed(3);
+                    const signedValue = fillValue.toFixed(3);
                     return { ...p, machine_qty: signedValue, quantity: signedValue };
                 });
                 setLastUpdateAt(Date.now());
@@ -661,6 +706,7 @@ export default function MilkEntry() {
 
         socket.on("weight:update:gavali", handleWeightUpdate("weight_gavali"));
         socket.on("weight:update:utpadak", handleWeightUpdate("weight_utpadak"));
+        socket.on("weight:update:default", handleWeightUpdate("weight"));
 
         socket.on("fat:update", (reading) => {
             setIsFatConnected(!!reading.connected);
@@ -694,12 +740,31 @@ export default function MilkEntry() {
 
     // Manual connect/disconnect — talks to the backend, not the browser's hardware
     const connectSerialPort = async (subtype, silent = false) => {
-        if (!silent) showFlash("success", `Connecting to ${subtype === "gavali" ? "Gavali" : "Utpadak"} weight machine…`);
-        try {
+        const label = subtype === "gavali" ? "Gavali" : subtype === "utpadak" ? "Utpadak" : "Default";
+        if (!silent) showFlash("success", `Connecting to ${label} weight machine…`);        try {
             const { data } = await api.post(`/settings/ports/weight/${subtype}/connect`);
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
         } catch (err) {
             showFlash("error", err.response?.data?.message || "Failed to connect to weight machine.");
+        }
+    };
+
+    const toggleWeightPortSwitching = async () => {
+        const next = !portSwitchingEnabled;
+        setSavingWeightConfig(true);
+        try {
+            await api.post("/settings/ports/weight-config", { portSwitchingEnabled: next });
+            setPortSwitchingEnabled(next);
+            showFlash(
+                "success",
+                next
+                    ? "Scale will now switch automatically by seller type."
+                    : "Scale locked to the Default Scale (configured in Port Settings)."
+            );
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || "Failed to save weight config.");
+        } finally {
+            setSavingWeightConfig(false);
         }
     };
 
@@ -746,8 +811,9 @@ export default function MilkEntry() {
     useEffect(() => {
         if (autoConnectFired.current) return;
         autoConnectFired.current = true;
-        connectSerialPort("gavali", true);   // silent: skip the "Connecting…" toast on auto-attempt
+        connectSerialPort("gavali", true);
         connectSerialPort("utpadak", true);
+        connectSerialPort("default", true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -924,6 +990,10 @@ export default function MilkEntry() {
         setSearchName("");
     }, [selectedDate, fromDate, toDate]);
 
+    useEffect(() => {
+        weightPortConfigRef.current = weightPortConfig;
+    }, [weightPortConfig]);
+
     const handleSellerChange = (id) => {
         const found = sellers.find((s) => String(s.seller_id) === String(id));
         const newMilkType = (found?.milk_type && found.milk_type !== "mixed")
@@ -970,8 +1040,10 @@ export default function MilkEntry() {
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
             setWeightBySubtype(prev => ({
+                ...prev,
                 weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
                 weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
+                weight: { ...prev.weight, qty: "", qty2: "" },
             }));
             setMachineProtein("");
         } catch (err) {
@@ -1035,8 +1107,10 @@ export default function MilkEntry() {
             setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
             setSellerSearch("");
             setWeightBySubtype(prev => ({
+                ...prev,
                 weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
                 weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
+                weight: { ...prev.weight, qty: "", qty2: "" },
             }));
             setMachineProtein("");
         } catch (err) {
@@ -1064,8 +1138,10 @@ export default function MilkEntry() {
         setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
         setSellerSearch("");
         setWeightBySubtype(prev => ({
+            ...prev,
             weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
             weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
+            weight: { ...prev.weight, qty: "", qty2: "" },
         }));
         setMachineProtein("");
     };
@@ -1491,8 +1567,31 @@ export default function MilkEntry() {
 
                                 <div>
                                     <span className="block text-[10px] font-bold text-emerald-300 uppercase tracking-widest">
-                                        Weight · {form.seller_type === "Gavali" ? "Gavali Scale" : "Utpadak Scale"}
+                                        Weight · {
+                                            activeWeightKey === "weight_gavali" ? "Gavali Scale"
+                                                : activeWeightKey === "weight_utpadak" ? "Utpadak Scale"
+                                                    : "Default Scale"
+                                        }
                                     </span>
+
+                                    <div className="flex items-center gap-2 ml-2">
+                                        <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest">
+                                            Switch by Seller Type
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={toggleWeightPortSwitching}
+                                            disabled={savingWeightConfig}
+                                            className={`relative w-9 h-5 rounded-full transition-colors ${portSwitchingEnabled ? "bg-emerald-400" : "bg-gray-600"}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${portSwitchingEnabled ? "translate-x-4" : ""}`} />
+                                        </button>
+                                        {!portSwitchingEnabled && (
+                                            <span className="text-[9px] text-gray-400">
+                                                Using Default Scale — configure in Port Settings
+                                            </span>
+                                        )}
+                                    </div>
 
                                     <span
                                         className={`flex items-center gap-1.5 text-xs font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"
@@ -1520,13 +1619,15 @@ export default function MilkEntry() {
                                 </div>
 
                                 {/* Qty 1 */}
+                                {/* Ltr — this is the value that auto-fills Quantity on the form,
+                                    whether it's the scale's native Ltr reading or derived from Kg */}
                                 <div className="relative ml-1 flex flex-col gap-0.5">
                                     <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
                                         Qty
                                     </span>
 
                                     <TinyInput
-                                        value={machineQty}
+                                        value={machineQty2}
                                         readOnly
                                         placeholder="0.0"
                                         type="text"
@@ -1543,14 +1644,14 @@ export default function MilkEntry() {
                                     )}
                                 </div>
 
-                                {/* UOM 1 */}
+                                {/* Ltr unit */}
                                 <div className="relative flex flex-col gap-0.5">
                                     <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
                                         UOM
                                     </span>
 
                                     <TinyInput
-                                        value={machineUom}
+                                        value={machineUom2}
                                         readOnly
                                         placeholder="—"
                                         type="text"
@@ -1562,14 +1663,14 @@ export default function MilkEntry() {
                                     />
                                 </div>
 
-                                {/* Qty 2 */}
+                                {/* Kg */}
                                 <div className="relative ml-2 flex flex-col gap-0.5">
                                     <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
-                                        Qty2
+                                        Qty
                                     </span>
 
                                     <TinyInput
-                                        value={machineQty2}
+                                        value={machineQty}
                                         readOnly
                                         placeholder="0.0"
                                         type="text"
@@ -1582,14 +1683,14 @@ export default function MilkEntry() {
                                     />
                                 </div>
 
-                                {/* UOM 2 */}
+                                {/* Kg unit */}
                                 <div className="relative flex flex-col gap-0.5">
                                     <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
-                                        UOM2
+                                        UOM
                                     </span>
 
                                     <TinyInput
-                                        value={machineUom2}
+                                        value={machineUom}
                                         readOnly
                                         placeholder="—"
                                         type="text"

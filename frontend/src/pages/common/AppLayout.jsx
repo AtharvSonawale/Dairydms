@@ -92,6 +92,8 @@ const SHARED_NAV = (isAdmin, t) => {
             tourId: 'nav-milk-collection',
             children: [
                 { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries' },
+                { label: t('nav.utpadakMilkEntry', { defaultValue: 'Utpadak Milk Entry' }), icon: <Milk size={14} />, to: '/utpadak-milk-entry' },
+                { label: t('nav.gavaliMilkEntry', { defaultValue: 'Gavali Milk Entry' }), icon: <Milk size={14} />, to: '/gavali-milk-entry' },
                 { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage' },
                 { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch' },
             ],
