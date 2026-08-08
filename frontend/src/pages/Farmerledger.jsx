@@ -14,6 +14,18 @@ const fmt = (n) => n === null || n === undefined ? "—" : `₹${parseFloat(n ||
 const fmtDate = (d) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
+const iso = (d) => d.toISOString().split("T")[0];
+function rangeFor(preset) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const to = new Date(today);
+    let from = new Date(today);
+    if (preset === "day") { /* from = to = today */ }
+    else if (preset === "week") { from.setDate(from.getDate() - 6); }
+    else if (preset === "month") { from = new Date(today.getFullYear(), today.getMonth(), 1); }
+    else if (preset === "year") { from = new Date(today.getFullYear(), 0, 1); }
+    return { from: iso(from), to: iso(to) };
+}
+
 // Summary stat card – localized labels are passed via props
 function StatCard({ label, value, icon, color }) {
     return (
@@ -48,6 +60,9 @@ export default function FarmerLedger() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [limit] = useState(25);
+    const [preset, setPreset] = useState("month");
+    const [fromDate, setFromDate] = useState(() => rangeFor("month").from);
+    const [toDate, setToDate] = useState(() => rangeFor("month").to);
 
     const [data, setData] = useState({
         rows: [], total: 0, total_advance_outstanding: 0, total_deposit_held: 0,
@@ -61,6 +76,8 @@ export default function FarmerLedger() {
             if (search) params.set("search", search);
             params.set("page", page);
             params.set("limit", limit);
+            params.set("from", fromDate);
+            params.set("to", toDate);
 
             const { data } = await api.get(`/ledger/summary?${params.toString()}`);
             setData(data);
@@ -69,11 +86,22 @@ export default function FarmerLedger() {
         } finally {
             setLoading(false);
         }
-    }, [search, page, limit]);
+    }, [search, page, limit, fromDate, toDate]);
 
     useEffect(() => { fetchSummary(); }, [fetchSummary]);
-
+    // Reset to page 1 when filters change
+    useEffect(() => { setPage(1); }, [search, fromDate, toDate]);
     const totalPages = Math.ceil((data.total || 0) / limit);
+
+    const selectPreset = (p) => {
+        setPreset(p);
+        setPage(1); // Reset to first page on filter change
+        if (p !== "custom") {
+            const r = rangeFor(p);
+            setFromDate(r.from);
+            setToDate(r.to);
+        }
+    };
 
     if (permLoading) return (
         <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
@@ -85,7 +113,7 @@ export default function FarmerLedger() {
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -119,6 +147,27 @@ export default function FarmerLedger() {
                         icon={<Wallet size={16} />}
                         color="text-blue-600 bg-blue-50 border-blue-100"
                     />
+                </div>
+
+                {/* Date filter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                        {[["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"], ["custom", "Custom"]].map(([v, l]) => (
+                            <button key={v} onClick={() => selectPreset(v)}
+                                className={`px-3 py-2 transition ${preset === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                {l}
+                            </button>
+                        ))}
+                    </div>
+                    <input type="date" value={fromDate} disabled={preset !== "custom"}
+                        onChange={e => { setFromDate(e.target.value); setPage(1); }}
+                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
+                            focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                    <span className="text-xs text-gray-400">to</span>
+                    <input type="date" value={toDate} disabled={preset !== "custom"}
+                        onChange={e => { setToDate(e.target.value); setPage(1); }}
+                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
+                            focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
                 </div>
 
                 {/* Search */}

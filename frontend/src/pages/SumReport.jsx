@@ -284,7 +284,8 @@ export default function SumReport() {
         const matchSearch =
             (s.name || "").toLowerCase().includes(search.toLowerCase()) ||
             (s.seller_code || "").toLowerCase().includes(search.toLowerCase());
-        return matchType && matchSearch;
+        const hasBonus = parseFloat(s.bonus_amount || 0) > 0;
+        return matchType && matchSearch && hasBonus;
     });
 
     // ── Totals ───────────────────────────────────────────────────────────────
@@ -303,7 +304,7 @@ export default function SumReport() {
                 }
             `}</style>
 
-            <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
                     <div className="flex items-center gap-3">

@@ -1,17 +1,16 @@
-// pages/admin/AdminProfile.jsx
+// pages/admin/MyProfile.jsx
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
     ArrowLeft, BadgeCheck, AlertTriangle, X, Mail, Phone,
-    Building2, Calendar, Power, Trash2, Save, Eye, EyeOff,
+    Building2, Calendar, Save, Eye, EyeOff, ShieldCheck, User,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 
-export default function AdminProfile() {
+export default function MyProfile() {
     const { t } = useTranslation();
-    const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
 
@@ -20,31 +19,28 @@ export default function AdminProfile() {
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
     const [showPass, setShowPass] = useState(false);
-    const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
 
     const [form, setForm] = useState({ name: '', email: '', mobile: '', password: '' });
-
-    const isSelf = admin && admin.admin_id === user?.id;
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
 
-    const fetchAdmin = async () => {
+    const fetchMyProfile = async () => {
         setLoading(true);
         try {
-            const { data } = await api.get(`/admin-management/${id}`);
+            const { data } = await api.get(`/admin-management/${user.id}`);
             setAdmin(data);
             setForm({ name: data.name, email: data.email, mobile: data.mobile || '', password: '' });
         } catch (err) {
-            showFlash('error', err.response?.data?.message || t('adminProfile.loadError'));
+            showFlash('error', err.response?.data?.message || t('myProfile.loadError', { defaultValue: 'Could not load your profile.' }));
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => { fetchAdmin(); }, [id]);
+    useEffect(() => { if (user?.id) fetchMyProfile(); }, [user?.id]);
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -60,28 +56,14 @@ export default function AdminProfile() {
             };
             if (form.password) payload.password = form.password;
 
-            const { data } = await api.put(`/admin-management/${id}`, payload);
+            const { data } = await api.put(`/admin-management/${user.id}`, payload);
             setAdmin(data);
             setForm(f => ({ ...f, password: '' }));
-            showFlash('success', t('adminProfile.updateSuccess'));
+            showFlash('success', t('myProfile.updateSuccess', { defaultValue: 'Profile updated successfully.' }));
         } catch (err) {
-            showFlash('error', err.response?.data?.message || t('adminProfile.updateError'));
+            showFlash('error', err.response?.data?.message || t('myProfile.updateError', { defaultValue: 'Could not update profile.' }));
         } finally {
             setSaving(false);
-        }
-    };
-
-    const handleToggleStatus = async () => {
-        try {
-            const { data } = await api.patch(`/admin-management/${id}/status`, {
-                is_active: admin.is_active ? 0 : 1,
-            });
-            setAdmin(prev => ({ ...prev, is_active: data.is_active }));
-            showFlash('success', t(`adminProfile.statusToggle.${data.is_active ? 'reactivated' : 'deactivated'}`));
-            setDeactivateConfirmOpen(false);
-        } catch (err) {
-            showFlash('error', err.response?.data?.message || t('adminProfile.statusToggleError'));
-            setDeactivateConfirmOpen(false);
         }
     };
 
@@ -97,10 +79,10 @@ export default function AdminProfile() {
         return (
             <div className="min-h-screen bg-[#f5f4f0] flex flex-col items-center justify-center gap-3 text-gray-400">
                 <AlertTriangle size={28} />
-                <p className="text-sm">{t('adminProfile.notFound')}</p>
-                <Link to="/admin/admins" className="text-blue-600 text-sm font-medium hover:underline">
-                    {t('adminProfile.backToList')}
-                </Link>
+                <p className="text-sm">{t('myProfile.notFound', { defaultValue: 'Profile not found.' })}</p>
+                <button onClick={() => navigate('/admin/dashboard')} className="text-blue-600 text-sm font-medium hover:underline">
+                    {t('myProfile.backToDashboard', { defaultValue: 'Back to Dashboard' })}
+                </button>
             </div>
         );
     }
@@ -110,9 +92,9 @@ export default function AdminProfile() {
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
                 {/* Back link */}
-                <button onClick={() => navigate('/admin/admins')}
+                <button onClick={() => navigate('/admin/dashboard')}
                     className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition self-start">
-                    <ArrowLeft size={14} /> {t('adminProfile.backToList')}
+                    <ArrowLeft size={14} /> {t('myProfile.backToDashboard', { defaultValue: 'Back to Dashboard' })}
                 </button>
 
                 {/* Flash */}
@@ -138,11 +120,9 @@ export default function AdminProfile() {
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <h1 className="text-lg font-bold text-gray-900 truncate">{admin.name}</h1>
-                            {isSelf && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                                    {t('adminProfile.youBadge')}
-                                </span>
-                            )}
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                                {t('myProfile.youBadge', { defaultValue: 'You' })}
+                            </span>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
                                 ${admin.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
                                 {admin.is_active ? t('status.active') : t('status.inactive')}
@@ -159,9 +139,27 @@ export default function AdminProfile() {
                     </div>
                 </div>
 
+                {/* Role info card */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                        <ShieldCheck size={18} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                            {t('myProfile.roleTitle', { defaultValue: 'Administrator Account' })}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                            {t('myProfile.roleDesc', { defaultValue: 'You have full administrative access to this centre.' })}
+                        </p>
+                    </div>
+                </div>
+
                 {/* Edit form */}
                 <form onSubmit={handleSave} className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
-                    <h2 className="text-sm font-bold text-gray-900">{t('adminProfile.editTitle')}</h2>
+                    <div className="flex items-center gap-2">
+                        <User size={15} className="text-gray-400" />
+                        <h2 className="text-sm font-bold text-gray-900">{t('myProfile.editTitle', { defaultValue: 'Edit Your Profile' })}</h2>
+                    </div>
 
                     <div className="grid sm:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
@@ -190,6 +188,7 @@ export default function AdminProfile() {
                             <div className="relative">
                                 <input name="password" type={showPass ? 'text' : 'password'}
                                     value={form.password} onChange={handleChange}
+                                    autoComplete="new-password"
                                     placeholder={t('adminProfile.passwordPlaceholder')}
                                     className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 pr-10 text-sm w-full
                                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
@@ -212,67 +211,12 @@ export default function AdminProfile() {
                     </div>
                 </form>
 
-                {/* Danger zone */}
-                {!isSelf && (
-                    <div className="bg-white rounded-2xl border border-rose-100 p-6 flex items-center justify-between gap-4">
-                        <div>
-                            <h2 className="text-sm font-bold text-rose-700">
-                                {admin.is_active ? t('adminProfile.deactivateTitle') : t('adminProfile.reactivateTitle')}
-                            </h2>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {admin.is_active ? t('adminProfile.deactivateDesc') : t('adminProfile.reactivateDesc')}
-                            </p>
-                        </div>
-                        <button onClick={() => setDeactivateConfirmOpen(true)}
-                            className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition
-                                ${admin.is_active
-                                    ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
-                                    : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
-                            <Power size={14} /> {admin.is_active ? t('adminProfile.deactivateButton') : t('adminProfile.reactivateButton')}
-                        </button>
-                    </div>
-                )}
-                {isSelf && (
-                    <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 text-xs text-gray-400 flex items-center gap-2">
-                        <AlertTriangle size={13} />
-                        {t('adminProfile.selfDeactivateWarning')}
-                    </div>
-                )}
-            </main>
-
-            {/* Confirm modal */}
-            {deactivateConfirmOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm">
-                        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-                            <div className="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-                                <Trash2 size={16} className="text-rose-600" />
-                            </div>
-                            <h2 className="text-sm font-bold text-gray-900">
-                                {admin.is_active ? t('adminProfile.confirmDeactivate') : t('adminProfile.confirmReactivate')}
-                            </h2>
-                        </div>
-                        <div className="px-6 py-5">
-                            <p className="text-sm text-gray-600">
-                                {t('adminProfile.confirmMessage', {
-                                    action: admin.is_active ? t('adminProfile.deactivateAction') : t('adminProfile.reactivateAction'),
-                                    name: admin.name
-                                })}
-                            </p>
-                        </div>
-                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-                            <button onClick={() => setDeactivateConfirmOpen(false)}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
-                                {t('adminProfile.cancel')}
-                            </button>
-                            <button onClick={handleToggleStatus}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition">
-                                <Power size={12} /> {t('adminProfile.confirmYes', { action: admin.is_active ? t('adminProfile.deactivateAction') : t('adminProfile.reactivateAction') })}
-                            </button>
-                        </div>
-                    </div>
+                {/* Self-account notice — deactivation isn't available for your own account */}
+                <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 text-xs text-gray-400 flex items-center gap-2">
+                    <AlertTriangle size={13} />
+                    {t('adminProfile.selfDeactivateWarning')}
                 </div>
-            )}
+            </main>
         </div>
     );
 }

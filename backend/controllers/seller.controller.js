@@ -992,3 +992,178 @@ exports.importSellers = async (req, res) => {
         conn.release();
     }
 };
+
+// ── GET /api/sellers/:id/commission ──────────────────────
+exports.getSellerCommission = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = req.user.id;
+
+        let accessQuery, accessParams;
+        if (isAdmin) {
+            accessQuery = `SELECT seller_id, seller_type, milk_type FROM sellers WHERE seller_id = ? AND centre_id = ?`;
+            accessParams = [id, centreId];
+        } else {
+            accessQuery = `SELECT seller_id, seller_type, milk_type FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
+            accessParams = [id, operatorId, centreId];
+        }
+        const [accessCheck] = await pool.query(accessQuery, accessParams);
+        if (!accessCheck.length) {
+            return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
+        }
+
+        // Current commission settings for this centre (used for Gavali sellers)
+        const [settings] = await pool.query(
+            `SELECT id, milk_type, base_fat, base_snf, base_commission,
+                    fat_step_cut, snf_step_cut, is_active, updated_at
+             FROM commission_settings
+             WHERE centre_id = ?
+             ORDER BY milk_type ASC`,
+            [centreId]
+        );
+
+        // Total commission actually earned/billed so far (from frozen bill snapshots)
+        const [[totals]] = await pool.query(
+            `SELECT COALESCE(SUM(bme.commission_amount), 0) AS total_commission_earned
+             FROM bill_milk_entries bme
+             JOIN bill_master bm ON bm.bill_id = bme.bill_id
+             WHERE bm.seller_id = ? AND bm.centre_id = ?`,
+            [id, centreId]
+        );
+
+        res.json({
+            seller_type: accessCheck[0].seller_type,
+            milk_type: accessCheck[0].milk_type,
+            settings,
+            total_commission_earned: totals.total_commission_earned,
+        });
+    } catch (err) {
+        console.error('getSellerCommission error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── GET /api/sellers/:id/bills ────────────────────────────
+exports.getSellerBills = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = req.user.id;
+
+        let accessQuery, accessParams;
+        if (isAdmin) {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
+            accessParams = [id, centreId];
+        } else {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
+            accessParams = [id, operatorId, centreId];
+        }
+        const [accessCheck] = await pool.query(accessQuery, accessParams);
+        if (!accessCheck.length) {
+            return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
+        }
+
+        const [rows] = await pool.query(
+            `SELECT bill_id, bill_no, from_date, to_date, milk_amount, advance_balance,
+                    installment_cut, deposit_amount, product_deduction, walkin_deduction,
+                    cattle_feed_deduction, commission_amount, tds_amount, final_payable,
+                    cash_paid, total_qty, total_entries, paid_at
+             FROM bill_master
+             WHERE seller_id = ? AND centre_id = ?
+             ORDER BY paid_at DESC`,
+            [id, centreId]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('getSellerBills error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── GET /api/sellers/:id/bonus ────────────────────────────
+exports.getSellerBonus = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = req.user.id;
+
+        let accessQuery, accessParams;
+        if (isAdmin) {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
+            accessParams = [id, centreId];
+        } else {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
+            accessParams = [id, operatorId, centreId];
+        }
+        const [accessCheck] = await pool.query(accessQuery, accessParams);
+        if (!accessCheck.length) {
+            return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
+        }
+
+        const [bonusRows] = await pool.query(
+            `SELECT bp.payment_id, be.event_name, be.occasion, bp.total_qty,
+                    bp.total_bonus, bp.is_paid, bp.paid_at, bp.remarks, bp.created_at
+             FROM bonus_payments bp
+             JOIN bonus_events be ON be.event_id = bp.event_id
+             WHERE bp.seller_id = ? AND bp.centre_id = ?
+             ORDER BY bp.created_at DESC`,
+            [id, centreId]
+        );
+
+        const [gavaliRows] = await pool.query(
+            `SELECT gbp.payment_id, gbe.event_name, gbe.occasion, gbp.cow_qty, gbp.buffalo_qty,
+                    gbp.total_qty, gbp.total_bonus, gbp.is_paid, gbp.paid_at, gbp.remarks, gbp.created_at
+             FROM gavali_bonus_payments gbp
+             JOIN gavali_bonus_events gbe ON gbe.event_id = gbp.event_id
+             WHERE gbp.seller_id = ? AND gbp.centre_id = ?
+             ORDER BY gbp.created_at DESC`,
+            [id, centreId]
+        );
+
+        res.json({ bonus: bonusRows, gavaliBonus: gavaliRows });
+    } catch (err) {
+        console.error('getSellerBonus error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── GET /api/sellers/:id/cattle-feed ──────────────────────
+exports.getSellerCattleFeed = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = req.user.id;
+
+        let accessQuery, accessParams;
+        if (isAdmin) {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
+            accessParams = [id, centreId];
+        } else {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
+            accessParams = [id, operatorId, centreId];
+        }
+        const [accessCheck] = await pool.query(accessQuery, accessParams);
+        if (!accessCheck.length) {
+            return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
+        }
+
+        const [rows] = await pool.query(
+            `SELECT cfs.sale_id, cfs.sale_date, cfs.quantity, cfs.rate, cfs.total_amount,
+                    cf.feed_name, cf.unit
+             FROM cattle_feed_sales cfs
+             JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+             WHERE cfs.seller_id = ? AND cfs.centre_id = ?
+             ORDER BY cfs.sale_date DESC`,
+            [id, centreId]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('getSellerCattleFeed error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};

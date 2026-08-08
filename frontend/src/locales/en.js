@@ -4158,6 +4158,8 @@ const en = {
             colRemarks: "Remarks",
             colTime: "Time",
             colEdit: "Edit",
+            colTemp: "Temp °C",
+            colAcidity: "Acidity",
             editing: "Editing",
             edit: "Edit",
             noDispatches: "No dispatches recorded for this date",

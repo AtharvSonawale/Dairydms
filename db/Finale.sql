@@ -3,6 +3,8 @@ use dairy_db1;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+SET SQL_SAFE_UPDATES = 0;
+
 CREATE TABLE admins (
    admin_id int NOT NULL AUTO_INCREMENT,
    centre_id int NOT NULL,
@@ -1032,7 +1034,7 @@ CREATE TABLE tank_dispatch (
    remarks text,
    acidity varchar(10) DEFAULT '12.5',
    temperature varchar(10) DEFAULT '2',
-   fssai_code varchar(50) DEFAULT '11521040000016',
+   fssai_code varchar(50) DEFAULT NULL,
    created_at datetime DEFAULT CURRENT_TIMESTAMP,
    PRIMARY KEY (dispatch_id),
    KEY operator_id (operator_id),

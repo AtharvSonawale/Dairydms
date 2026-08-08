@@ -19,6 +19,9 @@ exports.getDashboard = async (req, res) => {
             milkRows, walkinRows, productSaleRows,
             purchaseRows, advanceRows, productRows,
             dispatchRows, ownerUsageRows, operatorRows,
+            cattleFeedRows, cattleFeedSaleRows, cattleFeedPurchaseRows,
+            bonusEventRows, bonusPaymentRows, gavaliBonusPaymentRows,
+            commissionSettingRows, paidCommissionRows,
         ] = await Promise.all([
             // Milk entries
             pool.query(
@@ -93,6 +96,85 @@ exports.getDashboard = async (req, res) => {
                  ORDER BY name ASC`,
                 [centreId]
             ),
+            // Cattle feeds (stock) — mirrors the Products stock query
+            pool.query(
+                `SELECT feed_id, feed_name, unit, current_stock, rate AS cost_price, mrp_rate AS selling_price, supplier_name
+                 FROM cattle_feeds WHERE centre_id = ? ORDER BY feed_name ASC`,
+                [centreId]
+            ),
+            // Cattle feed sales — mirrors the Product Sales query
+            pool.query(
+                `SELECT cfs.*, cf.feed_name, cf.unit, cf.mrp_rate AS selling_price, cf.rate AS cost_price,
+                        s.name AS seller_name, s.seller_code
+                 FROM cattle_feed_sales cfs
+                 JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+                 JOIN sellers s ON s.seller_id = cfs.seller_id
+                 WHERE cfs.centre_id = ? AND cfs.sale_date BETWEEN ? AND ?
+                 ORDER BY cfs.created_at DESC`,
+                [centreId, from, to]
+            ),
+            // Cattle feed purchases — mirrors the Purchases query
+            pool.query(
+                `SELECT cfp.*, cf.feed_name, cf.unit
+                 FROM cattle_feed_purchases cfp
+                 JOIN cattle_feeds cf ON cf.feed_id = cfp.feed_id
+                 WHERE cfp.centre_id = ? AND cfp.purchase_date BETWEEN ? AND ?
+                 ORDER BY cfp.created_at DESC`,
+                [centreId, from, to]
+            ),
+            // Bonus events (Utpadak + Gavali) active and overlapping the selected range
+            pool.query(
+                `SELECT event_id, centre_id, event_name, occasion, from_date, to_date, is_active, created_at, 'utpadak' AS bonus_scheme
+                 FROM bonus_events
+                 WHERE centre_id = ? AND is_active = 1 AND from_date <= ? AND to_date >= ?
+                 UNION ALL
+                 SELECT event_id, centre_id, event_name, occasion, from_date, to_date, is_active, created_at, 'gavali' AS bonus_scheme
+                 FROM gavali_bonus_events
+                 WHERE centre_id = ? AND is_active = 1 AND from_date <= ? AND to_date >= ?
+                 ORDER BY from_date DESC`,
+                [centreId, to, from, centreId, to, from]
+            ),
+            // Bonus payments (Utpadak)
+            pool.query(
+                `SELECT bp.*, s.name AS seller_name, s.seller_code, be.event_name
+                 FROM bonus_payments bp
+                 JOIN sellers s ON s.seller_id = bp.seller_id
+                 JOIN bonus_events be ON be.event_id = bp.event_id
+                 WHERE bp.centre_id = ? AND bp.created_at BETWEEN ? AND ?
+                 ORDER BY bp.created_at DESC`,
+                [centreId, `${from} 00:00:00`, `${to} 23:59:59`]
+            ),
+            // Bonus payments (Gavali)
+            pool.query(
+                `SELECT gbp.*, s.name AS seller_name, s.seller_code, gbe.event_name
+                 FROM gavali_bonus_payments gbp
+                 JOIN sellers s ON s.seller_id = gbp.seller_id
+                 JOIN gavali_bonus_events gbe ON gbe.event_id = gbp.event_id
+                 WHERE gbp.centre_id = ? AND gbp.created_at BETWEEN ? AND ?
+                 ORDER BY gbp.created_at DESC`,
+                [centreId, `${from} 00:00:00`, `${to} 23:59:59`]
+            ),
+            // Commission settings — current config, not date-ranged
+            pool.query(
+                `SELECT id, centre_id, milk_type, base_fat, base_snf, base_commission,
+                        fat_step_cut, snf_step_cut, is_active, updated_at
+                 FROM commission_settings
+                 WHERE centre_id = ?
+                 ORDER BY milk_type ASC`,
+                [centreId]
+            ),
+            // Commission actually paid — from finalized bills (bill_master),
+            // for bills paid_at within this range. milk_entries.commission_amount
+            // is never populated at entry time (only bill_milk_entries gets it,
+            // once a bill is created), so that column can't be summed directly —
+            // this mirrors exactly what SellerPayments computes and freezes
+            // into bill_master.commission_amount at markPaid time.
+            pool.query(
+                `SELECT bm.bill_id, bm.seller_id, bm.commission_amount, bm.paid_at
+                 FROM bill_master bm
+                 WHERE bm.centre_id = ? AND bm.paid_at BETWEEN ? AND ?`,
+                [centreId, `${from} 00:00:00`, `${to} 23:59:59`]
+            ),
         ]);
 
         // Extract data
@@ -105,6 +187,14 @@ exports.getDashboard = async (req, res) => {
         const dispatches = dispatchRows[0];
         const ownerUsage = ownerUsageRows[0];
         const operators = operatorRows[0];
+        const cattleFeeds = cattleFeedRows[0];
+        const cattleFeedSales = cattleFeedSaleRows[0];
+        const cattleFeedPurchases = cattleFeedPurchaseRows[0];
+        const bonusEvents = bonusEventRows[0];
+        const bonusPayments = bonusPaymentRows[0];
+        const gavaliBonusPayments = gavaliBonusPaymentRows[0];
+        const commissionSettings = commissionSettingRows[0];
+        const paidCommissionBills = paidCommissionRows[0];
 
         // Calculate average milk rates by type
         const cowMilkEntries = milk.filter(e => e.milk_type === 'cow');
@@ -173,8 +263,34 @@ exports.getDashboard = async (req, res) => {
 
         const ownerUsageCost = cowOwnerUsageCost + buffaloOwnerUsageCost;
 
-        // 5. Total Profit
-        const totalProfit = productSalesProfit + walkinProfit + dispatchProfit - ownerUsageCost;
+        // 5. Cattle Feed Sales Profit (same pattern as Product Sales Profit)
+        const cattleFeedSalesProfit = cattleFeedSales.reduce((sum, sale) => {
+            const profitPerUnit = parseFloat(sale.selling_price || 0) - parseFloat(sale.cost_price || 0);
+            return sum + profitPerUnit * parseFloat(sale.quantity || 0);
+        }, 0);
+        const cattleFeedPurchaseSpend = cattleFeedPurchases.reduce((sum, p) => sum + parseFloat(p.total_amount || 0), 0);
+
+        // 6. Bonus Paid (Utpadak + Gavali) — a cost, reduces profit like owner usage
+        const utpadakBonusPaid = bonusPayments
+            .filter(b => b.is_paid)
+            .reduce((sum, b) => sum + parseFloat(b.total_bonus || 0), 0);
+        const gavaliBonusPaid = gavaliBonusPayments
+            .filter(b => b.is_paid)
+            .reduce((sum, b) => sum + parseFloat(b.total_bonus || 0), 0);
+        const bonusPaid = utpadakBonusPaid + gavaliBonusPaid;
+
+        // 7. Commission (Gavali-only) — informational. Commission is ADDED
+        // to a Gavali seller's milk rate (increases what they're paid), not
+        // deducted, so it's already baked into milk_amount on the bill. It's
+        // deliberately NOT folded into total_profit here since this dashboard
+        // doesn't currently treat milk collection cost as a profit deduction
+        // at all — surfacing it separately avoids implying a double-deduction
+        // that isn't actually happening.
+        const totalCommission = paidCommissionBills.reduce((sum, b) => sum + parseFloat(b.commission_amount || 0), 0);
+
+        // 8. Total Profit
+        const totalProfit = productSalesProfit + walkinProfit + dispatchProfit
+            + cattleFeedSalesProfit - ownerUsageCost - bonusPaid;
 
         // Return response
         res.json({
@@ -189,6 +305,13 @@ exports.getDashboard = async (req, res) => {
             dispatches,
             owner_usage: ownerUsage,
             operators,
+            cattle_feeds: cattleFeeds,
+            cattle_feed_sales: cattleFeedSales,
+            cattle_feed_purchases: cattleFeedPurchases,
+            bonus_events: bonusEvents,
+            bonus_payments: bonusPayments,
+            gavali_bonus_payments: gavaliBonusPayments,
+            commission_settings: commissionSettings,
             profits: {
                 avg_cow_rate: avgCowRate,
                 avg_buffalo_rate: avgBuffaloRate,
@@ -202,6 +325,12 @@ exports.getDashboard = async (req, res) => {
                 cow_owner_usage_cost: cowOwnerUsageCost,
                 buffalo_owner_usage_cost: buffaloOwnerUsageCost,
                 owner_usage_cost: ownerUsageCost,
+                cattle_feed_sales_profit: cattleFeedSalesProfit,
+                cattle_feed_purchase_spend: cattleFeedPurchaseSpend,
+                utpadak_bonus_paid: utpadakBonusPaid,
+                gavali_bonus_paid: gavaliBonusPaid,
+                bonus_paid: bonusPaid,
+                total_commission: totalCommission,
                 total_profit: totalProfit,
             },
         });

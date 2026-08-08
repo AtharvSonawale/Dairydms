@@ -71,6 +71,7 @@ import Centres from './pages/admin/Centres';
 import CommissionSettings from './pages/admin/CommissionSettings';
 import UtpadakMilkEntry from './pages/UtpadakMilkEntry';
 import GavaliMilkEntry from './pages/GavaliMilkEntry';
+import MyProfile from './pages/admin/MyProfile';
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -165,6 +166,7 @@ function AppRoutes() {
         <Route path="/milkentries" element={<ProtectedRoute><MilkEntries /></ProtectedRoute>} />
         <Route path="/utpadak-milk-entry" element={<ProtectedRoute><UtpadakMilkEntry /></ProtectedRoute>} />
         <Route path="/gavali-milk-entry" element={<ProtectedRoute><GavaliMilkEntry /></ProtectedRoute>} />
+        <Route path="/admin/profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
       </Route>
 
       {/* ── Fallback ── */}

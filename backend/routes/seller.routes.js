@@ -23,6 +23,11 @@ router.get('/:id/advance', ctrl.getSellerAdvance);
 router.get('/:id/products', ctrl.getSellerProducts);
 router.get('/:id/premium', ctrl.getSellerPremium);
 
+router.get('/:id/commission', ctrl.getSellerCommission);
+router.get('/:id/bills', ctrl.getSellerBills);
+router.get('/:id/bonus', ctrl.getSellerBonus);
+router.get('/:id/cattle-feed', ctrl.getSellerCattleFeed);
+
 // The bare /:id must be LAST among all :id‑based routes
 router.get('/:id', ctrl.getSellerById);
 

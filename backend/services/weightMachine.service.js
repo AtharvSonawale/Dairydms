@@ -154,16 +154,8 @@ const label = subtype === 'weight_gavali' ? 'Gavali'
         throw new Error(`No ${label} weight machine port configured. Set it up in Port Settings first.`);
     }
 
-    // Dairy-wide toggle (Settings page → "Weight Kg→Ltr Auto-Convert"). Off by
-    // default so existing single-value machines are unaffected until an admin
-    // explicitly turns this on.
-    const [[globalSetting]] = await pool.query(
-        `SELECT setting_value FROM global_settings WHERE dairy_id = ? AND setting_key = 'weight_kg_to_ltr_enabled'`,
-        [dairyId]
-    );
-    const kgToLtrEnabled = globalSetting
-        ? (globalSetting.setting_value === '1' || globalSetting.setting_value === 'true')
-        : true;    const kgLabel = settings.kg_unit_label || 'Kg';
+    // Kg↔Ltr conversion always runs — no dairy-wide toggle to check anymore.
+    const kgLabel = settings.kg_unit_label || 'Kg';
     const ltrLabel = settings.ltr_unit_label || 'Ltr';
     const KG_TO_LTR_FACTOR = 0.97;
 
@@ -212,14 +204,12 @@ const label = subtype === 'weight_gavali' ? 'Gavali'
                 // keeps Kg in sync too. If a line ever carries BOTH (a genuine
                 // dual-output machine), we trust the hardware's own numbers
                 // and skip deriving entirely.
-                if (kgToLtrEnabled) {
-                    if (parsed.kg && !parsed.ltr) {
-                        ltrValue = parseFloat((kgValue * KG_TO_LTR_FACTOR).toFixed(3));
-                        ltrUnit = ltrLabel;
-                    } else if (parsed.ltr && !parsed.kg) {
-                        kgValue = parseFloat((ltrValue / KG_TO_LTR_FACTOR).toFixed(3));
-                        kgUnit = kgLabel;
-                    }
+                if (parsed.kg && !parsed.ltr) {
+                    ltrValue = parseFloat((kgValue * KG_TO_LTR_FACTOR).toFixed(3));
+                    ltrUnit = ltrLabel;
+                } else if (parsed.ltr && !parsed.kg) {
+                    kgValue = parseFloat((ltrValue / KG_TO_LTR_FACTOR).toFixed(3));
+                    kgUnit = kgLabel;
                 }
 
                 latestReading[subtype] = {

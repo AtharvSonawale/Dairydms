@@ -168,7 +168,7 @@ export default function FarmerLedgerDetail() {
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
                 {/* Back link */}
                 <Link to="/farmer-ledger" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 transition w-fit">

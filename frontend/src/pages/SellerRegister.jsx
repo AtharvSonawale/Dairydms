@@ -72,6 +72,46 @@ const columnMap = {
     'password': 'password',
 };
 
+// ── Sample farmer used to populate the downloadable import template ──────
+const SAMPLE_FARMER_ROW = [
+    "S001", "Ramesh Kumar Patil", "9876543210", "123456789012", "ABCDE1234F", "100234567890",
+    "Utpadak", "cow", "Patil Wadi, Gat No. 45", "12345678901", "State Bank of India",
+    "Ramesh Kumar Patil", "Pune Main Branch", "SBIN0001234",
+    "At Post Wadgaon, Tal. Haveli, Dist. Pune", "411041",
+    1, 500, 1, 1, 2.5, 0, "farmer@123",
+];
+
+// ── Import parsing helpers ────────────────────────────────────
+const parseBoolField = (val) => {
+    if (val === undefined || val === null || val === '') return undefined;
+    const s = String(val).trim().toLowerCase();
+    if (['1', 'yes', 'y', 'true', 'enabled', 'on'].includes(s)) return 1;
+    if (['0', 'no', 'n', 'false', 'disabled', 'off'].includes(s)) return 0;
+    const n = Number(s);
+    return Number.isNaN(n) ? undefined : (n ? 1 : 0);
+};
+
+const parseDecimalField = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    const cleaned = String(val).replace(/[^\d.]/g, '');
+    if (cleaned === '') return null;
+    const n = parseFloat(cleaned);
+    return Number.isNaN(n) ? null : n;
+};
+
+const normalizeSellerType = (val) => {
+    const s = String(val || '').trim().toLowerCase();
+    if (s === 'gavali') return 'Gavali';
+    if (s === 'utpadak') return 'Utpadak';
+    return val ? String(val).trim() : 'Utpadak';
+};
+
+const normalizeMilkType = (val) => {
+    const s = String(val || '').trim().toLowerCase();
+    if (['cow', 'buffalo', 'mixed'].includes(s)) return s;
+    return 'mixed';
+};
+
 const EMPTY_FORM = {
     seller_code: "",
     name: "",
@@ -163,6 +203,7 @@ export default function SellerRegister() {
     const [parsingFile, setParsingFile] = useState(false);
     const [importResult, setImportResult] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [missingRequiredColumns, setMissingRequiredColumns] = useState(false);
 
     const processFile = (file) => {
         if (!file) return;
@@ -173,6 +214,7 @@ export default function SellerRegister() {
         setImportFile(file);
         setImportErrors([]);
         setImportData([]);
+        setMissingRequiredColumns(false);
         setParsingFile(true);
 
         const reader = new FileReader();
@@ -197,35 +239,60 @@ export default function SellerRegister() {
                 const nameIdx = mappedHeaders.indexOf('name');
                 const mobileIdx = mappedHeaders.indexOf('mobile');
                 if (nameIdx === -1 || mobileIdx === -1) {
+                    setMissingRequiredColumns(true);
                     setImportErrors([t('sellerRegister.missingRequiredColumns') || 'Required columns "Name" and "Mobile" not found.']);
                     return;
                 }
+
+                const BOOL_FIELDS = ['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'];
+                const DECIMAL_FIELDS = ['advance_deduction', 'deposit_per_litre'];
 
                 const rows = json.map((row, idx) => {
                     const obj = {};
                     headers.forEach((h, i) => {
                         const field = mappedHeaders[i];
-                        if (field) {
-                            let val = row[h];
-                            if (['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'].includes(field)) {
-                                val = val === '' ? undefined : Number(val);
-                            }
-                            if (['advance_deduction', 'deposit_per_litre'].includes(field)) {
-                                val = val === '' ? null : parseFloat(val);
-                            }
-                            obj[field] = val;
+                        if (!field) return;
+                        let val = row[h];
+                        if (BOOL_FIELDS.includes(field)) {
+                            val = parseBoolField(val);
+                        } else if (DECIMAL_FIELDS.includes(field)) {
+                            val = parseDecimalField(val);
+                        } else if (field === 'seller_type') {
+                            val = normalizeSellerType(val);
+                        } else if (field === 'milk_type') {
+                            val = normalizeMilkType(val);
+                        } else if (typeof val === 'string') {
+                            val = val.trim();
                         }
+                        obj[field] = val;
                     });
-                    ['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'].forEach(f => {
-                        if (obj[f] === undefined || obj[f] === '') obj[f] = (f === 'advance_enabled' ? 1 : 0);
+                    BOOL_FIELDS.forEach(f => {
+                        if (obj[f] === undefined) obj[f] = (f === 'advance_enabled' ? 1 : 0);
                     });
+                    if (!obj.seller_type) obj.seller_type = 'Utpadak';
+                    if (!obj.milk_type) obj.milk_type = 'mixed';
                     return { ...obj, _rowIndex: idx + 1 };
                 });
 
                 const errors = [];
-                rows.forEach((row, idx) => {
-                    if (!row.name || !row.mobile) {
-                        errors.push(t('sellerRegister.rowNameMobileRequired', { row: idx + 1 }) || `Row ${idx + 1}: Name and Mobile are required.`);
+                rows.forEach((row) => {
+                    const reasons = [];
+                    if (!row.name) reasons.push('Name');
+                    if (!row.mobile) reasons.push('Mobile');
+                    if (row.mobile) {
+                        const mobileClean = String(row.mobile).replace(/[^\d]/g, "");
+                        if (mobileClean.length < 10 || mobileClean.length > 12) {
+                            reasons.push('a valid Mobile (10–12 digits)');
+                        } else {
+                            row.mobile = mobileClean;
+                        }
+                    }
+                    row._valid = reasons.length === 0;
+                    if (reasons.length > 0) {
+                        errors.push(
+                            t('sellerRegister.rowFieldError', { row: row._rowIndex, fields: reasons.join(', ') })
+                            || `Row ${row._rowIndex}: ${reasons.join(', ')} required/invalid.`
+                        );
                     }
                 });
                 setImportErrors(errors);
@@ -259,18 +326,19 @@ export default function SellerRegister() {
             "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
             "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre",
             "Cattle Feed Enabled", "Password"];
-        const ws = XLSX.utils.aoa_to_sheet([headers]);
+        const ws = XLSX.utils.aoa_to_sheet([headers, SAMPLE_FARMER_ROW]);
+        ws['!cols'] = headers.map(() => ({ wch: 20 }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Farmers");
         XLSX.writeFile(wb, "farmer_import_template.xlsx");
     };
 
-    const resetImport = () => { setImportFile(null); setImportData([]); setImportErrors([]); };
+    const resetImport = () => { setImportFile(null); setImportData([]); setImportErrors([]); setMissingRequiredColumns(false); };
 
     const handleImportSave = async () => {
         if (importData.length === 0) return;
 
-        const validRows = importData.filter(r => r.name && r.mobile);
+        const validRows = importData.filter(r => r._valid);
         if (validRows.length === 0) {
             setImportErrors([t('sellerRegister.noValidRows') || 'No valid rows to import.']);
             return;
@@ -454,7 +522,7 @@ export default function SellerRegister() {
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8">
 
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
@@ -1135,12 +1203,12 @@ export default function SellerRegister() {
                                     </span>
                                     <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                                         <CheckCircle2 size={11} />
-                                        {importData.filter(r => r.name && r.mobile).length} {t('sellerRegister.valid') || 'valid'}
+                                        {importData.filter(r => r._valid).length} {t('sellerRegister.valid') || 'valid'}
                                     </span>
-                                    {importData.filter(r => !r.name || !r.mobile).length > 0 && (
+                                    {importData.filter(r => !r._valid).length > 0 && (
                                         <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
                                             <XCircle size={11} />
-                                            {importData.filter(r => !r.name || !r.mobile).length} {t('sellerRegister.invalid') || 'invalid'}
+                                            {importData.filter(r => !r._valid).length} {t('sellerRegister.invalid') || 'invalid'}
                                         </span>
                                     )}
                                 </div>
@@ -1169,7 +1237,7 @@ export default function SellerRegister() {
                                         </thead>
                                         <tbody>
                                             {importData.map((row, idx) => {
-                                                const valid = row.name && row.mobile;
+                                                const valid = row._valid;
                                                 return (
                                                     <tr key={idx} className={`border-b border-gray-50 ${valid ? 'hover:bg-emerald-50/30' : 'bg-red-50/30'}`}>
                                                         {Object.keys(row).filter(k => !k.startsWith('_')).map(key => (
@@ -1201,7 +1269,7 @@ export default function SellerRegister() {
                                     className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
                                     {t('sellerRegister.cancel')}
                                 </button>
-                                <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || importErrors.some(e => e.includes('Required'))}
+                                <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || missingRequiredColumns}
                                     className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
                                     {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     <Save size={13} />

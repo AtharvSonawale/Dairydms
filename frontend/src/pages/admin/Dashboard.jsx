@@ -7,7 +7,7 @@ import {
     TrendingDown, Users, Package, RefreshCw, Sun, Moon,
     AlertTriangle, Banknote, Layers, Truck,
     FlaskConical, ArrowUpRight, ArrowDownRight, Home,
-    Settings, Calendar,
+    Settings, Calendar, Wheat, Gift, Percent,
 } from "lucide-react";
 
 // ── helpers ───────────────────────────────────────────────────
@@ -182,6 +182,13 @@ export default function AdminDashboard() {
     const [dispatches, setDispatches] = useState([]);
     const [ownerUsage, setOwnerUsage] = useState([]);
     const [operators, setOperators] = useState([]);
+    const [cattleFeeds, setCattleFeeds] = useState([]);
+    const [cattleFeedSales, setCattleFeedSales] = useState([]);
+    const [cattleFeedPurchases, setCattleFeedPurchases] = useState([]);
+    const [bonusEvents, setBonusEvents] = useState([]);
+    const [bonusPayments, setBonusPayments] = useState([]);
+    const [gavaliBonusPayments, setGavaliBonusPayments] = useState([]);
+    const [commissionSettings, setCommissionSettings] = useState([]);
 
     const [profits, setProfits] = useState({
         total_profit: 0,
@@ -189,12 +196,20 @@ export default function AdminDashboard() {
         walkin_profit: 0,
         dispatch_profit: 0,
         owner_usage_cost: 0,
+        cattle_feed_sales_profit: 0,
+        cattle_feed_purchase_spend: 0,
+        utpadak_bonus_paid: 0,
+        gavali_bonus_paid: 0,
+        bonus_paid: 0,
+        total_commission: 0,
     });
 
     const [load, setLoad] = useState({
         milk: true, walkin: true, psales: true, ppurch: true,
         advance: true, products: true, dispatch: true,
         ownerUsage: true, operators: true,
+        cfeeds: true, cfsales: true, cfpurch: true,
+        bonus: true, commission: true,
     });
 
     const showFlash = (type, msg) => {
@@ -216,6 +231,13 @@ export default function AdminDashboard() {
             setDispatches(data.dispatches || []);
             setOwnerUsage(data.owner_usage || []);
             setOperators(data.operators || []);
+            setCattleFeeds(data.cattle_feeds || []);
+            setCattleFeedSales(data.cattle_feed_sales || []);
+            setCattleFeedPurchases(data.cattle_feed_purchases || []);
+            setBonusEvents(data.bonus_events || []);
+            setBonusPayments(data.bonus_payments || []);
+            setGavaliBonusPayments(data.gavali_bonus_payments || []);
+            setCommissionSettings(data.commission_settings || []);
 
             if (data.profits) {
                 setProfits(data.profits);
@@ -237,7 +259,9 @@ export default function AdminDashboard() {
             setLoad({
                 milk: false, walkin: false, psales: false, ppurch: false,
                 advance: false, products: false, dispatch: false,
-                ownerUsage: false, operators: false
+                ownerUsage: false, operators: false,
+                cfeeds: false, cfsales: false, cfpurch: false,
+                bonus: false, commission: false,
             });
         }
     }, []);
@@ -288,12 +312,23 @@ export default function AdminDashboard() {
     const morningUsageQ = morningUsage.reduce((a, u) => a + parseFloat(u.quantity || 0), 0);
     const eveningUsageQ = eveningUsage.reduce((a, u) => a + parseFloat(u.quantity || 0), 0);
 
+    const cattleFeedSaleRev = cattleFeedSales.reduce((a, s) => a + parseFloat(s.total_amount || 0), 0);
+    const cattleFeedPurchaseSpend = cattleFeedPurchases.reduce((a, p) => a + parseFloat(p.total_amount || 0), 0);
+    const outOfStockFeeds = cattleFeeds.filter((f) => parseFloat(f.current_stock || 0) <= 0);
+
+    const allBonusPayments = [
+        ...bonusPayments.map(b => ({ ...b, bonus_scheme: 'Utpadak' })),
+        ...gavaliBonusPayments.map(b => ({ ...b, bonus_scheme: 'Gavali' })),
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const totalBonusPaid = allBonusPayments.filter(b => b.is_paid).reduce((a, b) => a + parseFloat(b.total_bonus || 0), 0);
+    const activeBonusEvents = bonusEvents;
+
     const recentMilk = [...milkEntries].slice(0, 5);
     const recentWalkin = [...walkinSales].slice(0, 5);
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
                 {/* Top bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -447,8 +482,11 @@ export default function AdminDashboard() {
                         <StatCard label={t('dashboard.walkinSales')} value={"₹" + fmt(walkinRevenue)} sub={`${walkinSales.length} ${t('dashboard.transactions')}`} icon={<ShoppingCart size={15} />} color="blue" />
                         <StatCard label={t('dashboard.productSales')} value={"₹" + fmt(prodSaleRev)} sub={`${productSales.length} ${t('dashboard.itemsSold')}`} icon={<ShoppingBag size={15} />} color="violet" />
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
                         <StatCard label={t('dashboard.purchaseSpend')} value={"₹" + fmt(purchaseSpend)} sub={`${purchases.length} ${t('dashboard.purchases')}`} icon={<TrendingDown size={15} />} color="red" />
+                        <StatCard label={t('dashboard.cattleFeedSales') || 'Cattle Feed Sales'} value={"₹" + fmt(cattleFeedSaleRev)} sub={`${cattleFeedSales.length} ${t('dashboard.transactions')}`} icon={<Wheat size={15} />} color="amber" />
+                        <StatCard label={t('dashboard.cattleFeedPurchases') || 'Cattle Feed Purchases'} value={"₹" + fmt(cattleFeedPurchaseSpend)} sub={`${cattleFeedPurchases.length} ${t('dashboard.purchases')}`} icon={<Wheat size={15} />} color="violet" />
+                        <StatCard label={t('dashboard.totalBonusPaid') || 'Total Bonus Paid'} value={"₹" + fmt(totalBonusPaid)} sub={`${allBonusPayments.filter(b => b.is_paid).length} ${t('dashboard.transactions')}`} icon={<Gift size={15} />} color="slate" />
                     </div>
                 </div>
 
@@ -863,6 +901,165 @@ export default function AdminDashboard() {
                             ))}
                         </div>
                     )}
+                </div>
+
+                {/* Cattle Feed Stock */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <SectionHeader icon={<Wheat size={13} className="text-white" />} title={t('dashboard.cattleFeedStock') || 'Cattle Feed Stock'} sub={`${cattleFeeds.length} ${t('dashboard.products')} · ${outOfStockFeeds.length} ${t('dashboard.outOfStock')}`} />
+                    {load.cfeeds ? <Spinner /> : cattleFeeds.length === 0 ? (
+                        <EmptyState icon={<Wheat size={28} />} text={t('dashboard.noProducts')} />
+                    ) : (
+                        <div className="flex flex-col divide-y divide-gray-50">
+                            {cattleFeeds.map((f) => {
+                                const stock = parseFloat(f.current_stock || 0);
+                                const statusColor = stock <= 0 ? "text-red-500 bg-red-50 border-red-100" : stock < 5 ? "text-amber-600 bg-amber-50 border-amber-100" : "text-emerald-600 bg-emerald-50 border-emerald-100";
+                                return (
+                                    <div key={f.feed_id} className="flex items-center justify-between py-2.5">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                                <Wheat size={12} className="text-gray-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-800">{f.feed_name}</p>
+                                                <p className="text-[10px] text-gray-400">{f.unit}</p>
+                                            </div>
+                                        </div>
+                                        <span className={`px-2.5 py-1 rounded-lg border text-xs font-bold ${statusColor}`}>
+                                            {stock <= 0 ? t('dashboard.outOfStock') : stock.toFixed(1) + " " + f.unit}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Cattle Feed Sales */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <SectionHeader icon={<Wheat size={13} className="text-white" />} title={t('dashboard.cattleFeedSales') || 'Cattle Feed Sales'} sub={`${cattleFeedSales.length} ${t('dashboard.today')} · ₹${fmt(cattleFeedSaleRev)}`} />
+                    {load.cfsales ? <Spinner /> : cattleFeedSales.length === 0 ? (
+                        <EmptyState icon={<Wheat size={28} />} text={t('dashboard.noProductSales')} />
+                    ) : (
+                        <div className="flex flex-col divide-y divide-gray-50">
+                            {cattleFeedSales.slice(0, 5).map((s) => (
+                                <div key={s.sale_id} className="flex items-center justify-between py-2.5">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                                            <Wheat size={12} className="text-amber-700" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-gray-800 truncate">{s.feed_name || `#${s.feed_id}`}</p>
+                                            <p className="text-[10px] text-gray-400 truncate">{s.seller_name || "—"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right shrink-0 ml-3">
+                                        <p className="text-xs font-bold text-gray-800">{parseFloat(s.quantity).toFixed(1)} {s.unit}</p>
+                                        <p className="text-[10px] text-amber-600 font-semibold">₹{fmt(s.total_amount)}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Cattle Feed Purchases */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <SectionHeader icon={<Wheat size={13} className="text-white" />} title={t('dashboard.cattleFeedPurchases') || 'Cattle Feed Purchases'} sub={`${cattleFeedPurchases.length} ${t('dashboard.today')} · ₹${fmt(cattleFeedPurchaseSpend)} ${t('dashboard.spent')}`} />
+                    {load.cfpurch ? <Spinner /> : cattleFeedPurchases.length === 0 ? (
+                        <EmptyState icon={<Wheat size={28} />} text={t('dashboard.noPurchases')} />
+                    ) : (
+                        <div className="flex flex-col divide-y divide-gray-50">
+                            {cattleFeedPurchases.slice(0, 5).map((p) => (
+                                <div key={p.purchase_id} className="flex items-center justify-between py-2.5">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                                            <Wheat size={12} className="text-orange-600" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-gray-800 truncate">{p.feed_name || `#${p.feed_id}`}</p>
+                                            <p className="text-[10px] text-gray-400 truncate">{p.supplier_name}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right shrink-0 ml-3">
+                                        <p className="text-xs font-bold text-gray-800">{parseFloat(p.quantity).toFixed(1)} {p.unit}</p>
+                                        <p className="text-[10px] text-orange-600 font-semibold">₹{fmt(p.total_amount)}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Bonus */}
+                <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{t('dashboard.bonus') || 'Bonus'}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                        <StatCard label={t('dashboard.utpadakBonusPaid') || 'Utpadak Bonus Paid'} value={"₹" + fmt(profits.utpadak_bonus_paid)} sub={`${bonusPayments.filter(b => b.is_paid).length} ${t('dashboard.transactions')}`} icon={<Gift size={15} />} color="amber" />
+                        <StatCard label={t('dashboard.gavaliBonusPaid') || 'Gavali Bonus Paid'} value={"₹" + fmt(profits.gavali_bonus_paid)} sub={`${gavaliBonusPayments.filter(b => b.is_paid).length} ${t('dashboard.transactions')}`} icon={<Gift size={15} />} color="violet" />
+                        <StatCard label={t('dashboard.totalBonusPaid') || 'Total Bonus Paid'} value={"₹" + fmt(totalBonusPaid)} sub={`${activeBonusEvents.length} ${t('dashboard.active') || 'active'}`} icon={<Gift size={15} />} color="red" />
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                        <SectionHeader icon={<Gift size={13} className="text-white" />} title={t('dashboard.bonusPayments') || 'Bonus Payments'} sub={`${allBonusPayments.length} ${t('dashboard.transactions')}`} />
+                        {load.bonus ? <Spinner /> : allBonusPayments.length === 0 ? (
+                            <EmptyState icon={<Gift size={28} />} text={t('dashboard.noAdvances')} />
+                        ) : (
+                            <div className="flex flex-col divide-y divide-gray-50">
+                                {allBonusPayments.slice(0, 8).map((b) => (
+                                    <div key={`${b.bonus_scheme}-${b.payment_id}`} className="flex items-center justify-between py-2.5">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${b.is_paid ? "bg-emerald-500" : "bg-gray-300"}`}>
+                                                <Gift size={12} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-gray-800 truncate">{b.seller_name || `#${b.seller_id}`}</p>
+                                                <p className="text-[10px] text-gray-400 truncate">{b.event_name} · {b.bonus_scheme}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0 ml-3">
+                                            <p className="text-xs font-bold text-emerald-600">₹{fmt(b.total_bonus)}</p>
+                                            <p className="text-[10px] text-gray-400">{b.is_paid ? (t('dashboard.paid') || 'Paid') : (t('dashboard.pending') || 'Pending')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Commission */}
+                <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{t('dashboard.commission') || 'Commission'}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <StatCard label={t('dashboard.totalCommission') || 'Total Commission'} value={"₹" + fmt(profits.total_commission)} sub={t('dashboard.fromPaidBills') || 'From paid bills (Gavali only)'} icon={<Percent size={15} />} color="indigo" />                        <StatCard label={t('dashboard.commissionRules') || 'Commission Rules'} value={commissionSettings.filter(c => c.is_active).length} sub={t('dashboard.activeRules') || 'active rules'} icon={<Percent size={15} />} color="teal" />
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                        <SectionHeader icon={<Percent size={13} className="text-white" />} title={t('dashboard.commissionSettings') || 'Commission Settings'} sub={`${commissionSettings.length} ${t('dashboard.rules') || 'rules'}`} />
+                        {load.commission ? <Spinner /> : commissionSettings.length === 0 ? (
+                            <EmptyState icon={<Percent size={28} />} text={t('dashboard.noRules') || 'No commission rules configured'} />
+                        ) : (
+                            <div className="flex flex-col divide-y divide-gray-50">
+                                {commissionSettings.map((c) => (
+                                    <div key={c.id} className="flex items-center justify-between py-2.5">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                                <Percent size={12} className="text-indigo-600" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <MilkTypeBadge type={c.milk_type} />
+                                                <p className="text-[10px] text-gray-400 mt-0.5">Base FAT {parseFloat(c.base_fat).toFixed(2)} · Base SNF {parseFloat(c.base_snf).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0 ml-3">
+                                            <p className="text-xs font-bold text-gray-800">₹{parseFloat(c.base_commission).toFixed(2)}</p>
+                                            <p className="text-[10px] text-gray-400">{c.is_active ? (t('dashboard.active') || 'Active') : t('status.inactive')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Advance Transactions */}

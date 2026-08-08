@@ -21,7 +21,8 @@ import {
     HandCoins,
     ArrowLeftRight,
     ShoppingBasket,
-    Percent
+    Percent,
+    UserCircle
 } from 'lucide-react';
 
 /**
@@ -39,6 +40,16 @@ const SHARED_NAV = (isAdmin, t) => {
             to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
             tourId: 'nav-dashboard',
         },
+
+        // ── My Profile – admin only ─────────────────────────────────
+        ...(isAdmin ? [
+            {
+                label: t('nav.myProfile', { defaultValue: 'My Profile' }),
+                icon: <UserCircle size={16} />,
+                to: '/admin/profile',
+                tourId: 'nav-my-profile',
+            },
+        ] : []),
 
         // ── Admin Only ───────────────────────────────────────────────
         ...(isAdmin ? [
@@ -286,7 +297,7 @@ const ToggleBtn = ({ collapsed, onClick, isAdmin }) => (
     </button>
 );
 
-function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navItems, isAdmin, isFarmer, user, handleLogout, appName, logoUrl }) {
+function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navItems, isAdmin, isFarmer, user, handleLogout, appName, logoUrl, navigate, isFavorited, toggleFavorite }) {
     const { t } = useTranslation();
 
     return (
@@ -324,7 +335,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                     item.children ? (
                         <div key={item.label} data-tour={item.tourId}>
                             <button
-                                onClick={() => setExpanded(p => ({ ...p, [item.label]: !p[item.label] }))}
+                                onClick={() => setExpanded(p => ({ ...p, [item.label]: !(p[item.label] ?? true) }))}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150
                                     ${isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'}`}
                             >
@@ -333,33 +344,47 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                                     <>
                                         <span className="flex-1 text-left whitespace-nowrap">{item.label}</span>
                                         <ChevronRight size={13}
-                                            className={`transition-transform duration-200 ${expanded[item.label] ? 'rotate-90' : ''}`} />
+                                            className={`transition-transform duration-200 ${(expanded[item.label] ?? true) ? 'rotate-90' : ''}`} />
                                     </>
                                 )}
                             </button>
 
-                            {(expanded[item.label] && (!collapsed || mobile)) && (
+                            {((expanded[item.label] ?? true) && (!collapsed || mobile)) && (
                                 <div className={`ml-5 mt-0.5 space-y-0.5 pl-4 relative
     before:absolute before:left-0 before:top-0 before:bottom-4 before:w-0.5
     ${isAdmin ? 'before:bg-gray-700' : 'before:bg-emerald-600'}`}>
-                                    {item.children.map(child => (
-                                        <NavLink
-                                            key={child.to}
-                                            to={child.to}
-                                            className={({ isActive }) =>
-                                                `flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all duration-150 relative
-                                                before:absolute before:-left-[13px] before:top-1/2 before:-translate-y-1/2 before:w-2.5 before:h-px
-                                                ${isAdmin ? 'before:bg-gray-600' : 'before:bg-emerald-500'}
-                                                ${isActive
-                                                    ? isAdmin ? 'bg-white text-gray-900 font-semibold' : 'bg-white text-emerald-700 font-semibold'
-                                                    : isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'
-                                                }`
-                                            }
-                                        >
-                                            <span className="shrink-0">{child.icon}</span>
-                                            <span className="whitespace-nowrap">{child.label}</span>
-                                        </NavLink>
-                                    ))}
+                                    {item.children.map(child => {
+                                        const favActive = isFavorited?.(child.to);
+                                        return (
+                                            <NavLink
+                                                key={child.to}
+                                                to={child.to}
+                                                className={({ isActive }) =>
+                                                    `flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all duration-150 relative
+                                                    before:absolute before:-left-[13px] before:top-1/2 before:-translate-y-1/2 before:w-2.5 before:h-px
+                                                    ${isAdmin ? 'before:bg-gray-600' : 'before:bg-emerald-500'}
+                                                    ${isActive
+                                                        ? isAdmin ? 'bg-white text-gray-900 font-semibold' : 'bg-white text-emerald-700 font-semibold'
+                                                        : isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'
+                                                    }`
+                                                }
+                                            >
+                                                <span className="shrink-0">{child.icon}</span>
+                                                <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{child.label}</span>
+                                                {toggleFavorite && (
+                                                    <span
+                                                        role="button"
+                                                        onClick={(e) => toggleFavorite(e, child)}
+                                                        title={favActive ? 'Remove from favourites' : 'Add to favourites'}
+                                                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded-md transition
+                                                            ${isAdmin ? 'text-amber-400 hover:bg-gray-700' : 'text-amber-300 hover:bg-emerald-600'}`}
+                                                    >
+                                                        <Star size={12} fill={favActive ? 'currentColor' : 'none'} />
+                                                    </span>
+                                                )}
+                                            </NavLink>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -379,7 +404,18 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                         >
                             <span className="w-5 h-5 flex items-center justify-center shrink-0">{item.icon}</span>
                             {(!collapsed || mobile) && (
-                                <span className="whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>
+                                <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>
+                            )}
+                            {toggleFavorite && (!collapsed || mobile) && (
+                                <span
+                                    role="button"
+                                    onClick={(e) => toggleFavorite(e, item)}
+                                    title={isFavorited?.(item.to) ? 'Remove from favourites' : 'Add to favourites'}
+                                    className={`shrink-0 w-5 h-5 flex items-center justify-center rounded-md transition
+                                        ${isAdmin ? 'text-amber-400 hover:bg-gray-700' : 'text-amber-300 hover:bg-emerald-600'}`}
+                                >
+                                    <Star size={13} fill={isFavorited?.(item.to) ? 'currentColor' : 'none'} />
+                                </span>
                             )}
                             {collapsed && !mobile && (
                                 <span className={`absolute left-full ml-3 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap
@@ -395,22 +431,39 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
 
             {/* Bottom Avatar */}
             <div className={`border-t p-3 ${isAdmin ? 'border-gray-800' : 'border-emerald-700'}`}>
-                <div className={`flex items-center gap-3 px-2 py-2 rounded-xl transition cursor-default
+                <div className={`flex items-center gap-3 px-2 py-2 rounded-xl transition
                     ${isAdmin ? 'hover:bg-gray-800' : 'hover:bg-emerald-700'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                        ${isAdmin ? 'bg-gray-600 text-white' : 'bg-emerald-300 text-emerald-900'}`}>
-                        {initials(user?.name)}
-                    </div>
-                    {(!collapsed || mobile) && (
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate leading-none">{user?.name}</p>
-                            <p className={`text-xs mt-0.5 capitalize ${isAdmin ? 'text-gray-400' : 'text-emerald-300'}`}>
-                                {user?.role === 'admin'
-                                    ? t('status.admin')
-                                    : user?.role === 'seller'
-                                        ? t('status.farmer', { defaultValue: 'Farmer' })
-                                        : t('status.operator')}
-                            </p>
+                    {isAdmin ? (
+                        <button
+                            onClick={() => navigate('/admin/profile')}
+                            title={t('nav.myProfile', { defaultValue: 'My Profile' })}
+                            className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                        >
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gray-600 text-white">
+                                {initials(user?.name)}
+                            </div>
+                            {(!collapsed || mobile) && (
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-white truncate leading-none">{user?.name}</p>
+                                    <p className="text-xs mt-0.5 capitalize text-gray-400">{t('status.admin')}</p>
+                                </div>
+                            )}
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-emerald-300 text-emerald-900">
+                                {initials(user?.name)}
+                            </div>
+                            {(!collapsed || mobile) && (
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-white truncate leading-none">{user?.name}</p>
+                                    <p className="text-xs mt-0.5 capitalize text-emerald-300">
+                                        {user?.role === 'seller'
+                                            ? t('status.farmer', { defaultValue: 'Farmer' })
+                                            : t('status.operator')}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                     {(!collapsed || mobile) && (
@@ -450,11 +503,84 @@ export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [favorites, setFavorites] = useState([]); // [{ id, nav_path, nav_label }]
+
+    // Fetch the logged-in user's saved favourites once on mount
+    useEffect(() => {
+        if (!user) return;
+        api.get('/favourites')
+            .then(({ data }) => {
+                console.log('[favourites] loaded', data);
+                setFavorites(data);
+            })
+            .catch((err) => {
+                console.error('[favourites] GET failed:', err.response?.status, err.response?.data || err.message);
+            });
+    }, [user]);
 
     const navItems = useMemo(
         () => (isFarmer ? FARMER_NAV(t) : SHARED_NAV(isAdmin, t)),
         [isAdmin, isFarmer, t]
     );
+
+    // Flatten leaf nav items (top-level + children) so favourites can borrow
+    // their icon/label by matching on path, without persisting icons in the DB.
+    const flatNavItems = useMemo(() => {
+        const flat = [];
+        navItems.forEach(item => {
+            if (item.children) item.children.forEach(c => flat.push(c));
+            else if (item.to) flat.push(item);
+        });
+        return flat;
+    }, [navItems]);
+
+    const favoriteNavItems = useMemo(() =>
+        favorites.map(f => {
+            const match = flatNavItems.find(n => n.to === f.nav_path);
+            return match
+                ? { ...match, favId: f.id }
+                : { label: f.nav_label, to: f.nav_path, icon: <Star size={14} />, favId: f.id };
+        }),
+    [favorites, flatNavItems]);
+
+    // Synthetic "Favourites" group — reuses the same collapsible-group
+    // rendering path as every other nav section, so no extra JSX is needed.
+    // Only shown when the user actually has favourites.
+    const displayNavItems = useMemo(() => {
+        if (favoriteNavItems.length === 0) return navItems;
+        return [
+            {
+                label: t('nav.favourites', { defaultValue: 'Favourites' }),
+                icon: <Star size={16} />,
+                to: null,
+                tourId: 'nav-favourites',
+                children: favoriteNavItems,
+            },
+            ...navItems,
+        ];
+    }, [navItems, favoriteNavItems, t]);
+
+    const isFavorited = (path) => favorites.some(f => f.nav_path === path);
+
+    const toggleFavorite = async (e, item) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[favourites] toggle clicked for', item.to);
+        const existing = favorites.find(f => f.nav_path === item.to);
+        try {
+            if (existing) {
+                await api.delete(`/favourites/${existing.id}`);
+                setFavorites(prev => prev.filter(f => f.id !== existing.id));
+                console.log('[favourites] removed', item.to);
+            } else {
+                const { data } = await api.post('/favourites', { nav_path: item.to, nav_label: item.label });
+                setFavorites(prev => [...prev, data]);
+                console.log('[favourites] added', data);
+            }
+        } catch (err) {
+            console.error('[favourites] toggle failed:', err.response?.status, err.response?.data || err.message);
+        }
+    };
     // Expand all collapsible nav sections by default
     const [expanded, setExpanded] = useState(() =>
         navItems.reduce((acc, item) => {
@@ -616,8 +742,9 @@ export default function AppLayout() {
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <SidebarContent mobile
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
-                    navItems={navItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
-                    appName={appName} logoUrl={logoUrl}
+                    navItems={displayNavItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
+                    appName={appName} logoUrl={logoUrl} navigate={navigate}
+                    isFavorited={isFavorited} toggleFavorite={toggleFavorite}
                 />
             </aside>
 
@@ -628,8 +755,9 @@ export default function AppLayout() {
                 <ToggleBtn collapsed={collapsed} onClick={() => setCollapsed(p => !p)} isAdmin={isAdmin} />
                 <SidebarContent
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
-                    navItems={navItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
-                    appName={appName} logoUrl={logoUrl}
+                    navItems={displayNavItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
+                    appName={appName} logoUrl={logoUrl} navigate={navigate}
+                    isFavorited={isFavorited} toggleFavorite={toggleFavorite}
                 />
             </aside>
 

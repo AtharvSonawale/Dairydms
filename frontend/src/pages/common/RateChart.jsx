@@ -538,7 +538,7 @@ export default function RateChart() {
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
                 {/* ── Page Header ── */}
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">

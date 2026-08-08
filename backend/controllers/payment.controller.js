@@ -115,7 +115,7 @@ exports.getSellerSummary = async (req, res) => {
         // 5. Fetch already-paid records
         const [paid] = await pool.query(
             `SELECT
-                seller_id, paid_at, bill_no, from_date, to_date,
+                seller_id, paid_at, bill_no, from_date, to_date, milk_amount,
                 installment_cut, deposit_amount, product_deduction,
                 walkin_deduction, cattle_feed_deduction, commission_amount, final_payable, cash_paid
             FROM seller_payments
@@ -137,6 +137,7 @@ exports.getSellerSummary = async (req, res) => {
                     bill_no: p.bill_no,
                     from_date: p.from_date,
                     to_date: p.to_date,
+                    milk_amount: p.milk_amount,
                     installment_cut: p.installment_cut,
                     deposit_amount: p.deposit_amount,
                     product_deduction: p.product_deduction,
@@ -146,6 +147,27 @@ exports.getSellerSummary = async (req, res) => {
                     final_payable: p.final_payable,
                     cash_paid: p.cash_paid,
                 };
+            }
+        }
+
+        // 5b. Fetch frozen milk-entry snapshots for already-paid bills, so commission
+        // data shown for a paid seller always matches what was actually billed —
+        // instead of being recomputed against (possibly changed) commission_settings.
+        const paidBillNos = paid.map(p => p.bill_no).filter(Boolean);
+        const frozenEntriesMap = {};
+        if (paidBillNos.length > 0) {
+            const [frozenRows] = await pool.query(
+                `SELECT bm.seller_id, bme.entry_date, bme.shift, bme.milk_type,
+                        bme.quantity, bme.fat, bme.snf, bme.water, bme.rate_applied,
+                        bme.commission_amount, bme.base_rate, bme.total_amount
+                 FROM bill_master bm
+                 JOIN bill_milk_entries bme ON bme.bill_id = bm.bill_id AND bme.centre_id = bm.centre_id
+                 WHERE bm.centre_id = ? AND bm.bill_no IN (?)`,
+                [centreId, paidBillNos]
+            );
+            for (const row of frozenRows) {
+                if (!frozenEntriesMap[row.seller_id]) frozenEntriesMap[row.seller_id] = [];
+                frozenEntriesMap[row.seller_id].push(row);
             }
         }
 
@@ -206,14 +228,16 @@ exports.getSellerSummary = async (req, res) => {
                 applyCommissionToEntries(entries, s.seller_type, commissionSettingsMap);
             entries = adjustedEntries;
 
-            // If already paid, return frozen data
+            // If already paid, return frozen data — pulled from the bill snapshot so it
+            // never drifts if commission_settings or milk_entries change afterward.
             if (alreadyPaid) {
+                const frozenEntries = frozenEntriesMap[s.seller_id];
                 return {
                     seller_id: s.seller_id,
                     seller_code: s.seller_code,
                     name: s.name,
                     seller_type: s.seller_type,
-                    milk_amount: computedMilkAmount,
+                    milk_amount: parseFloat(paidRecord.milk_amount ?? computedMilkAmount ?? 0),
                     total_milk_quantity: parseFloat(s.total_milk_quantity || 0),
                     deposit_per_litre: parseFloat(s.deposit_per_litre || 0),
                     deposit_amount: parseFloat(paidRecord.deposit_amount || 0),
@@ -233,7 +257,7 @@ exports.getSellerSummary = async (req, res) => {
                     bill_no: paidRecord.bill_no,
                     paid_cycle_from: paidRecord.from_date,
                     paid_cycle_to: paidRecord.to_date,
-                    entries,
+                    entries: frozenEntries && frozenEntries.length > 0 ? frozenEntries : entries,
                 };
             }
 
@@ -1218,3 +1242,4 @@ exports.saveExcelConfig = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+

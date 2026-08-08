@@ -6,8 +6,13 @@ import {
     Building2, Hash, Calendar, RefreshCw, AlertTriangle,
     FlaskConical, Milk, TrendingUp, Wallet, ShoppingBag,
     Clock, ChevronRight, BadgeCheck, Pencil, Trash2, Save,
-    X, Banknote, Star, Vault,
+    X, Banknote, Star, Vault, Droplet, Package, Lock,
+    Percent, Receipt, Gift, Wheat, BarChart3,
 } from "lucide-react";
+import {
+    ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+    CartesianGrid, Tooltip as RechartsTooltip,
+} from "recharts";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
@@ -18,6 +23,35 @@ const fmt = (d) =>
 
 const fmtDateTime = (d) =>
     d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
+
+// groups raw milk entries by entry_date and computes per-day aggregates for the chart
+const buildMilkChartData = (entries) => {
+    const map = {};
+    entries.forEach((e) => {
+        const key = e.entry_date ? String(e.entry_date).slice(0, 10) : "unknown";
+        if (!map[key]) {
+            map[key] = { date: key, quantity: 0, amount: 0, fatSum: 0, snfSum: 0, cowQty: 0, bufQty: 0, count: 0 };
+        }
+        const qty = parseFloat(e.quantity || 0);
+        map[key].quantity += qty;
+        map[key].amount += parseFloat(e.total_amount || 0);
+        map[key].fatSum += parseFloat(e.fat || 0);
+        map[key].snfSum += parseFloat(e.snf || 0);
+        if ((e.milk_type || "").toLowerCase() === "cow") map[key].cowQty += qty;
+        if ((e.milk_type || "").toLowerCase() === "buffalo") map[key].bufQty += qty;
+        map[key].count += 1;
+    });
+    return Object.values(map)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .map((d) => ({
+            ...d,
+            label: fmt(d.date) || d.date,
+            quantity: parseFloat(d.quantity.toFixed(2)),
+            amount: parseFloat(d.amount.toFixed(2)),
+            avgFat: (d.fatSum / d.count).toFixed(2),
+            avgSnf: (d.snfSum / d.count).toFixed(2),
+        }));
+};
 
 const milkIcon = (t, iconMap) => {
     if (!iconMap) return null;
@@ -47,6 +81,7 @@ const EMPTY_FORM = {
     cattle_feed_sale_enabled: 0,
     payment_term: "postpaid",
     is_active: 1,
+    password: "",
 };
 
 const Field = ({ label, required, children }) => (
@@ -146,6 +181,51 @@ function FilterBar({ filter, setFilter, from, setFrom, to, setTo, onReset, t }) 
     );
 }
 
+// ── MilkChartTooltip ──────────────────────────────────────────
+function MilkChartTooltip({ active, payload, label }) {
+    if (!active || !payload || !payload.length) return null;
+    const d = payload[0].payload;
+    return (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-3.5 py-3 text-xs min-w-[170px]">
+            <p className="font-semibold text-gray-800 mb-2">{label}</p>
+            <div className="space-y-1.5">
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Quantity</span>
+                    <span className="font-mono font-semibold text-blue-600">{d.quantity.toFixed(2)} L</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Entries</span>
+                    <span className="font-mono font-semibold text-gray-700">{d.count}</span>
+                </div>
+                {d.cowQty > 0 && (
+                    <div className="flex justify-between gap-4">
+                        <span className="text-gray-400">Cow</span>
+                        <span className="font-mono font-semibold text-amber-600">{d.cowQty.toFixed(2)} L</span>
+                    </div>
+                )}
+                {d.bufQty > 0 && (
+                    <div className="flex justify-between gap-4">
+                        <span className="text-gray-400">Buffalo</span>
+                        <span className="font-mono font-semibold text-blue-500">{d.bufQty.toFixed(2)} L</span>
+                    </div>
+                )}
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Avg Fat</span>
+                    <span className="font-mono font-semibold text-amber-600">{d.avgFat}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Avg SNF</span>
+                    <span className="font-mono font-semibold text-emerald-600">{d.avgSnf}</span>
+                </div>
+                <div className="flex justify-between gap-4 pt-1.5 border-t border-gray-100">
+                    <span className="text-gray-400">Amount</span>
+                    <span className="font-mono font-bold text-gray-900">₹{d.amount.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Paginator ─────────────────────────────────────────────────
 function Paginator({ total, page, setPage, pageSize, setPageSize, t }) {
     const totalPages = Math.ceil(total / pageSize);
@@ -210,6 +290,7 @@ export default function SellerProfile() {
     const [showEdit, setShowEdit] = useState(false);
     const [editForm, setEditForm] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
+    const [hasPassword, setHasPassword] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [flash, setFlash] = useState(null);
@@ -220,6 +301,10 @@ export default function SellerProfile() {
     const [milkTo, setMilkTo] = useState("");
     const [milkPage, setMilkPage] = useState(1);
     const [milkPageSize, setMilkPageSize] = useState(10);
+
+    const [chartFilter, setChartFilter] = useState("month");
+    const [chartFrom, setChartFrom] = useState("");
+    const [chartTo, setChartTo] = useState("");
 
     const [advFilter, setAdvFilter] = useState("all");
     const [advFrom, setAdvFrom] = useState("");
@@ -235,6 +320,26 @@ export default function SellerProfile() {
 
     const [premPage, setPremPage] = useState(1);
     const [premPageSize, setPremPageSize] = useState(10);
+
+    const [commissionData, setCommissionData] = useState(null);
+
+    const [bills, setBills] = useState([]);
+    const [billFilter, setBillFilter] = useState("all");
+    const [billFrom, setBillFrom] = useState("");
+    const [billTo, setBillTo] = useState("");
+    const [billPage, setBillPage] = useState(1);
+    const [billPageSize, setBillPageSize] = useState(10);
+
+    const [bonusData, setBonusData] = useState({ bonus: [], gavaliBonus: [] });
+    const [bonusPage, setBonusPage] = useState(1);
+    const [bonusPageSize, setBonusPageSize] = useState(10);
+
+    const [cattleFeedSales, setCattleFeedSales] = useState([]);
+    const [cfFilter, setCfFilter] = useState("all");
+    const [cfFrom, setCfFrom] = useState("");
+    const [cfTo, setCfTo] = useState("");
+    const [cfPage, setCfPage] = useState(1);
+    const [cfPageSize, setCfPageSize] = useState(10);
 
     const [depFilter, setDepFilter] = useState("all");
     const [depFrom, setDepFrom] = useState("");
@@ -301,7 +406,9 @@ export default function SellerProfile() {
             cattle_feed_sale_enabled: seller.cattle_feed_sale_enabled ?? 0,
             payment_term: seller.payment_term || "postpaid",
             is_active: seller.is_active ?? 1,
+            password: "",
         });
+        setHasPassword(!!seller.has_password);
         setShowEdit(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -316,9 +423,15 @@ export default function SellerProfile() {
         if (editForm.bank_account && editForm.bank_account !== editForm.bank_account_confirm) {
             showFlash("error", t('sellerProfile.editForm.bankMismatch')); return;
         }
+        if (editForm.password && editForm.password.length < 6) {
+            showFlash("error", t('sellerProfile.editForm.passwordMinError') || "Password must be at least 6 characters.");
+            return;
+        }
         setSaving(true);
         try {
-            await api.put(`/sellers/${id}`, editForm);
+            const payload = { ...editForm };
+            if (!payload.password) delete payload.password;
+            await api.put(`/sellers/${id}`, payload);
             showFlash("success", t('sellerProfile.editForm.saveSuccess'));
             setShowEdit(false);
             await fetchAll();
@@ -350,7 +463,8 @@ export default function SellerProfile() {
         setLoading(true);
         setError(null);
         try {
-            const [sellerRes, entriesRes, premiumRes, cashRes, depRes, productsRes, depBalRes] = await Promise.allSettled([
+            const [sellerRes, entriesRes, premiumRes, cashRes, depRes, productsRes, depBalRes,
+                   commissionRes, billsRes, bonusRes, cattleFeedRes] = await Promise.allSettled([
                 api.get(`/sellers/${id}`),
                 api.get(`/sellers/${id}/entries`),
                 api.get(`/sellers/${id}/premium`),
@@ -358,6 +472,10 @@ export default function SellerProfile() {
                 api.get(`/sellers/${id}/deposit`),
                 api.get(`/sellers/${id}/products`),
                 api.get(`/sellers/${id}/deposit-balance`),
+                api.get(`/sellers/${id}/commission`),
+                api.get(`/sellers/${id}/bills`),
+                api.get(`/sellers/${id}/bonus`),
+                api.get(`/sellers/${id}/cattle-feed`),
             ]);
 
             if (sellerRes.status === "fulfilled") setSeller(sellerRes.value.data);
@@ -369,6 +487,10 @@ export default function SellerProfile() {
             if (depRes.status === "fulfilled") setCashDeposits(depRes.value.data);
             if (productsRes.status === "fulfilled") setProductSales(productsRes.value.data);
             if (depBalRes.status === "fulfilled") setDepositBalance(depBalRes.value.data);
+            if (commissionRes.status === "fulfilled") setCommissionData(commissionRes.value.data);
+            if (billsRes.status === "fulfilled") setBills(billsRes.value.data);
+            if (bonusRes.status === "fulfilled") setBonusData(bonusRes.value.data);
+            if (cattleFeedRes.status === "fulfilled") setCattleFeedSales(cattleFeedRes.value.data);
         } catch {
             setError(t('sellerProfile.flash.loadError'));
         } finally {
@@ -412,7 +534,7 @@ export default function SellerProfile() {
 
     return (
         <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+            <main className="max-w-full mx-auto px-4 sm:px-6 py-8 space-y-5">
 
                 {/* ── Breadcrumb + Header ── */}
                 <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
@@ -483,7 +605,7 @@ export default function SellerProfile() {
                                 <h2 className="font-semibold text-gray-800">{t('sellerProfile.editForm.title')}</h2>
                                 <p className="text-xs text-gray-400 mt-0.5">{t('sellerProfile.editForm.subtitle')}</p>
                             </div>
-                            <button onClick={() => setShowEdit(false)}
+                            <button onClick={() => { setShowEdit(false); setHasPassword(false); }}
                                 className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
                                 <X size={14} />
                             </button>
@@ -575,6 +697,22 @@ export default function SellerProfile() {
                                         onChange={e => setEditForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
                                         placeholder={t('sellerProfile.editForm.ifscCodePlaceholder')} maxLength={11}
                                         className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                </Field>
+                                <Field label={t('sellerProfile.editForm.password') || "Password"}>
+                                    <div className="relative">
+                                        <input
+                                            type="password"
+                                            value={editForm.password}
+                                            onChange={e => setEditForm(p => ({ ...p, password: e.target.value }))}
+                                            placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
+                                            maxLength={100}
+                                            autoComplete="new-password"
+                                            className="border border-gray-200 bg-gray-50 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        <Lock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    </div>
+                                    <p className={`text-[10px] mt-1 ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
+                                        {hasPassword ? (t('sellerProfile.editForm.passwordSetHint') || "Password is set. Enter a new one to change it.") : (t('sellerProfile.editForm.passwordNotSetHint') || "No password set yet for this seller.")}
+                                    </p>
                                 </Field>
                             </div>
                             {/* Address */}
@@ -817,6 +955,67 @@ export default function SellerProfile() {
                     </Section>
                 </div>
 
+                {/* ── Milk Entry Chart ── */}
+                {(() => {
+                    const chartFiltered = applyDateFilter(milkEntries, chartFilter, chartFrom, chartTo, "entry_date");
+                    const chartData = buildMilkChartData(chartFiltered);
+                    const chartTotalQty = chartData.reduce((a, d) => a + d.quantity, 0);
+                    const chartTotalAmt = chartData.reduce((a, d) => a + d.amount, 0);
+                    return (
+                        <Section title="Milk Collection Trend" icon={<BarChart3 size={15} />}>
+                            <FilterBar filter={chartFilter} setFilter={setChartFilter}
+                                from={chartFrom} setFrom={setChartFrom}
+                                to={chartTo} setTo={setChartTo}
+                                onReset={() => {}}
+                                t={t} />
+                            {chartData.length > 0 && (
+                                <div className="flex flex-wrap gap-2 py-3 border-b border-gray-50">
+                                    <span className="text-xs bg-blue-50 border border-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
+                                        {chartData.length} day{chartData.length !== 1 ? "s" : ""} plotted
+                                    </span>
+                                    <span className="text-xs bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1 rounded-full font-medium">
+                                        Total: {chartTotalQty.toFixed(2)} L
+                                    </span>
+                                    <span className="text-xs bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">
+                                        Amount: ₹{chartTotalAmt.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {chartData.length === 0 ? (
+                                <EmptyState icon={<Milk size={28} />} msg={t('sellerProfile.milkEntries.noEntries')} />
+                            ) : (
+                                <div className="py-4" style={{ width: "100%", height: 360 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 10, right: 24, left: 4, bottom: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                            <XAxis
+                                                dataKey="label"
+                                                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                                                axisLine={{ stroke: "#e5e7eb" }}
+                                                tickLine={false}
+                                                interval={chartData.length > 20 ? Math.floor(chartData.length / 15) : 0}
+                                                angle={chartData.length > 10 ? -35 : 0}
+                                                textAnchor={chartData.length > 10 ? "end" : "middle"}
+                                                height={chartData.length > 10 ? 55 : 30}
+                                                label={{ value: "Date", position: "insideBottom", offset: -2, fontSize: 11, fill: "#9ca3af" }}
+                                            />
+                                            <YAxis
+                                                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                                                axisLine={{ stroke: "#e5e7eb" }}
+                                                tickLine={false}
+                                                width={55}
+                                                label={{ value: "Quantity (L)", angle: -90, position: "insideLeft", fontSize: 11, fill: "#9ca3af" }}
+                                            />
+                                            <RechartsTooltip content={<MilkChartTooltip />} cursor={{ fill: "#f8fafc" }} />
+                                            <Bar dataKey="quantity" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={42} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </Section>
+                    );
+                })()}
+
                 {/* ── Milk Entries ── */}
                 {(() => {
                     const filtered = applyDateFilter(milkEntries, milkFilter, milkFrom, milkTo, "entry_date");
@@ -866,7 +1065,7 @@ export default function SellerProfile() {
                                 );
                             })()}
                             {filtered.length === 0 ? (
-                                <EmptyState icon="🥛" msg={t('sellerProfile.milkEntries.noEntries')} />
+                                <EmptyState icon={<Droplet size={28} />} msg={t('sellerProfile.milkEntries.noEntries')} />
                             ) : (
                                 <div className="overflow-x-auto -mx-5">
                                     <div className="max-h-[420px] overflow-y-auto">
@@ -935,7 +1134,7 @@ export default function SellerProfile() {
                     return (
                         <Section title={t('sellerProfile.premiumRates.title')} icon={<FlaskConical size={15} />}>
                             {premiumRates.length === 0 ? (
-                                <EmptyState icon="⭐" msg={t('sellerProfile.premiumRates.noRates')} />
+                                <EmptyState icon={<Star size={28} />} msg={t('sellerProfile.premiumRates.noRates')} />
                             ) : (
                                 <div className="overflow-x-auto -mx-5">
                                     <div className="max-h-[320px] overflow-y-auto">
@@ -1011,7 +1210,7 @@ export default function SellerProfile() {
                                 </div>
                             )}
                             {filtered.length === 0 ? (
-                                <EmptyState icon="💰" msg={t('sellerProfile.cashAdvances.noRecords')} />
+                                <EmptyState icon={<Wallet size={28} />} msg={t('sellerProfile.cashAdvances.noRecords')} />
                             ) : (
                                 <div className="overflow-x-auto -mx-5">
                                     <div className="max-h-[320px] overflow-y-auto">
@@ -1079,7 +1278,7 @@ export default function SellerProfile() {
                                 </div>
                             )}
                             {filtered.length === 0 ? (
-                                <EmptyState icon="🏦" msg={t('sellerProfile.cashDeposits.noRecords')} />
+                                <EmptyState icon={<Landmark size={28} />} msg={t('sellerProfile.cashDeposits.noRecords')} />
                             ) : (
                                 <div className="overflow-x-auto -mx-5">
                                     <div className="max-h-[320px] overflow-y-auto">
@@ -1143,7 +1342,7 @@ export default function SellerProfile() {
                                 </div>
                             )}
                             {filtered.length === 0 ? (
-                                <EmptyState icon="📦" msg={t('sellerProfile.productsPurchased.noRecords')} />
+                                <EmptyState icon={<Package size={28} />} msg={t('sellerProfile.productsPurchased.noRecords')} />
                             ) : (
                                 <div className="overflow-x-auto -mx-5">
                                     <div className="max-h-[320px] overflow-y-auto">
@@ -1178,6 +1377,230 @@ export default function SellerProfile() {
                             )}
                             <Paginator total={filtered.length} page={prodPage} setPage={setProdPage}
                                 pageSize={prodPageSize} setPageSize={setProdPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Commission ── */}
+                {seller.seller_type === 'Gavali' && commissionData && (
+                    <Section title={t('sellerProfile.commission.title') || 'Commission'} icon={<Percent size={15} />}>
+                        <div className="flex flex-wrap gap-2 py-3 border-b border-gray-50">
+                            <span className="text-xs bg-fuchsia-50 border border-fuchsia-100 text-fuchsia-700 px-3 py-1 rounded-full font-medium">
+                                Total earned: ₹{parseFloat(commissionData.total_commission_earned || 0).toFixed(2)}
+                            </span>
+                        </div>
+                        {commissionData.settings.length === 0 ? (
+                            <EmptyState icon={<Percent size={28} />} msg="No commission settings configured" />
+                        ) : (
+                            <div className="overflow-x-auto -mx-5">
+                                <table className="w-full text-sm min-w-max">
+                                    <thead>
+                                        <tr className="border-b border-gray-50">
+                                            {["Milk Type", "Base Fat", "Base SNF", "Base Commission", "Fat Step Cut", "SNF Step Cut", "Status"].map(h => (
+                                                <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {commissionData.settings.map(s => (
+                                            <tr key={s.id} className="hover:bg-gray-50 transition">
+                                                <td className="px-4 py-2.5">
+                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${milkBadge(s.milk_type)}`}>{s.milk_type}</span>
+                                                </td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-600">{s.base_fat}</td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-600">{s.base_snf}</td>
+                                                <td className="px-4 py-2.5 font-bold text-gray-900 font-mono">₹{parseFloat(s.base_commission).toFixed(2)}</td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-500">{s.fat_step_cut}</td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-500">{s.snf_step_cut}</td>
+                                                <td className="px-4 py-2.5">
+                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${s.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-gray-50 text-gray-400 border border-gray-100"}`}>
+                                                        {s.is_active ? "Active" : "Inactive"}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </Section>
+                )}
+
+                {/* ── Bills ── */}
+                {(() => {
+                    const filtered = applyDateFilter(bills, billFilter, billFrom, billTo, "paid_at");
+                    const paginated = filtered.slice((billPage - 1) * billPageSize, billPage * billPageSize);
+                    const fTotal = filtered.reduce((a, b) => a + parseFloat(b.final_payable || b.cash_paid || 0), 0);
+                    return (
+                        <Section title={t('sellerProfile.bills.title') || 'Bills'} icon={<Receipt size={15} />}>
+                            <FilterBar filter={billFilter} setFilter={setBillFilter}
+                                from={billFrom} setFrom={setBillFrom}
+                                to={billTo} setTo={setBillTo}
+                                onReset={() => setBillPage(1)} t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 py-3 border-b border-gray-50">
+                                    <span className="text-xs bg-violet-50 border border-violet-100 text-violet-700 px-3 py-1 rounded-full font-medium">
+                                        {filtered.length} bills
+                                    </span>
+                                    <span className="text-xs bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">
+                                        Total paid: ₹{fTotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Receipt size={28} />} msg="No bills found" />
+                            ) : (
+                                <div className="overflow-x-auto -mx-5">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white">
+                                                <tr className="border-b border-gray-50">
+                                                    {["Bill No", "Period", "Qty", "Milk Amt", "Deductions", "Final Payable", "Paid On"].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {paginated.map(b => {
+                                                    const deductions = parseFloat(b.installment_cut || 0) + parseFloat(b.deposit_amount || 0)
+                                                        + parseFloat(b.product_deduction || 0) + parseFloat(b.walkin_deduction || 0)
+                                                        + parseFloat(b.cattle_feed_deduction || 0);
+                                                    return (
+                                                        <tr key={b.bill_id} className="hover:bg-gray-50 transition">
+                                                            <td className="px-4 py-2.5 font-mono text-xs text-violet-700 font-bold">{b.bill_no}</td>
+                                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-mono whitespace-nowrap">{fmt(b.from_date)} → {fmt(b.to_date)}</td>
+                                                            <td className="px-4 py-2.5 font-mono text-gray-600">{parseFloat(b.total_qty || 0).toFixed(2)} L</td>
+                                                            <td className="px-4 py-2.5 font-mono text-emerald-600">₹{parseFloat(b.milk_amount || 0).toFixed(2)}</td>
+                                                            <td className="px-4 py-2.5 font-mono text-rose-500">− ₹{deductions.toFixed(2)}</td>
+                                                            <td className="px-4 py-2.5 font-bold text-gray-900">₹{parseFloat(b.final_payable || b.cash_paid || 0).toFixed(2)}</td>
+                                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-mono whitespace-nowrap">{fmtDateTime(b.paid_at)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={billPage} setPage={setBillPage}
+                                pageSize={billPageSize} setPageSize={setBillPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Bonus ── */}
+                {(() => {
+                    const combined = [
+                        ...bonusData.bonus.map(b => ({ ...b, kind: 'Standard' })),
+                        ...bonusData.gavaliBonus.map(b => ({ ...b, kind: 'Gavali' })),
+                    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    const paginated = combined.slice((bonusPage - 1) * bonusPageSize, bonusPage * bonusPageSize);
+                    const fTotal = combined.reduce((a, b) => a + parseFloat(b.total_bonus || 0), 0);
+                    return (
+                        <Section title={t('sellerProfile.bonus.title') || 'Bonus'} icon={<Gift size={15} />}>
+                            {combined.length > 0 && (
+                                <div className="flex gap-3 py-3 border-b border-gray-50">
+                                    <span className="text-xs bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1 rounded-full font-medium">
+                                        {combined.length} bonus records
+                                    </span>
+                                    <span className="text-xs bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">
+                                        Total bonus: ₹{fTotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {combined.length === 0 ? (
+                                <EmptyState icon={<Gift size={28} />} msg="No bonus records found" />
+                            ) : (
+                                <div className="overflow-x-auto -mx-5">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white">
+                                                <tr className="border-b border-gray-50">
+                                                    {["Event", "Occasion", "Type", "Qty", "Bonus", "Status", "Paid On"].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {paginated.map(b => (
+                                                    <tr key={`${b.kind}-${b.payment_id}`} className="hover:bg-gray-50 transition">
+                                                        <td className="px-4 py-2.5 font-medium text-gray-800">{b.event_name}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 capitalize">{b.occasion}</td>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100">{b.kind}</span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600">{parseFloat(b.total_qty || 0).toFixed(2)} L</td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900 font-mono">₹{parseFloat(b.total_bonus || 0).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${b.is_paid ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-amber-50 text-amber-600 border border-amber-100"}`}>
+                                                                {b.is_paid ? "Paid" : "Pending"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 font-mono whitespace-nowrap">{b.paid_at ? fmtDateTime(b.paid_at) : "—"}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={combined.length} page={bonusPage} setPage={setBonusPage}
+                                pageSize={bonusPageSize} setPageSize={setBonusPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Cattle Feed Purchased ── */}
+                {(() => {
+                    const filtered = applyDateFilter(cattleFeedSales, cfFilter, cfFrom, cfTo, "sale_date");
+                    const paginated = filtered.slice((cfPage - 1) * cfPageSize, cfPage * cfPageSize);
+                    const fTotal = filtered.reduce((a, f) => a + parseFloat(f.total_amount || 0), 0);
+                    return (
+                        <Section title={t('sellerProfile.cattleFeed.title') || 'Cattle Feed Purchased'} icon={<Wheat size={15} />}>
+                            <FilterBar filter={cfFilter} setFilter={setCfFilter}
+                                from={cfFrom} setFrom={setCfFrom}
+                                to={cfTo} setTo={setCfTo}
+                                onReset={() => setCfPage(1)} t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 py-3 border-b border-gray-50">
+                                    <span className="text-xs bg-violet-50 border border-violet-100 text-violet-700 px-3 py-1 rounded-full font-medium">
+                                        {filtered.length} transactions
+                                    </span>
+                                    <span className="text-xs bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">
+                                        Total: ₹{fTotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Wheat size={28} />} msg="No cattle feed purchases found" />
+                            ) : (
+                                <div className="overflow-x-auto -mx-5">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white">
+                                                <tr className="border-b border-gray-50">
+                                                    {["Date", "Feed", "Qty", "Rate", "Amount"].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {paginated.map(f => (
+                                                    <tr key={f.sale_id} className="hover:bg-gray-50 transition">
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 font-mono">{fmt(f.sale_date) || "—"}</td>
+                                                        <td className="px-4 py-2.5 font-medium text-gray-800">{f.feed_name}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600">{f.quantity} {f.unit || ""}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600">₹{parseFloat(f.rate).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900">₹{parseFloat(f.total_amount).toFixed(2)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={cfPage} setPage={setCfPage}
+                                pageSize={cfPageSize} setPageSize={setCfPageSize} t={t} />
                         </Section>
                     );
                 })()}
