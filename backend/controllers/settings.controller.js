@@ -134,6 +134,70 @@ exports.saveDispatchSettings = async (req, res) => {
     }
 };
 
+
+// ─── Page Visibility (cross-platform, role-agnostic) ─────────────────────────
+
+// GET /api/settings/page-visibility
+exports.getPageVisibility = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const [rows] = await pool.query(
+            `SELECT page_key, is_visible_web, is_visible_flutter FROM page_visibility WHERE centre_id = ?`,
+            [centreId]
+        );
+        const result = {};
+        rows.forEach(r => {
+            result[r.page_key] = {
+                web: !!r.is_visible_web,
+                flutter: !!r.is_visible_flutter,
+            };
+        });
+        res.json(result);
+    } catch (err) {
+        console.error('getPageVisibility error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// POST /api/settings/page-visibility
+exports.savePageVisibility = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        }
+
+        // Body shape: { visibility: { page_key: { web: bool, flutter: bool }, ... } }
+        const { visibility } = req.body;
+        const entries = Object.entries(visibility || {});
+        if (!entries.length) return res.json({ message: 'Nothing to save.' });
+
+        const values = entries.map(([page_key, v]) => [
+            centreId, page_key,
+            v.web ? 1 : 0,
+            v.flutter ? 1 : 0,
+            req.user.id,
+        ]);
+
+        await pool.query(
+            `INSERT INTO page_visibility (centre_id, page_key, is_visible_web, is_visible_flutter, updated_by)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE
+               is_visible_web     = VALUES(is_visible_web),
+               is_visible_flutter = VALUES(is_visible_flutter),
+               updated_by         = VALUES(updated_by)`,
+            [values]
+        );
+
+        res.json({ message: 'Page visibility saved.' });
+    } catch (err) {
+        console.error('savePageVisibility error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // ─── Operator Permissions ─────────────────────────────────────────────────────
 
 // GET /api/settings/permissions/:operatorId
@@ -563,6 +627,23 @@ exports.getSystemInfo = async (req, res) => {
         });
     } catch (err) {
         console.error('getSystemInfo error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// POST /api/settings/logo
+exports.uploadLogo = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No logo file uploaded.' });
+        }
+
+        // Build a publicly-accessible URL for the uploaded file
+        const logoUrl = `${req.protocol}://${req.get('host')}/uploads/logos/${req.file.filename}`;
+
+        res.json({ logo_url: logoUrl });
+    } catch (err) {
+        console.error('uploadLogo error:', err);
         res.status(500).json({ error: err.message });
     }
 };

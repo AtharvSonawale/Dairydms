@@ -391,7 +391,7 @@ export default function WalkinSellerReports() {
     // ── PDF: per-seller statement ─────────────────────────────────
     const printSellerStatement = (seller) => {
         const entries = statementMap[seller.seller_id] || [];
-        const win = window.open("", "_blank", "width=900,height=900");
+        const win = window.open("", "_blank", "width=1200,height=800");
         if (!win) return;
 
         const periodLabel = dateRange.from === dateRange.to ? fmtDate(dateRange.from) : `${fmtDate(dateRange.from)} – ${fmtDate(dateRange.to)}`;

@@ -1171,7 +1171,7 @@ ${entries.length > 0 ? `
         const key = buyerKey(buyer);
         const txs = transactionsMap[key] || [];
 
-        const win = window.open("", "_blank", "width=900,height=900");
+        const win = window.open("", "_blank", "width=1200,height=800");
         if (!win) return;
 
         win.document.write(`<!DOCTYPE html>

@@ -347,7 +347,7 @@ ${entries.length > 0 ? `
             showFlash("error", t('cattleFeedPayments.printLoadError'));
             return;
         }
-        const win = window.open("", "_blank", "width=900,height=900");
+        const win = window.open("", "_blank", "width=1200,height=800");
         if (!win) {
             showFlash("error", t('cattleFeedPayments.popupBlocked'));
             return;

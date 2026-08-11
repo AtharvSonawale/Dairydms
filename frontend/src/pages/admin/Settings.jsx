@@ -5,7 +5,7 @@ import {
     Settings, Type, Save,
     BadgeCheck, AlertTriangle, X,
     Check, Lock, Unlock, RefreshCw,
-    Users, Building2, Upload, Languages, Percent, Truck
+    Users, Building2, Upload, Languages, Percent, Truck, Eye
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -101,6 +101,226 @@ const LANGUAGES = [
     { key: 'hi', label: 'Hindi', native: 'हिंदी' },
 ];
 
+// Pages that can be hidden per-platform, independent of CRUD role permissions.
+// Every role gets its OWN key, even for pages that look identical across
+// roles (e.g. Milk Entry) — this is what makes toggling a page off for
+// Operators independent from toggling it off for Admins. Keys here must
+// match the page_key values AppLayout.dart / SellerDashboardPage.dart use.
+const VISIBILITY_SECTIONS = [
+    // ══════════════════════════ ADMIN ══════════════════════════
+    {
+        groupKey: 'adminDashboard',
+        label: 'Dashboard',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_dashboard', label: 'Dashboard' },
+        ],
+    },
+    {
+        groupKey: 'administration',
+        label: 'Administration',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_settings', label: 'Settings' },
+            { key: 'admin_centres', label: 'Centres' },
+            { key: 'admin_premium_rates', label: 'Premium Rates' },
+            { key: 'admin_operators', label: 'Operators' },
+            { key: 'admin_admin_list', label: 'Admin List' },
+            { key: 'admin_port_settings', label: 'Port Settings' },
+            { key: 'admin_commission_settings', label: 'Commission Settings' },
+            { key: 'admin_clear_data', label: 'Clear All Data' },
+        ],
+    },
+    {
+        groupKey: 'adminSellersPayments',
+        label: 'Sellers & Rates',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_seller_register', label: 'Sellers' },
+            { key: 'admin_rate_chart', label: 'Rate Chart' },
+            { key: 'admin_seller_payments', label: 'Seller Payments' },
+        ],
+    },
+    {
+        groupKey: 'adminMilkCollection',
+        label: 'Milk Collection',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_milk_entry', label: 'Milk Entry' },
+            { key: 'admin_utpadak_milk_entry', label: 'Utpadak Milk Entry' },
+            { key: 'admin_gavali_milk_entry', label: 'Gavali Milk Entry' },
+            { key: 'admin_owner_usage', label: 'Owner Usage' },
+            { key: 'admin_tank_dispatch', label: 'Tank Dispatch' },
+        ],
+    },
+    {
+        groupKey: 'adminWalkinSales',
+        label: 'Walk-in Sales',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_walkin_sales', label: 'Walk-in Sale' },
+            { key: 'admin_walkin_payments', label: 'Walk-in Payments' },
+            { key: 'admin_named_buyers', label: 'Named Buyers' },
+            { key: 'admin_walkin_seller_report', label: 'Seller Report' },
+            { key: 'admin_walkin_named_buyer_reports', label: 'Named Buyer Reports' },
+            { key: 'admin_walkin_anon_reports', label: 'Anon Reports' },
+        ],
+    },
+    {
+        groupKey: 'adminProducts',
+        label: 'Products',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_products', label: 'Catalogue' },
+            { key: 'admin_product_purchases', label: 'Purchase' },
+            { key: 'admin_product_sales', label: 'Sales' },
+            { key: 'admin_product_purchase_payment', label: 'Product Purchase Payment' },
+        ],
+    },
+    {
+        groupKey: 'adminCattleFeed',
+        label: 'Cattle Feed',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_cattle_feed_catalogue', label: 'Catalogue' },
+            { key: 'admin_cattle_feed_purchase', label: 'Purchase' },
+            { key: 'admin_cattle_feed_sales', label: 'Sales' },
+            { key: 'admin_cattle_feed_purchase_payment', label: 'Cattlefeed Purchase Payment' },
+        ],
+    },
+    {
+        groupKey: 'adminFinance',
+        label: 'Finance',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_cash_advance', label: 'Cash Advance' },
+            { key: 'admin_cash_deposit', label: 'Cash Deposit' },
+        ],
+    },
+    {
+        groupKey: 'adminBonusRegister',
+        label: 'Bonus Register',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_utpadak_bonus_register', label: 'Utpadak Bonus' },
+            { key: 'admin_gavali_bonus_register', label: 'Gavali Bonus' },
+        ],
+    },
+    {
+        groupKey: 'adminReports',
+        label: 'Reports',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_sum_report', label: 'Summary Report' },
+            { key: 'admin_farmer_ledger', label: 'Farmer Ledger' },
+        ],
+    },
+    {
+        groupKey: 'adminExpenses',
+        label: 'Expenses',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_expenses', label: 'Expenses' },
+            { key: 'admin_expenses_report', label: 'Expenses Report' },
+        ],
+    },
+
+    // ══════════════════════════ OPERATOR ══════════════════════════
+    {
+        groupKey: 'operatorDashboard',
+        label: 'Dashboard',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_dashboard', label: 'Dashboard' },
+        ],
+    },
+    {
+        groupKey: 'operatorSettings',
+        label: 'Settings',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_settings', label: 'Settings' },
+        ],
+    },
+    {
+        groupKey: 'operatorSellersPayments',
+        label: 'Sellers & Rates',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_seller_register', label: 'Sellers' },
+            { key: 'operator_rate_chart', label: 'Rate Chart' },
+            { key: 'operator_seller_payments', label: 'Seller Payments' },
+        ],
+    },
+    {
+        groupKey: 'operatorMilkCollection',
+        label: 'Milk Collection',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_milk_entry', label: 'Milk Entry' },
+            { key: 'operator_owner_usage', label: 'Owner Usage' },
+            { key: 'operator_tank_dispatch', label: 'Tank Dispatch' },
+        ],
+    },
+    {
+        groupKey: 'operatorWalkinSales',
+        label: 'Walk-in Sales',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_walkin_sales', label: 'Walk-in Sale' },
+            { key: 'operator_walkin_payments', label: 'Walk-in Payments' },
+            { key: 'operator_named_buyers', label: 'Named Buyers' },
+        ],
+    },
+    {
+        groupKey: 'operatorProducts',
+        label: 'Products',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_products', label: 'Catalogue' },
+            { key: 'operator_product_purchases', label: 'Purchase' },
+            { key: 'operator_product_sales', label: 'Sales' },
+        ],
+    },
+    {
+        groupKey: 'operatorFinance',
+        label: 'Finance',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_cash_advance', label: 'Cash Advance' },
+            { key: 'operator_cash_deposit', label: 'Cash Deposit' },
+        ],
+    },
+    {
+        groupKey: 'operatorReports',
+        label: 'Reports',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_sum_report', label: 'Summary Report' },
+        ],
+    },
+
+    // ══════════════════════════ FARMER ══════════════════════════
+    {
+        groupKey: 'farmerPortal',
+        label: 'Farmer Portal',
+        role: 'Farmer',
+        pages: [
+            { key: 'farmer_dashboard', label: 'Dashboard' },
+            { key: 'farmer_settings', label: 'Settings' },
+            { key: 'farmer_bills', label: 'My Milk Bills' },
+            { key: 'farmer_finance', label: 'Advance & Deposit' },
+            { key: 'farmer_milk_entries', label: 'My Milk Entries' },
+            { key: 'farmer_cattle_feed', label: 'My Cattle Feed' },
+            { key: 'farmer_product_purchases', label: 'My Product Purchases' },
+        ],
+    },
+];
+
+// Flattened lookup used for loading/saving, since the API deals in a flat
+// { page_key: { web, flutter } } map regardless of section grouping.
+const VISIBILITY_PAGES = VISIBILITY_SECTIONS.flatMap(section => section.pages);
+
 // ── Saved-state defaults ──────────────────────────────────────
 const SERVER_DEFAULTS = {
     appName: 'MilkApp',
@@ -148,6 +368,8 @@ export default function AdminSettings() {
     const [loadingOps, setLoadingOps] = useState(false);
 
     const [saving, setSaving] = useState(false);
+    const [pageVisibility, setPageVisibility] = useState({});
+    const [loadingVisibility, setLoadingVisibility] = useState(false);
     const [flash, setFlash] = useState(null);
 
     const showFlash = (type, msg) => {
@@ -228,6 +450,25 @@ export default function AdminSettings() {
             .finally(() => setLoadingOps(false));
     }, []);
 
+    // ── Load page visibility ─────────────────────────────────
+    useEffect(() => {
+        setLoadingVisibility(true);
+        api.get('/settings/page-visibility')
+            .then(({ data }) => {
+                const merged = {};
+                VISIBILITY_PAGES.forEach(p => {
+                    merged[p.key] = data[p.key] || { web: true, flutter: true };
+                });
+                setPageVisibility(merged);
+            })
+            .catch(() => {
+                const merged = {};
+                VISIBILITY_PAGES.forEach(p => { merged[p.key] = { web: true, flutter: true }; });
+                setPageVisibility(merged);
+            })
+            .finally(() => setLoadingVisibility(false));
+    }, []);
+
     // ── Load permissions for selected operator ──────────────
     useEffect(() => {
         if (!selectedOp) { setOpAccess({}); return; }
@@ -285,6 +526,13 @@ export default function AdminSettings() {
         setOpAccess(prev => ({ ...prev, [pageKey]: newObj }));
     };
 
+    const toggleVisibility = (pageKey, platform) => {
+        setPageVisibility(prev => ({
+            ...prev,
+            [pageKey]: { ...prev[pageKey], [platform]: !prev[pageKey]?.[platform] },
+        }));
+    };
+
     // ── Save ──────────────────────────────────────────────────
     const handleSave = async () => {
         setSaving(true);
@@ -323,6 +571,8 @@ export default function AdminSettings() {
                 await api.post(`/settings/permissions/${selectedOp}`, { access: opAccess });
             }
 
+            await api.post('/settings/page-visibility', { visibility: pageVisibility });
+
             showFlash('success', t('settings.savedSuccess'));
         } catch {
             showFlash('error', t('settings.savedError'));
@@ -342,6 +592,9 @@ export default function AdminSettings() {
         setFssaiCode(SERVER_DEFAULTS.fssaiCode);
         if (selectedOp) setOpAccess(buildDefaultAccess());
         showFlash('success', t('settings.resetSuccess'));
+        const reset = {};
+        VISIBILITY_PAGES.forEach(p => { reset[p.key] = { web: true, flutter: true }; });
+        setPageVisibility(reset);
     };
 
     // ── Render permission grid ───────────────────────────────
@@ -728,6 +981,87 @@ export default function AdminSettings() {
                         <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-2">
                             <Users size={28} />
                             <p className="text-sm">{t('settings.selectOperatorHint')}</p>
+                        </div>
+                    )}
+                </SectionCard>
+
+                {/* ── Page Visibility (Flutter/Web, grouped by portal/role) ── */}
+                <SectionCard
+                    title="Page Visibility"
+                    icon={<Eye size={15} className="text-white" />}
+                    data-tour="page-visibility"
+                >
+                    <p className="text-[11px] text-gray-400 mb-5">
+                        Turn a page off here and it disappears for every user in that role — regardless of
+                        individual operator permissions. The "Flutter" toggle controls the mobile app; the
+                        "Web" toggle controls this dashboard. Sections below match the sidebar groups shown
+                        to each portal.
+                    </p>
+                    {loadingVisibility ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <div className="w-4 h-4 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            {t('settings.loadingOperators')}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-5">
+                            {VISIBILITY_SECTIONS.map(section => (
+                                <div key={section.groupKey}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                            {section.label}
+                                        </p>
+                                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md
+                                            ${section.role === 'Admin'
+                                                ? 'bg-gray-900 text-white'
+                                                : section.role === 'Farmer'
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'bg-blue-600 text-white'}`}>
+                                            {section.role}
+                                        </span>
+                                    </div>
+                                    <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                        {section.pages.map((page, idx) => {
+                                            const v = pageVisibility[page.key] || { web: true, flutter: true };
+                                            return (
+                                                <div
+                                                    key={page.key}
+                                                    className={`flex items-center justify-between px-4 py-3
+                                                        ${idx !== section.pages.length - 1 ? 'border-b border-gray-50' : ''}
+                                                        hover:bg-gray-50/50 transition`}
+                                                >
+                                                    <span className="text-sm font-medium text-gray-700">{page.label}</span>
+                                                    <div className="flex items-center gap-5">
+                                                        <label className="flex items-center gap-2 text-xs text-gray-500">
+                                                            Web
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleVisibility(page.key, 'web')}
+                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors
+                                                                    ${v.web ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                                                            >
+                                                                <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
+                                                                    ${v.web ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                            </button>
+                                                        </label>
+                                                        <label className="flex items-center gap-2 text-xs text-gray-500">
+                                                            Flutter
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleVisibility(page.key, 'flutter')}
+                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors
+                                                                    ${v.flutter ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                                                            >
+                                                                <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
+                                                                    ${v.flutter ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                            </button>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </SectionCard>

@@ -31,6 +31,11 @@ import {
  * It conditionally includes admin‑only items based on the `isAdmin` flag.
  */
 const SHARED_NAV = (isAdmin, t) => {
+    // Resolves a base key (e.g. 'milk_entry') to the role-scoped key that
+    // Settings.jsx's page-visibility toggles actually save under, so each
+    // role's toggle is fully independent of the other's.
+    const pk = (key) => (isAdmin ? `admin_${key}` : `operator_${key}`);
+
     // Base nav structure – we'll push admin‑only items conditionally
     const nav = [
         // ── Dashboard ────────────────────────────────────────────────
@@ -39,6 +44,7 @@ const SHARED_NAV = (isAdmin, t) => {
             icon: <LayoutDashboard size={16} />,
             to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
             tourId: 'nav-dashboard',
+            pageKey: pk('dashboard'),
         },
 
         // ── My Profile – admin only ─────────────────────────────────
@@ -59,15 +65,15 @@ const SHARED_NAV = (isAdmin, t) => {
                 to: null,
                 tourId: 'nav-administration',
                 children: [
-                    { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings' },
-                    { label: t('nav.centres', { defaultValue: 'Centres' }), icon: <Building2 size={14} />, to: '/admin/centres' },
-                    { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates' },
-                    { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new' },
-                    { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist' },
-                    { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist' },
-                    { label: t('nav.portSettings'), icon: <HdmiPort size={14} />, to: '/admin/ports' },
-                    { label: t('nav.commissionSettings', { defaultValue: 'Commission Settings' }), icon: <Percent size={14} />, to: '/commission-settings' },
-                    { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data' },
+                    { label: t('nav.settings'), icon: <Settings size={14} />, to: '/admin/settings', pageKey: 'admin_settings' },
+                    { label: t('nav.centres', { defaultValue: 'Centres' }), icon: <Building2 size={14} />, to: '/admin/centres', pageKey: 'admin_centres' },
+                    { label: t('nav.premiumRates'), icon: <Star size={14} />, to: '/admin/premiumrates', pageKey: 'admin_premium_rates' },
+                    { label: t('nav.operators'), icon: <HardHat size={14} />, to: '/admin/operators/new', pageKey: 'admin_operators' },
+                    { label: t('nav.operatorList'), icon: <HardHat size={14} />, to: '/admin/operatorlist', pageKey: 'admin_operators' },
+                    { label: t('nav.adminList'), icon: <User2Icon size={14} />, to: '/admin/adminlist', pageKey: 'admin_admin_list' },
+                    { label: t('nav.portSettings'), icon: <HdmiPort size={14} />, to: '/admin/ports', pageKey: 'admin_port_settings' },
+                    { label: t('nav.commissionSettings', { defaultValue: 'Commission Settings' }), icon: <Percent size={14} />, to: '/commission-settings', pageKey: 'admin_commission_settings' },
+                    { label: 'Clear All Data', icon: <Settings size={14} />, to: '/admin/clear-data', pageKey: 'admin_clear_data' },
                 ],
             },
         ] : []),
@@ -79,6 +85,7 @@ const SHARED_NAV = (isAdmin, t) => {
                 icon: <Settings size={16} />,
                 to: '/operator/settings',
                 tourId: 'nav-settings',
+                pageKey: 'operator_settings',
             },
         ] : []),
 
@@ -89,9 +96,9 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-sellers',
             children: [
-                { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister' },
-                { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates' },
-                { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments' },
+                { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister', pageKey: pk('seller_register') },
+                { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates', pageKey: pk('rate_chart') },
+                { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments', pageKey: pk('seller_payments') },
             ],
         },
 
@@ -102,11 +109,11 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-milk-collection',
             children: [
-                { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries' },
-                { label: t('nav.utpadakMilkEntry', { defaultValue: 'Utpadak Milk Entry' }), icon: <Milk size={14} />, to: '/utpadak-milk-entry' },
-                { label: t('nav.gavaliMilkEntry', { defaultValue: 'Gavali Milk Entry' }), icon: <Milk size={14} />, to: '/gavali-milk-entry' },
-                { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage' },
-                { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch' },
+                { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries', pageKey: pk('milk_entry') },
+                { label: t('nav.utpadakMilkEntry', { defaultValue: 'Utpadak Milk Entry' }), icon: <Milk size={14} />, to: '/utpadak-milk-entry', pageKey: pk('utpadak_milk_entry') },
+                { label: t('nav.gavaliMilkEntry', { defaultValue: 'Gavali Milk Entry' }), icon: <Milk size={14} />, to: '/gavali-milk-entry', pageKey: pk('gavali_milk_entry') },
+                { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage', pageKey: pk('owner_usage') },
+                { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch', pageKey: pk('tank_dispatch') },
             ],
         },
 
@@ -117,25 +124,28 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-walkin-sales',
             children: [
-                { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales' },
-                { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments' },
-                { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers' },
+                { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales', pageKey: pk('walkin_sales') },
+                { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments', pageKey: pk('walkin_payments') },
+                { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers', pageKey: pk('named_buyers') },
                 // ─── Report links – admin only ────────────────────
                 ...(isAdmin ? [
                     {
                         label: t('nav.sellerReport'),
                         icon: <Users2 size={14} />,
                         to: '/walkinsellersreport',
+                        pageKey: 'admin_walkin_seller_report',
                     },
                     {
                         label: t('nav.namedBuyerReports'),
                         icon: <User2Icon size={14} />,
                         to: '/walkinnamedbuyersreports',
+                        pageKey: 'admin_walkin_named_buyer_reports',
                     },
                     {
                         label: t('nav.anonReports'),
                         icon: <FileText size={14} />,
                         to: '/walkinanonymousreports',
+                        pageKey: 'admin_walkin_anon_reports',
                     },
                 ] : []),
             ],
@@ -148,12 +158,12 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-products',
             children: [
-                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products' },
-                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase' },
-                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales' },
+                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products', pageKey: pk('products') },
+                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase', pageKey: pk('product_purchases') },
+                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales', pageKey: pk('product_sales') },
                 // ─── Bill Payments – admin only ───────────────────
                 ...(isAdmin ? [
-                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments' }
+                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments', pageKey: 'admin_product_purchase_payment' }
                 ] : []),
             ],
         },
@@ -165,12 +175,12 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-cattle-feed',
             children: [
-                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue' },
-                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase' },
-                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales' },
+                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue', pageKey: pk('cattle_feed_catalogue') },
+                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase', pageKey: pk('cattle_feed_purchase') },
+                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales', pageKey: pk('cattle_feed_sales') },
                 // ─── Bill Payments – admin only ───────────────────
                 ...(isAdmin ? [
-                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments' }
+                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments', pageKey: 'admin_cattle_feed_purchase_payment' }
                 ] : []),
             ],
         },
@@ -182,8 +192,8 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-finance',
             children: [
-                { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance' },
-                { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit' },
+                { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance', pageKey: pk('cash_advance') },
+                { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit', pageKey: pk('cash_deposit') },
             ],
         },
 
@@ -194,17 +204,17 @@ const SHARED_NAV = (isAdmin, t) => {
             to: null,
             tourId: 'nav-bonus-register',
             children: [
-                { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister' },
-                { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister' },
+                { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister', pageKey: pk('utpadak_bonus_register') },
+                { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister', pageKey: pk('gavali_bonus_register') },
             ],
         },
 
         // ── Reports (top level) ──────────────────────────────────────
-        { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report' },
+        { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report', pageKey: pk('sum_report') },
 
         // ── Farmer Ledger – admin only ─────────────────────────────
         ...(isAdmin ? [
-            { label: t('nav.farmerLedger'), icon: <ArrowLeftRight size={16} />, to: '/farmer-ledger', tourId: 'nav-farmer-ledger' }
+            { label: t('nav.farmerLedger'), icon: <ArrowLeftRight size={16} />, to: '/farmer-ledger', tourId: 'nav-farmer-ledger', pageKey: 'admin_farmer_ledger' }
         ] : []),
 
         // ── Expenses – admin only ───────────────────────────────────
@@ -215,8 +225,8 @@ const SHARED_NAV = (isAdmin, t) => {
                 to: null,
                 tourId: 'nav-expenses',
                 children: [
-                    { label: t('nav.expenses'), icon: <BanknoteArrowDown size={16} />, to: '/expenses' },
-                    { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: 'expensesreport' },
+                    { label: t('nav.expenses'), icon: <BanknoteArrowDown size={16} />, to: '/expenses', pageKey: 'admin_expenses' },
+                    { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: 'expensesreport', pageKey: 'admin_expenses_report' },
                 ]
             }
         ] : []),
@@ -238,42 +248,49 @@ const FARMER_NAV = (t) => [
         icon: <LayoutDashboard size={16} />,
         to: '/farmer/dashboard',
         tourId: 'nav-dashboard',
+        pageKey: 'farmer_dashboard',
     },
     {
         label: t('nav.settings'),
         icon: <Settings size={16} />,
         to: '/farmer/settings',
         tourId: 'nav-settings',
+        pageKey: 'farmer_settings',
     },
     {
         label: t('nav.myMilkEntries', { defaultValue: 'My Milk Entries' }),
         icon: <Milk size={16} />,
         to: '/farmer/milk-entries',
         tourId: 'nav-my-milk-entries',
+        pageKey: 'farmer_milk_entries',
     },
     {
         label: t('nav.myBills', { defaultValue: 'My Milk Bills' }),
         icon: <ClipboardList size={16} />,
         to: '/farmer/bills',
         tourId: 'nav-my-bills',
+        pageKey: 'farmer_bills',
     },
     {
         label: t('nav.myFinance', { defaultValue: 'Advance & Deposit' }),
         icon: <Wallet size={16} />,
         to: '/farmer/finance',
         tourId: 'nav-my-finance',
+        pageKey: 'farmer_finance',
     },
     {
         label: t('nav.MyCattleFeed', { defaultValue: 'My Cattle Feed' }),
         icon: <Wheat size={16} />,
         to: '/farmer/cattle-feed',
         tourId: 'nav-my-cattle-feed',
+        pageKey: 'farmer_cattle_feed',
     },
     {
         label: t('nav.myProductPurchases', { defaultValue: 'My Product Purchases' }),
         icon: <ShoppingBag size={16} />,
         to: '/farmer/product-purchases',
         tourId: 'nav-my-product-purchases',
+        pageKey: 'farmer_product_purchases',
     },
 ];
 
@@ -518,9 +535,46 @@ export default function AppLayout() {
             });
     }, [user]);
 
-    const navItems = useMemo(
+    const [pageVisibility, setPageVisibility] = useState(null); // null = not loaded yet
+
+    // Fetch page-visibility once per session. Filtering waits for this to
+    // resolve (see rawNavItems below) so we never briefly flash pages the
+    // admin has disabled.
+    useEffect(() => {
+        api.get('/settings/page-visibility')
+            .then(({ data }) => setPageVisibility(data))
+            .catch(() => setPageVisibility({})); // fail open: nothing hidden
+    }, []);
+
+    const rawNavItems = useMemo(
         () => (isFarmer ? FARMER_NAV(t) : SHARED_NAV(isAdmin, t)),
         [isAdmin, isFarmer, t]
+    );
+
+    // Recursively drop any item (or child) whose pageKey has been toggled
+    // off for the "web" platform. Items with no pageKey (e.g. group
+    // headers with a null `to`) are always kept, and a group with zero
+    // remaining visible children is dropped entirely.
+    const filterVisible = (items) => {
+        if (!pageVisibility) return items; // not loaded yet — show nothing hidden prematurely is worse than a flash, so keep as-is until loaded
+        return items.reduce((acc, item) => {
+            if (item.pageKey && pageVisibility[item.pageKey]?.web === false) {
+                return acc; // explicitly hidden
+            }
+            if (item.children) {
+                const visibleChildren = filterVisible(item.children);
+                if (visibleChildren.length === 0) return acc;
+                acc.push({ ...item, children: visibleChildren });
+                return acc;
+            }
+            acc.push(item);
+            return acc;
+        }, []);
+    };
+
+    const navItems = useMemo(
+        () => filterVisible(rawNavItems),
+        [rawNavItems, pageVisibility]
     );
 
     // Flatten leaf nav items (top-level + children) so favourites can borrow

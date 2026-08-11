@@ -1,11 +1,13 @@
 const router = require('express').Router();
 const protect = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
+const upload = require('../middleware/upload');
 const settingsController = require('../controllers/settings.controller');
 
 // Global settings
 router.get('/global', protect, settingsController.getGlobalSettings);
 router.post('/global', protect, settingsController.saveGlobalSettings);
+router.post('/logo', protect, upload.single('logo'), settingsController.uploadLogo);
 
 // Dispatch settings - FSSAI Code
 router.get('/dispatch', protect, settingsController.getDispatchSettings);
@@ -29,5 +31,9 @@ router.post('/clear-data', protect, settingsController.clearAllData);
 
 // System info
 router.get('/system-info', protect, settingsController.getSystemInfo);
+
+// Page visibility (per-page, per-platform, applies to all roles)
+router.get('/page-visibility', protect, settingsController.getPageVisibility);
+router.post('/page-visibility', protect, isAdmin, settingsController.savePageVisibility);
 
 module.exports = router;
