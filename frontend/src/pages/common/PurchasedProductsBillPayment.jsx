@@ -5,7 +5,7 @@ import {
     ChevronDown, ChevronUp, CheckCircle2, Clock,
     RefreshCw, Printer, BadgeCheck, AlertTriangle,
     X, Search, Download, FileSearch, Hash,
-    FileText, Trash2
+    FileText, Trash2, Home, Settings, Calendar
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
@@ -54,13 +54,11 @@ const getActiveFixedCycle = (refDate = new Date()) => {
     const cycles = getFixedMonthCycles(refDate);
     const today = new Date(refDate);
     today.setHours(0, 0, 0, 0);
-    // Try to find the matching split first
     const found = cycles.find(c => {
         const s = new Date(c.from + 'T00:00:00');
         const e = new Date(c.to + 'T00:00:00');
         return today >= s && today <= e;
     });
-    // If found, return its index; otherwise default to "Month" (index 3)
     if (found) {
         return cycles.indexOf(found);
     }
@@ -70,11 +68,12 @@ const getActiveFixedCycle = (refDate = new Date()) => {
 // ── StatCard ──────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon, color }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+            <div className="relative z-10">
+                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                 {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
             </div>
         </div>
@@ -101,7 +100,6 @@ export default function PurchasedProductsBillPayment() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
     const [cycleConfigLoaded, setCycleConfigLoaded] = useState(false);
-    // Default to "Month" index (3) if available, else 0
     const [activeFixedIdx, setActiveFixedIdx] = useState(() => {
         const idx = getActiveFixedCycle();
         return idx !== undefined ? idx : 3;
@@ -646,8 +644,8 @@ ${entries.length > 0 ? `
     };
 
     // ── Permission check ──────────────────────────────────────
-    if (permLoading) return <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center"><div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" /></div>;
-    if (!cycleConfigLoaded) return <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center"><div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" /></div>;
+    if (permLoading) return <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center"><div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" /></div>;
+    if (!cycleConfigLoaded) return <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center"><div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" /></div>;
     if (!can('product_purchases', 'R')) return <AccessDenied />;
 
     // ── Pagination ──────────────────────────────────────────────
@@ -665,125 +663,151 @@ ${entries.length > 0 ? `
     const paidCount = activeSuppliers.filter(s => s.is_paid).length;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print" data-tour="header">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md">
-                            <ShoppingBag size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5 no-print" data-tour="header">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('productPurchasePayments.pageBreadcrumb', { defaultValue: 'Finance' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('productPurchasePayments.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">{t('productPurchasePayments.pageSubtitle')}</p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('productPurchasePayments.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">{t('productPurchasePayments.pageSubtitle')}</p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={startTour} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition">
-                            <BadgeCheck size={13} /> Take a Tour
+                        <button onClick={startTour} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
-                        <button onClick={() => { setBillSearchOpen(true); searchBills(""); }} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition">
-                            <FileSearch size={13} /> {t('productPurchasePayments.searchBills')}
+                        <button onClick={() => { setBillSearchOpen(true); searchBills(""); }} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200">
+                            <FileSearch size={16} /> {t('productPurchasePayments.searchBills')}
                         </button>
-                        <button onClick={printRegister} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition">
-                            <Printer size={13} /> {t('productPurchasePayments.printRegister')}
+                        <button onClick={printRegister} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
+                            <Printer size={16} /> {t('productPurchasePayments.printRegister')}
                         </button>
-                        <button onClick={handleBulkDownloadPDFs} disabled={bulkDownloading} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
-                            {bulkDownloading ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
+                        <button onClick={handleBulkDownloadPDFs} disabled={bulkDownloading} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40 transition-all duration-200 disabled:opacity-50">
+                            {bulkDownloading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
                             {bulkDownloading ? 'Downloading…' : t('productPurchasePayments.bulkDownloadAllPDFs')}
                         </button>
-                        <button onClick={handleCombinedDownload} disabled={combinedDownloading} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition disabled:opacity-50">
-                            {combinedDownloading ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
+                        <button onClick={handleCombinedDownload} disabled={combinedDownloading} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all duration-200 disabled:opacity-50">
+                            {combinedDownloading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
                             {combinedDownloading ? 'Processing…' : t('productPurchasePayments.combinedDownloadAll')}
                         </button>
-                        <button onClick={handleExcelExport} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition">
-                            <Download size={13} /> Excel
+                        <button onClick={handleExcelExport} className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-200">
+                            <Download size={16} /> Excel
                         </button>
                     </div>
                 </div>
 
-                {/* Date Range */}
+                {/* ── Date Range ── */}
                 <div className="flex flex-col gap-3 no-print" data-tour="date-range">
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {getFixedMonthCycles(new Date()).map((c, idx) => (
-                            <button key={c.label} type="button" onClick={() => selectFixedCycle(idx)} className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${activeFixedIdx === idx ? "bg-violet-600 text-white border-violet-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                            <button key={c.label} type="button" onClick={() => selectFixedCycle(idx)}
+                                className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition shadow-sm
+                                    ${activeFixedIdx === idx
+                                        ? "bg-gradient-to-br from-violet-500 to-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/30"
+                                        : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/80"}`}>
                                 {c.label}
                             </button>
                         ))}
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.from')}</span>
-                            <input type="date" value={customFrom || ''} disabled className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchasePayments.from')}</span>
+                            <input type="date" value={customFrom || ''} disabled
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition disabled:bg-gray-100/50 disabled:text-gray-400" />
                         </div>
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.to')}</span>
-                            <input type="date" value={customTo || ''} disabled className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchasePayments.to')}</span>
+                            <input type="date" value={customTo || ''} disabled
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition disabled:bg-gray-100/50 disabled:text-gray-400" />
                         </div>
-                        <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.paymentDate')}</span>
-                            <input type="date" value={simulatedToday} onChange={e => setSimulatedToday(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                        <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200/60">
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchasePayments.paymentDate')}</span>
+                            <input type="date" value={simulatedToday} onChange={e => setSimulatedToday(e.target.value)}
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-500 text-sm font-medium shadow-sm">
+                            <Calendar size={16} className="text-gray-400" />
+                            <span className="text-xs">{fmtDate(customFrom)} — {fmtDate(customTo)}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-tour="stats">
-                    <StatCard label={t('productPurchasePayments.totalSuppliers')} value={activeSuppliers.length} icon={<Users size={14} />} color="text-blue-600 bg-blue-50 border-blue-100" />
-                    <StatCard label={t('productPurchasePayments.totalAmount')} value={fmt(totalAmount)} icon={<Banknote size={14} />} color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                    <StatCard label={t('productPurchasePayments.paidCount')} value={`${paidCount} / ${activeSuppliers.length}`} sub={t('productPurchasePayments.paid')} icon={<CheckCircle2 size={14} />} color="text-violet-600 bg-violet-50 border-violet-100" />
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4" data-tour="stats">
+                    <StatCard label={t('productPurchasePayments.totalSuppliers')} value={activeSuppliers.length} icon={<Users size={16} />} color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" />
+                    <StatCard label={t('productPurchasePayments.totalAmount')} value={fmt(totalAmount)} icon={<Banknote size={16} />} color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" />
+                    <StatCard label={t('productPurchasePayments.paidCount')} value={`${paidCount} / ${activeSuppliers.length}`} sub={t('productPurchasePayments.paid')} icon={<CheckCircle2 size={16} />} color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" />
                 </div>
 
-                {/* Progress bar */}
-                <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center gap-4 no-print">
-                    <div className="flex flex-col gap-1 flex-1">
+                {/* ── Progress bar ── */}
+                <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-4 no-print">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="flex flex-col gap-1 flex-1 relative z-10">
                         <div className="flex justify-between text-xs font-medium text-gray-500 mb-1">
                             <span>{t('productPurchasePayments.paymentProgress')}</span>
                             <span className="text-gray-700 font-semibold">{paidCount} / {activeSuppliers.length} {t('productPurchasePayments.paid')}</span>
                         </div>
-                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: activeSuppliers.length ? `${(paidCount / activeSuppliers.length) * 100}%` : "0%" }} />
+                        <div className="h-2 rounded-full bg-gray-100/80 overflow-hidden shadow-inner">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500 shadow-lg shadow-emerald-500/30"
+                                style={{ width: activeSuppliers.length ? `${(paidCount / activeSuppliers.length) * 100}%` : "0%" }} />
                         </div>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/60 text-emerald-700 text-xs font-semibold shadow-sm relative z-10">
                         <CheckCircle2 size={13} /> {activeSuppliers.length > 0 ? Math.round((paidCount / activeSuppliers.length) * 100) : 0}% {t('productPurchasePayments.done')}
                     </div>
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Search + Filter */}
+                {/* ── Search + Filter ── */}
                 <div className="flex items-center gap-2 no-print">
                     <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('productPurchasePayments.searchPlaceholder')} className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input value={search} onChange={e => setSearch(e.target.value)}
+                            placeholder={t('productPurchasePayments.searchPlaceholder')}
+                            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition placeholder:text-gray-300" />
                     </div>
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                         {[["all", t('productPurchasePayments.all')], ["unpaid", t('productPurchasePayments.unpaid')], ["paid", t('productPurchasePayments.paid')]].map(([v, l]) => (
-                            <button key={v} onClick={() => setFilterPaid(v)} className={`px-3 py-2 transition ${filterPaid === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>{l}</button>
+                            <button key={v} onClick={() => setFilterPaid(v)}
+                                className={`px-3.5 py-2 transition-all duration-200 ${filterPaid === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}>{l}</button>
                         ))}
                     </div>
+                    <span className="ml-auto text-xs text-gray-400">
+                        {filtered.length} {filtered.length !== 1 ? 'suppliers' : 'supplier'}
+                    </span>
                 </div>
 
-                {/* Supplier Cards */}
+                {/* ── Supplier Cards ── */}
                 <div className="flex flex-col gap-3" data-tour="supplier-list">
                     {loading ? (
-                        <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                        <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200 gap-2 text-gray-300">
-                            <ShoppingBag size={32} />
-                            <p className="text-sm">{t('productPurchasePayments.noSuppliersFound')}</p>
+                        <div className="flex flex-col items-center justify-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 gap-3 text-gray-300">
+                            <ShoppingBag size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">{t('productPurchasePayments.noSuppliersFound')}</p>
                         </div>
                     ) : paginated.map(supplier => {
                         const isOpen = expanded[supplier.supplier_name] || false;
@@ -791,30 +815,38 @@ ${entries.length > 0 ? `
                         const entries = supplier.entries || [];
 
                         return (
-                            <div key={supplier.supplier_name} className={`bg-white rounded-2xl border transition ${supplier.is_paid ? "border-emerald-200" : "border-gray-200"}`}>
-                                <div className="flex items-center gap-3 px-5 py-4 cursor-pointer" onClick={() => setExpanded(p => ({ ...p, [supplier.supplier_name]: !p[supplier.supplier_name] }))}>
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${supplier.is_paid ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                            <div key={supplier.supplier_name}
+                                className={`relative overflow-hidden rounded-2xl border transition-all duration-200
+                                    ${supplier.is_paid ? "bg-white/80 backdrop-blur-sm border-emerald-200/60 shadow-lg shadow-emerald-200/30" : "bg-white/80 backdrop-blur-sm border-gray-200/60 shadow-lg shadow-gray-200/50"}`}>
+                                <div className={`absolute -right-8 -top-8 w-32 h-32 rounded-full ${supplier.is_paid ? "bg-emerald-400/10" : "bg-gray-400/5"} blur-3xl`} />
+
+                                <div className="flex items-center gap-3 px-5 py-4 cursor-pointer relative z-10"
+                                    onClick={() => setExpanded(p => ({ ...p, [supplier.supplier_name]: !p[supplier.supplier_name] }))}>
+
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 shadow-sm
+                                        ${supplier.is_paid ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30" : "bg-gradient-to-br from-gray-700 to-gray-800 text-white shadow-gray-700/30"}`}>
                                         {supplier.supplier_name.charAt(0).toUpperCase()}
                                     </div>
+
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-sm font-semibold text-gray-800 truncate">{supplier.supplier_name}</p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{supplier.supplier_name}</p>
                                             {supplier.is_paid ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50/80 text-emerald-600 border border-emerald-200/60 backdrop-blur-sm">
                                                     <CheckCircle2 size={9} /> {t('productPurchasePayments.paid')}
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-50/80 text-amber-600 border border-amber-200/60 backdrop-blur-sm">
                                                     <Clock size={9} /> {t('productPurchasePayments.pending')}
                                                 </span>
                                             )}
                                             {supplier.is_paid && supplier.bill_no && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full bg-violet-50/80 text-violet-600 border border-violet-200/60 backdrop-blur-sm">
                                                     <Hash size={8} /> {supplier.bill_no}
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-[11px] text-gray-400 mt-0.5">{entries.length} purchase{entries.length !== 1 ? 's' : ''}</p>
+                                        <p className="text-[11px] text-gray-500 mt-0.5">{entries.length} purchase{entries.length !== 1 ? 's' : ''}</p>
                                     </div>
 
                                     <div className="hidden sm:flex items-center gap-6 text-right mr-4">
@@ -826,53 +858,61 @@ ${entries.length > 0 ? `
 
                                     {supplier.is_paid ? (
                                         <>
-                                            <button onClick={(e) => { e.stopPropagation(); downloadReceiptPDF(supplier); }} className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition shadow-sm">
-                                                <Printer size={11} /> {t('productPurchasePayments.pdf')}
+                                            <button onClick={(e) => { e.stopPropagation(); downloadReceiptPDF(supplier); }}
+                                                className="shrink-0 no-print flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-br from-gray-800 to-gray-700 text-white text-xs font-semibold transition-all duration-200 shadow-lg shadow-gray-800/30 hover:shadow-xl hover:shadow-gray-800/40">
+                                                <Printer size={12} /> {t('productPurchasePayments.pdf')}
                                             </button>
-                                            <button onClick={(e) => handleUndo(e, supplier)} className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition disabled:opacity-50 shadow-sm shadow-rose-200">
-                                                <RefreshCw size={11} /> {t('productPurchasePayments.undo')}
+                                            <button onClick={(e) => handleUndo(e, supplier)}
+                                                className="shrink-0 no-print flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold transition-all duration-200 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 disabled:opacity-50">
+                                                <RefreshCw size={12} /> {t('productPurchasePayments.undo')}
                                             </button>
                                         </>
                                     ) : (
-                                        <button onClick={(e) => { e.stopPropagation(); handleMarkPaid(supplier); }} disabled={paying === supplier.supplier_name || !isTodayPaymentDay(customFrom, customTo)} title={!isTodayPaymentDay(customFrom, customTo) ? `Payment only on ${fmtDate(customTo)}` : undefined} className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-emerald-200">
-                                            {paying === supplier.supplier_name ? <RefreshCw size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                                        <button onClick={(e) => { e.stopPropagation(); handleMarkPaid(supplier); }}
+                                            disabled={paying === supplier.supplier_name || !isTodayPaymentDay(customFrom, customTo)}
+                                            title={!isTodayPaymentDay(customFrom, customTo) ? `Payment only on ${fmtDate(customTo)}` : undefined}
+                                            className="shrink-0 no-print flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            {paying === supplier.supplier_name ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                                             {isTodayPaymentDay(customFrom, customTo) ? `${t('productPurchasePayments.pay')} ₹${total.toFixed(0)}` : `Pay on ${fmtDate(customTo)}`}
                                         </button>
                                     )}
-                                    <div className="shrink-0 text-gray-300">{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+                                    <div className="shrink-0 text-gray-400">{isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</div>
                                 </div>
 
                                 {/* Mobile amount */}
-                                <div className="flex sm:hidden items-center justify-between px-5 pb-3 gap-3 text-xs flex-wrap">
+                                <div className="flex sm:hidden items-center justify-between px-5 pb-3 gap-3 text-xs flex-wrap relative z-10">
                                     <span className="font-bold text-gray-900">{t('productPurchasePayments.total')}: {fmt(total)}</span>
                                     <span className="text-gray-400">{entries.length} purchases</span>
                                 </div>
 
                                 {/* Expanded details */}
                                 {isOpen && (
-                                    <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
+                                    <div className="border-t border-gray-200/60 px-5 py-4 flex flex-col gap-4 relative z-10">
                                         {entries.length > 0 && (
                                             <div>
-                                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('productPurchasePayments.purchaseDetails')}</p>
-                                                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                                    <div className="grid bg-gray-50 border-b border-gray-100" style={{ gridTemplateColumns: "1fr 80px 90px 90px 100px" }}>
-                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{t('productPurchasePayments.product')}</div>
-                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-right">{t('productPurchasePayments.qty')}</div>
-                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-right">{t('productPurchasePayments.rate')}</div>
-                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-right">{t('productPurchasePayments.mrp')}</div>
-                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-right">{t('productPurchasePayments.amount')}</div>
+                                                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('productPurchasePayments.purchaseDetails')}</p>
+                                                <div className="rounded-xl border border-gray-200/60 overflow-hidden shadow-sm bg-white/50 backdrop-blur-sm">
+                                                    <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60"
+                                                        style={{ gridTemplateColumns: "1fr 80px 90px 90px 100px" }}>
+                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60">{t('productPurchasePayments.product')}</div>
+                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide text-right border-r border-gray-200/60">{t('productPurchasePayments.qty')}</div>
+                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide text-right border-r border-gray-200/60">{t('productPurchasePayments.rate')}</div>
+                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide text-right border-r border-gray-200/60">{t('productPurchasePayments.mrp')}</div>
+                                                        <div className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide text-right">{t('productPurchasePayments.amount')}</div>
                                                     </div>
                                                     {entries.map((e, i) => (
-                                                        <div key={i} className="grid border-b border-gray-50 last:border-0 hover:bg-gray-50 transition" style={{ gridTemplateColumns: "1fr 80px 90px 90px 100px" }}>
-                                                            <div className="px-3 py-2 text-xs text-gray-700">{e.product_name}</div>
-                                                            <div className="px-3 py-2 text-xs text-gray-600 text-right font-mono">{parseFloat(e.quantity).toFixed(2)} {e.unit}</div>
-                                                            <div className="px-3 py-2 text-xs text-amber-600 text-right font-mono">{fmt(e.rate)}</div>
-                                                            <div className="px-3 py-2 text-xs text-violet-600 text-right font-mono">{e.mrp_rate ? fmt(e.mrp_rate) : '—'}</div>
+                                                        <div key={i} className="grid border-b border-gray-100/60 last:border-0 hover:bg-white/50 transition"
+                                                            style={{ gridTemplateColumns: "1fr 80px 90px 90px 100px" }}>
+                                                            <div className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100/60">{e.product_name}</div>
+                                                            <div className="px-3 py-2 text-xs text-gray-600 text-right font-mono border-r border-gray-100/60">{parseFloat(e.quantity).toFixed(2)} {e.unit}</div>
+                                                            <div className="px-3 py-2 text-xs text-amber-600 text-right font-mono border-r border-gray-100/60">{fmt(e.rate)}</div>
+                                                            <div className="px-3 py-2 text-xs text-violet-600 text-right font-mono border-r border-gray-100/60">{e.mrp_rate ? fmt(e.mrp_rate) : '—'}</div>
                                                             <div className="px-3 py-2 text-xs text-gray-800 text-right font-bold">{fmt(e.total_amount)}</div>
                                                         </div>
                                                     ))}
-                                                    <div className="grid bg-gray-50 border-t border-gray-100 font-bold" style={{ gridTemplateColumns: "1fr 80px 90px 90px 100px" }}>
-                                                        <div className="px-3 py-2 text-xs text-gray-600 col-span-4 text-right">{t('productPurchasePayments.total')}</div>
+                                                    <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 border-t border-gray-200/60 font-bold"
+                                                        style={{ gridTemplateColumns: "1fr 80px 90px 90px 100px" }}>
+                                                        <div className="px-3 py-2 text-xs text-gray-600 col-span-4 text-right border-r border-gray-200/60">{t('productPurchasePayments.total')}</div>
                                                         <div className="px-3 py-2 text-xs text-gray-900 text-right">{fmt(total)}</div>
                                                     </div>
                                                 </div>
@@ -891,83 +931,116 @@ ${entries.length > 0 ? `
                     })}
                 </div>
 
-                {/* Pagination */}
+                {/* ── Pagination ── */}
                 {filtered.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-2xl shadow-sm">
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">{t('productPurchasePayments.prev')}</button>
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
+                                {t('productPurchasePayments.prev')}
+                            </button>
                             <div className="flex items-center gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1).reduce((acc, p, idx, arr) => { if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...'); acc.push(p); return acc; }, []).map((p, i) => p === '...' ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span> : <button key={p} onClick={() => setCurrentPage(p)} className={`w-7 h-7 rounded-lg text-xs font-semibold transition border ${currentPage === p ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>{p}</button>)}
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                    .reduce((acc, p, idx, arr) => { if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...'); acc.push(p); return acc; }, [])
+                                    .map((p, i) => p === '...'
+                                        ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
+                                        : <button key={p} onClick={() => setCurrentPage(p)}
+                                            className={`w-7 h-7 rounded-lg text-xs font-semibold transition border shadow-sm
+                                                ${currentPage === p ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30' : 'bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/80'}`}>{p}</button>
+                                    )}
                             </div>
-                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">{t('productPurchasePayments.next')}</button>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
+                                {t('productPurchasePayments.next')}
+                            </button>
                             <span className="text-xs text-gray-400 ml-1">{filtered.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filtered.length)}`} of {filtered.length}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">{t('productPurchasePayments.rowsPerPage')}</span>
-                            <input type="number" min={1} max={filtered.length || 1} value={pageSize} onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }} className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            <input type="number" min={1} max={filtered.length || 1} value={pageSize}
+                                onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
+                                className="w-14 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-center text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                         </div>
                     </div>
                 )}
 
-                {/* Grand total */}
+                {/* ── Grand total ── */}
                 {filtered.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-6 text-sm">
+                    <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-6 py-4 flex items-center justify-between">
+                        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                        <div className="flex items-center gap-6 text-sm relative z-10">
                             <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.totalSuppliers')}</p><p className="font-bold text-gray-800">{activeSuppliers.length}</p></div>
                             <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.totalAmount')}</p><p className="font-bold text-gray-800">{fmt(totalAmount)}</p></div>
                             <div><p className="text-[10px] text-emerald-400 uppercase tracking-wider">{t('productPurchasePayments.paid')}</p><p className="font-bold text-emerald-600">{paidCount}</p></div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right relative z-10">
                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('productPurchasePayments.netPayable')}</p>
                             <p className="text-2xl font-bold text-gray-900">{fmt(totalAmount)}</p>
                         </div>
                     </div>
                 )}
 
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('productPurchasePayments.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('productPurchasePayments.footerSuppliers', { defaultValue: 'Total suppliers' })}: <strong className="text-gray-600">{activeSuppliers.length}</strong></span>
+                    <span>· {t('productPurchasePayments.footerPaid', { defaultValue: 'Paid' })}: <strong className="text-emerald-600">{paidCount}</strong></span>
+                </div>
+
             </main>
 
-            {/* Bill Search Modal */}
+            {/* ── Bill Search Modal ── */}
             {billSearchOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-5xl h-[90vh] flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-5xl h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-violet-50/50 to-white/50">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center"><FileSearch size={16} className="text-white" /></div>
-                                <div><h2 className="text-sm font-bold text-gray-900">{t('productPurchasePayments.billRegistry')}</h2><p className="text-[10px] text-gray-400">{t('productPurchasePayments.billRegistryDesc')}</p></div>
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30"><FileSearch size={16} className="text-white" /></div>
+                                <div><h2 className="text-sm font-bold text-gray-900">{t('productPurchasePayments.billRegistry')}</h2><p className="text-[10px] text-gray-500">{t('productPurchasePayments.billRegistryDesc')}</p></div>
                             </div>
-                            <button onClick={() => { setBillSearchOpen(false); setBillDetail(null); setBillResults([]); setBillQuery(""); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition"><X size={15} /></button>
+                            <button onClick={() => { setBillSearchOpen(false); setBillDetail(null); setBillResults([]); setBillQuery(""); }}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm"><X size={16} /></button>
                         </div>
-                        <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-3 flex-wrap shrink-0 bg-gray-50/60">
+                        <div className="px-6 py-3 border-b border-gray-200/60 flex items-center gap-3 flex-wrap shrink-0 bg-white/30 backdrop-blur-sm">
                             <div className="relative flex-1 min-w-[200px]">
-                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                                <input autoFocus value={billQuery} onChange={(e) => { setBillQuery(e.target.value); searchBills(e.target.value); setBillDetail(null); }} placeholder={t('productPurchasePayments.billSearchPlaceholder')} className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition placeholder:text-gray-300" />
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input autoFocus value={billQuery} onChange={(e) => { setBillQuery(e.target.value); searchBills(e.target.value); setBillDetail(null); }}
+                                    placeholder={t('productPurchasePayments.billSearchPlaceholder')}
+                                    className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition placeholder:text-gray-300" />
                                 {billLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2"><div className="w-3.5 h-3.5 border-2 border-gray-200 border-t-violet-500 rounded-full animate-spin" /></div>}
                             </div>
-                            <button onClick={() => { setBillQuery(""); searchBills(""); setBillDetail(null); }} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-2 rounded-xl border border-gray-200 bg-white transition">{t('productPurchasePayments.showAll')}</button>
+                            <button onClick={() => { setBillQuery(""); searchBills(""); setBillDetail(null); }}
+                                className="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-xl border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">{t('productPurchasePayments.showAll')}</button>
                             <span className="text-xs text-gray-400 font-medium">{billResults.length > 0 ? `${billResults.length} ${billResults.length !== 1 ? 'bills' : 'bill'}` : ""}</span>
                         </div>
 
                         <div className="flex flex-1 min-h-0 overflow-hidden">
                             <div className="w-full flex flex-col overflow-hidden">
-                                <div className="grid px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wider shrink-0" style={{ gridTemplateColumns: "1fr 1fr 120px 100px 80px 60px" }}>
+                                <div className="grid px-4 py-2 bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60 text-[10px] font-semibold text-gray-500 uppercase tracking-wider shrink-0"
+                                    style={{ gridTemplateColumns: "1fr 1fr 120px 100px 80px 60px" }}>
                                     <div>Bill No</div><div>Supplier</div><div>Period</div><div className="text-right">Amount</div><div></div><div></div>
                                 </div>
-                                <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+                                <div className="flex-1 overflow-y-auto divide-y divide-gray-100/60">
                                     {billLoading ? (
                                         <div className="flex items-center justify-center py-16"><div className="w-5 h-5 border-2 border-gray-200 border-t-violet-500 rounded-full animate-spin" /></div>
                                     ) : billResults.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300"><FileText size={32} /><p className="text-xs">{t('productPurchasePayments.noBillsFound')}</p></div>
                                     ) : billResults.map(b => (
-                                        <button key={b.bill_id} onClick={() => loadBillDetail(b.bill_no)} className={`w-full text-left px-4 py-3 hover:bg-violet-50/60 transition grid items-center gap-2 ${billDetail?.bill?.bill_no === b.bill_no ? "bg-violet-50 border-l-2 border-l-violet-500" : "border-l-2 border-l-transparent"}`} style={{ gridTemplateColumns: "1fr 1fr 120px 100px 80px 60px" }}>
+                                        <button key={b.bill_id} onClick={() => loadBillDetail(b.bill_no)}
+                                            className={`w-full text-left px-4 py-3 hover:bg-violet-50/60 transition grid items-center gap-2 ${billDetail?.bill?.bill_no === b.bill_no ? "bg-violet-50/80 border-l-2 border-l-violet-500" : "border-l-2 border-l-transparent"}`}
+                                            style={{ gridTemplateColumns: "1fr 1fr 120px 100px 80px 60px" }}>
                                             <div><span className="text-xs font-mono font-bold text-violet-700">{b.bill_no}</span><p className="text-[10px] text-gray-400 mt-0.5">{t('productPurchasePayments.paid')}: {fmtDate(b.paid_at)}</p></div>
                                             <div><p className="text-xs font-semibold text-gray-800 truncate">{b.supplier_name}</p></div>
                                             <div className="text-[10px] text-gray-500">{fmtDate(b.from_date)} → {fmtDate(b.to_date)}</div>
                                             <div className="text-right"><span className="text-xs font-bold text-emerald-600">{fmt(b.total_amount)}</span></div>
                                             <div className="flex justify-end">
-                                                <button onClick={async (e) => { e.stopPropagation(); const { data } = await api.get(`/product-purchase-payments/bill/${b.bill_no}`); printReceipt(e, { supplier_name: b.supplier_name, bill_no: b.bill_no, total_amount: b.total_amount, entries: data.items || [], is_paid: true, paid_at: b.paid_at }); }} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-900 text-white text-[10px] font-semibold hover:bg-gray-700 transition"><Printer size={9} /> PDF</button>
+                                                <button onClick={async (e) => { e.stopPropagation(); const { data } = await api.get(`/product-purchase-payments/bill/${b.bill_no}`); printReceipt(e, { supplier_name: b.supplier_name, bill_no: b.bill_no, total_amount: b.total_amount, entries: data.items || [], is_paid: true, paid_at: b.paid_at }); }}
+                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 text-white text-[10px] font-semibold shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"><Printer size={9} /> PDF</button>
                                             </div>
                                             <div className="flex justify-end">
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteBill(b.bill_no); }} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-semibold hover:bg-rose-700 transition"><Trash2 size={9} /> Del</button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteBill(b.bill_no); }}
+                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white text-[10px] font-semibold shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200"><Trash2 size={9} /> Del</button>
                                             </div>
                                         </button>
                                     ))}
@@ -978,17 +1051,17 @@ ${entries.length > 0 ? `
                 </div>
             )}
 
-            {/* Delete Confirm Modal */}
+            {/* ── Delete Confirm Modal ── */}
             {deleteConfirmOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center"><Trash2 size={18} className="text-rose-600" /></div><div><h2 className="text-sm font-bold text-gray-900">{t('productPurchasePayments.deleteBill')}</h2><p className="text-[10px] text-gray-400">{t('productPurchasePayments.deleteWarning')}</p></div></div>
-                            <button onClick={cancelDeleteBill} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition"><X size={15} /></button>
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 bg-gradient-to-r from-rose-50/50 to-white/50">
+                            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-rose-100/80 flex items-center justify-center"><Trash2 size={18} className="text-rose-600" /></div><div><h2 className="text-sm font-bold text-gray-900">{t('productPurchasePayments.deleteBill')}</h2><p className="text-[10px] text-gray-400">{t('productPurchasePayments.deleteWarning')}</p></div></div>
+                            <button onClick={cancelDeleteBill} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm"><X size={16} /></button>
                         </div>
                         <div className="px-6 py-5 flex flex-col gap-3">
                             <p className="text-sm text-gray-600">{t('productPurchasePayments.deleteConfirmMessage')} <strong className="font-mono text-rose-700">{deletingBill}</strong>?</p>
-                            <div className="rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1">
+                            <div className="rounded-xl bg-rose-50/80 backdrop-blur-sm border border-rose-200/60 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1 shadow-sm">
                                 <p className="font-semibold">{t('productPurchasePayments.willBeReversed')}:</p>
                                 <ul className="list-disc list-inside text-rose-600 mt-1 space-y-0.5">
                                     <li>{t('productPurchasePayments.reversalPaymentRecord')}</li>
@@ -996,9 +1069,10 @@ ${entries.length > 0 ? `
                                 </ul>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-                            <button onClick={cancelDeleteBill} className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">{t('productPurchasePayments.cancel')}</button>
-                            <button onClick={confirmDeleteBill} disabled={deleting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50">
+                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200/60">
+                            <button onClick={cancelDeleteBill} className="px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">{t('productPurchasePayments.cancel')}</button>
+                            <button onClick={confirmDeleteBill} disabled={deleting}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 disabled:opacity-50">
                                 {deleting ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={12} />}
                                 {deleting ? t('productPurchasePayments.deleting') : t('productPurchasePayments.yesDeleteBill')}
                             </button>

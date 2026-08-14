@@ -5,7 +5,8 @@ import {
     Wallet, ChevronDown, ChevronUp, RefreshCw, Printer,
     BadgeCheck, AlertTriangle, X, Users, Milk,
     CheckCircle2, Clock, Search, Banknote, TrendingUp,
-    FileSearch, Hash, FileText, Trash2, Calendar, Download, Package, Percent
+    FileSearch, Hash, FileText, Trash2, Calendar, Download, Package, Percent,
+    Home, Settings
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -57,7 +58,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
 
 const getFixedMonthCycles = (refDate) => {
     const y = refDate.getFullYear();
-    const m = refDate.getMonth(); // 0-indexed
+    const m = refDate.getMonth();
     const lastDay = new Date(y, m + 1, 0).getDate();
     const ymd = (yr, mo, day) => `${yr}-${pad2(mo + 1)}-${pad2(day)}`;
     return [
@@ -79,15 +80,16 @@ const getActiveFixedCycle = (refDate = new Date()) => {
     }) || cycles[0];
 };
 
-// ── StatCard ──────────────────────────────────────────────────
+// ── StatCard - Updated with glass-morphism ───────────────────
 function StatCard({ label, value, sub, icon, color }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center relative z-10">{icon}</div>
+            <div className="relative z-10">
+                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-1">{value}</p>
+                {sub && <p className="text-[10px] text-gray-500 mt-0.5">{sub}</p>}
             </div>
         </div>
     );
@@ -102,23 +104,23 @@ function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, com
     const handleSave = () => onSave(localSeed, Math.max(1, localDays));
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-lg">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 bg-gradient-to-r from-violet-50/50 to-white/50">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
                             <BadgeCheck size={16} className="text-white" />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">{t('sellerPayments.configureCycle')}</h2>
-                            <p className="text-[10px] text-gray-400">{t('sellerPayments.cycleConfigDesc')}</p>
+                            <p className="text-[10px] text-gray-500">{t('sellerPayments.cycleConfigDesc')}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                        <X size={15} />
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
                     </button>
                 </div>
                 <div className="px-6 py-5 flex flex-col gap-4">
-                    <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                    <div className="flex items-start gap-3 bg-blue-50/80 backdrop-blur-sm border border-blue-200/60 rounded-xl px-4 py-3 shadow-sm">
                         <AlertTriangle size={14} className="text-blue-500 mt-0.5 shrink-0" />
                         <p className="text-xs text-blue-700 leading-relaxed"
                             dangerouslySetInnerHTML={{
@@ -130,19 +132,19 @@ function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, com
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.seedStartDate')}</label>
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('sellerPayments.seedStartDate')}</label>
                             <input type="date" value={localSeed} onChange={e => setLocalSeed(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition shadow-sm" />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.daysPerCycle')}</label>
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('sellerPayments.daysPerCycle')}</label>
                             <input type="number" min={1} max={31} value={localDays}
                                 onChange={e => setLocalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition shadow-sm" />
                         </div>
                     </div>
                     <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('sellerPayments.upcomingCycles')}</p>
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('sellerPayments.upcomingCycles')}</p>
                         <div className="flex flex-col gap-1.5">
                             {previewCycles.map((c, i) => {
                                 const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -152,14 +154,15 @@ function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, com
                                 const isPayDay = today.getTime() === e.getTime();
                                 const isPast = e < today;
                                 return (
-                                    <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs ${isCurrent ? 'border-violet-200 bg-violet-50' : 'border-gray-100 bg-gray-50'}`}>
+                                    <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs shadow-sm
+                                        ${isCurrent ? 'border-violet-200/60 bg-violet-50/80 backdrop-blur-sm' : 'border-gray-200/60 bg-gray-50/80 backdrop-blur-sm'}`}>
                                         <span className="text-[10px] text-gray-400 font-medium min-w-[52px]">Cycle {i + 1}</span>
                                         <span className="flex-1 font-medium text-gray-700">
                                             {s.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} → {e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                            {isCurrent && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-700 font-semibold">current</span>}
+                                            {isCurrent && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-200/80 text-violet-700 font-semibold backdrop-blur-sm">current</span>}
                                         </span>
                                         {isPayDay
-                                            ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">Payment day — today!</span>
+                                            ? <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-100/80 text-emerald-700 font-semibold backdrop-blur-sm shadow-sm">Payment day — today!</span>
                                             : isCurrent ? <span className="text-[10px] text-violet-500">{t('sellerPayments.payOn', { date: e.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) })}</span>
                                                 : isPast ? <span className="text-[10px] text-gray-400">{t('sellerPayments.past')}</span>
                                                     : <span className="text-[10px] text-gray-400">{t('sellerPayments.upcoming')}</span>
@@ -170,9 +173,9 @@ function CycleConfigModal({ open, onClose, onSave, initialSeed, initialDays, com
                         </div>
                     </div>
                 </div>
-                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-                    <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">{t('sellerPayments.cancel')}</button>
-                    <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-violet-600 text-white hover:bg-violet-700 transition">
+                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl">
+                    <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">{t('sellerPayments.cancel')}</button>
+                    <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200">
                         <BadgeCheck size={12} />{t('sellerPayments.saveCycleConfig')}</button>
                 </div>
             </div>
@@ -237,22 +240,22 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md">
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 bg-gradient-to-r from-emerald-50/50 to-white/50">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
                             <Download size={16} className="text-white" />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">Excel Export Config</h2>
-                            <p className="text-[10px] text-gray-400">Configure NEFT/RTGS export fields</p>
+                            <p className="text-[10px] text-gray-500">Configure NEFT/RTGS export fields</p>
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                        <X size={15} />
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
                     </button>
                 </div>
 
@@ -265,7 +268,7 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
                     ) : (
                         <>
                             {!isEditing && (
-                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
+                                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/60 text-xs text-emerald-700 font-medium shadow-sm">
                                     <BadgeCheck size={13} />
                                     Config saved. Click Edit to modify.
                                 </div>
@@ -273,7 +276,7 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
                             <div className="flex flex-col gap-3">
                                 {fields.map(({ key, label, placeholder }) => (
                                     <div key={key} className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                                             {label}
                                         </label>
                                         {isEditing ? (
@@ -282,11 +285,10 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
                                                 value={config[key] || ''}
                                                 placeholder={placeholder}
                                                 onChange={e => setConfig(p => ({ ...p, [key]: e.target.value }))}
-                                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                                    focus:outline-none focus:ring-2 focus:ring-emerald-300 transition"
+                                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-white transition shadow-sm"
                                             />
                                         ) : (
-                                            <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 text-sm font-mono text-gray-700">
+                                            <div className="px-4 py-2.5 rounded-xl bg-gray-50/80 backdrop-blur-sm border border-gray-200/60 text-sm font-mono text-gray-700 shadow-sm">
                                                 {config[key] || <span className="text-gray-300">—</span>}
                                             </div>
                                         )}
@@ -298,15 +300,15 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl">
                     <button onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                        className="px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                         Cancel
                     </button>
                     {isLoaded && !isEditing && (
                         <button
                             onClick={() => setIsEditing(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gray-800 text-white hover:bg-gray-700 transition">
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-gray-700 to-gray-800 text-white shadow-lg shadow-gray-700/30 hover:shadow-xl hover:shadow-gray-700/40 transition-all duration-200">
                             <RefreshCw size={12} /> Edit
                         </button>
                     )}
@@ -314,7 +316,7 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
                         <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50">
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-200 disabled:opacity-50">
                             {isSaving
                                 ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <BadgeCheck size={12} />}
@@ -638,7 +640,7 @@ export default function SellerPayments() {
         }
     };
 
-    // ── Build Receipt HTML (returns HTML string) – UPDATED with rate before and after commission ──
+    // ── Build Receipt HTML (returns HTML string) ──
     const buildReceiptHtml = async (seller, overrideCycle) => {
         const activeCycle = overrideCycle || cycle;
 
@@ -716,7 +718,6 @@ export default function SellerPayments() {
         const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
         const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
-        // Updated buildRow to include rate before commission and rate after commission
         const buildRow = (date) => {
             const m = morningEntries.find(e => e.entry_date?.startsWith(date));
             const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
@@ -1268,7 +1269,7 @@ export default function SellerPayments() {
         }
     };
 
-    // print receipt (Bill PDF) – UPDATED with rate before and after commission and fixed cell structure
+    // print receipt (Bill PDF)
     const printReceipt = async (e, seller, overrideCycle) => {
         e.stopPropagation();
         const activeCycle = overrideCycle || cycle;
@@ -1348,14 +1349,12 @@ export default function SellerPayments() {
         const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
         const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
-        // FIXED: buildRow now includes all 7 columns per shift (qty, fat, snf, rateBeforeComm, rateAfterComm, amt, ratePerLtr)
         const buildRow = (date) => {
             const m = morningEntries.find(e => e.entry_date?.startsWith(date));
             const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
             const rowAmt = parseFloat(m?.total_amount || 0) + parseFloat(ev?.total_amount || 0);
             const dayStr = new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit" });
 
-            // Helper to create 7 cells per shift
             const cell = (e) => {
                 if (!e) {
                     return `
@@ -1630,7 +1629,6 @@ ${entries.length > 0 ? `
     </thead>
     <tbody>
         ${allDates.map(buildRow).join("")}
-        <!-- FIXED: Total row now includes ratePerLtr columns -->
         <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #111">
             <td style="background:#f0f0f0">${t('sellerPayments.total')}</td>
             <td style="text-align:center">${mQty.toFixed(2)}</td>
@@ -1747,15 +1745,15 @@ ${commissionBanner}
         <span style="font-family:monospace">${fmtR(advGiven)}</span>
     </div>` : ""}
     ${installmentCut > 0 ? `
-    <div class="deduction-row" style="color:#dc2626;background:#fff5f5">
-        <span>${t('sellerPayments.advanceInstallmentCut')} &
+    <div class="deduction-row" style="color:#dc2626;background:#fff5ff">
+        <span>${t('sellerPayments.advanceInstallmentCut')} &;
             <span style="font-size:9px;color:#aaa">(${fmtR(advGiven)} → ${fmtR(closingAdvance)} ${t('sellerPayments.remaining')})</span>
         </span>
         <span style="font-family:monospace;font-weight:600">− ${fmtR(installmentCut)}</span>
     </div>` : ""}
     ${depositAmt > 0 ? `
     <div class="deduction-row" style="color:#1d4ed8;background:#eff6ff">
-        <span>${t('sellerPayments.depositDeducted')} &
+        <span>${t('sellerPayments.depositDeducted')} &;
             <span style="font-size:9px;color:#aaa">
                 (${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L
                 · ${t('sellerPayments.balance')}: ${fmtR(openingDeposit)} → ${fmtR(closingDeposit)})
@@ -2214,21 +2212,21 @@ ${commissionBanner}
     const paidCount = activeSellers.filter(s => !!(s.is_paid || s.bill_no)).length;
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!cycleConfigLoaded) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('seller_payments', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen min-w-screen bg-[#f5f4f0]">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
             <style>{`
                 * { 
                     -webkit-print-color-adjust: exact !important; 
@@ -2264,54 +2262,61 @@ ${commissionBanner}
 
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Wallet size={18} className="text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('sellerPayments.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('sellerPayments.pageSubtitle')}
-                            </p>
-                        </div>
-                    </div>
+                {/* Header - Updated with glass-morphism */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
+                    <div className="flex items-center gap-3 shrink-0">
+                                            
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                                                    <Home size={16} className="text-gray-400" />
+                                                    <span>{t('sellerPayments.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
+                                                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                                        <Settings size={12} /> {t('status.admin')}
+                                                    </span>
+                                                </div>
+                                                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
+                                                    {t('sellerPayments.pageTitle')}
+                                                </h1>
+                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                    {t('rateChart.pageSubtitle')} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                                </p>
+                                            </div>
+                                        </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="header-actions">
                         <button onClick={startSellerPaymentsTour}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                                bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 transition shadow-sm">
                             <BadgeCheck size={13} /> {t('sellerPayments.startTour') || 'Take a Tour'}
                         </button>
                         <button onClick={() => { setBillSearchOpen(true); searchBills(""); }}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-violet-600 text-white hover:bg-violet-700 transition">
+                                bg-violet-600 text-white hover:bg-violet-700 transition shadow-lg shadow-violet-600/20">
                             <FileSearch size={13} /> {t('sellerPayments.searchBills')}
                         </button>
                         <button onClick={() => navigate('/commission-settings')}
                             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-        bg-amber-100 text-amber-700 hover:bg-amber-200 transition border border-amber-200">
+                                bg-amber-100/80 text-amber-700 hover:bg-amber-200/80 transition border border-amber-200/60 shadow-sm">
                             <Percent size={13} /> {t('sellerPayments.commissionSettings') || 'Commission Settings'}
                         </button>
                         {useCustomCycle && (
                             <button onClick={() => setCycleConfigOpen(true)}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-    bg-violet-100 text-violet-700 hover:bg-violet-200 transition border border-violet-200">
+                                    bg-violet-100/80 text-violet-700 hover:bg-violet-200/80 transition border border-violet-200/60 shadow-sm">
                                 <Calendar size={13} /> {t('sellerPayments.configureCycle') || 'Configure Cycle'}
                             </button>
                         )}
                         {can('seller_payments', 'R') && (
                             <button onClick={printRegister}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-black text-white hover:bg-gray-800 transition">
+                                    bg-gray-900 text-white hover:bg-gray-800 transition shadow-lg shadow-gray-900/20">
                                 <Printer size={13} /> {t('sellerPayments.printRegister')}
                             </button>
                         )}
                         {can('seller_payments', 'R') && (
                             <button onClick={handleBulkDownloadPDFs} disabled={bulkDownloading}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50">
+                                    bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg shadow-indigo-600/20">
                                 {bulkDownloading
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Download size={13} />}
@@ -2325,7 +2330,7 @@ ${commissionBanner}
                                 onClick={handleCombinedDownload}
                                 disabled={combinedDownloading}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-            bg-purple-600 text-white hover:bg-purple-700 transition disabled:opacity-50">
+                                    bg-purple-600 text-white hover:bg-purple-700 transition disabled:opacity-50 shadow-lg shadow-purple-600/20">
                                 {combinedDownloading
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Download size={13} />}
@@ -2338,7 +2343,7 @@ ${commissionBanner}
                             <button
                                 onClick={() => setExcelConfigOpen(true)}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition border border-emerald-200">
+                                    bg-emerald-100/80 text-emerald-700 hover:bg-emerald-200/80 transition border border-emerald-200/60 shadow-sm">
                                 <Download size={13} /> Excel Config
                             </button>
                         )}
@@ -2366,25 +2371,25 @@ ${commissionBanner}
                                     }
                                 }}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-emerald-600 text-white hover:bg-emerald-700 transition">
+                                    bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20">
                                 <Download size={13} /> Export Excel
                             </button>
                         )}
                     </div>
                 </div>
 
-                {/* Date Range */}
-                <div className="flex flex-col gap-3 no-print" data-tour="date-range">
+                {/* Date Range - Updated with glass-morphism */}
+                <div className="flex flex-col gap-3 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4" data-tour="date-range">
 
                     {/* Mode toggle */}
                     <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
                             <button type="button" onClick={() => handleCycleModeToggle(false)}
-                                className={`px-3 py-2 transition ${!useCustomCycle ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3 py-2 transition-all duration-200 ${!useCustomCycle ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
                                 {t('sellerPayments.fixedMonthly') || 'Fixed Monthly'}
                             </button>
                             <button type="button" onClick={() => handleCycleModeToggle(true)}
-                                className={`px-3 py-2 transition ${useCustomCycle ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3 py-2 transition-all duration-200 ${useCustomCycle ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
                                 {t('sellerPayments.customCycle') || 'Custom Cycle'}
                             </button>
                         </div>
@@ -2393,10 +2398,10 @@ ${commissionBanner}
                             <div className="flex items-center gap-1.5">
                                 {fixedCycles.map((c, idx) => (
                                     <button key={c.label} type="button" onClick={() => selectFixedCycle(idx)}
-                                        className={`px-3 py-2 rounded-xl text-xs font-semibold border transition
+                                        className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-200
                                             ${activeFixedIdx === idx
-                                                ? "bg-violet-600 text-white border-violet-600"
-                                                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                                                ? "bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-600/20"
+                                                : "bg-white/50 text-gray-500 border-gray-200/60 hover:border-gray-300/80 hover:bg-gray-50/50"}`}>
                                         {c.label}
                                     </button>
                                 ))}
@@ -2411,23 +2416,20 @@ ${commissionBanner}
                             <input type="date" value={customFrom || ''}
                                 disabled={!useCustomCycle}
                                 onChange={e => setCustomFrom(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-black/20 transition shadow-sm disabled:bg-gray-50/50 disabled:text-gray-400" />
                         </div>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.to')}</span>
                             <input type="date" value={customTo || ''}
                                 disabled={!useCustomCycle}
                                 onChange={e => setCustomTo(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition disabled:bg-gray-50 disabled:text-gray-400" />
+                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-black/20 transition shadow-sm disabled:bg-gray-50/50 disabled:text-gray-400" />
                         </div>
-                        <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200">
+                        <div className="flex flex-col gap-0.5 ml-4 pl-4 border-l border-gray-200/60">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.paymentDate')}</span>
                             <input type="date" value={simulatedToday}
                                 onChange={e => setSimulatedToday(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-black/20 transition shadow-sm" />
                         </div>
                     </div>
                 </div>
@@ -2438,30 +2440,30 @@ ${commissionBanner}
                     <p className="text-sm text-gray-500">{fmtDate(cycle.from)} to {fmtDate(cycle.to)}</p>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-tour="payment-stats">
+                {/* Stats - Updated with glass-morphism */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4" data-tour="payment-stats">
                     <StatCard label={t('sellerPayments.totalSellers')} value={activeSellers.length}
                         icon={<Users size={14} />}
-                        color="text-blue-600 bg-blue-50 border-blue-100" />
+                        color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" />
                     <StatCard label={t('sellerPayments.milkAmount')} value={fmt(totalMilk)}
                         icon={<Milk size={14} />}
-                        color="text-amber-600 bg-amber-50 border-amber-100" />
+                        color="from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" />
                     <StatCard label={t('sellerPayments.advanceTaken')} value={fmt(totalAdvance)}
                         sub={t('sellerPayments.infoOnly')}
                         icon={<Banknote size={14} />}
-                        color="text-violet-600 bg-violet-50 border-violet-100" />
+                        color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" />
                     <StatCard label={t('sellerPayments.productDeduction')} value={fmt(totalProductDeduction)}
                         sub={t('sellerPayments.productSalesCut')}
                         icon={<Banknote size={14} />}
-                        color="text-rose-600 bg-rose-50 border-rose-100" />
+                        color="from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-600" />
                     <StatCard label={t('sellerPayments.cattleFeedDeduction')} value={fmt(totalCattleFeedDeduction)}
                         sub={t('sellerPayments.cattleFeedCut')}
                         icon={<Banknote size={14} />}
-                        color="text-emerald-600 bg-emerald-50 border-emerald-100" />
+                        color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" />
                 </div>
 
-                {/* Progress bar */}
-                <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center gap-4 no-print">
+                {/* Progress bar - Updated with glass-morphism */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-4 no-print">
                     <div className="flex flex-col gap-1 flex-1">
                         <div className="flex justify-between text-xs font-medium text-gray-500 mb-1">
                             <span>{t('sellerPayments.paymentProgress')}</span>
@@ -2472,20 +2474,20 @@ ${commissionBanner}
                                 style={{ width: activeSellers.length ? `${(paidCount / activeSellers.length) * 100}%` : "0%" }} />
                         </div>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 text-xs font-semibold">
                         <CheckCircle2 size={13} />
                         {activeSellers.length > 0 ? Math.round((paidCount / activeSellers.length) * 100) : 0}% {t('sellerPayments.done')}
                     </div>
                 </div>
 
-                {/* Flash */}
+                {/* Flash - Updated with glass-morphism */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
+                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
                         ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
+                            ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700"
                             : flash.type === "error"
-                                ? "bg-rose-50 border border-rose-200 text-rose-600"
-                                : "bg-blue-50 border border-blue-200 text-blue-700"}`}>
+                                ? "bg-rose-50/80 border border-rose-200/60 text-rose-600"
+                                : "bg-blue-50/80 border border-blue-200/60 text-blue-700"}`}>
                         {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
                         {flash.msg}
                         <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
@@ -2494,24 +2496,23 @@ ${commissionBanner}
                     </div>
                 )}
 
-                {/* Search + Filter */}
+                {/* Search + Filter - Updated with glass-morphism */}
                 <div className="flex items-center gap-2 no-print">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
                             placeholder={t('sellerPayments.searchPlaceholder')}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200/60 rounded-xl bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-black/20 transition shadow-sm placeholder:text-gray-300" />
                     </div>
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
                         {[
                             ["all", t('sellerPayments.all')],
                             ["unpaid", t('sellerPayments.unpaid')],
                             ["paid", t('sellerPayments.paid')]
                         ].map(([v, l]) => (
                             <button key={v} onClick={() => setFilterPaid(v)}
-                                className={`px-3 py-2 transition
-                                    ${filterPaid === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3 py-2 transition-all duration-200
+                                    ${filterPaid === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
                                 {l}
                             </button>
                         ))}
@@ -2521,11 +2522,11 @@ ${commissionBanner}
                 {/* ── Seller Cards ── */}
                 <div className="flex flex-col gap-3" data-tour="seller-list">
                     {loading ? (
-                        <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+                        <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200 gap-2 text-gray-300">
+                        <div className="flex flex-col items-center justify-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 gap-2 text-gray-300">
                             <Wallet size={32} />
                             <p className="text-sm">{t('sellerPayments.noSellersFound')}</p>
                         </div>
@@ -2541,8 +2542,8 @@ ${commissionBanner}
 
                         return (
                             <div key={seller.seller_id}
-                                className={`bg-white rounded-2xl border transition-all print-break
-                                    ${isPaid ? "border-emerald-200" : "border-gray-200"}`}>
+                                className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all shadow-lg shadow-gray-200/50 hover:shadow-xl print-break
+                                    ${isPaid ? "border-emerald-200/60" : "border-gray-200/60"}`}>
 
                                 {/* Row */}
                                 <div className="flex items-center gap-3 px-5 py-4 cursor-pointer"
@@ -2631,7 +2632,7 @@ ${commissionBanner}
                                         <button
                                             onClick={(e) => handleUndo(e, seller)}
                                             disabled={undoing === seller.seller_id}
-                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition disabled:opacity-50 shadow-sm shadow-rose-200">
+                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition disabled:opacity-50 shadow-lg shadow-rose-500/20">
                                             {undoing === seller.seller_id
                                                 ? <RefreshCw size={11} className="animate-spin" />
                                                 : <RefreshCw size={11} />}
@@ -2647,7 +2648,7 @@ ${commissionBanner}
                                                     bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
                                                 });
                                             }}
-                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition shadow-sm">
+                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition shadow-lg shadow-gray-800/20">
                                             <Printer size={11} />
                                             {t('sellerPayments.pdf')}
                                         </button>
@@ -2660,8 +2661,8 @@ ${commissionBanner}
                                                 ? `Payment only allowed on ${fmtDate(customTo)}`
                                                 : undefined}
                                             className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl 
-      bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition 
-      disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-emerald-200">
+                                                bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition 
+                                                disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20">
                                             {paying === seller.seller_id
                                                 ? <RefreshCw size={11} className="animate-spin" />
                                                 : <CheckCircle2 size={11} />}
@@ -2692,16 +2693,16 @@ ${commissionBanner}
 
                                 {/* ── Expanded breakdown ── */}
                                 {isOpen && (
-                                    <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
+                                    <div className="border-t border-gray-100/60 px-5 py-4 flex flex-col gap-4">
 
-                                        {/* Day-wise entries table – with rate before and after commission */}
+                                        {/* Day-wise entries table */}
                                         {entries.length > 0 && (
                                             <div>
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                                     {t('sellerPayments.dailyMilkEntries')}
                                                 </p>
-                                                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                                    <div className="grid bg-gray-50 border-b border-gray-100"
+                                                <div className="rounded-xl border border-gray-100/60 overflow-hidden">
+                                                    <div className="grid bg-gray-50/80 border-b border-gray-100/60"
                                                         style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 65px 65px 95px" }}>
                                                         {[t('sellerPayments.date'), t('sellerPayments.shift'), t('sellerPayments.qtyL'), t('sellerPayments.fat'), t('sellerPayments.snf'), t('sellerPayments.rateBeforeComm'), t('sellerPayments.rateAfterComm'), t('sellerPayments.amount')].map(h => (
                                                             <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
@@ -2712,7 +2713,7 @@ ${commissionBanner}
                                                         const finalRate = parseFloat(e.rate_applied || 0);
                                                         return (
                                                             <div key={i}
-                                                                className="grid border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition"
+                                                                className="grid border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50 transition"
                                                                 style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 65px 65px 95px" }}>
                                                                 <div className="px-3 py-2 text-xs text-gray-600">{fmtDate(e.entry_date)}</div>
                                                                 <div className="px-3 py-2">
@@ -2730,7 +2731,7 @@ ${commissionBanner}
                                                             </div>
                                                         );
                                                     })}
-                                                    <div className="grid bg-gray-50 border-t border-gray-100"
+                                                    <div className="grid bg-gray-50/80 border-t border-gray-100/60"
                                                         style={{ gridTemplateColumns: "100px 80px 70px 65px 65px 65px 65px 95px" }}>
                                                         <div className="px-3 py-2 text-xs font-bold text-gray-600 col-span-2">{entries.length} {t('sellerPayments.entries')}</div>
                                                         <div className="px-3 py-2 text-xs font-bold text-blue-700">
@@ -2745,7 +2746,7 @@ ${commissionBanner}
 
                                         {/* Walk-in deduction info */}
                                         {parseFloat(seller.walkin_deduction || 0) > 0 && (
-                                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50 border border-rose-100">
+                                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50/80 border border-rose-200/60">
                                                 <Banknote size={15} className="text-rose-400 shrink-0" />
                                                 <div className="flex-1 text-xs text-rose-700">
                                                     <span className="font-semibold">{t('sellerPayments.milkBoughtBySeller')}: {fmt(seller.walkin_deduction)}</span>
@@ -2756,7 +2757,7 @@ ${commissionBanner}
 
                                         {/* Cattle feed deduction info */}
                                         {cattleFeedDed > 0 && (
-                                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50/80 border border-emerald-200/60">
                                                 <Package size={15} className="text-emerald-400 shrink-0" />
                                                 <div className="flex-1 text-xs text-emerald-700">
                                                     <span className="font-semibold">{t('sellerPayments.cattleFeedDeduction')}: {fmt(cattleFeedDed)}</span>
@@ -2818,7 +2819,7 @@ ${commissionBanner}
                                                     <strong className="text-orange-500 ml-1">− {fmt(seller.walkin_deduction)}</strong>
                                                 </p>
                                             )}
-                                            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-900 text-white mt-2">
+                                            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-900 text-white mt-2 shadow-lg shadow-gray-900/20">
                                                 <span className="text-xs font-semibold uppercase tracking-wider">{t('sellerPayments.netCashToHand')}</span>
                                                 <span className="text-base font-bold">{fmt(finalPayable)}</span>
                                             </div>
@@ -2842,14 +2843,14 @@ ${commissionBanner}
                     })}
                 </div>
 
-                {/* Pagination */}
+                {/* Pagination - Updated with glass-morphism */}
                 {filtered.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60 backdrop-blur-sm rounded-b-2xl bg-white/80 shadow-lg shadow-gray-200/50">
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
                                 {t('sellerPayments.prev')}
                             </button>
                             <div className="flex items-center gap-1">
@@ -2865,7 +2866,7 @@ ${commissionBanner}
                                             ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
                                             : <button key={p} onClick={() => setCurrentPage(p)}
                                                 className={`w-7 h-7 rounded-lg text-xs font-semibold transition border
-                                                    ${currentPage === p ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+                                                    ${currentPage === p ? 'bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-900/20' : 'bg-white/50 text-gray-500 border-gray-200/60 hover:border-gray-300/80'}`}>
                                                 {p}
                                             </button>
                                     )}
@@ -2873,7 +2874,7 @@ ${commissionBanner}
                             <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
                                 {t('sellerPayments.next')}
                             </button>
                             <span className="text-xs text-gray-400 ml-1">
@@ -2886,15 +2887,15 @@ ${commissionBanner}
                                 type="number" min={1} max={filtered.length || 1}
                                 value={pageSize}
                                 onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
-                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="w-14 border border-gray-200/60 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-black/20 transition shadow-sm"
                             />
                         </div>
                     </div>
                 )}
 
-                {/* Grand total footer */}
+                {/* Grand total footer - Updated with glass-morphism */}
                 {filtered.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-6 py-4 flex items-center justify-between">
                         <div className="flex items-center gap-6 text-sm">
                             <div>
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('sellerPayments.milkTotal')}</p>
@@ -2926,14 +2927,14 @@ ${commissionBanner}
 
             </main>
 
-            {/* Bill Search Modal - UPDATED with rate before and after commission */}
+            {/* Bill Search Modal - Updated with glass-morphism */}
             {billSearchOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-6xl h-[90vh] flex flex-col">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-100/60 w-full max-w-6xl h-[90vh] flex flex-col">
 
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100/60 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
+                                <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center shadow-lg shadow-violet-600/20">
                                     <FileSearch size={16} className="text-white" />
                                 </div>
                                 <div>
@@ -2947,7 +2948,7 @@ ${commissionBanner}
                             </button>
                         </div>
 
-                        <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-3 flex-wrap shrink-0 bg-gray-50/60">
+                        <div className="px-6 py-3 border-b border-gray-100/60 flex items-center gap-3 flex-wrap shrink-0 bg-gray-50/60">
                             <div className="relative flex-1 min-w-[200px]">
                                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                                 <input
@@ -2959,8 +2960,7 @@ ${commissionBanner}
                                         setBillDetail(null);
                                     }}
                                     placeholder={t('sellerPayments.billSearchPlaceholder')}
-                                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-violet-300 transition placeholder:text-gray-300"
+                                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200/60 rounded-xl bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition shadow-sm placeholder:text-gray-300"
                                 />
                                 {billLoading && (
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -2970,7 +2970,7 @@ ${commissionBanner}
                             </div>
                             <button
                                 onClick={() => { setBillQuery(""); searchBills(""); setBillDetail(null); }}
-                                className="text-xs text-gray-400 hover:text-gray-600 px-3 py-2 rounded-xl border border-gray-200 bg-white transition">
+                                className="text-xs text-gray-400 hover:text-gray-600 px-3 py-2 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm transition shadow-sm">
                                 {t('sellerPayments.showAll')}
                             </button>
                             <span className="text-xs text-gray-400 font-medium">
@@ -2982,11 +2982,11 @@ ${commissionBanner}
 
                             {/* Left: Bills List */}
                             <div
-                                className={`flex flex-col overflow-hidden border-r border-gray-100 transition-all duration-300
+                                className={`flex flex-col overflow-hidden border-r border-gray-100/60 transition-all duration-300
                                     ${!billListExpanded && billDetail ? "w-0 overflow-hidden" : billDetail ? "w-2/5" : "w-full"}`}
                                 onClick={() => { if (billDetail) setBillDetail(null); }}
                             >
-                                <div className="grid px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wider shrink-0"
+                                <div className="grid px-4 py-2 bg-gray-50/80 border-b border-gray-100/60 text-[10px] font-semibold text-gray-400 uppercase tracking-wider shrink-0"
                                     style={{ gridTemplateColumns: "1fr 1fr 90px 80px 60px 60px" }}>
                                     <div>{t('sellerPayments.billNo')}</div>
                                     <div>{t('sellerPayments.seller')}</div>
@@ -3046,14 +3046,14 @@ ${commissionBanner}
                                                                 showFlash("error", t('sellerPayments.printLoadError'));
                                                             }
                                                         }}
-                                                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-900 text-white text-[10px] font-semibold hover:bg-gray-700 transition">
+                                                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-900 text-white text-[10px] font-semibold hover:bg-gray-700 transition shadow-lg shadow-gray-900/20">
                                                         <Printer size={9} /> {t('sellerPayments.pdf')}
                                                     </button>
                                                 </div>
                                                 <div className="flex justify-end">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteBill(b.bill_no); }}
-                                                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-semibold hover:bg-rose-700 transition">
+                                                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-semibold hover:bg-rose-700 transition shadow-lg shadow-rose-600/20">
                                                         <Trash2 size={9} /> {t('sellerPayments.del')}
                                                     </button>
                                                 </div>
@@ -3063,13 +3063,13 @@ ${commissionBanner}
                                 </div>
                             </div>
 
-                            {/* Right: Bill Detail Pane - UPDATED with rate before and after commission */}
+                            {/* Right: Bill Detail Pane - Updated with glass-morphism */}
                             {billDetail && (
-                                <div className="flex-1 overflow-y-auto flex flex-col relative">
+                                <div className="flex-1 overflow-y-auto flex flex-col relative bg-white/95">
                                     <button
                                         onClick={() => setBillListExpanded(p => !p)}
                                         className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center
-                                            w-5 h-12 bg-violet-600 hover:bg-violet-700 text-white rounded-r-lg shadow-md transition"
+                                            w-5 h-12 bg-violet-600 hover:bg-violet-700 text-white rounded-r-lg shadow-lg shadow-violet-600/20 transition"
                                         title={billListExpanded ? t('sellerPayments.hideList') : t('sellerPayments.showList')}>
                                         {billListExpanded ? <ChevronDown size={11} className="-rotate-90" /> : <ChevronDown size={11} className="rotate-90" />}
                                     </button>
@@ -3080,10 +3080,10 @@ ${commissionBanner}
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-violet-50">
+                                            <div className="px-6 py-4 border-b border-gray-100/60 flex items-center justify-between shrink-0 bg-violet-50/80">
                                                 <button
                                                     onClick={() => setBillDetail(null)}
-                                                    className="absolute right-4 top-4 w-7 h-7 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 text-gray-500 border border-gray-200 transition">
+                                                    className="absolute right-4 top-4 w-7 h-7 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 text-gray-500 border border-gray-200/60 transition shadow-sm">
                                                     <X size={13} />
                                                 </button>
                                                 <div>
@@ -3102,34 +3102,35 @@ ${commissionBanner}
                                                 </div>
                                                 <button
                                                     onClick={() => printBillReceipt(billDetail)}
-                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 transition">
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 transition shadow-lg shadow-gray-900/20">
                                                     <Printer size={13} /> {t('sellerPayments.printFullPDF')}
                                                 </button>
                                             </div>
 
                                             <div className="px-6 py-4 flex flex-col gap-5">
 
-                                                {/* Summary Cards */}
+                                                {/* Summary Cards - Updated with glass-morphism */}
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                     {[
-                                                        { label: t('sellerPayments.milkAmount'), value: `₹${parseFloat(billDetail.payment.milk_amount || 0).toFixed(2)}`, color: "bg-emerald-50 border-emerald-100 text-emerald-700" },
-                                                        { label: t('sellerPayments.totalEntries'), value: `${billDetail.entries.length} ${t('sellerPayments.entries')}`, color: "bg-blue-50 border-blue-100 text-blue-700" },
-                                                        { label: t('sellerPayments.totalQty'), value: `${billDetail.entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2)} L`, color: "bg-amber-50 border-amber-100 text-amber-700" },
-                                                        { label: t('sellerPayments.netCashPaid'), value: `₹${parseFloat(billDetail.payment.cash_paid || 0).toFixed(2)}`, color: "bg-gray-900 border-gray-900 text-white" },
+                                                        { label: t('sellerPayments.milkAmount'), value: `₹${parseFloat(billDetail.payment.milk_amount || 0).toFixed(2)}`, color: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" },
+                                                        { label: t('sellerPayments.totalEntries'), value: `${billDetail.entries.length} ${t('sellerPayments.entries')}`, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
+                                                        { label: t('sellerPayments.totalQty'), value: `${billDetail.entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2)} L`, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" },
+                                                        { label: t('sellerPayments.netCashPaid'), value: `₹${parseFloat(billDetail.payment.cash_paid || 0).toFixed(2)}`, color: "from-gray-900 to-gray-800 border-gray-800/60 text-white" },
                                                     ].map(({ label, value, color }) => (
-                                                        <div key={label} className={`rounded-xl border px-4 py-3 ${color}`}>
-                                                            <p className="text-[10px] opacity-70 uppercase tracking-wider">{label}</p>
-                                                            <p className="text-sm font-bold mt-0.5">{value}</p>
+                                                        <div key={label} className={`relative overflow-hidden rounded-xl border bg-gradient-to-br ${color} shadow-sm px-4 py-3`}>
+                                                            <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                                                            <p className="text-sm font-bold mt-0.5 text-gray-900">{value}</p>
+                                                            <div className="absolute -right-4 -top-4 w-16 h-16 rounded-full bg-white/20 blur-2xl" />
                                                         </div>
                                                     ))}
                                                 </div>
 
-                                                {/* Milk Entries Table - UPDATED with rate before and after commission */}
+                                                {/* Milk Entries Table */}
                                                 <div>
                                                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                         {t('sellerPayments.milkCollectionEntries')} ({billDetail.entries.length})
                                                     </p>
-                                                    <div className="rounded-xl border border-gray-100 overflow-hidden text-xs">
+                                                    <div className="rounded-xl border border-gray-100/60 overflow-hidden text-xs">
                                                         <div className="grid bg-gray-900 text-white"
                                                             style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
                                                             {[t('sellerPayments.date'), t('sellerPayments.shift'), t('sellerPayments.type'), t('sellerPayments.qtyL'), t('sellerPayments.fat'), t('sellerPayments.snf'), t('sellerPayments.rateBeforeComm'), t('sellerPayments.rateAfterComm'), t('sellerPayments.amount')].map(h => (
@@ -3141,7 +3142,7 @@ ${commissionBanner}
                                                             const finalRate = parseFloat(e.rate_applied || 0);
                                                             return (
                                                                 <div key={i}
-                                                                    className={`grid border-b border-gray-50 last:border-0 hover:bg-gray-50 transition ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
+                                                                    className={`grid border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
                                                                     style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
                                                                     <div className="px-3 py-2 text-gray-600">
                                                                         {new Date(e.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
@@ -3167,7 +3168,7 @@ ${commissionBanner}
                                                                 </div>
                                                             );
                                                         })}
-                                                        <div className="grid bg-gray-100 border-t-2 border-gray-200 font-bold"
+                                                        <div className="grid bg-gray-100/80 border-t-2 border-gray-200 font-bold"
                                                             style={{ gridTemplateColumns: "85px 65px 60px 55px 55px 55px 60px 70px" }}>
                                                             <div className="px-3 py-2 text-xs col-span-3 text-gray-600">{t('sellerPayments.total')}</div>
                                                             <div className="px-3 py-2 text-xs text-blue-700 font-mono">
@@ -3184,59 +3185,59 @@ ${commissionBanner}
                                                 {/* Deductions Table */}
                                                 <div>
                                                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sellerPayments.paymentBreakdown')}</p>
-                                                    <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                                    <div className="rounded-xl border border-gray-100/60 overflow-hidden">
                                                         {[
                                                             {
                                                                 label: t('sellerPayments.milkAmountPayable'),
                                                                 value: parseFloat(billDetail.payment.milk_amount || 0),
                                                                 type: "credit",
-                                                                color: "bg-emerald-50 text-emerald-700",
+                                                                color: "bg-emerald-50/80 text-emerald-700",
                                                                 always: true,
                                                             },
                                                             {
                                                                 label: t('sellerPayments.advancePendingOutstanding'),
                                                                 value: parseFloat(billDetail.payment.advance_given || 0),
                                                                 type: "info",
-                                                                color: "bg-violet-50 text-violet-700",
+                                                                color: "bg-violet-50/80 text-violet-700",
                                                                 always: false,
                                                             },
                                                             {
                                                                 label: t('sellerPayments.installmentCut'),
                                                                 value: parseFloat(billDetail.payment.installment_cut || 0),
                                                                 type: "debit",
-                                                                color: "bg-rose-50 text-rose-700",
+                                                                color: "bg-rose-50/80 text-rose-700",
                                                                 always: false,
                                                             },
                                                             {
                                                                 label: t('sellerPayments.depositDeductedPerLitre'),
                                                                 value: parseFloat(billDetail.payment.deposit_amount || 0),
                                                                 type: "debit",
-                                                                color: "bg-blue-50 text-blue-700",
+                                                                color: "bg-blue-50/80 text-blue-700",
                                                                 always: false,
                                                             },
                                                             {
                                                                 label: t('sellerPayments.productSalesDeduction'),
                                                                 value: parseFloat(billDetail.payment.product_deduction || 0),
                                                                 type: "debit",
-                                                                color: "bg-amber-50 text-amber-700",
+                                                                color: "bg-amber-50/80 text-amber-700",
                                                                 always: false,
                                                             },
                                                             {
                                                                 label: t('sellerPayments.cattleFeedDeduction'),
                                                                 value: parseFloat(billDetail.payment.cattle_feed_deduction || 0),
                                                                 type: "debit",
-                                                                color: "bg-emerald-50 text-emerald-700",
+                                                                color: "bg-emerald-50/80 text-emerald-700",
                                                                 always: false,
                                                             },
                                                             {
                                                                 label: t('sellerPayments.milkBoughtBySellerWalkinShort'),
                                                                 value: parseFloat(billDetail.payment.walkin_deduction || 0),
                                                                 type: "debit",
-                                                                color: "bg-orange-50 text-orange-700",
+                                                                color: "bg-orange-50/80 text-orange-700",
                                                                 always: false,
                                                             },
                                                         ].filter(row => row.always || row.value > 0).map((row, i) => (
-                                                            <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 ${row.color}`}>
+                                                            <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100/60 last:border-0 ${row.color}`}>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full
                                                                         ${row.type === "credit" ? "bg-emerald-200 text-emerald-800" :
@@ -3252,7 +3253,7 @@ ${commissionBanner}
                                                                 </span>
                                                             </div>
                                                         ))}
-                                                        <div className="flex items-center justify-between px-4 py-4 bg-gray-900 text-white">
+                                                        <div className="flex items-center justify-between px-4 py-4 bg-gray-900 text-white shadow-lg shadow-gray-900/20">
                                                             <span className="text-sm font-bold uppercase tracking-wider">{t('sellerPayments.netCashToHand')}</span>
                                                             <span className="text-lg font-bold font-mono">
                                                                 ₹{parseFloat(billDetail.payment.final_payable || billDetail.payment.cash_paid || 0).toFixed(2)}
@@ -3267,9 +3268,9 @@ ${commissionBanner}
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                             {t('sellerPayments.advanceTransactions')} ({billDetail.advances.length})
                                                         </p>
-                                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                                        <div className="rounded-xl border border-gray-100/60 overflow-hidden">
                                                             {billDetail.advances.map((a, i) => (
-                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}>
+                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100/60 last:border-0 ${i % 2 === 0 ? "bg-white/50" : "bg-gray-50/40"}`}>
                                                                     <div>
                                                                         <p className="text-xs font-medium text-gray-700">{a.remarks || t('sellerPayments.advance')}</p>
                                                                         <p className="text-[10px] text-gray-400 mt-0.5">
@@ -3293,9 +3294,9 @@ ${commissionBanner}
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                             {t('sellerPayments.productSales')} ({billDetail.productSales.length})
                                                         </p>
-                                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                                        <div className="rounded-xl border border-gray-100/60 overflow-hidden">
                                                             {billDetail.productSales.map((s, i) => (
-                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "bg-white" : "bg-amber-50/30"}`}>
+                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100/60 last:border-0 ${i % 2 === 0 ? "bg-white/50" : "bg-amber-50/30"}`}>
                                                                     <div>
                                                                         <p className="text-xs font-medium text-gray-700">{s.product_name}</p>
                                                                         <p className="text-[10px] text-gray-400 mt-0.5">
@@ -3319,9 +3320,9 @@ ${commissionBanner}
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                             {t('sellerPayments.cattleFeedSales')} ({billDetail.cattleFeedSales.length})
                                                         </p>
-                                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                                        <div className="rounded-xl border border-gray-100/60 overflow-hidden">
                                                             {billDetail.cattleFeedSales.map((f, i) => (
-                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "bg-white" : "bg-emerald-50/30"}`}>
+                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100/60 last:border-0 ${i % 2 === 0 ? "bg-white/50" : "bg-emerald-50/30"}`}>
                                                                     <div>
                                                                         <p className="text-xs font-medium text-gray-700">{f.feed_name}</p>
                                                                         <p className="text-[10px] text-gray-400 mt-0.5">
@@ -3345,9 +3346,9 @@ ${commissionBanner}
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                             {t('sellerPayments.walkinSales')} ({billDetail.walkinSales.length})
                                                         </p>
-                                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                                        <div className="rounded-xl border border-gray-100/60 overflow-hidden">
                                                             {billDetail.walkinSales.map((w, i) => (
-                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "bg-white" : "bg-orange-50/30"}`}>
+                                                                <div key={i} className={`flex items-center justify-between px-4 py-3 border-b border-gray-100/60 last:border-0 ${i % 2 === 0 ? "bg-white/50" : "bg-orange-50/30"}`}>
                                                                     <div>
                                                                         <p className="text-xs font-medium text-gray-700 capitalize">{w.milk_type} {t('sellerPayments.milk')} · {w.shift}</p>
                                                                         <p className="text-[10px] text-gray-400 mt-0.5">
@@ -3364,7 +3365,7 @@ ${commissionBanner}
                                                     </div>
                                                 )}
 
-                                                <div className="flex items-center justify-between text-[10px] text-gray-400 pt-2 border-t border-gray-100">
+                                                <div className="flex items-center justify-between text-[10px] text-gray-400 pt-2 border-t border-gray-100/60">
                                                     <span>{t('sellerPayments.billNoLabel')}: <strong className="text-gray-600">{billDetail.payment.bill_no}</strong> · {t('sellerPayments.computerGenerated')}</span>
                                                     <span>{t('sellerPayments.paidOn')}: {new Date(billDetail.payment.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
                                                 </div>
@@ -3378,9 +3379,9 @@ ${commissionBanner}
                 </div>
             )}
 
-            {/* Delete Confirm Modal */}
+            {/* Delete Confirm Modal - Updated with glass-morphism */}
             {deleteConfirmOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                             <div className="flex items-center gap-3">
@@ -3401,7 +3402,7 @@ ${commissionBanner}
                             <p className="text-sm text-gray-600">
                                 {t('sellerPayments.deleteConfirmMessage')} <strong className="font-mono text-rose-700">{deletingBill}</strong>?
                             </p>
-                            <div className="rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1">
+                            <div className="rounded-xl bg-rose-50/80 border border-rose-200/60 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1">
                                 <p className="font-semibold">{t('sellerPayments.willBeReversed')}:</p>
                                 <ul className="list-disc list-inside text-rose-600 mt-1 space-y-0.5">
                                     <li>{t('sellerPayments.reversalPaymentRecord')}</li>
@@ -3413,13 +3414,13 @@ ${commissionBanner}
                         </div>
                         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
                             <button onClick={cancelDeleteBill}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                                 {t('sellerPayments.cancel')}
                             </button>
                             <button
                                 onClick={confirmDeleteBill}
                                 disabled={deleting}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50">
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50 shadow-lg shadow-rose-600/20">
                                 {deleting
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Trash2 size={12} />}

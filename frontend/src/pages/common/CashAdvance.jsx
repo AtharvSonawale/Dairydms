@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
     Wallet, Save, Sun, Moon, User, AlertTriangle, BadgeCheck,
     RefreshCw, X, TrendingUp, TrendingDown, Hash, Banknote,
-    FileText, ChevronDown, FileDown,
+    FileText, ChevronDown, FileDown, Home, Pencil
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -11,6 +11,22 @@ import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, className = "", ...rest }) {
+    return (
+        <div className={`relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 ${className}`} {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -49,8 +65,8 @@ function TinyInput({ className = "", style = {}, ...props }) {
         <input
             {...props}
             style={{ minWidth: 0, ...style }}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2.5 py-[7px] text-sm text-gray-900
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -58,14 +74,14 @@ function TinyInput({ className = "", style = {}, ...props }) {
 
 function TypeToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
             {[
-                { val: "given", label: t('cashAdvance.advanceGiven'), active: "bg-emerald-500 text-white" },
-                { val: "received", label: t('cashAdvance.received'), active: "bg-blue-500 text-white" },
+                { val: "given", label: t('cashAdvance.advanceGiven'), active: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm" },
+                { val: "received", label: t('cashAdvance.received'), active: "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" onClick={() => onChange(val)}
                     className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
-                        ${value === val ? active : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                        ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                     {val === "given" ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
                     {label}
                 </button>
@@ -78,6 +94,18 @@ function TableCell({ children, className = "" }) {
     return (
         <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
             {children}
+        </div>
+    );
+}
+
+function StatCard({ label, value, icon, color }) {
+    return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+            <div className="shrink-0">{icon}</div>
+            <div>
+                <p className="text-xs text-gray-400 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            </div>
         </div>
     );
 }
@@ -126,30 +154,30 @@ export default function CashAdvance() {
     };
 
     const startCashAdvanceTour = () => {
-    const driverObj = driver({
-        showProgress: true,
-        allowClose: true,
-        steps: [
-            {
-                element: '[data-tour="advance-header-actions"]',
-                popover: { title: t('cashAdvance.dateLabel'), description: 'Select a date to view or record transactions. Switch between daily, weekly, monthly, or custom range — then download a PDF report.' },
-            },
-            {
-                element: '[data-tour="advance-stats"]',
-                popover: { title: t('cashAdvance.entriesToday'), description: 'Live summary of total entries, total advance given, and total amount received for the selected period.' },
-            },
-            {
-                element: '[data-tour="advance-form"]',
-                popover: { title: t('cashAdvance.newTransaction'), description: 'Search for a seller, choose Given or Received, enter the amount and optional remarks. The running balance and recent history for the selected seller are shown below.' },
-            },
-            {
-                element: '[data-tour="advance-table"]',
-                popover: { title: t('cashAdvance.colSeller'), description: 'All transactions for the selected period. Filter by seller name, paginate through entries, and (if admin) edit or delete any record.' },
-            },
-        ],
-    });
-    driverObj.drive();
-};
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="advance-header-actions"]',
+                    popover: { title: t('cashAdvance.dateLabel'), description: 'Select a date to view or record transactions. Switch between daily, weekly, monthly, or custom range — then download a PDF report.' },
+                },
+                {
+                    element: '[data-tour="advance-stats"]',
+                    popover: { title: t('cashAdvance.entriesToday'), description: 'Live summary of total entries, total advance given, and total amount received for the selected period.' },
+                },
+                {
+                    element: '[data-tour="advance-form"]',
+                    popover: { title: t('cashAdvance.newTransaction'), description: 'Search for a seller, choose Given or Received, enter the amount and optional remarks. The running balance and recent history for the selected seller are shown below.' },
+                },
+                {
+                    element: '[data-tour="advance-table"]',
+                    popover: { title: t('cashAdvance.colSeller'), description: 'All transactions for the selected period. Filter by seller name, paginate through entries, and (if admin) edit or delete any record.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
 
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
@@ -691,7 +719,6 @@ export default function CashAdvance() {
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
-        // Let the seller-search dropdown handle its own Enter
         if (dropdownOpen) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
@@ -755,7 +782,7 @@ export default function CashAdvance() {
         : "1.4fr 80px 110px 110px 1fr 100px 80px";
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -763,32 +790,37 @@ export default function CashAdvance() {
     if (!can('cash_advance', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Wallet size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('cashAdvance.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
+                                <Wallet size={12} /> Cash
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('cashAdvance.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('cashAdvance.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('cashAdvance.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('cashAdvance.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
-                  <div className="flex items-center gap-2 flex-wrap" data-tour="advance-header-actions">
-    <button
-        onClick={startCashAdvanceTour}
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
-    >
-        <BadgeCheck size={13} /> Take a Tour
-    </button>
-    <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.dateLabel')}</span>
+
+                    <div className="flex items-center gap-2 flex-wrap" data-tour="advance-header-actions">
+                        <button
+                            onClick={startCashAdvanceTour}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                        >
+                            <BadgeCheck size={15} /> Take a Tour
+                        </button>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -798,28 +830,24 @@ export default function CashAdvance() {
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); fetchRangeEntries(r.from, r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); fetchRangeEntries(r.from, r.to); }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.downloadPDF')}</span>
-
                             <div className="flex flex-col gap-2">
-
-                                {/* Row 1: Range mode toggle + date label */}
                                 <div className="flex items-center gap-1 flex-wrap">
-                                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                         {[{ v: "daily", l: t('cashAdvance.day') }, { v: "weekly", l: t('cashAdvance.week') }, { v: "monthly", l: t('cashAdvance.month') }, { v: "custom", l: t('cashAdvance.custom') }].map(({ v, l }) => (
                                             <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                                className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                                className={`px-3 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                                 {l}
                                             </button>
                                         ))}
                                     </div>
 
                                     {rangeMode !== "custom" && (
-                                        <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap">
+                                        <span className="text-xs text-gray-500 px-2 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap shadow-sm">
                                             {fromDate === toDate
                                                 ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                                 : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -827,12 +855,11 @@ export default function CashAdvance() {
                                     )}
                                 </div>
 
-                                {/* Row 2: Custom date inputs (only when custom) */}
                                 {rangeMode === "custom" && (
                                     <div className="flex items-center gap-1 flex-wrap">
                                         <input type="date" value={fromDate}
                                             onChange={e => { setFromDate(e.target.value); setPdfReady(false); }}
-                                            className="flex-1 min-w-0 border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="flex-1 min-w-0 border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                         <span className="text-gray-400 text-xs shrink-0">→</span>
                                         <input type="date" value={toDate}
                                             onChange={e => {
@@ -840,20 +867,19 @@ export default function CashAdvance() {
                                                 setPdfReady(false);
                                                 setTimeout(() => fetchRangeEntries(fromDate, e.target.value), 0);
                                             }}
-                                            className="flex-1 min-w-0 border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="flex-1 min-w-0 border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     </div>
                                 )}
 
-                                {/* Row 3: Action buttons */}
                                 <div className="flex gap-1.5">
                                     {rangeMode === "daily" ? (
                                         <button onClick={handleDownloadPDF} disabled={entries.length === 0}
-                                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition shadow-sm">
                                             <FileDown size={13} /> PDF
                                         </button>
                                     ) : (
                                         <button onClick={handleDownloadPDF} disabled={!pdfReady || loadingRange}
-                                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition shadow-sm">
                                             {loadingRange
                                                 ? <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
                                                 : <FileDown size={13} />}
@@ -861,55 +887,66 @@ export default function CashAdvance() {
                                         </button>
                                     )}
                                 </div>
-
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Stats */}
-<div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-tour="advance-stats">                    {[
-                        { label: rangeMode === "daily" ? t('cashAdvance.entriesToday') : t('cashAdvance.entriesInRange'), value: activeData.length, icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('cashAdvance.totalGiven'), value: `₹${fmt(totalGiven)}`, icon: <TrendingDown size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                        { label: t('cashAdvance.totalReceived'), value: `₹${fmt(totalReceived)}`, icon: <TrendingUp size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
-                    ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Entry Form */}
-               {can('cash_advance', 'C') && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="advance-form">
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-tour="advance-stats">
+                    <StatCard
+                        label={rangeMode === "daily" ? t('cashAdvance.entriesToday') : t('cashAdvance.entriesInRange')}
+                        value={activeData.length}
+                        icon={<Wallet size={14} />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60"
+                    />
+                    <StatCard
+                        label={t('cashAdvance.totalGiven')}
+                        value={`₹${fmt(totalGiven)}`}
+                        icon={<TrendingDown size={14} />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60"
+                    />
+                    <StatCard
+                        label={t('cashAdvance.totalReceived')}
+                        value={`₹${fmt(totalReceived)}`}
+                        icon={<TrendingUp size={14} />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60"
+                    />
+                </div>
+
+                {/* ── Entry Form ── */}
+                {can('cash_advance', 'C') && (
+                    <SectionCard
+                        title={editingEntry ? t('cashAdvance.editEntry') : t('cashAdvance.newTransaction')}
+                        icon={<Wallet size={16} className="text-white" />}
+                        data-tour="advance-form"
+                        className="z-20"
+                    >
                         <div className="flex items-center justify-between mb-4">
-                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                                {editingEntry ? t('cashAdvance.editEntry') : t('cashAdvance.newTransaction')}
-                            </p>
                             {editingEntry && (
                                 <button onClick={handleCancelEdit}
-                                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
+                                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100/80">
                                     <X size={12} /> {t('cashAdvance.cancelEdit')}
                                 </button>
                             )}
                         </div>
 
                         {editingEntry && (
-                            <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+                            <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-50/80 border border-amber-200/60 text-amber-700 text-xs font-medium">
                                 ✏ {t('cashAdvance.editingEntryFor')} <strong>{sellers.find(s => String(s.seller_id) === String(editingEntry.seller_id))?.name}</strong> · {editingEntry.type === "given" ? t('cashAdvance.given') : t('cashAdvance.received')} · {fmtDate(editingEntry.transaction_date)}
                             </div>
                         )}
@@ -951,8 +988,8 @@ export default function CashAdvance() {
                                         style={{ width: "160px" }}
                                     />
                                     {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
                                                 {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('cashAdvance.matchesPlural') : t('cashAdvance.matches')}` : t('cashAdvance.sellersAZ')}
                                             </p>
                                             {filteredSellers.map((s, idx) => (
@@ -960,9 +997,9 @@ export default function CashAdvance() {
                                                     onMouseEnter={() => setHighlightedIdx(idx)}
                                                     onClick={() => handleSellerSelect(s)}
                                                     className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                                                    ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                                                    ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
                                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                                                    ${highlightedIdx === idx ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                                                    ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-gray-100/80 text-gray-600"}`}>
                                                         {s.name?.charAt(0)?.toUpperCase()}
                                                     </div>
                                                     <div>
@@ -1005,8 +1042,8 @@ export default function CashAdvance() {
                                     onChange={(e) => { if (parseFloat(e.target.value) >= 0 || e.target.value === "") set("amount", e.target.value); }}
                                     placeholder="0.00" type="number" step="0.01"
                                     className={form.type === "given"
-                                        ? "bg-emerald-50 border-emerald-200 text-emerald-800 focus:ring-emerald-300"
-                                        : "bg-blue-50 border-blue-200 text-blue-800 focus:ring-blue-300"}
+                                        ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-800 focus:ring-emerald-300"
+                                        : "bg-blue-50/80 border-blue-200/60 text-blue-800 focus:ring-blue-300"}
                                     style={{ width: "120px" }}
                                 />
                             </Field>
@@ -1024,7 +1061,7 @@ export default function CashAdvance() {
 
                         {/* Balance Panel */}
                         {selectedSeller && (
-                            <div className="mt-4 pt-4 border-t border-gray-100">
+                            <div className="mt-4 pt-4 border-t border-gray-200/60">
                                 <div className="flex items-center justify-between mb-2">
                                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
                                         {selectedSeller.name}'s {t('cashAdvance.runningBalance')}
@@ -1037,7 +1074,7 @@ export default function CashAdvance() {
                                             setRegisterData(null);
                                             setShowRegisterModal(true);
                                         }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition">
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-semibold hover:shadow-lg hover:shadow-gray-900/30 transition shadow-sm">
                                         <FileDown size={12} /> {t('cashAdvance.printRegister')}
                                     </button>
                                 </div>
@@ -1049,23 +1086,23 @@ export default function CashAdvance() {
                                     <div className="flex flex-col sm:flex-row gap-3">
                                         <div className="flex gap-3 flex-wrap">
                                             {[
-                                                { label: t('cashAdvance.totalGiven'), value: balance.total_given, color: "text-emerald-700 bg-emerald-50 border-emerald-100" },
-                                                { label: t('cashAdvance.totalReceived'), value: balance.total_received, color: "text-blue-700 bg-blue-50 border-blue-100" },
+                                                { label: t('cashAdvance.totalGiven'), value: balance.total_given, color: "text-emerald-700 bg-emerald-50/80 border-emerald-200/60" },
+                                                { label: t('cashAdvance.totalReceived'), value: balance.total_received, color: "text-blue-700 bg-blue-50/80 border-blue-200/60" },
                                                 {
                                                     label: t('cashAdvance.netBalance'), value: balance.net_balance,
                                                     color: parseFloat(balance.net_balance) > 0
-                                                        ? "text-amber-700 bg-amber-50 border-amber-100"
-                                                        : "text-emerald-600 bg-emerald-50 border-emerald-100"
+                                                        ? "text-amber-700 bg-amber-50/80 border-amber-200/60"
+                                                        : "text-emerald-600 bg-emerald-50/80 border-emerald-200/60"
                                                 },
                                             ].map(({ label, value, color }) => (
-                                                <div key={label} className={`px-4 py-2.5 rounded-xl border flex flex-col gap-0.5 ${color}`}>
+                                                <div key={label} className={`px-4 py-2.5 rounded-xl border flex flex-col gap-0.5 ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
                                                     <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">{label}</p>
                                                     <p className="text-base font-bold leading-tight">₹{fmt(value)}</p>
                                                 </div>
                                             ))}
                                         </div>
                                         {balance.recent?.length > 0 && (
-                                            <div className="flex-1 bg-gray-50 rounded-xl border border-gray-100 px-3 py-2 min-w-0">
+                                            <div className="flex-1 bg-gray-50/60 rounded-xl border border-gray-200/60 px-3 py-2 min-w-0">
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">{t('cashAdvance.recentHistory')}</p>
                                                 <div className="flex flex-col gap-1">
                                                     {balance.recent.map((r) => (
@@ -1089,21 +1126,21 @@ export default function CashAdvance() {
                         )}
 
                         {/* Save button */}
-                        <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                        <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200/60">
                             <p className="text-xs text-gray-400">
                                 {entries.length} {entries.length === 1 ? t('cashAdvance.transaction') : t('cashAdvance.transactions')} {t('cashAdvance.on')}{" "}
                                 {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                             </p>
                             <button type="button" onClick={editingEntry ? handleUpdate : handleSave}
                                 disabled={saving || !form.seller_id}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
                                 ${saving || !form.seller_id
                                         ? "bg-gray-300 cursor-not-allowed"
                                         : editingEntry
-                                            ? "bg-amber-600 hover:bg-amber-700 active:scale-95"
+                                            ? "bg-gradient-to-br from-amber-500 to-amber-600 hover:shadow-lg hover:shadow-amber-500/30 active:scale-95"
                                             : form.type === "given"
-                                                ? "bg-emerald-500 hover:bg-emerald-600 active:scale-95"
-                                                : "bg-blue-500 hover:bg-blue-600 active:scale-95"}`}>
+                                                ? "bg-gradient-to-br from-emerald-500 to-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95"
+                                                : "bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/30 active:scale-95"}`}>
                                 <Save size={15} />
                                 {saving
                                     ? (editingEntry ? t('cashAdvance.updating') : t('cashAdvance.saving'))
@@ -1112,22 +1149,24 @@ export default function CashAdvance() {
                                         : form.type === "given" ? t('cashAdvance.recordAdvanceGiven') : t('cashAdvance.recordPaymentReceived')}
                             </button>
                         </div>
-                    </div>
+                    </SectionCard>
                 )}
 
-                {/* Entries Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="advance-table">
-
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                {/* ── Entries Table ── */}
+                <SectionCard
+                    title={t('cashAdvance.transactions')}
+                    icon={<Wallet size={16} className="text-white" />}
+                    data-tour="advance-table"
+                >
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 bg-gray-50/60 rounded-t-xl flex-wrap">
                         <input
                             type="text" value={searchName}
                             onChange={e => { setSearchName(e.target.value); setCurrentPage(1); }}
                             placeholder={t('cashAdvance.filterPlaceholder')}
-                            className="border border-gray-200 bg-white rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300
-                                focus:outline-none focus:ring-2 focus:ring-black transition w-52"
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-52"
                         />
                         {searchName && (
-                            <button onClick={() => { setSearchName(""); setCurrentPage(1); }} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => { setSearchName(""); setCurrentPage(1); }} className="text-gray-400 hover:text-gray-600 transition">
                                 <X size={13} />
                             </button>
                         )}
@@ -1138,9 +1177,9 @@ export default function CashAdvance() {
                     </div>
 
                     {/* Table Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map(label => (
-                            <div key={label} className="px-3 py-3 flex items-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 flex items-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -1167,12 +1206,12 @@ export default function CashAdvance() {
                             <div className="min-w-max">
                                 {paginatedEntries.map((r, i) => (
                                     <div key={r.id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors"
                                         style={{ gridTemplateColumns: GRID }}>
 
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs shrink-0">
+                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
                                                     {(r.seller_name || "?").charAt(0).toUpperCase()}
                                                 </div>
                                                 <span className="text-gray-800 font-medium text-xs truncate">{r.seller_name || `ID:${r.seller_id}`}</span>
@@ -1180,7 +1219,7 @@ export default function CashAdvance() {
                                         </TableCell>
 
                                         <TableCell>
-                                            <span className="font-mono text-xs text-gray-500 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded-md">
+                                            <span className="font-mono text-xs text-gray-500 bg-gray-100/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md">
                                                 {r.seller_code || "—"}
                                             </span>
                                         </TableCell>
@@ -1188,8 +1227,8 @@ export default function CashAdvance() {
                                         <TableCell>
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
                                                 ${r.type === "given"
-                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                                    : "bg-blue-50 text-blue-700 border-blue-100"}`}>
+                                                    ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+                                                    : "bg-blue-50/80 text-blue-700 border-blue-200/60"}`}>
                                                 {r.type === "given" ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
                                                 {r.type === "given" ? t('cashAdvance.given') : t('cashAdvance.received')}
                                             </span>
@@ -1216,11 +1255,11 @@ export default function CashAdvance() {
                                         {isAdmin && (
                                             <TableCell>
                                                 <button onClick={() => handleEdit(r)}
-                                                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition border
+                                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition border shadow-sm
                                                         ${editingEntry?.id === r.id
-                                                            ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                            : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}>
-                                                    ✏ {editingEntry?.id === r.id ? t('cashAdvance.editing') : t('cashAdvance.edit')}
+                                                            ? "bg-amber-100/80 text-amber-700 border-amber-200/60"
+                                                            : "bg-blue-50/80 text-blue-600 border-blue-200/60 hover:bg-blue-100/80"}`}>
+                                                    <Pencil size={10} /> {editingEntry?.id === r.id ? t('cashAdvance.editing') : t('cashAdvance.edit')}
                                                 </button>
                                             </TableCell>
                                         )}
@@ -1229,7 +1268,7 @@ export default function CashAdvance() {
                                                 <button
                                                     onClick={() => setConfirmDeleteEntry({ id: r.id, label: `${r.seller_name} — ₹${fmt(r.amount)} (${r.type})` })}
                                                     disabled={deletingEntryId === r.id}
-                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition disabled:opacity-40"
+                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 transition disabled:opacity-40 shadow-sm"
                                                     title="Delete">
                                                     {deletingEntryId === r.id
                                                         ? <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0" /></svg>
@@ -1243,14 +1282,14 @@ export default function CashAdvance() {
                             </div>
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
-                {/* Pagination */}
+                {/* ── Pagination ── */}
                 {filteredEntries.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/60 shadow-sm">
                         <div className="flex items-center gap-2">
                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                 {t('cashAdvance.prev')}
                             </button>
                             <div className="flex items-center gap-1">
@@ -1266,13 +1305,13 @@ export default function CashAdvance() {
                                             ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
                                             : <button key={p} onClick={() => setCurrentPage(p)}
                                                 className={`w-7 h-7 rounded-lg text-xs font-semibold transition border
-                                                    ${currentPage === p ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+                                                    ${currentPage === p ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-sm' : 'bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400'}`}>
                                                 {p}
                                             </button>
                                     )}
                             </div>
                             <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                 {t('cashAdvance.next')}
                             </button>
                             <span className="text-xs text-gray-400 ml-1">
@@ -1283,28 +1322,28 @@ export default function CashAdvance() {
                             <span className="text-xs text-gray-400">{t('cashAdvance.rowsPerPage')}</span>
                             <input type="number" min={1} max={filteredEntries.length || 1} value={pageSize}
                                 onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
-                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="w-14 border border-gray-200/60 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                         </div>
                     </div>
                 )}
 
-                {/* Totals Footer */}
+                {/* ── Totals Footer ── */}
                 {activeData.length > 0 && (
-                    <div className="bg-white rounded-b-2xl border-t-2 border-gray-100 overflow-x-auto">
-                        <div className="grid bg-gray-50/80 min-w-max" style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                    <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-x-auto">
+                        <div className="grid bg-gray-50/60 min-w-max" style={{ gridTemplateColumns: GRID }}>
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {activeData.length} {t('cashAdvance.transactions')}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold border-r border-gray-200/60">
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-emerald-600">↓ ₹{fmt(totalGiven)}</span>
                                     <span className="text-blue-600">↑ ₹{fmt(totalReceived)}</span>
                                 </div>
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
                             <div className="px-3 py-2.5" />
                             {isAdmin && <div className="px-3 py-2.5" />}
                             {isAdmin && <div className="px-3 py-2.5" />}
@@ -1314,17 +1353,17 @@ export default function CashAdvance() {
 
             </main>
 
-            {/* Seller Register Modal */}
+            {/* ── Seller Register Modal ── */}
             {showRegisterModal && selectedSeller && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[380px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[380px] flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <h2 className="text-gray-800 font-semibold text-base">
                                 {t('cashAdvance.registerModalTitle')} — {selectedSeller.name}
                             </h2>
                             <button
                                 onClick={() => { setShowRegisterModal(false); setRegisterData(null); }}
-                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
                                 <X size={14} />
                             </button>
                         </div>
@@ -1334,24 +1373,24 @@ export default function CashAdvance() {
                                 <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.registerFrom')}</label>
                                 <input type="date" value={registerFrom}
                                     onChange={(e) => { setRegisterFrom(e.target.value); setRegisterData(null); }}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <div className="flex flex-col gap-1 flex-1">
                                 <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.registerTo')}</label>
                                 <input type="date" value={registerTo}
                                     onChange={(e) => { setRegisterTo(e.target.value); setRegisterData(null); }}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                         </div>
 
                         <div className="flex gap-2">
                             <button onClick={fetchSellerRegister} disabled={loadingRegister}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm">
                                 {loadingRegister && <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />}
                                 {loadingRegister ? t('cashAdvance.registerLoading') : t('cashAdvance.registerLoadData')}
                             </button>
                             <button onClick={handlePrintSellerRegister} disabled={!registerData}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-40 transition flex items-center justify-center gap-2">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition flex items-center justify-center gap-2 shadow-sm">
                                 <FileDown size={14} /> {t('cashAdvance.registerPrintPDF')}
                             </button>
                         </div>
@@ -1369,12 +1408,12 @@ export default function CashAdvance() {
                 </div>
             )}
 
-            {/* Confirm Delete Entry Modal */}
+            {/* ── Confirm Delete Entry Modal ── */}
             {confirmDeleteEntry && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[340px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[340px] flex flex-col gap-4">
                         <div className="flex items-start gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">
                                     <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />
                                 </svg>
@@ -1390,12 +1429,12 @@ export default function CashAdvance() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setConfirmDeleteEntry(null)}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                 {t('cashAdvance.cancel')}
                             </button>
                             <button
                                 onClick={handleDeleteEntry}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 transition shadow-sm">
                                 {t('cashAdvance.yesDelete')}
                             </button>
                         </div>

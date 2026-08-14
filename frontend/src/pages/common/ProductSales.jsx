@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
     Package, Save, User, AlertTriangle,
     BadgeCheck, RefreshCw, X, TrendingUp,
     ShoppingCart, Layers, Banknote, Users, FileDown,
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
+    Home
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
@@ -12,13 +14,41 @@ import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+// ── portal for dropdowns (escapes clipping/stacking of any ancestor) ──
+function DropdownPortal({ anchorRef, open, width, children }) {
+    const [style, setStyle] = useState(null);
+
+    useEffect(() => {
+        if (!open || !anchorRef.current) { setStyle(null); return; }
+        const update = () => {
+            const r = anchorRef.current.getBoundingClientRect();
+            setStyle({
+                position: "fixed",
+                top: r.bottom + 4,
+                left: r.left,
+                width: width || r.width,
+                zIndex: 9999,
+            });
+        };
+        update();
+        window.addEventListener("scroll", update, true);
+        window.addEventListener("resize", update);
+        return () => {
+            window.removeEventListener("scroll", update, true);
+            window.removeEventListener("resize", update);
+        };
+    }, [open, anchorRef]);
+
+    if (!open || !style) return null;
+    return createPortal(<div style={style}>{children}</div>, document.body);
+}
+
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
 
 const fmtTime = (d) =>
     d ? new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—";
 
-// Prepend API base so relative paths like /uploads/... resolve correctly
 const imgUrl = (url) =>
     url
         ? (url.startsWith('http') || url.startsWith('data:') ? url
@@ -40,7 +70,7 @@ const EMPTY_LINE = {
 function Field({ label, icon, children }) {
     return (
         <div className="flex flex-col gap-1 shrink-0">
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                 {icon}{label}
             </span>
             {children}
@@ -52,8 +82,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -61,7 +91,7 @@ function TinyInput({ className = "", ...props }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-2.5 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );
@@ -111,7 +141,8 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                 canvas.height = Math.round(img.height * scale);
                 canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
                 const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                setForm(p => ({ ...p, imageBase64: compressed, preview: compressed, imageRemoved: false }));            };
+                setForm(p => ({ ...p, imageBase64: compressed, preview: compressed, imageRemoved: false }));
+            };
             img.src = ev.target.result;
         };
         reader.readAsDataURL(file);
@@ -128,9 +159,9 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                 sort_order: form.sort_order,
             };
             if (form.imageBase64) {
-                payload.image_url = form.imageBase64;       // new image uploaded
+                payload.image_url = form.imageBase64;
             } else if (form.imageRemoved) {
-                payload.image_url = null;                   // explicitly clear
+                payload.image_url = null;
             }
 
             if (editingId) {
@@ -167,7 +198,7 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
             product_id: sp.product_id,
             display_name: sp.display_name || '',
             sort_order: String(sp.sort_order || 0),
-            imageBase64: null,          // no re-upload unless user picks new image
+            imageBase64: null,
             preview: imgUrl(sp.image_url),
             imageRemoved: false,
         });
@@ -177,41 +208,41 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-2xl max-h-[90vh] flex flex-col">
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-amber-50/50 to-white/50">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
                             <Zap size={16} className="text-white" />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">Speed Products Config</h2>
-                            <p className="text-[10px] text-gray-400">Add quick-tap products with images</p>
+                            <p className="text-[10px] text-gray-500">Add quick-tap products with images</p>
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                        <X size={15} />
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
                     </button>
                 </div>
 
                 <div className="flex flex-1 min-h-0 overflow-hidden">
 
                     {/* Left — Add / Edit Form */}
-                    <div className="w-64 shrink-0 border-r border-gray-100 px-5 py-4 flex flex-col gap-4 overflow-y-auto">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <div className="w-64 shrink-0 border-r border-gray-200/60 px-5 py-4 flex flex-col gap-4 overflow-y-auto bg-white/30 backdrop-blur-sm">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                             {editingId ? 'Edit Entry' : 'Add New'}
                         </p>
 
                         {/* Product select (only when adding) */}
                         {!editingId && (
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Product</label>
+                                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Product</label>
                                 <select
                                     value={form.product_id}
                                     onChange={e => setForm(p => ({ ...p, product_id: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition">
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition">
                                     <option value="">Select product…</option>
                                     {products
                                         .filter(p => !speedProducts.find(sp => sp.product_id === p.product_id))
@@ -226,46 +257,47 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
 
                         {/* Display name */}
                         <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Display Name</label>
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Display Name</label>
                             <input
                                 type="text"
                                 value={form.display_name}
                                 onChange={e => setForm(p => ({ ...p, display_name: e.target.value }))}
                                 placeholder="Optional override"
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition"
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition"
                             />
                         </div>
 
                         {/* Sort order */}
                         <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Order / Sequence</label>
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Order / Sequence</label>
                             <input
                                 type="number"
                                 min="0"
                                 value={form.sort_order}
                                 onChange={e => setForm(p => ({ ...p, sort_order: e.target.value }))}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition"
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition"
                             />
                         </div>
 
                         {/* Image upload */}
                         <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Product Image</label>
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Product Image</label>
                             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                             <button
                                 type="button"
                                 onClick={() => fileRef.current?.click()}
-                                className="flex items-center gap-2 border border-dashed border-gray-300 hover:border-amber-400 rounded-xl px-3 py-2 text-xs text-gray-500 hover:text-amber-600 transition">
+                                className="flex items-center gap-2 border border-dashed border-gray-300/60 hover:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-gray-500 hover:text-amber-600 transition bg-white/50 backdrop-blur-sm shadow-sm">
                                 <ImagePlus size={13} />
                                 {form.preview ? 'Change Image' : 'Upload Image'}
                             </button>
                             {form.preview && (
                                 <div className="relative mt-1">
                                     <img src={form.preview} alt="preview"
-                                        className="w-full h-28 object-cover rounded-xl border border-gray-100" />
+                                        className="w-full h-28 object-cover rounded-xl border border-gray-200/60 shadow-sm" />
                                     <button
                                         type="button"
-                                        onClick={() => setForm(p => ({ ...p, imageBase64: null, preview: null, imageRemoved: true }))}                                        className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center">
+                                        onClick={() => setForm(p => ({ ...p, imageBase64: null, preview: null, imageRemoved: true }))}
+                                        className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center shadow-sm">
                                         <X size={10} />
                                     </button>
                                 </div>
@@ -273,18 +305,18 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                         </div>
 
                         {/* Buttons */}
-                        <div className="flex gap-2 mt-auto">
+                        <div className="flex gap-2 mt-auto border-t border-gray-100/60 pt-4">
                             {editingId && (
                                 <button
                                     onClick={() => { setEditingId(null); resetForm(); }}
-                                    className="flex-1 py-2 rounded-xl text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-50 transition">
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 transition shadow-sm">
                                     Cancel
                                 </button>
                             )}
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition disabled:opacity-50">
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200 disabled:opacity-50">
                                 {saving
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Plus size={12} />}
@@ -294,8 +326,8 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                     </div>
 
                     {/* Right — Current Speed Products */}
-                    <div className="flex-1 overflow-y-auto px-5 py-4">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+                    <div className="flex-1 overflow-y-auto px-5 py-4 bg-white/30 backdrop-blur-sm">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">
                             {speedProducts.length} Speed Product{speedProducts.length !== 1 ? 's' : ''}
                         </p>
 
@@ -313,11 +345,11 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                                 {speedProducts.map(sp => (
                                     <div key={sp.id}
                                         className={`flex items-center gap-3 p-3 rounded-xl border transition
-                                            ${editingId === sp.id ? 'border-amber-300 bg-amber-50' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}`}>
+                                            ${editingId === sp.id ? 'border-amber-300/60 bg-amber-50/80 backdrop-blur-sm shadow-lg shadow-amber-200/30' : 'border-gray-200/60 bg-white/50 backdrop-blur-sm hover:bg-gray-50/80 shadow-sm'}`}>
                                         <GripVertical size={12} className="text-gray-300 shrink-0" />
 
                                         {/* Image */}
-                                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 shrink-0">
+                                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200/50 shrink-0 shadow-sm">
                                             {sp.image_url
                                                 ? <img src={imgUrl(sp.image_url)} alt={sp.product_name}
                                                     className="w-full h-full object-cover" />
@@ -352,13 +384,13 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                                         <div className="flex items-center gap-1 shrink-0">
                                             <button
                                                 onClick={() => startEdit(sp)}
-                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-500 transition">
+                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 transition border border-blue-200/60 backdrop-blur-sm shadow-sm">
                                                 <Settings size={11} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(sp.id)}
                                                 disabled={deletingId === sp.id}
-                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition disabled:opacity-50">
+                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 transition border border-rose-200/60 backdrop-blur-sm shadow-sm disabled:opacity-50">
                                                 {deletingId === sp.id
                                                     ? <span className="w-3 h-3 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
                                                     : <Trash2 size={11} />}
@@ -375,7 +407,7 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
     );
 }
 
-
+// ── Speed Strip in Form ──────────────────────────────────────
 function SpeedStripInForm({ onTap }) {
     const [speedProducts, setSpeedProducts] = useState([]);
     const [cols, setCols] = useState(7);
@@ -407,10 +439,10 @@ function SpeedStripInForm({ onTap }) {
     const supplierFontSize = Math.max(8, Math.round(cardWidth * 0.1));
 
     return (
-        <div className="pb-4 mb-4 border-b border-gray-100">
+        <div className="pb-4 mb-4 border-b border-gray-200/60">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
                     <Zap size={10} className="text-amber-500" /> Quick ({speedProducts.length})
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -418,7 +450,7 @@ function SpeedStripInForm({ onTap }) {
                     <input
                         type="number" min="2" max="12" value={cols}
                         onChange={e => setCols(Math.max(2, Math.min(12, parseInt(e.target.value) || 5)))}
-                        className="w-12 border border-gray-200 rounded-lg px-1.5 py-0.5 text-xs text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-amber-300"
+                        className="w-12 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-1.5 py-0.5 text-xs text-gray-700 text-center shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-500/50 focus:bg-white transition"
                     />
                 </div>
             </div>
@@ -441,8 +473,8 @@ function SpeedStripInForm({ onTap }) {
                             style={{ width: cardWidth }}
                             className={`relative flex flex-col rounded-xl border overflow-hidden transition
                                 ${outOfStock
-                                    ? 'border-gray-100 opacity-50 cursor-not-allowed'
-                                    : 'border-amber-200 hover:border-amber-400 active:scale-95'}`}>
+                                    ? 'border-gray-200/60 opacity-50 cursor-not-allowed'
+                                    : 'border-amber-200/60 hover:border-amber-400 active:scale-95 shadow-sm'}`}>
 
                             {hasImage ? (
                                 <>
@@ -471,7 +503,7 @@ function SpeedStripInForm({ onTap }) {
 
                                     {/* Name label below image */}
                                     <div
-                                        className="w-full bg-amber-50 text-amber-800 font-semibold text-center px-1 py-1 leading-tight truncate"
+                                        className="w-full bg-gradient-to-br from-amber-50 to-amber-100/50 text-amber-800 font-semibold text-center px-1 py-1 leading-tight truncate border-t border-amber-200/60"
                                         style={{ fontSize: nameFontSize }}>
                                         {sp.display_name || sp.product_name}
                                     </div>
@@ -479,7 +511,7 @@ function SpeedStripInForm({ onTap }) {
                                     {/* Supplier label */}
                                     {sp.supplier_name && (
                                         <div
-                                            className="w-full bg-amber-100 text-amber-600 text-center px-1 py-0.5 leading-tight truncate"
+                                            className="w-full bg-amber-100/50 text-amber-600 text-center px-1 py-0.5 leading-tight truncate border-t border-amber-200/40"
                                             style={{ fontSize: supplierFontSize }}>
                                             {sp.supplier_name}
                                         </div>
@@ -487,7 +519,7 @@ function SpeedStripInForm({ onTap }) {
                                 </>
                             ) : (
                                 /* No image — compact: name+rate on one line, supplier on a second slim line */
-                                <div className="w-full bg-amber-50 px-2 py-1.5">
+                                <div className="w-full bg-gradient-to-br from-amber-50 to-amber-100/50 px-2 py-1.5 border border-amber-200/60 rounded-xl">
                                     <div className="flex items-center justify-between gap-1">
                                         <span
                                             className="text-amber-800 font-semibold truncate"
@@ -523,15 +555,15 @@ export default function ProductSales() {
     const { can, loading: permLoading } = usePermission();
     const [form, setForm] = useState({
         product_id: '', display_name: '', sort_order: '0', imageBase64: null, preview: null
-    });    const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
+    }); const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [products, setProducts] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
     const [showSellerDrop, setShowSellerDrop] = useState(false);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
-    const [lineProductSearch, setLineProductSearch] = useState({});   // keyed by _key
-    const [showProductDrop, setShowProductDrop] = useState({});        // keyed by _key
+    const [lineProductSearch, setLineProductSearch] = useState({});
+    const [showProductDrop, setShowProductDrop] = useState({});
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
@@ -545,8 +577,10 @@ export default function ProductSales() {
     const [editingSale, setEditingSale] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
-    const [confirmDelete, setConfirmDelete] = useState(null); // { id, label }
+    const [confirmDelete, setConfirmDelete] = useState(null);
     const [speedConfigOpen, setSpeedConfigOpen] = useState(false);
+    const sellerAnchorRef = useRef(null);
+    const lineAnchorRefs = useRef({});
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
     const handleAddSpeedLines = (newLines) => {
@@ -571,31 +605,31 @@ export default function ProductSales() {
     };
 
     const startSalesTour = () => {
-    const driverObj = driver({
-        showProgress: true,
-        allowClose: true,
-        steps: [
-            {
-                element: '[data-tour="sales-header-actions"]',
-                popover: { title: t('productSales.dateLabel'), description: 'Pick a date to view or record sales. Use range buttons to switch between daily, weekly, monthly, or custom — then download a PDF. Use Speed Config to set up quick-tap product buttons.' },
-            },
-            {
-                element: '[data-tour="sales-stats"]',
-                popover: { title: t('productSales.salesToday'), description: 'Live summary of sales count, total revenue, and unique sellers served for the selected period.' },
-            },
-            {
-                element: '[data-tour="sales-form"]',
-                popover: { title: t('productSales.newSaleEntry'), description: 'Search and select a seller, then add product lines using the quick-tap strip or the product search. Each line computes its total automatically.' },
-            },
-            {
-                element: '[data-tour="sales-table"]',
-                popover: { title: t('productSales.colSeller'), description: 'All transactions for the selected period. Print a receipt, edit quantities/rates, or delete a sale — stock is reversed automatically on delete.' },
-            },
-        ],
-    });
-    driverObj.drive();
-};
-    
+        const driverObj = driver({
+            showProgress: true,
+            allowClose: true,
+            steps: [
+                {
+                    element: '[data-tour="sales-header-actions"]',
+                    popover: { title: t('productSales.dateLabel'), description: 'Pick a date to view or record sales. Use range buttons to switch between daily, weekly, monthly, or custom — then download a PDF. Use Speed Config to set up quick-tap product buttons.' },
+                },
+                {
+                    element: '[data-tour="sales-stats"]',
+                    popover: { title: t('productSales.salesToday'), description: 'Live summary of sales count, total revenue, and unique sellers served for the selected period.' },
+                },
+                {
+                    element: '[data-tour="sales-form"]',
+                    popover: { title: t('productSales.newSaleEntry'), description: 'Search and select a seller, then add product lines using the quick-tap strip or the product search. Each line computes its total automatically.' },
+                },
+                {
+                    element: '[data-tour="sales-table"]',
+                    popover: { title: t('productSales.colSeller'), description: 'All transactions for the selected period. Print a receipt, edit quantities/rates, or delete a sale — stock is reversed automatically on delete.' },
+                },
+            ],
+        });
+        driverObj.drive();
+    };
+
     const getWeekRange = (d) => {
         const dt = new Date(d + "T00:00:00");
         const day = dt.getDay();
@@ -768,7 +802,6 @@ export default function ProductSales() {
             return;
         }
 
-        // per-line stock check
         for (const l of validLines) {
             const product = products.find(p => String(p.product_id) === String(l.product_id));
             if (product && parseFloat(l.quantity) > parseFloat(product.current_stock || 0)) {
@@ -821,7 +854,6 @@ export default function ProductSales() {
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
-        // Let seller / product-line autocomplete dropdowns handle their own Enter
         if (showSellerDrop) return;
         if (Object.values(showProductDrop).some(Boolean)) return;
         if (e.target.tagName === "TEXTAREA") return;
@@ -958,7 +990,6 @@ export default function ProductSales() {
         win.document.close();
     };
 
-    // REPLACE the entire handlePrintReceipt function:
     const handlePrintReceipt = (txn) => {
         const dateStr = new Date(txn.sale_date).toLocaleDateString("en-IN", {
             day: "2-digit", month: "long", year: "numeric"
@@ -1038,10 +1069,11 @@ export default function ProductSales() {
             };
         }
     };
+
     // stats
     const activeData = rangeMode === "daily"
         ? sales
-        : (pdfReady ? rangeEntries : []);    const totalRevenue = activeData.reduce((a, s) => a + parseFloat(s.total_amount || 0), 0);
+        : (pdfReady ? rangeEntries : []); const totalRevenue = activeData.reduce((a, s) => a + parseFloat(s.total_amount || 0), 0);
     const qtyByUnit = activeData.reduce((acc, s) => {
         const unit = s.unit || "units";
         acc[unit] = (acc[unit] || 0) + parseFloat(s.quantity || 0);
@@ -1053,47 +1085,51 @@ export default function ProductSales() {
     // table
     const COLS = [t('productSales.colSeller'), t('productSales.colProduct'), t('productSales.colQty'), t('productSales.colRate'), t('productSales.colTotal'), t('productSales.colTime'), ""];
     const GRID = "1.4fr 1.6fr 80px 80px 100px 70px 100px";
-    
+
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('product_sales', 'R')) return <AccessDenied />;
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <ShoppingCart size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('productSales.pageBreadcrumb', { defaultValue: 'Sales' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('productSales.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('productSales.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('productSales.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('productSales.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="sales-header-actions">
-    <button
-        onClick={startSalesTour}
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
-    >
-        <BadgeCheck size={13} /> Take a Tour
-    </button>
-    <button
-        onClick={() => setSpeedConfigOpen(true)}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition border border-amber-200">
-                            <Settings size={13} /> Speed Config
+                        <button
+                            onClick={startSalesTour}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                        >
+                            <BadgeCheck size={15} /> Take a Tour
+                        </button>
+                        <button
+                            onClick={() => setSpeedConfigOpen(true)}
+                            className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-amber-100/80 text-amber-700 hover:bg-amber-200/80 transition border border-amber-200/60 backdrop-blur-sm shadow-sm">
+                            <Settings size={15} /> Speed Config
                         </button>
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productSales.dateLabel')}</span>
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productSales.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -1103,17 +1139,16 @@ export default function ProductSales() {
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productSales.downloadPDF')}</span>
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productSales.downloadPDF')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                                     {[{ v: "daily", l: t('productSales.day') }, { v: "weekly", l: t('productSales.week') }, { v: "monthly", l: t('productSales.month') }, { v: "custom", l: t('productSales.custom') }].map(({ v, l }) => (
                                         <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -1122,15 +1157,15 @@ export default function ProductSales() {
                                 {rangeMode === "custom" && (
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate} onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate} onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-3 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                         {fromDate === toDate
                                             ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                             : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -1138,12 +1173,13 @@ export default function ProductSales() {
                                 )}
 
                                 {loadingRange ? (
-                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
+                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100/80 text-gray-400 text-xs font-semibold">
                                         <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
                                         {t('dashboard.loading')}
                                     </div>
                                 ) : (
-<button onClick={handleDownloadPDF} disabled={loadingRange}                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                    <button onClick={handleDownloadPDF} disabled={loadingRange}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 shadow-lg shadow-rose-500/30 disabled:opacity-50">
                                         <FileDown size={13} /> PDF
                                     </button>
                                 )}
@@ -1152,45 +1188,49 @@ export default function ProductSales() {
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 sm:grid-cols-3 gap-3" data-tour="sales-stats">
-                        {[
-                        { label: t('productSales.salesToday'), value: sales.length, icon: <ShoppingCart size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('productSales.totalRevenue'), value: "₹" + totalRevenue.toFixed(2), icon: <TrendingUp size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                        { label: t('productSales.sellersServed'), value: uniqueSellers, icon: <Users size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-3 gap-4" data-tour="sales-stats">
+                    {[
+                        { label: t('productSales.salesToday'), value: sales.length, icon: <ShoppingCart size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
+                        { label: t('productSales.totalRevenue'), value: "₹" + totalRevenue.toFixed(2), icon: <TrendingUp size={16} />, color: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" },
+                        { label: t('productSales.sellersServed'), value: uniqueSellers, icon: <Users size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
                     ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                        <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+                            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+                            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+                            <div className="relative z-10">
+                                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Entry Form */}
+                {/* ── Entry Form ── */}
                 {can('product_sales', 'C') && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="sales-form" onKeyDown={handleFormKeyDown}>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+                    <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-6 py-5 z-20" data-tour="sales-form" onKeyDown={handleFormKeyDown}>
+                        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 relative z-10">
                             {t('productSales.newSaleEntry')}
                         </p>
 
                         {/* Seller row */}
-                        <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-100">
-                            <Field label={t('productSales.seller')} icon={<User size={12} />}>
-                                <div className="relative" style={{ width: "220px" }}>
+                        <div className="flex flex-col gap-3 mb-4 relative z-10">
+    {/* product line inputs live here */}                            <Field label={t('productSales.seller')} icon={<User size={12} />}>
+                                <div className="relative" style={{ width: "220px" }} ref={sellerAnchorRef}>
                                     <TinyInput
                                         value={sellerSearch}
                                         onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
@@ -1238,9 +1278,13 @@ export default function ProductSales() {
                                         placeholder={t('productSales.searchPlaceholder')}
                                         className="pr-7 w-full"
                                     />
-                                    {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                    <DropdownPortal
+                                        anchorRef={sellerAnchorRef}
+                                        open={showSellerDrop && !form.seller_id && filteredSellers.length > 0}
+                                        width={256}
+                                    >
+                                        <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
+                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
                                                 {sellerSearch.trim()
                                                     ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('productSales.matchesPlural') : t('productSales.matches')}`
                                                     : t('productSales.sellersAZ')}
@@ -1255,9 +1299,9 @@ export default function ProductSales() {
                                                         setShowSellerDrop(false);
                                                     }}
                                                     className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                            ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                            ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
                                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                            ${highlightedIdx === idx ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                            ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
                                                         {s.name?.charAt(0)?.toUpperCase()}
                                                     </div>
                                                     <div>
@@ -1267,7 +1311,7 @@ export default function ProductSales() {
                                                 </button>
                                             ))}
                                         </div>
-                                    )}
+                                    </DropdownPortal>
                                     {form.seller_id && (
                                         <button type="button"
                                             onClick={() => { set("seller_id", ""); setSellerSearch(""); }}
@@ -1294,9 +1338,9 @@ export default function ProductSales() {
                         }])} />
 
                         {/* Product lines */}
-                        <div className="flex flex-col gap-3 mb-4">
+                        <div className="flex flex-col gap-3 mb-4 relative z-10">
                             {/* Column headers */}
-                            <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                            <div className="grid gap-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-1"
                                 style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
                                 <span>{t('productSales.product')}</span>
                                 <span>{t('productSales.qty')}</span>
@@ -1317,7 +1361,7 @@ export default function ProductSales() {
                                         style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
 
                                         {/* Product picker */}
-                                        <div className="relative">
+                                        <div className="relative" ref={el => (lineAnchorRefs.current[line._key] = el)}>
                                             <TinyInput
                                                 value={searchVal}
                                                 onChange={(e) => {
@@ -1335,8 +1379,12 @@ export default function ProductSales() {
                                                 placeholder={t('productSales.searchProductPlaceholder')}
                                                 className="w-full"
                                             />
-                                            {showProductDrop[line._key] && (
-                                                <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                                            <DropdownPortal
+                                                anchorRef={{ current: lineAnchorRefs.current[line._key] }}
+                                                open={!!showProductDrop[line._key]}
+                                                width={288}
+                                            >
+                                                <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
                                                     {(lineProductSearch[line._key]?.trim()
                                                         ? products.filter(p => p.product_name.toLowerCase().includes(lineProductSearch[line._key].toLowerCase()))
                                                         : products
@@ -1349,7 +1397,7 @@ export default function ProductSales() {
                                                                 setLineProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                                 setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
                                                             }}
-                                                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                             <div>
                                                                 <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
                                                                 <p className="text-[10px] text-gray-400">
@@ -1364,9 +1412,9 @@ export default function ProductSales() {
                                                         </button>
                                                     ))}
                                                 </div>
-                                            )}
+                                            </DropdownPortal>
                                             {lineProduct && (
-                                                <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineProduct.current_stock) <= 0 ? "text-red-500" : "text-emerald-600"}`}>
+                                                <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineProduct.current_stock) <= 0 ? "text-rose-500" : "text-emerald-600"}`}>
                                                     {t('productSales.stock')}: {parseFloat(lineProduct.current_stock || 0).toFixed(2)} {lineProduct.unit}
                                                     {parseFloat(lineProduct.current_stock) <= 0 && " · ⚠ " + t('productSales.outOfStock')}
                                                 </p>
@@ -1379,8 +1427,8 @@ export default function ProductSales() {
                                             onChange={(e) => setLine(line._key, "quantity", e.target.value)}
                                             placeholder="0.0" type="number" step="0.01"
                                             className={`w-full ${lineProduct && parseFloat(line.quantity) > parseFloat(lineProduct.current_stock || 0)
-                                                ? "bg-red-50 border-red-300 text-red-700"
-                                                : "bg-blue-50 border-blue-200 text-blue-700"}`}
+                                                ? "border-rose-300 bg-rose-50/50 text-rose-700"
+                                                : "border-blue-200/60 bg-blue-50/30 text-blue-700"}`}
                                         />
 
                                         {/* Rate */}
@@ -1388,19 +1436,19 @@ export default function ProductSales() {
                                             value={line.rate}
                                             onChange={(e) => setLine(line._key, "rate", e.target.value)}
                                             placeholder="₹0.00" type="number" step="0.01"
-                                            className="w-full bg-amber-50 border-amber-200 text-amber-700"
+                                            className={`w-full ${line.rate ? "bg-amber-50/30 border-amber-200/60 text-amber-700" : "bg-amber-50/30 border-amber-200/60"}`}
                                         />
 
                                         {/* Line total */}
-                                        <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap
-                                        ${lt ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                                        <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
+                                        ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
                                             {lt ? `₹${lt}` : "—"}
                                         </div>
 
                                         {/* Remove line */}
                                         <button type="button" onClick={() => removeLine(line._key)}
                                             disabled={lines.length === 1}
-                                            className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 disabled:opacity-20 transition">
+                                            className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
                                             <X size={12} />
                                         </button>
                                     </div>
@@ -1409,9 +1457,9 @@ export default function ProductSales() {
                         </div>
 
                         {/* Add line + grand total */}
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-4 relative z-10">
                             <button type="button" onClick={addLine}
-                                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
+                                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500 px-3 py-1.5 rounded-xl transition bg-white/50 backdrop-blur-sm shadow-sm">
                                 <span className="text-base leading-none">+</span> Add Product
                             </button>
                             {grandFormTotal > 0 && (
@@ -1424,7 +1472,7 @@ export default function ProductSales() {
                         </div>
 
                         {/* Footer */}
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-200/60 relative z-10">
                             <p className="text-xs text-gray-400">
                                 {sales.length} {sales.length === 1 ? t('productSales.sale') : t('productSales.sales')} {t('productSales.on')}{" "}
                                 {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
@@ -1433,8 +1481,8 @@ export default function ProductSales() {
                                 )}
                             </p>
                             <button type="button" onClick={handleSave} disabled={saving}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all duration-200
+                                ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}>
                                 <Save size={15} />
                                 {saving ? t('productSales.saving') : t('productSales.recordSale')}
                             </button>
@@ -1442,13 +1490,13 @@ export default function ProductSales() {
                     </div>
                 )}
 
-                {/* Sales Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="sales-table">
+                {/* ── Sales Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="sales-table">
 
-    {/* Header */}
-    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    {/* Header */}
+                    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -1456,12 +1504,12 @@ export default function ProductSales() {
 
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : activeData.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <ShoppingCart size={32} />
-                            <p className="text-sm">
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <ShoppingCart size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">
                                 {rangeMode === "daily"
                                     ? t('productSales.noSalesDaily')
                                     : t('productSales.noSalesRange')}
@@ -1470,126 +1518,125 @@ export default function ProductSales() {
                     ) : (
                         <div className="overflow-x-auto">
                             <div className="min-w-max">
-                                        {[...activeData].reverse().map((txn, i) => (
-                                            <div key={txn.transaction_id || i}
-                                                className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
-                                                style={{ gridTemplateColumns: GRID }}>
+                                {[...activeData].reverse().map((txn, i) => (
+                                    <div key={txn.transaction_id || i}
+                                        className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
+                                        style={{ gridTemplateColumns: GRID }}>
 
-                                                {/* Seller */}
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-gray-900 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                                                            {(txn.seller_name || "?").charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <span className="text-gray-800 font-medium text-xs truncate">{txn.seller_name}</span>
-                                                            {txn.seller_code && <span className="text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>}
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Products — stacked */}
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-1">
-                                                        {txn.items.map(item => (
-                                                            <div key={item.sale_id} className="flex items-center gap-1.5">
-                                                                <Package size={10} className="text-gray-400 shrink-0" />
-                                                                <span className="text-xs text-gray-700 truncate">{item.product_name}</span>
-                                                                <span className="text-[10px] text-gray-400">{item.unit}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Qty stacked */}
-                                                <TableCell className="text-blue-600 font-mono font-semibold text-xs">
-                                                    <div className="flex flex-col gap-1">
-                                                        {txn.items.map(item => (
-                                                            <span key={item.sale_id}>{parseFloat(item.quantity).toFixed(2)}</span>
-                                                        ))}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Rate stacked */}
-                                                <TableCell className="text-amber-700 font-mono text-xs font-semibold">
-                                                    <div className="flex flex-col gap-1">
-                                                        {txn.items.map(item => (
-                                                            <span key={item.sale_id}>₹{parseFloat(item.rate).toFixed(2)}</span>
-                                                        ))}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Transaction total */}
-                                                <TableCell className="text-gray-900 font-bold text-xs">
-                                                    ₹{parseFloat(txn.total_amount).toFixed(2)}
-                                                </TableCell>
-
-                                                <TableCell className="text-gray-400 font-mono text-xs">
-                                                    {fmtTime(txn.created_at)}
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            onClick={() => handlePrintReceipt(txn)}
-                                                            className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-400 transition"
-                                                            title={t('productSales.printReceipt')}>
-                                                            <FileDown size={11} />
-                                                        </button>
-                                                        {/* Edit/Delete operate on individual sale_ids inside the transaction */}
-                                                        {can('product_sales', 'U') && (
-                                                            <button
-                                                                onClick={() => setEditingSale({
-                                                                    transaction_id: txn.transaction_id,
-                                                                    seller_name: txn.seller_name,
-                                                                    items: txn.items.map(item => ({
-                                                                        sale_id: item.sale_id,
-                                                                        product_name: item.product_name,
-                                                                        quantity: String(item.quantity),
-                                                                        rate: String(item.rate),
-                                                                    })),
-                                                                    sale_date: txn.sale_date,
-                                                                })}
-                                                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-500 transition"
-                                                                title="Edit">
-                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                            </button>
-                                                        )}
-                                                        {can('product_sales', 'D') && (
-                                                            <button
-                                                                onClick={() => setConfirmDelete({
-                                                                    id: txn.items[0].sale_id, // for single-line; extend for multi
-                                                                    label: `${txn.seller_name} — ${txn.items.map(i => i.product_name).join(", ")}`,
-                                                                })}
-                                                                className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition"
-                                                                title="Delete">
-                                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
+                                        {/* Seller */}
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                                                    {(txn.seller_name || "?").charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-gray-800 font-medium text-xs truncate">{txn.seller_name}</span>
+                                                    {txn.seller_code && <span className="text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>}
+                                                </div>
                                             </div>
-                                        ))}
+                                        </TableCell>
+
+                                        {/* Products — stacked */}
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1">
+                                                {txn.items.map(item => (
+                                                    <div key={item.sale_id} className="flex items-center gap-1.5">
+                                                        <Package size={10} className="text-gray-400 shrink-0" />
+                                                        <span className="text-xs text-gray-700 truncate">{item.product_name}</span>
+                                                        <span className="text-[10px] text-gray-400">{item.unit}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+
+                                        {/* Qty stacked */}
+                                        <TableCell className="text-blue-600 font-mono font-semibold text-xs">
+                                            <div className="flex flex-col gap-1">
+                                                {txn.items.map(item => (
+                                                    <span key={item.sale_id}>{parseFloat(item.quantity).toFixed(2)}</span>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+
+                                        {/* Rate stacked */}
+                                        <TableCell className="text-amber-700 font-mono text-xs font-semibold">
+                                            <div className="flex flex-col gap-1">
+                                                {txn.items.map(item => (
+                                                    <span key={item.sale_id}>₹{parseFloat(item.rate).toFixed(2)}</span>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+
+                                        {/* Transaction total */}
+                                        <TableCell className="text-gray-900 font-bold text-xs">
+                                            ₹{parseFloat(txn.total_amount).toFixed(2)}
+                                        </TableCell>
+
+                                        <TableCell className="text-gray-400 font-mono text-xs">
+                                            {fmtTime(txn.created_at)}
+                                        </TableCell>
+
+                                        <TableCell>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => handlePrintReceipt(txn)}
+                                                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-gray-900/80 hover:text-white text-gray-400 transition border border-gray-200/60 backdrop-blur-sm shadow-sm"
+                                                    title={t('productSales.printReceipt')}>
+                                                    <FileDown size={12} />
+                                                </button>
+                                                {can('product_sales', 'U') && (
+                                                    <button
+                                                        onClick={() => setEditingSale({
+                                                            transaction_id: txn.transaction_id,
+                                                            seller_name: txn.seller_name,
+                                                            items: txn.items.map(item => ({
+                                                                sale_id: item.sale_id,
+                                                                product_name: item.product_name,
+                                                                quantity: String(item.quantity),
+                                                                rate: String(item.rate),
+                                                            })),
+                                                            sale_date: txn.sale_date,
+                                                        })}
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 transition border border-blue-200/60 backdrop-blur-sm shadow-sm"
+                                                        title="Edit">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                    </button>
+                                                )}
+                                                {can('product_sales', 'D') && (
+                                                    <button
+                                                        onClick={() => setConfirmDelete({
+                                                            id: txn.items[0].sale_id,
+                                                            label: `${txn.seller_name} — ${txn.items.map(i => i.product_name).join(", ")}`,
+                                                        })}
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 transition border border-rose-200/60 backdrop-blur-sm shadow-sm"
+                                                        title="Delete">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
 
                     {/* Totals footer */}
                     {activeData.length > 0 && (
-                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80"
+                        <div className="grid border-t-2 border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50"
                             style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {activeData.length} {activeData.length === 1 ? t('productSales.entry') : t('productSales.entries')}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-100 flex flex-col gap-0.5">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-200/60 flex flex-col gap-0.5">
                                 {qtyByUnitEntries.length === 0 ? "—"
                                     : qtyByUnitEntries.map(([u, q]) => (
                                         <span key={u}>{q.toFixed(2)} {u}</span>
                                     ))}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
                                 ₹{totalRevenue.toFixed(2)}
                             </div>
                             <div className="px-3 py-2.5" />
@@ -1597,14 +1644,16 @@ export default function ProductSales() {
                     )}
                 </div>
 
-                {/* Legend */}
-                <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                {/* ── Legend ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
                     <span>• <strong className="text-gray-600">{activeData.length}</strong> {rangeMode === "daily" ? t('productSales.salesRecordedToday') : t('productSales.salesInRange')}</span>
                     <span>• {t('productSales.stockUpdateNote')}</span>
                     <span>• {t('productSales.clickProductCardTip')}</span>
+                    <span>· {t('productSales.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
                 </div>
 
             </main>
+
             <SpeedProductConfigModal
                 open={speedConfigOpen}
                 onClose={() => setSpeedConfigOpen(false)}
@@ -1612,23 +1661,25 @@ export default function ProductSales() {
                 showFlash={showFlash}
             />
 
-            {/* Edit Sale Modal */}            {editingSale && can('product_sales', 'U') && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[500px] flex flex-col gap-4">
+            {/* ── Edit Sale Modal ── */}
+            {editingSale && can('product_sales', 'U') && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[500px] flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h2 className="text-gray-800 font-semibold text-base">Edit Sale</h2>
-                                <p className="text-gray-400 text-xs mt-0.5">
+                                <h2 className="text-gray-800 font-bold text-base">Edit Sale</h2>
+                                <p className="text-gray-500 text-xs mt-0.5">
                                     Editing transaction: {editingSale.transaction_id}
                                 </p>
                             </div>
-                            <button onClick={() => setEditingSale(null)} className="...">
-                                <X size={14} />
+                            <button onClick={() => setEditingSale(null)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                <X size={16} />
                             </button>
                         </div>
 
                         {/* Seller Info (Read-only) */}
-                        <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="px-4 py-2.5 rounded-xl bg-gray-50/80 backdrop-blur-sm border border-gray-200/60 shadow-sm">
                             <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Seller</p>
                             <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
                                 {editingSale.seller_name}
@@ -1639,7 +1690,7 @@ export default function ProductSales() {
                         <div className="flex flex-col gap-2">
                             {editingSale.items.map((item, index) => (
                                 <div key={item.sale_id} className="grid grid-cols-3 gap-2 items-center">
-                                    <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                                    <div className="px-4 py-2.5 rounded-xl bg-gray-50/80 backdrop-blur-sm border border-gray-200/60 shadow-sm">
                                         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Product</p>
                                         <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
                                             {item.product_name}
@@ -1656,7 +1707,7 @@ export default function ProductSales() {
                                                 newItems[index].quantity = e.target.value;
                                                 setEditingSale({ ...editingSale, items: newItems });
                                             }}
-                                            className="border border-blue-200 bg-blue-50 rounded-xl px-3 py-2 text-sm text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition"
+                                            className="border border-blue-200/60 bg-blue-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-blue-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -1670,7 +1721,7 @@ export default function ProductSales() {
                                                 newItems[index].rate = e.target.value;
                                                 setEditingSale({ ...editingSale, items: newItems });
                                             }}
-                                            className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 text-sm text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
+                                            className="border border-amber-200/60 bg-amber-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-amber-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition"
                                         />
                                     </div>
                                 </div>
@@ -1678,7 +1729,7 @@ export default function ProductSales() {
                         </div>
 
                         {/* Grand Total */}
-                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/60 shadow-sm">
                             <span className="text-xs text-emerald-600 font-medium">Grand Total</span>
                             <span className="text-sm font-bold text-emerald-700">
                                 ₹{editingSale.items.reduce((sum, item) => sum + (parseFloat(item.quantity || 0) * parseFloat(item.rate || 0)), 0).toFixed(2)}
@@ -1686,11 +1737,14 @@ export default function ProductSales() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2 mt-1">
-                            <button onClick={() => setEditingSale(null)} className="...">
+                        <div className="flex gap-2 mt-1 border-t border-gray-100/60 pt-4">
+                            <button onClick={() => setEditingSale(null)}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                 Cancel
                             </button>
-                            <button onClick={handleEditSave} disabled={editSaving} className="...">
+                            <button onClick={handleEditSave} disabled={editSaving}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2">
+                                {editSaving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                 {editSaving ? "Saving..." : "Save Changes"}
                             </button>
                         </div>
@@ -1698,18 +1752,18 @@ export default function ProductSales() {
                 </div>
             )}
 
-            {/* Confirm Delete Modal */}
+            {/* ── Confirm Delete Modal ── */}
             {confirmDelete && can('product_sales', 'D') && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[340px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[340px] flex flex-col gap-4">
                         <div className="flex items-start gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">
                                     <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />
                                 </svg>
                             </div>
                             <div>
-                                <h2 className="text-gray-800 font-semibold text-base">Delete Sale?</h2>
+                                <h2 className="text-gray-800 font-bold text-base">Delete Sale?</h2>
                                 <p className="text-gray-400 text-xs mt-1 leading-relaxed">
                                     This will permanently delete the sale for
                                     <span className="text-gray-700 font-semibold"> {confirmDelete.label}</span>.
@@ -1720,12 +1774,12 @@ export default function ProductSales() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setConfirmDelete(null)}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                 Cancel
                             </button>
                             <button
                                 onClick={handleDelete}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200">
                                 Yes, Delete
                             </button>
                         </div>

@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import {
     BarChart3, Download, Search, Calendar,
     DollarSign, Clock, AlertTriangle, X,
-    Users, TrendingUp, BadgeCheck, ArrowUpDown, Milk, FileText
+    Users, TrendingUp, BadgeCheck, ArrowUpDown, Milk, FileText,
+    Home, Settings
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -23,11 +24,12 @@ const fmtShort = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-di
 // ── Sub-components ────────────────────────────────────────────
 function StatCard({ label, value, icon, color, sub }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+            <div className="relative z-10">
+                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                 {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
             </div>
         </div>
@@ -271,52 +273,54 @@ export default function WalkinAnonymousReports() {
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('walkin_sales', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-md">
-                            <BarChart3 size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('anonymousReport.pageBreadcrumb', { defaultValue: 'Walk-in Sales' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                {t('anonymousReport.title')}
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('anonymousReport.subtitle')}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('anonymousReport.title')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('anonymousReport.subtitle')}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <button
                             onClick={startTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t('anonymousReport.takeTour')}
+                            <BadgeCheck size={15} /> {t('anonymousReport.takeTour')}
                         </button>
                         <button
                             onClick={handleExportPDF}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"
                         >
-                            <Download size={14} /> {t('anonymousReport.exportPDF')}
+                            <Download size={16} /> {t('anonymousReport.exportPDF')}
                         </button>
                     </div>
                 </div>
 
-                {/* Date Range + Year Filter */}
+                {/* ── Date Range + Year Filter ── */}
                 <div className="flex items-center gap-3 flex-wrap" data-tour="anon-date-filters">
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                         {[
                             { v: "daily", l: t("payments.day") },
                             { v: "weekly", l: t("payments.week") },
@@ -324,7 +328,9 @@ export default function WalkinAnonymousReports() {
                             { v: "yearly", l: t('anonymousReport.rangeYear') },
                         ].map(({ v, l }) => (
                             <button key={v} type="button" onClick={() => handleDateRangeChange(v)}
-                                className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v
+                                    ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30"
+                                    : "text-gray-500 hover:bg-gray-100/50"}`}>
                                 {l}
                             </button>
                         ))}
@@ -332,12 +338,12 @@ export default function WalkinAnonymousReports() {
 
                     {/* Year dropdown – visible only in yearly mode */}
                     {rangeMode === "yearly" && (
-                        <div className="flex items-center gap-2">
-                            <Calendar size={12} className="text-gray-400" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm">
+                            <Calendar size={14} className="text-gray-400" />
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                             >
                                 {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(y => (
                                     <option key={y} value={y}>{y}</option>
@@ -347,8 +353,8 @@ export default function WalkinAnonymousReports() {
                     )}
 
                     {/* Custom date pickers (always visible) */}
-                    <div className="flex items-center gap-2">
-                        <Calendar size={12} className="text-gray-400" />
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm">
+                        <Calendar size={14} className="text-gray-400" />
                         <input type="date" value={dateRange.from}
                             onChange={(e) => {
                                 const newFrom = e.target.value;
@@ -356,7 +362,7 @@ export default function WalkinAnonymousReports() {
                                 setDateRange(prev => ({ ...prev, from: newFrom }));
                                 fetchAll(newFrom, dateRange.to);
                             }}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                         <span className="text-gray-400 text-xs">→</span>
                         <input type="date" value={dateRange.to}
                             onChange={(e) => {
@@ -365,67 +371,76 @@ export default function WalkinAnonymousReports() {
                                 setDateRange(prev => ({ ...prev, to: newTo }));
                                 fetchAll(dateRange.from, newTo);
                             }}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                    </div>
+
+                    {/* Period label */}
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-500 text-xs font-medium shadow-sm">
+                        <span>{dateRange.from === dateRange.to ? fmtShort(dateRange.from) : `${fmtShort(dateRange.from)} — ${fmtShort(dateRange.to)}`}</span>
                     </div>
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === "success"
+                            ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700"
+                            : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="anon-stats">
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" data-tour="anon-stats">
                     <StatCard
                         label={t('anonymousReport.stats.totalMilk')}
                         value={`${overall.totalQty.toFixed(2)} L`}
-                        icon={<Milk size={14} />}
-                        color="text-violet-600 bg-violet-50 border-violet-100"
+                        icon={<Milk size={16} />}
+                        color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700"
                     />
                     <StatCard
                         label={t('anonymousReport.stats.salesAmount')}
                         value={fmt(overall.totalAmt)}
-                        icon={<TrendingUp size={14} />}
-                        color="text-blue-600 bg-blue-50 border-blue-100"
+                        icon={<TrendingUp size={16} />}
+                        color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700"
                     />
                     <StatCard
                         label={t('anonymousReport.stats.amountPaid')}
                         value={fmt(overall.totalPaid)}
-                        icon={<DollarSign size={14} />}
-                        color="text-emerald-600 bg-emerald-50 border-emerald-100"
+                        icon={<DollarSign size={16} />}
+                        color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700"
                     />
                     <StatCard
                         label={t('anonymousReport.stats.outstanding')}
                         value={fmt(overall.outstanding)}
                         sub={t('anonymousReport.stats.outstandingSub', { count: overall.count })}
-                        icon={<Clock size={14} />}
-                        color="text-rose-600 bg-rose-50 border-rose-100"
+                        icon={<Clock size={16} />}
+                        color="from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-600"
                     />
                 </div>
 
-                {/* Search + Sort */}
+                {/* ── Search + Sort ── */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             value={search}
                             onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
                             placeholder={t('anonymousReport.searchPlaceholder')}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300"
+                            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl text-gray-700 shadow-sm
+                                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition placeholder:text-gray-300"
                         />
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs">
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm text-xs">
+                        <ArrowUpDown size={14} className="text-gray-400" />
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition">
                             <option value="date">{t('anonymousReport.sort.date')}</option>
                             <option value="qty">{t('anonymousReport.sort.qty')}</option>
                             <option value="amount">{t('anonymousReport.sort.amount')}</option>
@@ -437,29 +452,29 @@ export default function WalkinAnonymousReports() {
                     </span>
                 </div>
 
-                {/* Sales Table – no expand, no actions */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" data-tour="anon-table">
+                {/* ── Sales Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="anon-table">
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : paginated.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <FileText size={32} />
-                            <p className="text-sm">{t('anonymousReport.noSales')}</p>
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <FileText size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">{t('anonymousReport.noSales')}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                                        <th className="px-4 py-3 w-10">#</th>
-                                        <th className="px-4 py-3 min-w-[90px]">{t('anonymousReport.table.date')}</th>
-                                        <th className="px-4 py-3">{t('anonymousReport.table.shift')}</th>
-                                        <th className="px-4 py-3">{t('anonymousReport.table.milkType')}</th>
-                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.qty')}</th>
-                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.totalAmt')}</th>
-                                        <th className="px-4 py-3 text-right">{t('anonymousReport.table.paid')}</th>
+                                    <tr className="bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                        <th className="px-4 py-3 w-10 border-r border-gray-200/60">#</th>
+                                        <th className="px-4 py-3 min-w-[90px] border-r border-gray-200/60">{t('anonymousReport.table.date')}</th>
+                                        <th className="px-4 py-3 border-r border-gray-200/60">{t('anonymousReport.table.shift')}</th>
+                                        <th className="px-4 py-3 border-r border-gray-200/60">{t('anonymousReport.table.milkType')}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t('anonymousReport.table.qty')}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t('anonymousReport.table.totalAmt')}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t('anonymousReport.table.paid')}</th>
                                         <th className="px-4 py-3 text-right">{t('anonymousReport.table.balance')}</th>
                                     </tr>
                                 </thead>
@@ -467,22 +482,38 @@ export default function WalkinAnonymousReports() {
                                     {paginated.map((sale, idx) => {
                                         const outstanding = parseFloat(sale.total_amount || 0) - parseFloat(sale.amount_paid || 0);
                                         return (
-                                            <tr key={sale.sale_id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
-                                                <td className="px-4 py-3 text-center text-xs text-gray-400">
+                                            <tr key={sale.sale_id} className="border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors">
+                                                <td className="px-4 py-3 text-center text-xs text-gray-400 border-r border-gray-100/60">
                                                     {idx + 1 + (currentPage - 1) * pageSize}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                                <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap border-r border-gray-100/60">
                                                     {fmtShort(sale.sale_date)}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">{sale.shift || '—'}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-600 capitalize">{sale.milk_type || '—'}</td>
-                                                <td className="px-4 py-3 text-right font-mono text-sm">
+                                                <td className="px-4 py-3 text-sm text-gray-600 border-r border-gray-100/60 capitalize">
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border backdrop-blur-sm
+                                                        ${sale.shift === "morning"
+                                                            ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                                                            : "bg-indigo-50/80 text-indigo-700 border-indigo-200/60"}`}>
+                                                        {sale.shift || '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-600 capitalize border-r border-gray-100/60">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border backdrop-blur-sm
+                                                        ${sale.milk_type === "cow"
+                                                            ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                                                            : sale.milk_type === "buffalo"
+                                                                ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
+                                                                : "bg-purple-50/80 text-purple-700 border-purple-200/60"}`}>
+                                                        {sale.milk_type || '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-mono text-sm text-blue-600 border-r border-gray-100/60">
                                                     {parseFloat(sale.quantity || 0).toFixed(2)}
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-semibold text-gray-700">
+                                                <td className="px-4 py-3 text-right font-semibold text-gray-700 border-r border-gray-100/60">
                                                     {fmt(sale.total_amount)}
                                                 </td>
-                                                <td className="px-4 py-3 text-right text-emerald-600">
+                                                <td className="px-4 py-3 text-right text-emerald-600 border-r border-gray-100/60">
                                                     {fmt(sale.amount_paid)}
                                                 </td>
                                                 <td className={`px-4 py-3 text-right font-bold ${outstanding > 0.01 ? "text-rose-600" : "text-emerald-600"}`}>
@@ -496,30 +527,38 @@ export default function WalkinAnonymousReports() {
                         </div>
                     )}
 
-                    {/* Pagination */}
+                    {/* ── Pagination ── */}
                     {filteredSales.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200 bg-gray-50/80">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200/60 bg-white/50 backdrop-blur-sm">
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                     {t("payments.prev")}
                                 </button>
                                 <span className="text-xs text-gray-600">{t("payments.page")} {currentPage} {t("payments.of")} {totalPages}</span>
                                 <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                     {t("payments.next")}
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400">{t("payments.rows_per_page")}:</span>
                                 <select value={pageSize} onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition">
                                     {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
                                 </select>
                             </div>
                         </div>
                     )}
                 </div>
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('anonymousReport.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('anonymousReport.footerTotal', { defaultValue: 'Total sales' })}: <strong className="text-gray-600">{sales.length}</strong></span>
+                    <span>· {t('anonymousReport.footerPeriod', { defaultValue: 'Period' })}: <strong className="text-gray-600">{dateRange.from === dateRange.to ? fmtShort(dateRange.from) : `${fmtShort(dateRange.from)} — ${fmtShort(dateRange.to)}`}</strong></span>
+                </div>
+
             </main>
         </div>
     );

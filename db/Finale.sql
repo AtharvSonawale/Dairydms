@@ -348,6 +348,8 @@ CREATE TABLE cattle_feed_purchases (
    centre_id int NOT NULL,
    feed_name varchar(255) DEFAULT NULL,
    operator_id int NOT NULL,
+   created_by int DEFAULT NULL,
+   updated_by int DEFAULT NULL,
    supplier_name varchar(150) NOT NULL,
    quantity decimal(10,2) NOT NULL,
    rate decimal(8,2) NOT NULL,
@@ -355,6 +357,7 @@ CREATE TABLE cattle_feed_purchases (
    total_amount decimal(12,2) NOT NULL,
    purchase_date date NOT NULL,
    created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   updated_at datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
    bill_no varchar(50) DEFAULT NULL,
    paid_at datetime DEFAULT NULL,
    bill_id int DEFAULT NULL,
@@ -362,10 +365,14 @@ CREATE TABLE cattle_feed_purchases (
    KEY feed_id (feed_id),
    KEY operator_id (operator_id),
    KEY centre_id (centre_id),
+   KEY cattle_feed_purchases_ibfk_created (created_by),
+   KEY cattle_feed_purchases_ibfk_updated (updated_by),
    CONSTRAINT cattle_feed_purchases_ibfk_1 FOREIGN KEY (feed_id) REFERENCES cattle_feeds (feed_id),
    CONSTRAINT cattle_feed_purchases_ibfk_2 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
-   CONSTRAINT cattle_feed_purchases_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+   CONSTRAINT cattle_feed_purchases_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
+   CONSTRAINT cattle_feed_purchases_ibfk_created FOREIGN KEY (created_by) REFERENCES operators (operator_id) ON DELETE SET NULL,
+   CONSTRAINT cattle_feed_purchases_ibfk_updated FOREIGN KEY (updated_by) REFERENCES operators (operator_id) ON DELETE SET NULL
+ ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE cattle_feed_sales (
    sale_id int NOT NULL AUTO_INCREMENT,
@@ -394,6 +401,7 @@ CREATE TABLE cattle_feed_sales (
 CREATE TABLE cattle_feeds (
    feed_id int NOT NULL AUTO_INCREMENT,
    centre_id int NOT NULL,
+   operator_id int DEFAULT NULL,
    feed_name varchar(255) NOT NULL,
    unit varchar(20) NOT NULL,
    current_stock decimal(10,2) NOT NULL DEFAULT '0.00',
@@ -404,8 +412,10 @@ CREATE TABLE cattle_feeds (
    PRIMARY KEY (feed_id),
    UNIQUE KEY feed_name_supplier_centre (feed_name,supplier_name,centre_id),
    KEY centre_id (centre_id),
-   CONSTRAINT cattle_feeds_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+   KEY idx_operator_id (operator_id),
+   CONSTRAINT cattle_feeds_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
+   CONSTRAINT cattle_feeds_ibfk_operator FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
+ ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE centres (
    centre_id int NOT NULL AUTO_INCREMENT,
@@ -680,6 +690,20 @@ CREATE TABLE owner_usage (
    CONSTRAINT owner_usage_ibfk_3 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE page_visibility (
+   id int NOT NULL AUTO_INCREMENT,
+   centre_id int NOT NULL,
+   page_key varchar(50) NOT NULL,
+   is_visible_web tinyint(1) NOT NULL DEFAULT '1',
+   is_visible_flutter tinyint(1) NOT NULL DEFAULT '1',
+   updated_by int DEFAULT NULL,
+   updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (id),
+   UNIQUE KEY uq_centre_page (centre_id,page_key),
+   KEY idx_centre_id (centre_id),
+   CONSTRAINT page_visibility_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
+ ) ENGINE=InnoDB AUTO_INCREMENT=823 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE password_reset_otps (
    id int NOT NULL AUTO_INCREMENT,
    email varchar(100) NOT NULL,
@@ -843,6 +867,7 @@ CREATE TABLE product_sales (
 CREATE TABLE products (
    product_id int NOT NULL AUTO_INCREMENT,
    centre_id int NOT NULL,
+   operator_id int DEFAULT NULL,
    product_name varchar(255) NOT NULL,
    unit varchar(20) NOT NULL,
    current_stock decimal(10,2) NOT NULL DEFAULT '0.00',
@@ -853,7 +878,9 @@ CREATE TABLE products (
    PRIMARY KEY (product_id),
    UNIQUE KEY product_name_supplier_centre (product_name,supplier_name,centre_id),
    KEY centre_id (centre_id),
-   CONSTRAINT products_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+   KEY idx_operator_id (operator_id),
+   CONSTRAINT products_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
+   CONSTRAINT products_ibfk_operator FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
  ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE seller_deposits (

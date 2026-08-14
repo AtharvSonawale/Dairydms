@@ -23,5 +23,9 @@ router.get('/purchases/suggestions', protect, ctrl.getPurchaseSuggestions);
 router.put('/purchases/:id', protect, ctrl.updatePurchase);
 router.delete('/purchases/:id', protect, ctrl.deletePurchase);
 
+// ── Additional routes ──────────────────────────────────────────
+router.get('/purchases/:id', protect, ctrl.getPurchaseById);
+router.get('/purchases/range', protect, ctrl.getPurchasesByDateRange);
+router.get('/purchases/stats', protect, ctrl.getPurchaseStats);
 
 module.exports = router;

@@ -5,12 +5,29 @@ import {
     BadgeCheck, RefreshCw, X, TrendingUp,
     ShoppingCart, Layers, Banknote, Users, FileDown,
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
+    Home
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -42,8 +59,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-white/50 backdrop-blur-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -53,6 +70,18 @@ function TableCell({ children, className = "" }) {
     return (
         <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
             {children}
+        </div>
+    );
+}
+
+function StatCard({ label, value, icon, color }) {
+    return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+            <div className="shrink-0">{icon}</div>
+            <div>
+                <p className="text-xs text-gray-400 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            </div>
         </div>
     );
 }
@@ -171,27 +200,27 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-2xl max-h-[90vh] flex flex-col">
 
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
                             <Zap size={16} className="text-white" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-bold text-gray-900">{t('cattleFeedSales.speedConfig.title')}</h2>
+                            <h2 className="text-sm font-bold text-gray-800">{t('cattleFeedSales.speedConfig.title')}</h2>
                             <p className="text-[10px] text-gray-400">{t('cattleFeedSales.speedConfig.desc')}</p>
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
                         <X size={15} />
                     </button>
                 </div>
 
                 <div className="flex flex-1 min-h-0 overflow-hidden">
                     {/* Left form */}
-                    <div className="w-64 shrink-0 border-r border-gray-100 px-5 py-4 flex flex-col gap-4 overflow-y-auto">
+                    <div className="w-64 shrink-0 border-r border-gray-200/60 px-5 py-4 flex flex-col gap-4 overflow-y-auto">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                             {editingId ? t('cattleFeedSales.speedConfig.editEntry') : t('cattleFeedSales.speedConfig.addNew')}
                         </p>
@@ -202,7 +231,7 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                                 <select
                                     value={form.feed_id}
                                     onChange={e => setForm(p => ({ ...p, feed_id: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition">
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
                                     <option value="">{t('cattleFeedSales.speedConfig.selectFeed')}</option>
                                     {feeds
                                         .filter(f => !speedFeeds.find(sp => sp.feed_id === f.feed_id))
@@ -222,7 +251,7 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                                 value={form.display_name}
                                 onChange={e => setForm(p => ({ ...p, display_name: e.target.value }))}
                                 placeholder={t('cattleFeedSales.speedConfig.displayPlaceholder')}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition"
+                                className="border border-gray-200/60 rounded-xl px-3 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
 
@@ -233,7 +262,7 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                                 min="0"
                                 value={form.sort_order}
                                 onChange={e => setForm(p => ({ ...p, sort_order: e.target.value }))}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition"
+                                className="border border-gray-200/60 rounded-xl px-3 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
 
@@ -243,14 +272,14 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                             <button
                                 type="button"
                                 onClick={() => fileRef.current?.click()}
-                                className="flex items-center gap-2 border border-dashed border-gray-300 hover:border-amber-400 rounded-xl px-3 py-2 text-xs text-gray-500 hover:text-amber-600 transition">
+                                className="flex items-center gap-2 border border-dashed border-gray-300/60 hover:border-amber-400/60 rounded-xl px-3 py-2.5 text-xs text-gray-500 hover:text-amber-600 transition">
                                 <ImagePlus size={13} />
                                 {form.preview ? t('cattleFeedSales.speedConfig.changeImage') : t('cattleFeedSales.speedConfig.uploadImage')}
                             </button>
                             {form.preview && (
                                 <div className="relative mt-1">
                                     <img src={form.preview} alt="preview"
-                                        className="w-full h-28 object-cover rounded-xl border border-gray-100" />
+                                        className="w-full h-28 object-cover rounded-xl border border-gray-200/60" />
                                     <button
                                         type="button"
                                         onClick={() => setForm(p => ({ ...p, imageBase64: null, preview: null, imageRemoved: true }))}
@@ -265,14 +294,14 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                             {editingId && (
                                 <button
                                     onClick={() => { setEditingId(null); resetForm(); }}
-                                    className="flex-1 py-2 rounded-xl text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-50 transition">
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 transition shadow-sm">
                                     {t('cattleFeedSales.speedConfig.cancel')}
                                 </button>
                             )}
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition disabled:opacity-50">
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white hover:shadow-lg hover:shadow-amber-500/30 transition disabled:opacity-50 shadow-sm">
                                 {saving
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Plus size={12} />}
@@ -300,8 +329,8 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                             <div className="flex flex-col gap-2">
                                 {speedFeeds.map(sp => (
                                     <div key={sp.id}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border transition
-                                            ${editingId === sp.id ? 'border-amber-300 bg-amber-50' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}`}>
+                                        className={`flex items-center gap-3 p-3 rounded-xl border transition shadow-sm
+                                            ${editingId === sp.id ? 'border-amber-300/80 bg-amber-50/80' : 'border-gray-200/60 bg-gray-50/50 hover:bg-gray-100/50'}`}>
                                         <GripVertical size={12} className="text-gray-300 shrink-0" />
 
                                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 shrink-0">
@@ -337,13 +366,13 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
                                         <div className="flex items-center gap-1 shrink-0">
                                             <button
                                                 onClick={() => startEdit(sp)}
-                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-500 transition">
+                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 transition shadow-sm">
                                                 <Settings size={11} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(sp.id)}
                                                 disabled={deletingId === sp.id}
-                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition disabled:opacity-50">
+                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 transition disabled:opacity-50 shadow-sm">
                                                 {deletingId === sp.id
                                                     ? <span className="w-3 h-3 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
                                                     : <Trash2 size={11} />}
@@ -392,7 +421,7 @@ function SpeedStripInForm({ onTap }) {
     const supplierFontSize = Math.max(8, Math.round(cardWidth * 0.1));
 
     return (
-        <div className="pb-4 mb-4 border-b border-gray-100">
+        <div className="pb-4 mb-4 border-b border-gray-200/60">
             <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                     <Zap size={10} className="text-amber-500" />
@@ -403,7 +432,7 @@ function SpeedStripInForm({ onTap }) {
                     <input
                         type="number" min="2" max="12" value={cols}
                         onChange={e => setCols(Math.max(2, Math.min(12, parseInt(e.target.value) || 5)))}
-                        className="w-12 border border-gray-200 rounded-lg px-1.5 py-0.5 text-xs text-gray-700 text-center focus:outline-none focus:ring-1 focus:ring-amber-300"
+                        className="w-12 border border-gray-200/60 rounded-lg px-1.5 py-0.5 text-xs text-gray-700 text-center bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                     />
                 </div>
             </div>
@@ -423,10 +452,10 @@ function SpeedStripInForm({ onTap }) {
                             disabled={outOfStock}
                             onClick={() => onTap(sp)}
                             style={{ width: cardWidth }}
-                            className={`relative flex flex-col rounded-xl border overflow-hidden transition
+                            className={`relative flex flex-col rounded-xl border overflow-hidden transition shadow-sm
                                 ${outOfStock
-                                    ? 'border-gray-100 opacity-50 cursor-not-allowed'
-                                    : 'border-amber-200 hover:border-amber-400 active:scale-95'}`}>
+                                    ? 'border-gray-200/60 opacity-50 cursor-not-allowed'
+                                    : 'border-amber-200/60 hover:border-amber-400/80 hover:shadow-md active:scale-95'}`}>
 
                             {hasImage ? (
                                 <>
@@ -448,20 +477,20 @@ function SpeedStripInForm({ onTap }) {
                                         )}
                                     </div>
                                     <div
-                                        className="w-full bg-amber-50 text-amber-800 font-semibold text-center px-1 py-1 leading-tight truncate"
+                                        className="w-full bg-amber-50/80 text-amber-800 font-semibold text-center px-1 py-1 leading-tight truncate"
                                         style={{ fontSize: nameFontSize }}>
                                         {sp.display_name || sp.feed_name}
                                     </div>
                                     {sp.supplier_name && (
                                         <div
-                                            className="w-full bg-amber-100 text-amber-600 text-center px-1 py-0.5 leading-tight truncate"
+                                            className="w-full bg-amber-100/80 text-amber-600 text-center px-1 py-0.5 leading-tight truncate"
                                             style={{ fontSize: supplierFontSize }}>
                                             {sp.supplier_name}
                                         </div>
                                     )}
                                 </>
                             ) : (
-                                <div className="w-full bg-amber-50 px-2 py-1.5">
+                                <div className="w-full bg-amber-50/80 px-2 py-1.5">
                                     <div className="flex items-center justify-between gap-1">
                                         <span
                                             className="text-amber-800 font-semibold truncate"
@@ -1045,7 +1074,7 @@ export default function CattleFeedSales() {
     const GRID = "1.4fr 1.6fr 80px 80px 100px 70px 100px";
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -1053,36 +1082,41 @@ export default function CattleFeedSales() {
     if (!can('cattle_feed_sales', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <ShoppingCart size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('cattleFeedSales.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
+                                <ShoppingCart size={12} /> Sales
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('cattleFeedSales.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('cattleFeedSales.pageSubtitle', {
-                                    date: new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
-                                })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('cattleFeedSales.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('cattleFeedSales.pageSubtitle', {
+                                date: new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
+                            })}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="sales-header-actions">
                         <button
                             onClick={startSalesTour}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t('cattleFeedSales.takeTour')}
+                            <BadgeCheck size={15} /> {t('cattleFeedSales.takeTour')}
                         </button>
                         <button
                             onClick={() => setSpeedConfigOpen(true)}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition border border-amber-200">
-                            <Settings size={13} /> {t('cattleFeedSales.speedConfigButton')}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-50/80 text-amber-700 border border-amber-200/60 hover:bg-amber-100/80 transition shadow-sm"
+                        >
+                            <Settings size={15} /> {t('cattleFeedSales.speedConfigButton')}
                         </button>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cattleFeedSales.dateLabel')}</span>
@@ -1095,14 +1129,13 @@ export default function CattleFeedSales() {
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cattleFeedSales.downloadPDF')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                     {[
                                         { v: "daily", l: t('cattleFeedSales.rangeDay') },
                                         { v: "weekly", l: t('cattleFeedSales.rangeWeek') },
@@ -1110,7 +1143,7 @@ export default function CattleFeedSales() {
                                         { v: "custom", l: t('cattleFeedSales.rangeCustom') }
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -1119,15 +1152,15 @@ export default function CattleFeedSales() {
                                 {rangeMode === "custom" && (
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate} onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate} onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                         {fromDate === toDate
                                             ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                             : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -1135,13 +1168,13 @@ export default function CattleFeedSales() {
                                 )}
 
                                 {loadingRange ? (
-                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
+                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100/80 text-gray-400 text-xs font-semibold">
                                         <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
                                         {t('cattleFeedSales.loading')}
                                     </div>
                                 ) : (
                                     <button onClick={handleDownloadPDF} disabled={loadingRange}
-                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition shadow-sm">
                                         <FileDown size={13} /> PDF
                                     </button>
                                 )}
@@ -1150,298 +1183,311 @@ export default function CattleFeedSales() {
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 sm:grid-cols-3 gap-3" data-tour="sales-stats">
-                    {[
-                        { label: t('cattleFeedSales.stats.todaySales'), value: sales.length, icon: <ShoppingCart size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('cattleFeedSales.stats.totalRevenue'), value: "₹" + totalRevenue.toFixed(2), icon: <TrendingUp size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                        { label: t('cattleFeedSales.stats.sellersServed'), value: uniqueSellers, icon: <Users size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
-                    ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                            </div>
-                        </div>
-                    ))}
+                {/* ── Flash ── */}
+                {flash && (
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
+                        {flash.msg}
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-3 gap-3" data-tour="sales-stats">
+                    <StatCard
+                        label={t('cattleFeedSales.stats.todaySales')}
+                        value={sales.length}
+                        icon={<ShoppingCart size={14} />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60"
+                    />
+                    <StatCard
+                        label={t('cattleFeedSales.stats.totalRevenue')}
+                        value={"₹" + totalRevenue.toFixed(2)}
+                        icon={<TrendingUp size={14} />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60"
+                    />
+                    <StatCard
+                        label={t('cattleFeedSales.stats.sellersServed')}
+                        value={uniqueSellers}
+                        icon={<Users size={14} />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60"
+                    />
                 </div>
 
-                {/* Flash */}
-                {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
-                        {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
-                    </div>
-                )}
-
-                {/* Entry Form */}
+                {/* ── Entry Form ── */}
                 {can('cattle_feed_sales', 'C') && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="sales-form" onKeyDown={handleFormKeyDown}>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
-                            {t('cattleFeedSales.form.title')}
-                        </p>
-
-                        {/* Seller row */}
-                        <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-100">
-                            <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
-                                <div className="relative" style={{ width: "220px" }}>
-                                    <TinyInput
-                                        value={sellerSearch}
-                                        onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
-                                        onBlur={() => setTimeout(() => {
-                                            setShowSellerDrop(false);
-                                            setForm(prev => {
-                                                if (!prev.seller_id) setSellerSearch("");
-                                                return prev;
-                                            });
-                                        }, 150)}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSellerSearch(val);
-                                            setHighlightedIdx(-1);
-                                            setShowSellerDrop(true);
-                                            if (!val) { set("seller_id", ""); return; }
-                                            const exact = sellers.find(
-                                                (s) =>
-                                                    s.product_sale_enabled == 1 &&
-                                                    (String(s.seller_id) === val.trim() ||
-                                                        (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
-                                            );
-                                            if (exact) { set("seller_id", exact.seller_id); setSellerSearch(exact.name); setShowSellerDrop(false); }
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (!showSellerDrop || filteredSellers.length === 0) return;
-                                            if (e.key === "ArrowDown") {
-                                                e.preventDefault();
-                                                setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
-                                            } else if (e.key === "ArrowUp") {
-                                                e.preventDefault();
-                                                setHighlightedIdx(i => Math.max(i - 1, 0));
-                                            } else if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                                if (sel) {
-                                                    set("seller_id", sel.seller_id);
-                                                    setSellerSearch(sel.name);
+                    <SectionCard
+                        title={t('cattleFeedSales.form.title')}
+                        icon={<ShoppingCart size={16} className="text-white" />}
+                        data-tour="sales-form"
+                    >
+                        <div onKeyDown={handleFormKeyDown}>
+                            {/* Seller row */}
+                            <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                                <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
+                                    <div className="relative" style={{ width: "220px" }}>
+                                        <TinyInput
+                                            value={sellerSearch}
+                                            onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
+                                            onBlur={() => setTimeout(() => {
+                                                setShowSellerDrop(false);
+                                                setForm(prev => {
+                                                    if (!prev.seller_id) setSellerSearch("");
+                                                    return prev;
+                                                });
+                                            }, 150)}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setSellerSearch(val);
+                                                setHighlightedIdx(-1);
+                                                setShowSellerDrop(true);
+                                                if (!val) { set("seller_id", ""); return; }
+                                                const exact = sellers.find(
+                                                    (s) =>
+                                                        s.product_sale_enabled == 1 &&
+                                                        (String(s.seller_id) === val.trim() ||
+                                                            (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
+                                                );
+                                                if (exact) { set("seller_id", exact.seller_id); setSellerSearch(exact.name); setShowSellerDrop(false); }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (!showSellerDrop || filteredSellers.length === 0) return;
+                                                if (e.key === "ArrowDown") {
+                                                    e.preventDefault();
+                                                    setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
+                                                } else if (e.key === "ArrowUp") {
+                                                    e.preventDefault();
+                                                    setHighlightedIdx(i => Math.max(i - 1, 0));
+                                                } else if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
+                                                    if (sel) {
+                                                        set("seller_id", sel.seller_id);
+                                                        setSellerSearch(sel.name);
+                                                        setShowSellerDrop(false);
+                                                    }
+                                                } else if (e.key === "Escape") {
                                                     setShowSellerDrop(false);
                                                 }
-                                            } else if (e.key === "Escape") {
-                                                setShowSellerDrop(false);
-                                            }
-                                        }}
-                                        placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
-                                        className="pr-7 w-full"
-                                    />
-                                    {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                                                {sellerSearch.trim()
-                                                    ? t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })
-                                                    : t('cattleFeedSales.form.sellersAZ')}
-                                            </p>
-                                            {filteredSellers.map((s, idx) => (
-                                                <button key={s.seller_id} type="button"
-                                                    onMouseEnter={() => setHighlightedIdx(idx)}
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault();
-                                                        set("seller_id", s.seller_id);
-                                                        setSellerSearch(s.name);
-                                                        setShowSellerDrop(false);
-                                                    }}
-                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                            ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
-                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                            ${highlightedIdx === idx ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
-                                                        {s.name?.charAt(0)?.toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                        <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
+                                            }}
+                                            placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
+                                            className="pr-7 w-full"
+                                        />
+                                        {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
+                                            <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
+                                                    {sellerSearch.trim()
+                                                        ? t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })
+                                                        : t('cattleFeedSales.form.sellersAZ')}
+                                                </p>
+                                                {filteredSellers.map((s, idx) => (
+                                                    <button key={s.seller_id} type="button"
+                                                        onMouseEnter={() => setHighlightedIdx(idx)}
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault();
+                                                            set("seller_id", s.seller_id);
+                                                            setSellerSearch(s.name);
+                                                            setShowSellerDrop(false);
+                                                        }}
+                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+                                ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
+                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
+                                ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-gray-100/80 text-gray-600"}`}>
+                                                            {s.name?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-gray-800 text-xs">{s.name}</p>
+                                                            <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {form.seller_id && (
+                                            <button type="button"
+                                                onClick={() => { set("seller_id", ""); setSellerSearch(""); }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {selectedSeller && (
+                                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                                            {t('cattleFeedSales.form.sellerId', { id: selectedSeller.seller_id, type: selectedSeller.seller_type || "—" })}
+                                        </p>
                                     )}
-                                    {form.seller_id && (
-                                        <button type="button"
-                                            onClick={() => { set("seller_id", ""); setSellerSearch(""); }}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-                                {selectedSeller && (
-                                    <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                                        {t('cattleFeedSales.form.sellerId', { id: selectedSeller.seller_id, type: selectedSeller.seller_type || "—" })}
-                                    </p>
-                                )}
-                            </Field>
-                        </div>
-
-                        {/* Speed strip */}
-                        <SpeedStripInForm onTap={(sp) => handleAddSpeedLines([{
-                            feed_id: String(sp.feed_id),
-                            quantity: "1",
-                            rate: String(sp.mrp_rate || sp.rate || ""),
-                            mrp_rate: String(sp.mrp_rate || ""),
-                            _key: Date.now() + Math.random(),
-                        }])} />
-
-                        {/* Feed lines */}
-                        <div className="flex flex-col gap-3 mb-4">
-                            <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
-                                style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
-                                <span>{t('cattleFeedSales.form.feed')}</span>
-                                <span>{t('cattleFeedSales.form.qty')}</span>
-                                <span>{t('cattleFeedSales.form.rate')}</span>
-                                <span>{t('cattleFeedSales.form.total')}</span>
-                                <span />
+                                </Field>
                             </div>
 
-                            {lines.map((line) => {
-                                const lineFeed = feeds.find(f => String(f.feed_id) === String(line.feed_id));
-                                const lt = lineTotal(line);
-                                const searchVal = lineFeedSearch[line._key] !== undefined
-                                    ? lineFeedSearch[line._key]
-                                    : (lineFeed?.feed_name || "");
+                            {/* Speed strip */}
+                            <SpeedStripInForm onTap={(sp) => handleAddSpeedLines([{
+                                feed_id: String(sp.feed_id),
+                                quantity: "1",
+                                rate: String(sp.mrp_rate || sp.rate || ""),
+                                mrp_rate: String(sp.mrp_rate || ""),
+                                _key: Date.now() + Math.random(),
+                            }])} />
 
-                                return (
-                                    <div key={line._key} className="grid gap-2 items-start"
-                                        style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
-
-                                        <div className="relative">
-                                            <TinyInput
-                                                value={searchVal}
-                                                onChange={(e) => {
-                                                    setLineFeedSearch(p => ({ ...p, [line._key]: e.target.value }));
-                                                    setShowFeedDrop(p => ({ ...p, [line._key]: true }));
-                                                }}
-                                                onFocus={() => {
-                                                    setLineFeedSearch(p => ({ ...p, [line._key]: "" }));
-                                                    setShowFeedDrop(p => ({ ...p, [line._key]: true }));
-                                                }}
-                                                onBlur={() => setTimeout(() => {
-                                                    setShowFeedDrop(p => ({ ...p, [line._key]: false }));
-                                                    setLineFeedSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
-                                                }, 150)}
-                                                placeholder={t('cattleFeedSales.form.feedPlaceholder')}
-                                                className="w-full"
-                                            />
-                                            {showFeedDrop[line._key] && (
-                                                <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
-                                                    {(lineFeedSearch[line._key]?.trim()
-                                                        ? feeds.filter(f => f.feed_name.toLowerCase().includes(lineFeedSearch[line._key].toLowerCase()))
-                                                        : feeds
-                                                    ).map((f) => (
-                                                        <button key={f.feed_id} type="button"
-                                                            onMouseDown={() => {
-                                                                setLine(line._key, "feed_id", String(f.feed_id));
-                                                                setLine(line._key, "rate", f.mrp_rate ? String(f.mrp_rate) : (f.rate ? String(f.rate) : ""));
-                                                                setLine(line._key, "mrp_rate", f.mrp_rate ? String(f.mrp_rate) : "");
-                                                                setLineFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
-                                                                setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
-                                                            }}
-                                                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
-                                                            <div>
-                                                                <p className="text-xs font-medium text-gray-800">{f.feed_name}</p>
-                                                                <p className="text-[10px] text-gray-400">
-                                                                    {f.supplier_name && <span className="text-violet-500 font-semibold">{f.supplier_name}</span>}
-                                                                    {f.supplier_name && " · "}
-                                                                    {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(f.current_stock || 0).toFixed(1), unit: f.unit })}
-                                                                </p>
-                                                            </div>
-                                                            <span className="text-[10px] text-violet-600 font-semibold">
-                                                                ₹{parseFloat(f.mrp_rate || 0).toFixed(2)}
-                                                            </span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {lineFeed && (
-                                                <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineFeed.current_stock) <= 0 ? "text-red-500" : "text-emerald-600"}`}>
-                                                    {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(lineFeed.current_stock || 0).toFixed(2), unit: lineFeed.unit })}
-                                                    {parseFloat(lineFeed.current_stock) <= 0 && ` · ${t('cattleFeedSales.form.outOfStock')}`}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <TinyInput
-                                            value={line.quantity}
-                                            onChange={(e) => setLine(line._key, "quantity", e.target.value)}
-                                            placeholder="0.0" type="number" step="0.01"
-                                            className={`w-full ${lineFeed && parseFloat(line.quantity) > parseFloat(lineFeed.current_stock || 0)
-                                                ? "bg-red-50 border-red-300 text-red-700"
-                                                : "bg-blue-50 border-blue-200 text-blue-700"}`}
-                                        />
-
-                                        <TinyInput
-                                            value={line.rate}
-                                            onChange={(e) => setLine(line._key, "rate", e.target.value)}
-                                            placeholder="₹0.00" type="number" step="0.01"
-                                            className="w-full bg-amber-50 border-amber-200 text-amber-700"
-                                        />
-
-                                        <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap
-                                        ${lt ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-300"}`}>
-                                            {lt ? t('cattleFeedSales.form.lineTotal', { amount: lt }) : "—"}
-                                        </div>
-
-                                        <button type="button" onClick={() => removeLine(line._key)}
-                                            disabled={lines.length === 1}
-                                            className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 disabled:opacity-20 transition">
-                                            <X size={12} />
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="flex items-center justify-between mb-4">
-                            <button type="button" onClick={addLine}
-                                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
-                                <span className="text-base leading-none">+</span> {t('cattleFeedSales.form.addFeed')}
-                            </button>
-                            {grandFormTotal > 0 && (
-                                <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
-                                    <span className="text-xs text-gray-400 font-medium">
-                                        {t('cattleFeedSales.form.feedCount', { count: lines.filter(l => l.feed_id).length })} ·
-                                    </span>
-                                    {t('cattleFeedSales.form.grandTotal')}
-                                    <span className="text-emerald-700">₹{grandFormTotal.toFixed(2)}</span>
+                            {/* Feed lines */}
+                            <div className="flex flex-col gap-3 mb-4">
+                                <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                                    style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                    <span>{t('cattleFeedSales.form.feed')}</span>
+                                    <span>{t('cattleFeedSales.form.qty')}</span>
+                                    <span>{t('cattleFeedSales.form.rate')}</span>
+                                    <span>{t('cattleFeedSales.form.total')}</span>
+                                    <span />
                                 </div>
-                            )}
-                        </div>
 
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                            <p className="text-xs text-gray-400">
-                                {t('cattleFeedSales.table.entries', { count: sales.length })} {t('cattleFeedSales.form.saleOn')}{" "}
-                                {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                                {totalRevenue > 0 && (
-                                    <span className="ml-2 text-emerald-600 font-semibold">
-                                        {t('cattleFeedSales.form.totalRevenueText', { amount: totalRevenue.toFixed(2) })}
-                                    </span>
+                                {lines.map((line) => {
+                                    const lineFeed = feeds.find(f => String(f.feed_id) === String(line.feed_id));
+                                    const lt = lineTotal(line);
+                                    const searchVal = lineFeedSearch[line._key] !== undefined
+                                        ? lineFeedSearch[line._key]
+                                        : (lineFeed?.feed_name || "");
+
+                                    return (
+                                        <div key={line._key} className="grid gap-2 items-start"
+                                            style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+
+                                            <div className="relative">
+                                                <TinyInput
+                                                    value={searchVal}
+                                                    onChange={(e) => {
+                                                        setLineFeedSearch(p => ({ ...p, [line._key]: e.target.value }));
+                                                        setShowFeedDrop(p => ({ ...p, [line._key]: true }));
+                                                    }}
+                                                    onFocus={() => {
+                                                        setLineFeedSearch(p => ({ ...p, [line._key]: "" }));
+                                                        setShowFeedDrop(p => ({ ...p, [line._key]: true }));
+                                                    }}
+                                                    onBlur={() => setTimeout(() => {
+                                                        setShowFeedDrop(p => ({ ...p, [line._key]: false }));
+                                                        setLineFeedSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
+                                                    }, 150)}
+                                                    placeholder={t('cattleFeedSales.form.feedPlaceholder')}
+                                                    className="w-full"
+                                                />
+                                                {showFeedDrop[line._key] && (
+                                                    <div className="absolute top-full left-0 mt-1 w-72 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                                                        {(lineFeedSearch[line._key]?.trim()
+                                                            ? feeds.filter(f => f.feed_name.toLowerCase().includes(lineFeedSearch[line._key].toLowerCase()))
+                                                            : feeds
+                                                        ).map((f) => (
+                                                            <button key={f.feed_id} type="button"
+                                                                onMouseDown={() => {
+                                                                    setLine(line._key, "feed_id", String(f.feed_id));
+                                                                    setLine(line._key, "rate", f.mrp_rate ? String(f.mrp_rate) : (f.rate ? String(f.rate) : ""));
+                                                                    setLine(line._key, "mrp_rate", f.mrp_rate ? String(f.mrp_rate) : "");
+                                                                    setLineFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
+                                                                    setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
+                                                                }}
+                                                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
+                                                                <div>
+                                                                    <p className="text-xs font-medium text-gray-800">{f.feed_name}</p>
+                                                                    <p className="text-[10px] text-gray-400">
+                                                                        {f.supplier_name && <span className="text-violet-500 font-semibold">{f.supplier_name}</span>}
+                                                                        {f.supplier_name && " · "}
+                                                                        {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(f.current_stock || 0).toFixed(1), unit: f.unit })}
+                                                                    </p>
+                                                                </div>
+                                                                <span className="text-[10px] text-violet-600 font-semibold">
+                                                                    ₹{parseFloat(f.mrp_rate || 0).toFixed(2)}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {lineFeed && (
+                                                    <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineFeed.current_stock) <= 0 ? "text-rose-500" : "text-emerald-600"}`}>
+                                                        {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(lineFeed.current_stock || 0).toFixed(2), unit: lineFeed.unit })}
+                                                        {parseFloat(lineFeed.current_stock) <= 0 && ` · ${t('cattleFeedSales.form.outOfStock')}`}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <TinyInput
+                                                value={line.quantity}
+                                                onChange={(e) => setLine(line._key, "quantity", e.target.value)}
+                                                placeholder="0.0" type="number" step="0.01"
+                                                className={`w-full ${lineFeed && parseFloat(line.quantity) > parseFloat(lineFeed.current_stock || 0)
+                                                    ? "bg-rose-50/80 border-rose-300 text-rose-700"
+                                                    : "bg-blue-50/80 border-blue-200/60 text-blue-700"}`}
+                                            />
+
+                                            <TinyInput
+                                                value={line.rate}
+                                                onChange={(e) => setLine(line._key, "rate", e.target.value)}
+                                                placeholder="₹0.00" type="number" step="0.01"
+                                                className="w-full bg-amber-50/80 border-amber-200/60 text-amber-700"
+                                            />
+
+                                            <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
+                                            ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
+                                                {lt ? t('cattleFeedSales.form.lineTotal', { amount: lt }) : "—"}
+                                            </div>
+
+                                            <button type="button" onClick={() => removeLine(line._key)}
+                                                disabled={lines.length === 1}
+                                                className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition shadow-sm">
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex items-center justify-between mb-4">
+                                <button type="button" onClick={addLine}
+                                    className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500/60 px-3 py-1.5 rounded-xl transition">
+                                    <span className="text-base leading-none">+</span> {t('cattleFeedSales.form.addFeed')}
+                                </button>
+                                {grandFormTotal > 0 && (
+                                    <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                                        <span className="text-xs text-gray-400 font-medium">
+                                            {t('cattleFeedSales.form.feedCount', { count: lines.filter(l => l.feed_id).length })} ·
+                                        </span>
+                                        {t('cattleFeedSales.form.grandTotal')}
+                                        <span className="text-emerald-700">₹{grandFormTotal.toFixed(2)}</span>
+                                    </div>
                                 )}
-                            </p>
-                            <button type="button" onClick={handleSave} disabled={saving}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
-                                <Save size={15} />
-                                {saving ? t('cattleFeedSales.form.saving') : t('cattleFeedSales.form.recordSale')}
-                            </button>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-gray-200/60">
+                                <p className="text-xs text-gray-400">
+                                    {t('cattleFeedSales.table.entries', { count: sales.length })} {t('cattleFeedSales.form.saleOn')}{" "}
+                                    {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                    {totalRevenue > 0 && (
+                                        <span className="ml-2 text-emerald-600 font-semibold">
+                                            {t('cattleFeedSales.form.totalRevenueText', { amount: totalRevenue.toFixed(2) })}
+                                        </span>
+                                    )}
+                                </p>
+                                <button type="button" onClick={handleSave} disabled={saving}
+                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
+                                    ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}>
+                                    <Save size={15} />
+                                    {saving ? t('cattleFeedSales.form.saving') : t('cattleFeedSales.form.recordSale')}
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </SectionCard>
                 )}
 
-                {/* Sales Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="sales-table">
-
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                {/* ── Sales Table ── */}
+                <SectionCard
+                    title={t('cattleFeedSales.table.salesList')}
+                    icon={<ShoppingCart size={16} className="text-white" />}
+                    data-tour="sales-table"
+                >
+                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -1465,12 +1511,12 @@ export default function CattleFeedSales() {
                             <div className="min-w-max">
                                 {[...activeData].reverse().map((txn, i) => (
                                     <div key={txn.transaction_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors"
                                         style={{ gridTemplateColumns: GRID }}>
 
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-gray-900 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
                                                     {(txn.seller_name || "?").charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="flex flex-col min-w-0">
@@ -1520,7 +1566,7 @@ export default function CattleFeedSales() {
                                             <div className="flex items-center gap-1">
                                                 <button
                                                     onClick={() => handlePrintReceipt(txn)}
-                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-400 transition"
+                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-gray-900 hover:text-white text-gray-400 transition shadow-sm"
                                                     title={t('cattleFeedSales.table.printReceipt')}>
                                                     <FileDown size={11} />
                                                 </button>
@@ -1537,7 +1583,7 @@ export default function CattleFeedSales() {
                                                             })),
                                                             sale_date: txn.sale_date,
                                                         })}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-500 transition"
+                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 transition shadow-sm"
                                                         title={t('cattleFeedSales.table.edit')}>
                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                     </button>
@@ -1548,7 +1594,7 @@ export default function CattleFeedSales() {
                                                             id: txn.items[0].sale_id,
                                                             label: `${txn.seller_name} — ${txn.items.map(i => i.feed_name).join(", ")}`,
                                                         })}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition"
+                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 transition shadow-sm"
                                                         title={t('cattleFeedSales.table.delete')}>
                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
                                                     </button>
@@ -1562,28 +1608,28 @@ export default function CattleFeedSales() {
                     )}
 
                     {activeData.length > 0 && (
-                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80"
+                        <div className="grid border-t-2 border-gray-200/60 bg-gray-50/80 rounded-b-xl"
                             style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {t('cattleFeedSales.table.entries', { count: activeData.length })}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-100 flex flex-col gap-0.5">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-200/60 flex flex-col gap-0.5">
                                 {qtyByUnitEntries.length === 0 ? "—"
                                     : qtyByUnitEntries.map(([u, q]) => (
                                         <span key={u}>{q.toFixed(2)} {u}</span>
                                     ))}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
                                 ₹{totalRevenue.toFixed(2)}
                             </div>
                             <div className="px-3 py-2.5" />
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
-                {/* Legend */}
+                {/* ── Legend ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400">
                     <span dangerouslySetInnerHTML={{
                         __html: t('cattleFeedSales.legend.salesCount', {
@@ -1604,10 +1650,10 @@ export default function CattleFeedSales() {
                 showFlash={showFlash}
             />
 
-            {/* Edit Sale Modal */}
+            {/* ── Edit Sale Modal ── */}
             {editingSale && can('cattle_feed_sales', 'U') && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[500px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[500px] flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-gray-800 font-semibold text-base">{t('cattleFeedSales.editModal.title')}</h2>
@@ -1615,12 +1661,12 @@ export default function CattleFeedSales() {
                                     {t('cattleFeedSales.editModal.subtitle', { id: editingSale.transaction_id })}
                                 </p>
                             </div>
-                            <button onClick={() => setEditingSale(null)} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+                            <button onClick={() => setEditingSale(null)} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100/80 transition">
                                 <X size={14} />
                             </button>
                         </div>
 
-                        <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="px-3 py-2 rounded-xl bg-gray-50/80 border border-gray-200/60">
                             <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">{t('cattleFeedSales.editModal.seller')}</p>
                             <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
                                 {editingSale.seller_name}
@@ -1630,7 +1676,7 @@ export default function CattleFeedSales() {
                         <div className="flex flex-col gap-2">
                             {editingSale.items.map((item, index) => (
                                 <div key={item.sale_id} className="grid grid-cols-3 gap-2 items-center">
-                                    <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                                    <div className="px-3 py-2 rounded-xl bg-gray-50/80 border border-gray-200/60">
                                         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">{t('cattleFeedSales.editModal.feed')}</p>
                                         <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
                                             {item.feed_name}
@@ -1647,7 +1693,7 @@ export default function CattleFeedSales() {
                                                 newItems[index].quantity = e.target.value;
                                                 setEditingSale({ ...editingSale, items: newItems });
                                             }}
-                                            className="border border-blue-200 bg-blue-50 rounded-xl px-3 py-2 text-sm text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition"
+                                            className="border border-blue-200/60 bg-blue-50/80 rounded-xl px-3 py-2 text-sm text-blue-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -1661,14 +1707,14 @@ export default function CattleFeedSales() {
                                                 newItems[index].rate = e.target.value;
                                                 setEditingSale({ ...editingSale, items: newItems });
                                             }}
-                                            className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 text-sm text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
+                                            className="border border-amber-200/60 bg-amber-50/80 rounded-xl px-3 py-2 text-sm text-amber-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                                         />
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/60">
                             <span className="text-xs text-emerald-600 font-medium">{t('cattleFeedSales.editModal.grandTotal')}</span>
                             <span className="text-sm font-bold text-emerald-700">
                                 ₹{editingSale.items.reduce((sum, item) => sum + (parseFloat(item.quantity || 0) * parseFloat(item.rate || 0)), 0).toFixed(2)}
@@ -1676,10 +1722,10 @@ export default function CattleFeedSales() {
                         </div>
 
                         <div className="flex gap-2 mt-1">
-                            <button onClick={() => setEditingSale(null)} className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                            <button onClick={() => setEditingSale(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                 {t('cattleFeedSales.editModal.cancel')}
                             </button>
-                            <button onClick={handleEditSave} disabled={editSaving} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 disabled:opacity-50 transition">
+                            <button onClick={handleEditSave} disabled={editSaving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 disabled:opacity-50 transition shadow-sm">
                                 {editSaving ? t('cattleFeedSales.editModal.saving') : t('cattleFeedSales.editModal.saveChanges')}
                             </button>
                         </div>
@@ -1687,12 +1733,12 @@ export default function CattleFeedSales() {
                 </div>
             )}
 
-            {/* Confirm Delete Modal */}
+            {/* ── Confirm Delete Modal ── */}
             {confirmDelete && can('cattle_feed_sales', 'D') && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[340px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[340px] flex flex-col gap-4">
                         <div className="flex items-start gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">
                                     <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />
                                 </svg>
@@ -1707,12 +1753,12 @@ export default function CattleFeedSales() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setConfirmDelete(null)}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                 {t('cattleFeedSales.deleteModal.cancel')}
                             </button>
                             <button
                                 onClick={handleDelete}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition">
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 transition shadow-sm">
                                 {t('cattleFeedSales.deleteModal.confirm')}
                             </button>
                         </div>

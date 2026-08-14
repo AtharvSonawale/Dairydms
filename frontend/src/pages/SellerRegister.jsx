@@ -8,6 +8,7 @@ import {
     Trash2, Hash, Building2, X, BadgeCheck, ExternalLink,
     Wallet, Banknote, Milk, Sprout, MapPinned, Lock,
     UploadCloud, FileSpreadsheet, CheckCircle2, XCircle, Download, RotateCcw, Import,
+    Home
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -141,14 +142,14 @@ const EMPTY_FORM = {
 };
 
 const milkBadge = (t, translate) =>
-    t === "cow" ? "bg-amber-50 text-amber-700 border border-amber-100"
-        : t === "buffalo" ? "bg-blue-50 text-blue-700 border border-blue-100"
-            : "bg-violet-50 text-violet-700 border border-violet-100";
+    t === "cow" ? "bg-amber-50/80 text-amber-700 border border-amber-200/60 backdrop-blur-sm"
+        : t === "buffalo" ? "bg-blue-50/80 text-blue-700 border border-blue-200/60 backdrop-blur-sm"
+            : "bg-violet-50/80 text-violet-700 border border-violet-200/60 backdrop-blur-sm";
 
 const sellerTypeBadge = (t) =>
     t === "Utpadak"
-        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-        : "bg-orange-50 text-orange-700 border border-orange-100";
+        ? "bg-emerald-50/80 text-emerald-700 border border-emerald-200/60 backdrop-blur-sm"
+        : "bg-orange-50/80 text-orange-700 border border-orange-200/60 backdrop-blur-sm";
 
 // ── Field ─────────────────────────────────────────────────────
 const Field = ({ label, name, type = "text", value, onChange, placeholder, required, children, t, ...rest }) => (
@@ -159,8 +160,8 @@ const Field = ({ label, name, type = "text", value, onChange, placeholder, requi
         {children ?? (
             <input name={name} type={type} value={value} onChange={onChange}
                 placeholder={placeholder} required={required}
-                className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
-                    placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition" />
+                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
+                    placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
         )}
     </div>
 );
@@ -168,7 +169,7 @@ const Field = ({ label, name, type = "text", value, onChange, placeholder, requi
 // ── TableCell ─────────────────────────────────────────────────
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-3 flex items-center text-slate-600 border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-3 flex items-center text-slate-600 border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );
@@ -406,8 +407,8 @@ export default function SellerRegister() {
     useEffect(() => { fetchSellers(); }, [t]);
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
     if (!can('seller_register', 'R')) return <AccessDenied />;
@@ -521,78 +522,85 @@ export default function SellerRegister() {
     const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 85px 100px";
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Users size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('sellerRegister.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('sellerRegister.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('sellerRegister.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('sellerRegister.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('sellerRegister.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={startSellerRegisterTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200">
-                            <BadgeCheck size={13} /> {t('sellerRegister.startTour') || 'Take a Tour'}
+                            className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                            <BadgeCheck size={15} /> {t('sellerRegister.startTour') || 'Take a Tour'}
                         </button>
                         <button onClick={openAdd} data-tour="add-seller-btn"
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-black text-white hover:bg-gray-800">
+                            className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
                             <span className="text-base leading-none">+</span> {t('sellerRegister.addSeller')}
                         </button>
                         <button onClick={() => setShowImportModal(true)}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200">
-                            <span><Import size={16} /></span> {t('sellerRegister.importFarmers') || 'Import Farmers'}
+                            className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                            <Import size={16} /> {t('sellerRegister.importFarmers') || 'Import Farmers'}
                         </button>
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" data-tour="seller-stats">
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6" data-tour="seller-stats">
                     {[
-                        { label: t('sellerRegister.totalSellers'), value: sellers.length, icon: <Users size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <Milk size={16} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
-                        { label: t('sellerRegister.buffaloSellers'), value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <Milk size={16} />, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
-                        { label: t('sellerRegister.mixedSellers'), value: sellers.filter((s) => s.milk_type === "mixed").length, icon: <Milk size={16} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
+                        { label: t('sellerRegister.totalSellers'), value: sellers.length, icon: <Users size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
+                        { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <Milk size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" },
+                        { label: t('sellerRegister.buffaloSellers'), value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <Milk size={16} />, color: "from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700" },
+                        { label: t('sellerRegister.mixedSellers'), value: sellers.filter((s) => s.milk_type === "mixed").length, icon: <Milk size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
                     ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                        <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+                            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+                            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+                            <div className="relative z-10">
+                                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium mb-4
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm mb-6
+                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Form */}
+                {/* ── Form ── */}
                 {showForm && (
-                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 shadow-sm">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden mb-6">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
                             <div>
-                                <h2 className="font-semibold text-gray-800">{editingId ? t('sellerRegister.editSeller') : t('sellerRegister.registerNewSeller')}</h2>
-                                <p className="text-xs text-gray-400 mt-0.5">{editingId ? t('sellerRegister.editDesc') : t('sellerRegister.registerDesc')}</p>
+                                <h2 className="text-sm font-bold text-gray-800">{editingId ? t('sellerRegister.editSeller') : t('sellerRegister.registerNewSeller')}</h2>
+                                <p className="text-xs text-gray-500 mt-0.5">{editingId ? t('sellerRegister.editDesc') : t('sellerRegister.registerDesc')}</p>
                             </div>
-                            <button onClick={closeForm} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                <X size={14} />
+                            <button onClick={closeForm} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                <X size={16} />
                             </button>
                         </div>
 
@@ -601,15 +609,15 @@ export default function SellerRegister() {
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <Field label={t('sellerRegister.fullName')} name="name" value={form.name} onChange={handleChange} placeholder={t('sellerRegister.namePlaceholder')} required t={t}>
                                     <input name="name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))} placeholder={t('sellerRegister.namePlaceholder')} required maxLength={60}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.sellerCode')} name="seller_code" value={form.seller_code} onChange={handleChange} placeholder={t('sellerRegister.codeAutoGenerated')} required t={t}>
                                     <input value={form.seller_code} readOnly
-                                        className="border border-gray-200 bg-gray-100 rounded-xl px-3 py-2 text-sm text-gray-500 font-mono cursor-not-allowed w-full" />
+                                        className="border border-gray-200/60 bg-gray-100/50 rounded-xl px-4 py-2.5 text-sm text-gray-500 font-mono cursor-not-allowed shadow-sm w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.mobile')} name="mobile" value={form.mobile} onChange={handleChange} placeholder="+91XXXXXXXXXX" type="tel" required t={t}>
                                     <input name="mobile" value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))} placeholder="+91XXXXXXXXXX" type="tel" required maxLength={13}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                             </div>
 
@@ -619,14 +627,14 @@ export default function SellerRegister() {
                                     <input name="aadhaar" value={form.aadhaar}
                                         onChange={e => setForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
                                         placeholder="XXXX XXXX XXXX" maxLength={12}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
 
                                 <Field label="PAN Number" name="pan_number" value={form.pan_number} onChange={handleChange} placeholder="e.g. ABCDE1234F" t={t}>
                                     <input name="pan_number" value={form.pan_number}
                                         onChange={e => setForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
                                         placeholder="e.g. ABCDE1234F" maxLength={12}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                     <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.pan_number.length}/12</p>
                                 </Field>
 
@@ -634,7 +642,7 @@ export default function SellerRegister() {
                                     <input name="seller_id_code" value={form.seller_id_code}
                                         onChange={e => setForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
                                         placeholder="Up to 18 digits" maxLength={18} inputMode="numeric"
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                     <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.seller_id_code.length}/18</p>
                                 </Field>
 
@@ -642,10 +650,10 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.sellerType')} required t={t}>
                                     <div className="flex gap-2">
                                         {SELLER_TYPES.map((type) => (
-                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
                                                 ${form.seller_type === type
-                                                    ? type === "Utpadak" ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-orange-50 border-orange-300 text-orange-800"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                    ? type === "Utpadak" ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-orange-50 to-orange-100/50 border-orange-200/60 text-orange-800"
+                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input type="radio" name="seller_type" value={type} checked={form.seller_type === type} onChange={handleChange} className="hidden" />
                                                 {type === "Utpadak" ? t('sellerRegister.utpadak') : t('sellerRegister.gavali')}
                                             </label>
@@ -657,11 +665,11 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.milkType')} required t={t}>
                                     <div className="flex gap-2">
                                         {MILK_TYPES.map((type) => (
-                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition                                                ${form.milk_type === type
-                                                ? type === "cow" ? "bg-amber-50 border-amber-300 text-amber-800"
-                                                    : type === "buffalo" ? "bg-blue-50 border-blue-300 text-blue-800"
-                                                        : "bg-violet-50 border-violet-300 text-violet-800"
-                                                : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm                                                ${form.milk_type === type
+                                                ? type === "cow" ? "bg-gradient-to-br from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-800"
+                                                    : type === "buffalo" ? "bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-800"
+                                                        : "bg-gradient-to-br from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-800"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input type="radio" name="milk_type" value={type} checked={form.milk_type === type} onChange={handleChange} className="hidden" />
                                                 {type === "cow" ? t('sellerRegister.cow') : type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.mixed')}
                                             </label>
@@ -676,33 +684,33 @@ export default function SellerRegister() {
                                     <input name="jamin" value={form.jamin}
                                         onChange={e => setForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
                                         placeholder={t('sellerRegister.jaminPlaceholder')} maxLength={60}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.bankAccountNo')} name="bank_account" value={form.bank_account} onChange={handleChange} placeholder={t('sellerRegister.bankAccountPlaceholder')} t={t}>
                                     <input name="bank_account" value={form.bank_account} onChange={e => setForm(p => ({ ...p, bank_account: e.target.value.replace(/\D/g, "") }))}
                                         placeholder={t('sellerRegister.bankAccountPlaceholder')} maxLength={20}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.confirmAccountNo')} name="bank_account_confirm" value={form.bank_account_confirm} onChange={handleChange} placeholder={t('sellerRegister.confirmAccountPlaceholder')} t={t}>
                                     <input name="bank_account_confirm" value={form.bank_account_confirm}
                                         onChange={e => setForm(p => ({ ...p, bank_account_confirm: e.target.value.replace(/\D/g, "") }))}
                                         placeholder={t('sellerRegister.confirmAccountPlaceholder')} maxLength={20}
-                                        className={`border rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition w-full
-                                        ${form.bank_account_confirm && form.bank_account !== form.bank_account_confirm ? "border-red-300 bg-red-50 focus:ring-red-400" : "border-gray-200 bg-gray-50 focus:bg-white"}`} />
+                                        className={`border rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition w-full
+                                        ${form.bank_account_confirm && form.bank_account !== form.bank_account_confirm ? "border-rose-300 bg-rose-50/50 focus:ring-rose-400" : "border-gray-200/60 bg-white/50 backdrop-blur-sm focus:bg-white"}`} />
                                     {form.bank_account_confirm && form.bank_account !== form.bank_account_confirm &&
-                                        <p className="text-xs text-red-500 mt-1">{t('sellerRegister.accountMismatch')}</p>}
+                                        <p className="text-xs text-rose-500 mt-1">{t('sellerRegister.accountMismatch')}</p>}
                                 </Field>
                                 <Field label={t('sellerRegister.bankName')} name="bank_name" value={form.bank_name} onChange={handleChange} placeholder="e.g. SBI, HDFC" t={t}>
                                     <input name="bank_name" value={form.bank_name}
                                         onChange={e => setForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
                                         placeholder="e.g. SBI, HDFC" maxLength={50}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.ifscCode')} name="ifsc_code" value={form.ifsc_code} onChange={handleChange} placeholder="e.g. SBIN0001234" t={t}>
                                     <input name="ifsc_code" value={form.ifsc_code}
                                         onChange={e => setForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
                                         placeholder="e.g. SBIN0001234" maxLength={11}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                             </div>
 
@@ -712,25 +720,25 @@ export default function SellerRegister() {
                                     <input name="account_holder_name" value={form.account_holder_name}
                                         onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
                                         placeholder="As per bank passbook" maxLength={100}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label="Branch Name" name="branch_name" value={form.branch_name} onChange={handleChange} placeholder="e.g. Pune Main Branch" t={t}>
                                     <input name="branch_name" value={form.branch_name}
                                         onChange={e => setForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
                                         placeholder="e.g. Pune Main Branch" maxLength={100}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.address')} name="address" value={form.address} onChange={handleChange} placeholder={t('sellerRegister.addressPlaceholder')} t={t}>
                                     <input name="address" value={form.address} onChange={handleChange}
                                         placeholder={t('sellerRegister.addressPlaceholder')} minLength={10} maxLength={200}
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                     <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
                                 </Field>
                                 <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 411001" t={t}>
                                     <input name="pincode" value={form.pincode}
                                         onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
                                         placeholder="e.g. 411001" maxLength={6} inputMode="numeric"
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label="Password" name="password" value={form.password} onChange={handleChange}
                                     placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"} t={t}>
@@ -739,8 +747,8 @@ export default function SellerRegister() {
                                             onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                                             placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
                                             maxLength={100} autoComplete="new-password"
-                                            className="border border-gray-200 bg-gray-50 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
-                                        <Lock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                        <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                     </div>
                                     <p className={`text-[10px] mt-1 ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
                                         {hasPassword ? "Password is set. Enter a new one to change it." : "No password set yet for this seller."}
@@ -753,9 +761,9 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.cashAdvance')} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition ${form.advance_enabled === val
-                                                ? val === 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-red-50 border-red-300 text-red-700"
-                                                : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm ${form.advance_enabled === val
+                                                ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input type="radio" name="advance_enabled" value={val}
                                                     checked={form.advance_enabled === val}
                                                     onChange={() => setForm((p) => ({ ...p, advance_enabled: val, advance_deduction: val === 0 ? "" : p.advance_deduction }))}
@@ -770,7 +778,7 @@ export default function SellerRegister() {
                                         <input name="advance_deduction" value={form.advance_deduction}
                                             onChange={e => setForm(p => ({ ...p, advance_deduction: e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") }))}
                                             placeholder={t('sellerRegister.advanceRecoveryPlaceholder')} inputMode="decimal" maxLength={10}
-                                            className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full" />
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                     </Field>
                                 )}
                             </div>
@@ -780,10 +788,10 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.depositPerLitre')} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
                                             ${form.deposit_enabled === val
-                                                    ? val === 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-red-50 border-red-300 text-red-700"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input type="radio" name="deposit_enabled" value={val}
                                                     checked={form.deposit_enabled === val}
                                                     onChange={() => setForm(p => ({ ...p, deposit_enabled: val, deposit_per_litre: val === 0 ? "" : p.deposit_per_litre }))}
@@ -802,7 +810,7 @@ export default function SellerRegister() {
                                             placeholder={t('sellerRegister.depositRatePlaceholder')}
                                             inputMode="decimal"
                                             maxLength={6}
-                                            className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-full"
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full"
                                         />
                                         {form.deposit_per_litre && (
                                             <p className="text-[10px] text-emerald-600 font-semibold mt-1">
@@ -821,10 +829,10 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.productSale')} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
                     ${form.product_sale_enabled === val
-                                                    ? val === 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-red-50 border-red-300 text-red-700"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input
                                                     type="radio"
                                                     name="product_sale_enabled"
@@ -846,10 +854,10 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.cattleFeedSale') || "Cattle Feed Sale"} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
                                                 ${form.cattle_feed_sale_enabled === val
-                                                    ? val === 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-red-50 border-red-300 text-red-700"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input
                                                     type="radio"
                                                     name="cattle_feed_sale_enabled"
@@ -873,10 +881,10 @@ export default function SellerRegister() {
                                 <Field label={t('sellerRegister.sellerStatus')} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.active'), val: 1 }, { label: t('sellerRegister.inactive'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition
+                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
                                                 ${(form.is_active ?? 1) === val
-                                                    ? val === 1 ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-red-50 border-red-300 text-red-700"
-                                                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input type="radio" name="is_active" value={val}
                                                     checked={(form.is_active ?? 1) === val}
                                                     onChange={() => setForm(p => ({ ...p, is_active: val }))}
@@ -888,12 +896,12 @@ export default function SellerRegister() {
                                 </Field>
                             </div>
 
-                            <div className="flex items-center justify-end gap-3 pt-1">
+                            <div className="flex items-center justify-end gap-3 pt-1 border-t border-gray-100/60">
                                 <button type="button" onClick={closeForm} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">{t('sellerRegister.cancel')}</button>
                                 <button type="submit" disabled={saving}
-                                    className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
+                                    className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
                                     {saving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    <Save size={13} />
+                                    <Save size={14} />
                                     {saving ? t('sellerRegister.saving') : editingId ? t('sellerRegister.updateSeller') : t('sellerRegister.registerSeller')}
                                 </button>
                             </div>
@@ -901,12 +909,12 @@ export default function SellerRegister() {
                     </div>
                 )}
 
-                {/* Filter Tabs */}
+                {/* ── Filter Tabs ── */}
                 <div className="flex items-center gap-2 mb-4" data-tour="filter-tabs">
                     {["all", "cow", "buffalo", "mixed"].map((f) => (
                         <button key={f} onClick={() => handleFilterChange(f)}
-                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border
-                                ${filter === f ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
+                                ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                             {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.mixed')}
                             {f !== "all" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.milk_type === f).length}</span>}
                         </button>
@@ -914,12 +922,12 @@ export default function SellerRegister() {
                     <span className="ml-auto text-xs text-gray-400">{filtered.length} {t('sellerRegister.sellers')}</span>
                 </div>
 
-                {/* Table */}
-                <div className="w-full overflow-x-auto rounded-2xl border border-gray-200 shadow-sm" data-tour="seller-table">
-                    <div className="min-w-[1600px] bg-white">
-                        <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                {/* ── Table ── */}
+                <div className="w-full overflow-x-auto rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur-sm" data-tour="seller-table">
+                    <div className="min-w-[1600px]">
+                        <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                             {TABLE_COLS.map(({ label, icon }) => (
-                                <div key={label} className="px-3 py-3 flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                                <div key={label} className="px-3 py-3 flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                     {icon}{label}
                                 </div>
                             ))}
@@ -928,11 +936,11 @@ export default function SellerRegister() {
 
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : filtered.length === 0 ? (
                         <div className="text-center py-20">
-                            <div className="flex justify-center mb-3"><Sprout size={32} className="text-gray-300" /></div>
+                            <div className="flex justify-center mb-3"><Sprout size={40} className="text-gray-200" /></div>
                             <p className="text-gray-500 text-sm font-medium">{t('sellerRegister.noSellersFound')}</p>
                             <p className="text-gray-400 text-xs mt-1">{t('sellerRegister.addFirstSeller')}</p>
                         </div>
@@ -940,16 +948,16 @@ export default function SellerRegister() {
                         <>
                             {[...paginated].reverse().map((s) => (
                                 <div key={s.seller_id}
-                                    className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors group"
+                                    className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors group"
                                     style={{ gridTemplateColumns: GRID }}>
 
                                     {/* Name — link to profile */}
                                     <TableCell>
                                         <Link to={`/seller/${s.seller_id}`} className="flex items-center gap-2 group/link">
-                                            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-semibold text-xs shrink-0 group-hover/link:bg-black group-hover/link:text-white transition">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 font-semibold text-xs shrink-0 group-hover/link:bg-gradient-to-br group-hover/link:from-gray-900 group-hover/link:to-gray-700 group-hover/link:text-white transition shadow-sm">
                                                 {s.name?.charAt(0)?.toUpperCase()}
                                             </div>
-                                            <span className="text-gray-800 font-medium truncate group-hover/link:text-black group-hover/link:underline underline-offset-2 transition">
+                                            <span className="text-gray-800 font-medium truncate group-hover/link:text-gray-900 group-hover/link:underline underline-offset-2 transition">
                                                 {s.name}
                                             </span>
                                             <ExternalLink size={10} className="text-gray-300 group-hover/link:text-gray-500 shrink-0 transition" />
@@ -957,7 +965,7 @@ export default function SellerRegister() {
                                     </TableCell>
 
                                     <TableCell>
-                                        <span className="font-mono text-xs text-gray-500 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded-md">
+                                        <span className="font-mono text-xs text-gray-500 bg-gray-50/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
                                             {s.seller_code || "—"}
                                         </span>
                                     </TableCell>
@@ -1010,10 +1018,10 @@ export default function SellerRegister() {
                                     </TableCell>
                                     <TableCell className="text-gray-500 font-mono text-xs">{s.pincode || "—"}</TableCell>
                                     <TableCell>
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border backdrop-blur-sm
                                             ${s.advance_enabled === 0 || s.advance_enabled === false
-                                                ? "bg-red-50 text-red-600 border-red-100"
-                                                : "bg-emerald-50 text-emerald-700 border-emerald-100"}`}>
+                                                ? "bg-rose-50/80 text-rose-600 border-rose-200/60"
+                                                : "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"}`}>
                                             {s.advance_enabled === 0 || s.advance_enabled === false ? t('sellerRegister.off') : t('sellerRegister.on')}
                                         </span>
                                     </TableCell>
@@ -1027,8 +1035,8 @@ export default function SellerRegister() {
                                     </TableCell>
 
                                     <TableCell>
-                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
-                                            ${s.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-gray-50 text-gray-400 border-gray-100"}`}>
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border backdrop-blur-sm
+                                            ${s.is_active ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-gray-50/80 text-gray-400 border-gray-200/60"}`}>
                                             {s.is_active ? t('sellerRegister.active') : t('sellerRegister.inactive')}
                                         </span>
                                     </TableCell>
@@ -1036,12 +1044,12 @@ export default function SellerRegister() {
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
                                             <button onClick={() => openEdit(s)}
-                                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition border border-blue-100">
-                                                <Pencil size={11} /> {t('sellerRegister.edit')}
+                                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-600 text-xs font-semibold transition border border-blue-200/60 backdrop-blur-sm shadow-sm">
+                                                <Pencil size={12} /> {t('sellerRegister.edit')}
                                             </button>
                                             <button onClick={() => setDeleteId(s.seller_id)}
-                                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-medium transition border border-red-100">
-                                                <Trash2 size={11} /> {t('sellerRegister.del')}
+                                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 text-xs font-semibold transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
+                                                <Trash2 size={12} /> {t('sellerRegister.del')}
                                             </button>
                                         </div>
                                     </TableCell>
@@ -1051,13 +1059,13 @@ export default function SellerRegister() {
                     )}
                 </div>
 
+                {/* ── Pagination ── */}
                 <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Pagination controls */}
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                             {t('sellerRegister.prev')}
                         </button>
                         <div className="flex items-center gap-1">
@@ -1072,8 +1080,8 @@ export default function SellerRegister() {
                                     p === '...'
                                         ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
                                         : <button key={p} onClick={() => setCurrentPage(p)}
-                                            className={`w-7 h-7 rounded-lg text-xs font-semibold transition border
-                                ${currentPage === p ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                                            className={`w-7 h-7 rounded-lg text-xs font-semibold transition border shadow-sm
+                                ${currentPage === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                             {p}
                                         </button>
                                 )}
@@ -1081,7 +1089,7 @@ export default function SellerRegister() {
                         <button
                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages || totalPages === 0}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                             {t('sellerRegister.next')}
                         </button>
                         <span className="text-xs text-gray-400 ml-1">
@@ -1089,7 +1097,6 @@ export default function SellerRegister() {
                         </span>
                     </div>
 
-                    {/* Page size + legend */}
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">{t('sellerRegister.rowsPerPage')}</span>
@@ -1101,7 +1108,7 @@ export default function SellerRegister() {
                                     setPageSize(v);
                                     setCurrentPage(1);
                                 }}
-                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="w-14 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-center text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                             />
                         </div>
                         <div className="flex flex-wrap gap-3 text-xs text-gray-400">
@@ -1110,47 +1117,56 @@ export default function SellerRegister() {
                         </div>
                     </div>
                 </div>
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-6 mt-4 border-t border-gray-200/40">
+                    <span>· {t('sellerRegister.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('sellerRegister.footerTotal', { defaultValue: 'Total sellers' })}: <strong className="text-gray-600">{sellers.length}</strong></span>
+                    <span>· {t('sellerRegister.footerActive', { defaultValue: 'Active' })}: <strong className="text-emerald-600">{sellers.filter(s => s.is_active).length}</strong></span>
+                </div>
+
             </main>
 
-            {/* Delete Modal */}
+            {/* ── Delete Modal ── */}
             {deleteId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-80 flex flex-col gap-4">
                         <div className="flex flex-col items-center gap-2 text-center">
-                            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
-                                <Trash2 size={22} className="text-red-500" />
+                            <div className="w-14 h-14 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
+                                <Trash2 size={24} className="text-rose-500" />
                             </div>
-                            <h2 className="text-gray-800 font-semibold text-base">{t('sellerRegister.deleteModalTitle')}</h2>
+                            <h2 className="text-gray-800 font-bold text-base">{t('sellerRegister.deleteModalTitle')}</h2>
                             <p className="text-gray-400 text-xs leading-relaxed">
                                 {t('sellerRegister.deleteModalWarning')}
                             </p>
                         </div>
                         <div className="flex gap-2 mt-1">
                             <button onClick={() => setDeleteId(null)}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">{t('sellerRegister.cancel')}</button>
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">{t('sellerRegister.cancel')}</button>
                             <button onClick={handleDelete}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-100 transition active:scale-95">{t('sellerRegister.yesDelete')}</button>
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 active:scale-95">{t('sellerRegister.yesDelete')}</button>
                         </div>
                     </div>
                 </div>
             )}
-            {/* Import Modal */}
+
+            {/* ── Import Modal ── */}
             {showImportModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-4xl w-full max-h-[90vh] flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 max-w-4xl w-full max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shrink-0 shadow-lg shadow-gray-900/20">
                                     <FileSpreadsheet size={16} className="text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-semibold text-gray-800">{t('sellerRegister.importFarmers') || 'Import Farmers'}</h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">{t('sellerRegister.importDescription') || 'Bulk-add sellers from an Excel or CSV file'}</p>
+                                    <h2 className="text-sm font-bold text-gray-800">{t('sellerRegister.importFarmers') || 'Import Farmers'}</h2>
+                                    <p className="text-xs text-gray-500 mt-0.5">{t('sellerRegister.importDescription') || 'Bulk-add sellers from an Excel or CSV file'}</p>
                                 </div>
                             </div>
                             <button onClick={() => { setShowImportModal(false); resetImport(); }}
-                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                <X size={14} />
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                <X size={16} />
                             </button>
                         </div>
 
@@ -1161,10 +1177,10 @@ export default function SellerRegister() {
                                     onDrop={handleDrop}
                                     onDragOver={handleDragOver}
                                     onDragLeave={handleDragLeave}
-                                    className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-12 px-6 cursor-pointer transition
-                            ${isDragging ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition
-                            ${isDragging ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
+                                    className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-12 px-6 cursor-pointer transition shadow-sm
+                            ${isDragging ? "border-gray-900 bg-gray-100/50 backdrop-blur-sm" : "border-gray-200/60 bg-white/50 backdrop-blur-sm hover:border-gray-400 hover:bg-gray-50/50"}`}>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition shadow-sm
+                            ${isDragging ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-200/50 text-gray-400"}`}>
                                         <UploadCloud size={22} />
                                     </div>
                                     <div className="text-center">
@@ -1177,8 +1193,8 @@ export default function SellerRegister() {
                                 </label>
                             ) : (
                                 /* Selected file chip */
-                                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 mb-4">
-                                    <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm shadow-sm mb-4">
+                                    <div className="w-9 h-9 rounded-lg bg-white border border-gray-200/60 flex items-center justify-center shrink-0 shadow-sm">
                                         <FileSpreadsheet size={16} className="text-emerald-600" />
                                     </div>
                                     <div className="min-w-0 flex-1">
@@ -1186,11 +1202,11 @@ export default function SellerRegister() {
                                         <p className="text-xs text-gray-400">{(importFile.size / 1024).toFixed(1)} KB</p>
                                     </div>
                                     {parsingFile && (
-                                        <span className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin shrink-0" />
+                                        <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin shrink-0" />
                                     )}
                                     <button onClick={resetImport}
-                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-gray-100 text-gray-500 text-xs font-medium transition border border-gray-200 shrink-0">
-                                        <RotateCcw size={11} /> {t('sellerRegister.replaceFile') || 'Replace'}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/60 backdrop-blur-sm hover:bg-gray-100/80 text-gray-500 text-xs font-medium transition border border-gray-200/60 shadow-sm shrink-0">
+                                        <RotateCcw size={12} /> {t('sellerRegister.replaceFile') || 'Replace'}
                                     </button>
                                 </div>
                             )}
@@ -1198,15 +1214,15 @@ export default function SellerRegister() {
                             {/* Stat pills */}
                             {importData.length > 0 && (
                                 <div className="flex items-center gap-2 mb-4">
-                                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100/80 text-gray-600 border border-gray-200/60 backdrop-blur-sm shadow-sm">
                                         {importData.length} {t('sellerRegister.rowsFound') || 'row(s) found'}
                                     </span>
-                                    <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                    <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50/80 text-emerald-700 border border-emerald-200/60 backdrop-blur-sm shadow-sm">
                                         <CheckCircle2 size={11} />
                                         {importData.filter(r => r._valid).length} {t('sellerRegister.valid') || 'valid'}
                                     </span>
                                     {importData.filter(r => !r._valid).length > 0 && (
-                                        <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                                        <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-rose-50/80 text-rose-600 border border-rose-200/60 backdrop-blur-sm shadow-sm">
                                             <XCircle size={11} />
                                             {importData.filter(r => !r._valid).length} {t('sellerRegister.invalid') || 'invalid'}
                                         </span>
@@ -1216,30 +1232,30 @@ export default function SellerRegister() {
 
                             {/* Errors */}
                             {importErrors.length > 0 && (
-                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 max-h-40 overflow-y-auto">
+                                <div className="mb-4 p-3 bg-rose-50/80 backdrop-blur-sm border border-rose-200/60 rounded-xl text-sm text-rose-600 max-h-40 overflow-y-auto shadow-sm">
                                     {importErrors.map((err, i) => <div key={i}>• {err}</div>)}
                                 </div>
                             )}
 
                             {/* Preview Table */}
                             {importData.length > 0 && (
-                                <div className="border border-gray-200 rounded-xl overflow-auto max-h-96">
+                                <div className="border border-gray-200/60 rounded-xl overflow-auto max-h-96 shadow-sm bg-white/50 backdrop-blur-sm">
                                     <table className="w-full text-xs">
-                                        <thead className="bg-gray-50 sticky top-0">
+                                        <thead className="bg-gradient-to-r from-gray-50/50 to-white/50 sticky top-0">
                                             <tr>
                                                 {Object.keys(importData[0]).filter(k => !k.startsWith('_')).map(key => (
-                                                    <th key={key} className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                                                    <th key={key} className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200/60">
                                                         {key}
                                                     </th>
                                                 ))}
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">{t('sellerRegister.status') || 'Status'}</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200/60">{t('sellerRegister.status') || 'Status'}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {importData.map((row, idx) => {
                                                 const valid = row._valid;
                                                 return (
-                                                    <tr key={idx} className={`border-b border-gray-50 ${valid ? 'hover:bg-emerald-50/30' : 'bg-red-50/30'}`}>
+                                                    <tr key={idx} className={`border-b border-gray-100/60 ${valid ? 'hover:bg-emerald-50/30' : 'bg-rose-50/20'}`}>
                                                         {Object.keys(row).filter(k => !k.startsWith('_')).map(key => (
                                                             <td key={key} className="px-3 py-2 text-gray-700 max-w-[150px] truncate">
                                                                 {row[key] !== undefined && row[key] !== null ? String(row[key]) : ''}
@@ -1248,7 +1264,7 @@ export default function SellerRegister() {
                                                         <td className="px-3 py-2">
                                                             {valid
                                                                 ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> {t('sellerRegister.valid') || 'Valid'}</span>
-                                                                : <span className="flex items-center gap-1 text-red-500 font-semibold"><XCircle size={12} /> {t('sellerRegister.invalid') || 'Invalid'}</span>}
+                                                                : <span className="flex items-center gap-1 text-rose-500 font-semibold"><XCircle size={12} /> {t('sellerRegister.invalid') || 'Invalid'}</span>}
                                                         </td>
                                                     </tr>
                                                 );
@@ -1259,7 +1275,7 @@ export default function SellerRegister() {
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+                        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
                             <button onClick={downloadTemplate}
                                 className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
                                 <Download size={12} /> {t('sellerRegister.downloadTemplate') || 'Download sample template'}
@@ -1270,9 +1286,9 @@ export default function SellerRegister() {
                                     {t('sellerRegister.cancel')}
                                 </button>
                                 <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || missingRequiredColumns}
-                                    className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl text-white bg-black hover:bg-gray-800 transition disabled:opacity-50">
+                                    className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
                                     {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    <Save size={13} />
+                                    <Save size={14} />
                                     {t('sellerRegister.saveAll') || 'Save All'}
                                 </button>
                             </div>
@@ -1281,20 +1297,20 @@ export default function SellerRegister() {
                 </div>
             )}
 
-            {/* Import Result Popup */}
+            {/* ── Import Result Popup ── */}
             {importResult && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-80 flex flex-col gap-4">
                         <div className="flex flex-col items-center gap-2 text-center">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center border
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center border shadow-sm
                     ${importResult.skipped === 0
-                                    ? "bg-emerald-50 border-emerald-100"
-                                    : "bg-amber-50 border-amber-100"}`}>
+                                    ? "bg-emerald-50/80 border-emerald-200/60"
+                                    : "bg-amber-50/80 border-amber-200/60"}`}>
                                 {importResult.skipped === 0
-                                    ? <BadgeCheck size={22} className="text-emerald-500" />
-                                    : <AlertTriangle size={22} className="text-amber-500" />}
+                                    ? <BadgeCheck size={24} className="text-emerald-500" />
+                                    : <AlertTriangle size={24} className="text-amber-500" />}
                             </div>
-                            <h2 className="text-gray-800 font-semibold text-base">{t('sellerRegister.importComplete') || 'Import Complete'}</h2>
+                            <h2 className="text-gray-800 font-bold text-base">{t('sellerRegister.importComplete') || 'Import Complete'}</h2>
                             <p className="text-gray-500 text-sm leading-relaxed">
                                 <span className="font-semibold text-emerald-600">{importResult.added}</span> {t('sellerRegister.importResultsAdded') || 'seller(s) added'}
                                 {importResult.skipped > 0 && (
@@ -1307,7 +1323,7 @@ export default function SellerRegister() {
                             )}
                         </div>
                         <button onClick={() => setImportResult(null)}
-                            className="w-full py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition active:scale-95">
+                            className="w-full py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 active:scale-95">
                             OK
                         </button>
                     </div>

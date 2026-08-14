@@ -1,12 +1,18 @@
+// backend/controllers/cattlefeedpurchase.controller.js
+
 const pool = require('../config/db');
 
 // ══════════════════════════════════════════════════════════════
-//  CATTLE FEEDS
+//  CATTLE FEEDS CATALOGUE
 // ══════════════════════════════════════════════════════════════
 
 // GET /api/cattle-feeds
 exports.getFeeds = async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const centreId = req.user.centre_id;
 
         // both admin and operator see all feeds
@@ -33,6 +39,10 @@ exports.getFeeds = async (req, res) => {
 // GET /api/cattle-feeds/all (Admin only)
 exports.getAllCentreFeeds = async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
@@ -65,15 +75,24 @@ exports.createFeed = async (req, res) => {
     try {
         await conn.beginTransaction();
 
+        if (!req.user) {
+            await conn.rollback();
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const { feed_name, unit, supplier_name, rate, mrp_rate } = req.body;
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        if (!feed_name || !feed_name.trim())
+        if (!feed_name || !feed_name.trim()) {
+            await conn.rollback();
             return res.status(400).json({ error: 'Feed name is required.' });
-        if (!unit || !unit.trim())
+        }
+        if (!unit || !unit.trim()) {
+            await conn.rollback();
             return res.status(400).json({ error: 'Unit is required.' });
+        }
 
         // Check for duplicate feed in same centre (same name + same supplier)
         const [existing] = await conn.query(
@@ -121,16 +140,22 @@ exports.createFeed = async (req, res) => {
 // PUT /api/cattle-feeds/:id
 exports.updateFeed = async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const { id } = req.params;
         const { feed_name, unit, current_stock, supplier_name, rate, mrp_rate } = req.body;
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        if (!feed_name || !feed_name.trim())
+        if (!feed_name || !feed_name.trim()) {
             return res.status(400).json({ error: 'Feed name is required.' });
-        if (!unit || !unit.trim())
+        }
+        if (!unit || !unit.trim()) {
             return res.status(400).json({ error: 'Unit is required.' });
+        }
 
         // Check feed exists
         const [existing] = await pool.query(
@@ -180,6 +205,12 @@ exports.deleteFeed = async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
+
+        if (!req.user) {
+            await conn.rollback();
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const { id } = req.params;
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
@@ -196,6 +227,7 @@ exports.deleteFeed = async (req, res) => {
             return res.status(404).json({ error: 'Feed not found in your centre.' });
         }
 
+        // Delete related records first
         await conn.query(`DELETE FROM cattle_feed_sales WHERE feed_id = ? AND centre_id = ?`, [id, centreId]);
         await conn.query(`DELETE FROM cattle_feed_purchases WHERE feed_id = ? AND centre_id = ?`, [id, centreId]);
         await conn.query(`DELETE FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`, [id, centreId]);
@@ -219,6 +251,10 @@ exports.deleteFeed = async (req, res) => {
 // GET /api/cattle-feeds/purchases?date=YYYY-MM-DD
 exports.getPurchases = async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const centreId = req.user.centre_id;
         const { date, from, to, feed_id } = req.query;
 
@@ -268,10 +304,16 @@ exports.getPurchases = async (req, res) => {
 // GET /api/cattle-feeds/purchases/suggestions?feed_id=X
 exports.getPurchaseSuggestions = async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const { feed_id } = req.query;
         const centreId = req.user.centre_id;
 
-        if (!feed_id) return res.status(400).json({ error: 'feed_id is required.' });
+        if (!feed_id) {
+            return res.status(400).json({ error: 'feed_id is required.' });
+        }
 
         const [rows] = await pool.query(
             `SELECT supplier_name, rate, MAX(purchase_date) AS last_date
@@ -294,6 +336,11 @@ exports.createPurchase = async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
+
+        if (!req.user) {
+            await conn.rollback();
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
 
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
@@ -336,7 +383,7 @@ exports.createPurchase = async (req, res) => {
             purchase_date,
         } = req.body;
 
-        // ── validation (unchanged) ──
+        // ── validation ──
         if (!feed_id) {
             await conn.rollback();
             return res.status(400).json({ error: 'Feed is required.' });
@@ -413,7 +460,7 @@ exports.createPurchase = async (req, res) => {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 targetFeedId,
-                effectiveOperatorId,   // <-- use effectiveOperatorId
+                effectiveOperatorId,
                 centreId,
                 trimmedSupplier,
                 parseFloat(quantity),
@@ -462,17 +509,26 @@ exports.createPurchase = async (req, res) => {
         conn.release();
     }
 };
+
 // PUT /api/cattle-feeds/purchases/:id
 exports.updatePurchase = async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
         const { id } = req.params;
-        const { feed_id, feed_name, quantity, rate, mrp_rate, supplier_name, purchase_date } = req.body;
+        const { feed_id, quantity, rate, mrp_rate, supplier_name, purchase_date } = req.body;
+
+        // ── Defensive check for req.user ──
+        if (!req.user) {
+            await conn.rollback();
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
+        // ── Validation ──
         if (!quantity || parseFloat(quantity) <= 0) {
             await conn.rollback();
             return res.status(400).json({ error: 'Quantity must be greater than 0.' });
@@ -482,11 +538,10 @@ exports.updatePurchase = async (req, res) => {
             return res.status(400).json({ error: 'Rate must be greater than 0.' });
         }
 
-        // Check purchase exists and user has access
+        // ── Check purchase exists and user has access ──
         const [existing] = await conn.query(
-            `SELECT fp.*, f.operator_id AS feed_operator_id 
+            `SELECT fp.* 
              FROM cattle_feed_purchases fp
-             JOIN cattle_feeds f ON f.feed_id = fp.feed_id
              WHERE fp.purchase_id = ? AND fp.centre_id = ?`,
             [id, centreId]
         );
@@ -495,6 +550,8 @@ exports.updatePurchase = async (req, res) => {
             return res.status(404).json({ error: 'Purchase not found in your centre.' });
         }
 
+        // ── Permission check ──
+        // Admin can update any purchase, operator can only update their own
         if (!isAdmin && existing[0].operator_id !== operatorId) {
             await conn.rollback();
             return res.status(403).json({
@@ -502,28 +559,45 @@ exports.updatePurchase = async (req, res) => {
             });
         }
 
+        // ── Get feed details ──
+        const targetFeedId = feed_id || existing[0].feed_id;
+        const [feed] = await conn.query(
+            `SELECT feed_id, feed_name, current_stock 
+             FROM cattle_feeds 
+             WHERE feed_id = ? AND centre_id = ?`,
+            [targetFeedId, centreId]
+        );
+
+        if (!feed.length) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Feed not found in your centre.' });
+        }
+
+        // ── Calculate quantity difference and new total ──
         const qtyDiff = parseFloat(quantity) - parseFloat(existing[0].quantity);
         const newTotal = (parseFloat(quantity) * parseFloat(rate)).toFixed(2);
+        const trimmedSupplier = String(supplier_name || existing[0].supplier_name).trim();
 
+        // ── Update the purchase ──
         await conn.query(
             `UPDATE cattle_feed_purchases
-             SET feed_id = ?, feed_name = ?, quantity = ?, rate = ?, 
+             SET feed_id = ?, quantity = ?, rate = ?, 
                  mrp_rate = ?, supplier_name = ?, total_amount = ?, purchase_date = ?
              WHERE purchase_id = ? AND centre_id = ?`,
             [
-                Number(feed_id),
-                String(feed_name || '').trim(),
+                targetFeedId,
                 parseFloat(quantity),
                 parseFloat(rate),
                 parseFloat(mrp_rate || 0),
-                String(supplier_name).trim(),
+                trimmedSupplier,
                 parseFloat(newTotal),
-                purchase_date,
+                purchase_date || existing[0].purchase_date,
                 id,
                 centreId
             ]
         );
 
+        // ── Update feed stock ──
         await conn.query(
             `UPDATE cattle_feeds 
              SET current_stock = current_stock + ?,
@@ -533,14 +607,15 @@ exports.updatePurchase = async (req, res) => {
                 qtyDiff,
                 parseFloat(rate),
                 parseFloat(mrp_rate || 0),
-                String(supplier_name).trim(),
-                existing[0].feed_id,
+                trimmedSupplier,
+                feed[0].feed_id,
                 centreId
             ]
         );
 
         await conn.commit();
 
+        // ── Fetch updated purchase with details ──
         const [updated] = await pool.query(
             `SELECT fp.*, f.feed_name, f.unit, o.name AS operator_name
              FROM cattle_feed_purchases fp
@@ -550,10 +625,11 @@ exports.updatePurchase = async (req, res) => {
             [id, centreId]
         );
         res.json(updated[0]);
+
     } catch (err) {
         await conn.rollback();
         console.error('updatePurchase error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Server error', message: err.message });
     } finally {
         conn.release();
     }
@@ -565,15 +641,21 @@ exports.deletePurchase = async (req, res) => {
     try {
         await conn.beginTransaction();
         const { id } = req.params;
+
+        // ── Defensive check for req.user ──
+        if (!req.user) {
+            await conn.rollback();
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        // Check purchase exists and user has access
+        // ── Check purchase exists and user has access ──
         const [existing] = await conn.query(
-            `SELECT fp.*, f.operator_id AS feed_operator_id 
+            `SELECT fp.* 
              FROM cattle_feed_purchases fp
-             JOIN cattle_feeds f ON f.feed_id = fp.feed_id
              WHERE fp.purchase_id = ? AND fp.centre_id = ?`,
             [id, centreId]
         );
@@ -582,6 +664,8 @@ exports.deletePurchase = async (req, res) => {
             return res.status(404).json({ error: 'Purchase not found in your centre.' });
         }
 
+        // ── Permission check ──
+        // Admin can delete any purchase, operator can only delete their own
         if (!isAdmin && existing[0].operator_id !== operatorId) {
             await conn.rollback();
             return res.status(403).json({
@@ -589,21 +673,152 @@ exports.deletePurchase = async (req, res) => {
             });
         }
 
-        await conn.query(`DELETE FROM cattle_feed_purchases WHERE purchase_id = ? AND centre_id = ?`, [id, centreId]);
+        // ── Get feed details before deletion ──
+        const [feed] = await conn.query(
+            `SELECT feed_id, feed_name, current_stock 
+             FROM cattle_feeds 
+             WHERE feed_id = ? AND centre_id = ?`,
+            [existing[0].feed_id, centreId]
+        );
 
+        if (!feed.length) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Feed not found.' });
+        }
+
+        // ── Delete the purchase ──
         await conn.query(
-            `UPDATE cattle_feeds SET current_stock = current_stock - ?
+            `DELETE FROM cattle_feed_purchases 
+             WHERE purchase_id = ? AND centre_id = ?`,
+            [id, centreId]
+        );
+
+        // ── Update feed stock (reverse the quantity) ──
+        await conn.query(
+            `UPDATE cattle_feeds 
+             SET current_stock = current_stock - ?
              WHERE feed_id = ? AND centre_id = ?`,
             [parseFloat(existing[0].quantity), existing[0].feed_id, centreId]
         );
 
         await conn.commit();
-        res.json({ message: 'Purchase deleted successfully.' });
+        res.json({
+            message: 'Purchase deleted successfully.',
+            feed_name: feed[0].feed_name,
+            quantity: existing[0].quantity
+        });
+
     } catch (err) {
         await conn.rollback();
         console.error('deletePurchase error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Server error', message: err.message });
     } finally {
         conn.release();
+    }
+};
+
+// ── Additional helper function for getting purchase by ID ──
+// GET /api/cattle-feeds/purchases/:id
+exports.getPurchaseById = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
+        const { id } = req.params;
+        const centreId = req.user.centre_id;
+
+        const [rows] = await pool.query(
+            `SELECT fp.*, f.feed_name, f.unit, o.name AS operator_name
+             FROM cattle_feed_purchases fp
+             JOIN cattle_feeds f ON f.feed_id = fp.feed_id
+             JOIN operators o ON o.operator_id = fp.operator_id
+             WHERE fp.purchase_id = ? AND fp.centre_id = ?`,
+            [id, centreId]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({ error: 'Purchase not found in your centre.' });
+        }
+
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('getPurchaseById error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ── Get purchases by date range ──
+// GET /api/cattle-feeds/purchases/range?from=YYYY-MM-DD&to=YYYY-MM-DD
+exports.getPurchasesByDateRange = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
+        const centreId = req.user.centre_id;
+        const { from, to } = req.query;
+
+        if (!from || !to) {
+            return res.status(400).json({ error: 'Both from and to dates are required.' });
+        }
+
+        const [rows] = await pool.query(
+            `SELECT fp.*, f.feed_name, f.unit, o.name AS operator_name
+             FROM cattle_feed_purchases fp
+             JOIN cattle_feeds f ON f.feed_id = fp.feed_id
+             JOIN operators o ON o.operator_id = fp.operator_id
+             WHERE fp.centre_id = ? 
+               AND fp.purchase_date BETWEEN ? AND ?
+             ORDER BY fp.purchase_date ASC, fp.created_at ASC`,
+            [centreId, from, to]
+        );
+
+        res.json(rows);
+    } catch (err) {
+        console.error('getPurchasesByDateRange error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ── Get purchase statistics ──
+// GET /api/cattle-feeds/purchases/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
+exports.getPurchaseStats = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+
+        const centreId = req.user.centre_id;
+        const { from, to } = req.query;
+
+        let query = `
+            SELECT 
+                COUNT(*) AS total_purchases,
+                SUM(quantity) AS total_quantity,
+                SUM(total_amount) AS total_amount,
+                AVG(rate) AS avg_rate,
+                COUNT(DISTINCT supplier_name) AS total_suppliers
+            FROM cattle_feed_purchases
+            WHERE centre_id = ?
+        `;
+        let params = [centreId];
+
+        if (from && to) {
+            query += ` AND purchase_date BETWEEN ? AND ?`;
+            params.push(from, to);
+        }
+
+        const [rows] = await pool.query(query, params);
+        res.json(rows[0] || {
+            total_purchases: 0,
+            total_quantity: 0,
+            total_amount: 0,
+            avg_rate: 0,
+            total_suppliers: 0
+        });
+    } catch (err) {
+        console.error('getPurchaseStats error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
     }
 };

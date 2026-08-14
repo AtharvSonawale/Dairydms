@@ -19,8 +19,8 @@ router.delete('/:id', protect, ctrl.deleteProduct);
 router.get('/purchases', protect, ctrl.getPurchases);
 router.post('/purchases', protect, ctrl.createPurchase);
 router.get('/purchases/suggestions', protect, ctrl.getPurchaseSuggestions);
-router.put('/purchases/:id', ctrl.updatePurchase);
-router.delete('/purchases/:id', ctrl.deletePurchase);
+router.put('/purchases/:id', protect, ctrl.updatePurchase);  // ← Added 'protect'
+router.delete('/purchases/:id', protect, ctrl.deletePurchase); // ← Added 'protect'
 
 
 module.exports = router;

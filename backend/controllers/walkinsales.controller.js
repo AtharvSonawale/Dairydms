@@ -992,3 +992,44 @@ exports.toggleBuyerStatus = async (req, res) => {
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };
+
+// ── GET /api/walkin-sales/available-stock?date=YYYY-MM-DD ────
+exports.getAvailableStock = async (req, res) => {
+    try {
+        const { date } = req.query;
+        const centre_id = req.user.centre_id;
+
+        if (!date) {
+            return res.status(400).json({ error: 'date query parameter is required' });
+        }
+
+        const stockFor = async (milk_type) => {
+            const [[collected]] = await pool.query(
+                `SELECT COALESCE(SUM(quantity), 0) AS total
+                 FROM milk_entries
+                 WHERE entry_date = ? AND milk_type = ? AND centre_id = ?`,
+                [date, milk_type, centre_id]
+            );
+            const [[alreadySold]] = await pool.query(
+                `SELECT COALESCE(SUM(quantity), 0) AS total
+                 FROM walkin_sales
+                 WHERE sale_date = ? AND milk_type = ? AND centre_id = ?`,
+                [date, milk_type, centre_id]
+            );
+            return parseFloat(collected.total) - parseFloat(alreadySold.total);
+        };
+
+        const [cow, buffalo] = await Promise.all([
+            stockFor('cow'),
+            stockFor('buffalo'),
+        ]);
+
+        res.json({
+            cow_available: cow,
+            buffalo_available: buffalo,
+        });
+    } catch (err) {
+        console.error("getAvailableStock error:", err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};

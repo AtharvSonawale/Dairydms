@@ -5,7 +5,7 @@ import {
     AlertTriangle, BadgeCheck, X, User,
     Banknote, Smartphone, CreditCard, Waves, Users, Settings,
     CheckCircle2, Clock, Tag, UserCircle2, Plus, Package,
-    Trash2
+    Trash2, Home
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -33,7 +33,7 @@ const fmtRowDate = (s) => {
 
 const EMPTY_FORM = {
     buyer_mode: "anon",
-    pay_now: true,        // ← ADD
+    pay_now: true,
     buyer_name: "ANON",
     buyer_id: "",
     seller_id: "",
@@ -45,6 +45,22 @@ const EMPTY_FORM = {
     payment_mode: "cash",
     shift: getShiftByTime(),
 };
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, className = "", ...rest }) {
+    return (
+        <div className={`relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 ${className}`} {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
@@ -62,8 +78,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-white/50 backdrop-blur-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -71,13 +87,13 @@ function TinyInput({ className = "", ...props }) {
 
 function ShiftToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
             {["morning", "evening"].map((s) => (
                 <button key={s} type="button" onClick={() => onChange(s)}
                     className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
                         ${value === s
-                            ? s === "morning" ? "bg-yellow-400 text-yellow-900" : "bg-indigo-500 text-white"
-                            : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                            ? s === "morning" ? "bg-gradient-to-br from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm" : "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm"
+                            : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                     {s === "morning" ? <Sun size={12} /> : <Moon size={12} />}
                     {s === "morning" ? t('walkinSale.morning') : t('walkinSale.evening')}
                 </button>
@@ -88,14 +104,14 @@ function ShiftToggle({ value, onChange, t }) {
 
 function MilkTypeToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
             {[
-                { val: "cow", label: t('walkinSale.cow'), active: "bg-amber-400 text-amber-900" },
-                { val: "buffalo", label: t('walkinSale.buffalo'), active: "bg-blue-500 text-white" },
+                { val: "cow", label: t('walkinSale.cow'), active: "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 shadow-sm" },
+                { val: "buffalo", label: t('walkinSale.buffalo'), active: "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" onClick={() => onChange(val)}
                     className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
-                        ${value === val ? active : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                        ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                     {label}
                 </button>
             ))}
@@ -112,9 +128,9 @@ function TableCell({ children, className = "" }) {
 }
 
 const paymentBadge = (m, t) =>
-    m === "cash" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-        m === "upi" ? "bg-blue-50 text-blue-700 border-blue-100" :
-            "bg-orange-50 text-orange-700 border-orange-100";
+    m === "cash" ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" :
+        m === "upi" ? "bg-blue-50/80 text-blue-700 border-blue-200/60" :
+            "bg-orange-50/80 text-orange-700 border-orange-200/60";
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function WalkinSales() {
@@ -128,9 +144,9 @@ export default function WalkinSales() {
     ];
 
     const PAYMENT_MODES = [
-        { val: "cash", label: t('walkinSale.cash'), icon: <Banknote size={13} />, active: "bg-emerald-500 text-white border-emerald-500" },
-        { val: "upi", label: t('walkinSale.upi'), icon: <Smartphone size={13} />, active: "bg-blue-500 text-white border-blue-500" },
-        { val: "credit", label: t('walkinSale.credit'), icon: <CreditCard size={13} />, active: "bg-orange-500 text-white border-orange-500" },
+        { val: "cash", label: t('walkinSale.cash'), icon: <Banknote size={13} />, active: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-500 shadow-sm" },
+        { val: "upi", label: t('walkinSale.upi'), icon: <Smartphone size={13} />, active: "bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-500 shadow-sm" },
+        { val: "credit", label: t('walkinSale.credit'), icon: <CreditCard size={13} />, active: "bg-gradient-to-br from-orange-500 to-orange-600 text-white border-orange-500 shadow-sm" },
     ];
 
     // ── State ───────────────────────────────────────────────────
@@ -211,7 +227,8 @@ export default function WalkinSales() {
     const [clearBillAmount, setClearBillAmount] = useState("");
     const [clearingBill, setClearingBill] = useState(false);
     const [buyerBalance, setBuyerBalance] = useState(0);
-    const [amountPaid, setAmountPaid] = useState(""); const showFlash = (type, msg) => {
+    const [amountPaid, setAmountPaid] = useState("");
+    const showFlash = (type, msg) => {
         setFlash({ type, msg });
         setTimeout(() => setFlash(null), 3500);
     };
@@ -230,6 +247,11 @@ export default function WalkinSales() {
         ? (parseFloat(form.quantity || 0) * effectiveDisplayMrp).toFixed(2)
         : null;
 
+    const sellerFrequency = sales.reduce((acc, s) => {
+        if (s.seller_id) acc[s.seller_id] = (acc[s.seller_id] || 0) + 1;
+        return acc;
+    }, {});
+
     const filteredSellers = sellerSearch
         ? sellers.filter((s) =>
             s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
@@ -237,7 +259,9 @@ export default function WalkinSales() {
             (s.seller_code || "").toLowerCase() === sellerSearch.trim().toLowerCase() ||
             (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
         )
-        : sellers;
+        : [...sellers]
+            .sort((a, b) => (sellerFrequency[b.seller_id] || 0) - (sellerFrequency[a.seller_id] || 0))
+            .slice(0, 5);
 
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 
@@ -250,7 +274,6 @@ export default function WalkinSales() {
             console.error("Failed to fetch sellers:", err);
         }
     };
-
 
     const fetchNamedBuyerSummaries = async () => {
         try {
@@ -309,7 +332,6 @@ export default function WalkinSales() {
         }
     };
 
-    // AFTER the closing brace of fetchMRPRates
     const fetchBillingSummary = async (from, to) => {
         try {
             const { data } = await api.get(
@@ -321,7 +343,6 @@ export default function WalkinSales() {
         }
     };
 
-
     const fetchProductTypes = async () => {
         try {
             const { data } = await api.get("/walkin-sales/product-types");
@@ -329,12 +350,9 @@ export default function WalkinSales() {
         } catch (err) { console.error("Failed to fetch product types:", err); }
     };
 
-    // Replace the existing fetchNamedBuyers and saveNamedBuyer functions
-
     const fetchNamedBuyers = async () => {
         try {
             const { data } = await api.get("/walkin-payments/buyers");
-            // Filter only named buyers (buyer_type === 'named')
             const named = data.filter(b => b.buyer_type === 'named');
             setNamedBuyers(named);
         } catch (err) {
@@ -350,18 +368,14 @@ export default function WalkinSales() {
                 mobile: null,
                 address: null,
             });
-            // Refetch to get the updated list with the new buyer
             await fetchNamedBuyers();
-            // Return the newly created buyer (or find it in the updated list)
             return data;
         } catch (err) {
-            // 409 = already exists → fetch and return the existing one
             if (err.response?.status === 409) {
                 const existing = namedBuyers.find(
                     b => b.name.toLowerCase() === name.toLowerCase()
                 );
                 if (existing) return existing;
-                // If not in local state, refetch and try again
                 await fetchNamedBuyers();
                 const found = namedBuyers.find(
                     b => b.name.toLowerCase() === name.toLowerCase()
@@ -424,7 +438,6 @@ export default function WalkinSales() {
         }
     };
 
-    // ── Delete handlers with custom modal ──
     const confirmDelete = (saleId) => {
         setDeleteModal({ open: true, saleId });
     };
@@ -509,7 +522,6 @@ export default function WalkinSales() {
     const getMonthRange = (d) => {
         const dt = new Date(d + "T00:00:00");
         const y = dt.getFullYear(), m = dt.getMonth();
-        // Ensure proper month range from 1st to last day
         const lastDayNum = new Date(y, m + 1, 0).getDate();
         const pad = (n) => String(n).padStart(2, "0");
         return {
@@ -594,7 +606,6 @@ export default function WalkinSales() {
 
         setSaving(true);
         try {
-            // ── AUTO-REGISTER named buyer if no buyer_id yet ──────────────
             let resolvedBuyerId = form.buyer_id || null;
             if (form.buyer_mode === "named" && form.buyer_name.trim() && !resolvedBuyerId) {
                 const nb = await saveNamedBuyer(form.buyer_name.trim());
@@ -616,7 +627,7 @@ export default function WalkinSales() {
 
             const payload = {
                 buyer_name: form.buyer_mode === "anon" ? "ANON" : form.buyer_name.trim(),
-                buyer_id: form.buyer_mode === "named" ? resolvedBuyerId : null,  // ← uses resolved id
+                buyer_id: form.buyer_mode === "named" ? resolvedBuyerId : null,
                 seller_id: form.buyer_mode === "seller" ? form.seller_id : null,
                 product_type_id: form.product_type_id || null,
                 product_type: form.product_type || 'loose',
@@ -685,7 +696,6 @@ export default function WalkinSales() {
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
-        // Let seller / named-buyer autocomplete dropdowns handle their own Enter
         if (dropdownOpen || namedBuyerDropdownOpen) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
@@ -713,7 +723,6 @@ export default function WalkinSales() {
         }
         setFromDate(newFrom);
         setToDate(newTo);
-        // Fetch data when switching modes
         if (mode !== "daily") {
             fetchRangeEntries(newFrom, newTo);
         } else {
@@ -724,7 +733,6 @@ export default function WalkinSales() {
     const fetchRangeEntries = async (from = fromDate, to = toDate) => {
         setLoadingRange(true);
         try {
-            // Ensure proper date formatting
             const fromFormatted = from.split('T')[0];
             const toFormatted = to.split('T')[0];
             const url = fromFormatted === toFormatted
@@ -777,7 +785,6 @@ export default function WalkinSales() {
             ? fmtD(fromDate)
             : `${fmtD(fromDate)} ${t('walkinSale.pdfTo')} ${fmtD(toDate)}`;
 
-        // ── Summary totals ─────────────────────────────────────────
         const grandQty = {};
         data.forEach(e => {
             grandQty[e.milk_type] = (grandQty[e.milk_type] || 0) + parseFloat(e.quantity || 0);
@@ -787,7 +794,6 @@ export default function WalkinSales() {
         const upiAmt = data.filter(e => e.payment_mode === "upi").reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
         const creditAmt = data.filter(e => e.payment_mode === "credit").reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
 
-        // ── Build allDates ─────────────────────────────────────────
         let allDates = [];
         if (rangeMode === "monthly") {
             const start = new Date(fromDate + "T00:00:00");
@@ -819,7 +825,6 @@ export default function WalkinSales() {
             }
         }
 
-        // ── Group by person + milk type ────────────────────────────
         const sellerMap = {};
         data.forEach(e => {
             const personKey = e.seller_id
@@ -862,9 +867,8 @@ export default function WalkinSales() {
             return 0;
         });
 
-        // ── Person key → rowspan map ───────────────────────────────
         const personKeys = [];
-        const personRowCount = {};   // rows per person (all milk types + shifts)
+        const personRowCount = {};
         sellersList.forEach(seller => {
             const personKey = seller.seller_id
                 ? String(seller.seller_id)
@@ -878,12 +882,10 @@ export default function WalkinSales() {
             personRowCount[personKey]++;
         });
 
-        // ── Month / period labels ──────────────────────────────────
         const monthLabel = allDates.length > 0
             ? new Date(allDates[0] + "T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })
             : new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
-        // ── Date header cells (day number only) ───────────────────
         const headerDateCols = allDates.map(d => {
             const dayNum = String(new Date(d + "T00:00:00").getDate()).padStart(2, "0");
             return `<th style="padding:3px 1px;border:1px solid #6b7280;font-size:7px;
@@ -892,8 +894,6 @@ export default function WalkinSales() {
 
         const personRendered = {};
         const bodyRows = sellersList.map((seller, idx) => {
-            // personKey for rowspan must NOT include milk_type or shift —
-            // it must match exactly what personRowCount uses above
             const personKey = seller.seller_id
                 ? String(seller.seller_id)
                 : seller.buyer_id
@@ -901,7 +901,7 @@ export default function WalkinSales() {
                     : ("__" + seller.name);
             const isFirstRow = !personRendered[personKey];
             if (isFirstRow) personRendered[personKey] = true;
-            const rowspan = personRowCount[personKey];   // total rows for this person
+            const rowspan = personRowCount[personKey];
             const isAnon = seller.name === "ANON";
             const milkBg = seller.milk_type === "cow" ? "#fffbeb" : "#eff6ff";
             const milkColor = seller.milk_type === "cow" ? "#92400e" : "#1d4ed8";
@@ -909,7 +909,6 @@ export default function WalkinSales() {
             const rowBg = idx % 2 === 0 ? "#fff" : "#f9fafb";
             const personIdx = personKeys.indexOf(personKey);
 
-            // ── billing values ─────────────────────────────────────
             const bill = billingSummary[personKey] || {};
             const prevRemaining = bill.prev_remaining != null
                 ? `₹${parseFloat(bill.prev_remaining).toFixed(2)}` : "—";
@@ -975,7 +974,6 @@ export default function WalkinSales() {
     </tr>`;
         }).join("");
 
-        // ── Grand total row ────────────────────────────────────────
         const dateTotals = allDates.map(dateStr => {
             const sum = sellersList.reduce((a, s) => a + (s.entries[dateStr] || 0), 0);
             return `<td style="padding:3px 1px;border:1px solid #6b7280;font-size:7px;text-align:center;
@@ -984,7 +982,7 @@ export default function WalkinSales() {
 
         const grandTotalQty = sellersList.reduce((a, s) => a + allDates.reduce((sum, d) => sum + (s.entries[d] || 0), 0), 0);
         const grandTotalAmt = sellersList.reduce((a, s) => a + allDates.reduce((sum, d) => sum + (s.entries[d] || 0), 0) * s.rate, 0);
-        // ── Write HTML ─────────────────────────────────────────────
+
         win.document.write(`<!DOCTYPE html><html><head>
 <title>${t('walkinSale.pdfTitle')} — ${modeLabel} — ${periodLabel}</title>
 <style>
@@ -1001,7 +999,6 @@ export default function WalkinSales() {
 </style>
 </head><body>
 
-<!-- ── Header ────────────────────────────────────────────── -->
 <div style="display:flex;align-items:flex-start;justify-content:space-between;
     margin-bottom:8px;padding-bottom:6px;border-bottom:2.5px double #1e3a8a">
 
@@ -1041,7 +1038,6 @@ export default function WalkinSales() {
     </div>
 </div>
 
-<!-- ── Register Table ─────────────────────────────────────── -->
 <table>
     <thead>
         <tr style="background:#1e3a8a;color:#fff">
@@ -1101,7 +1097,6 @@ export default function WalkinSales() {
     </tbody>
 </table>
 
-<!-- ── Footer ────────────────────────────────────────────── -->
 <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:flex-end;
     font-size:8px;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:6px">
     <span>${t('walkinSale.pdfFooter')} · ${new Date().toLocaleString("en-IN", {
@@ -1151,7 +1146,7 @@ export default function WalkinSales() {
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -1159,26 +1154,78 @@ export default function WalkinSales() {
     if (!can('walkin_sales', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <ShoppingCart size={18} className="text-white" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('walkinSale.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-semibold shadow-md shadow-gray-900/30">
+                                <ShoppingCart size={12} /> {t('walkinSale.sales')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('walkinSale.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('walkinSale.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('walkinSale.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('walkinSale.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                            onClick={startWalkinSalesTour}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                        >
+                            <BadgeCheck size={15} /> {t('walkinSale.startTour')}
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── Flash ── */}
+                {flash && (
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
+                        {flash.msg}
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="sales-stats">
+                    {[
+                        { label: t('walkinSale.salesToday'), value: sales.length, icon: <ShoppingCart size={14} />, color: "text-blue-600 bg-blue-50/80 border-blue-200/60" },
+                        { label: t('walkinSale.cowSold'), value: `${sales.filter(s => s.milk_type === "cow").reduce((a, s) => a + parseFloat(s.quantity || 0), 0).toFixed(1)} L`, icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50/80 border-amber-200/60" },
+                        { label: t('walkinSale.buffaloSold'), value: `${sales.filter(s => s.milk_type === "buffalo").reduce((a, s) => a + parseFloat(s.quantity || 0), 0).toFixed(1)} L`, icon: <Milk size={14} />, color: "text-blue-600 bg-blue-50/80 border-blue-200/60" },
+                        { label: t('walkinSale.totalRevenue'), value: `₹${totalRevenue.toFixed(2)}`, icon: <TrendingUp size={14} />, color: "text-emerald-600 bg-emerald-50/80 border-emerald-200/60" },
+                    ].map(({ label, value, icon, color }) => (
+                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+                            <div className="shrink-0">{icon}</div>
+                            <div>
+                                <p className="text-xs text-gray-400 leading-none">{label}</p>
+                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* ── Date & PDF Controls ── */}
+                <SectionCard
+                    title={t('walkinSale.dateLabel')}
+                    icon={<Waves size={16} className="text-white" />}
+                >
+                    <div className="flex flex-wrap items-center gap-4">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('walkinSale.dateLabel')}</span>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('walkinSale.selectDate')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -1202,14 +1249,13 @@ export default function WalkinSales() {
                                         fetchRangeEntries(r.from, r.to);
                                     }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 rounded-xl px-4 py-3 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('walkinSale.downloadPDF')}</span>
-
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                     {[
                                         { v: "daily", l: t('walkinSale.day') },
                                         { v: "weekly", l: t('walkinSale.week') },
@@ -1217,7 +1263,9 @@ export default function WalkinSales() {
                                         { v: "custom", l: t('walkinSale.custom') }
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3 py-2 transition ${rangeMode === v
+                                                ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm"
+                                                : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -1226,15 +1274,15 @@ export default function WalkinSales() {
                                 {rangeMode === "custom" && (
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate} onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate} onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline">
                                         {fromDate === toDate
                                             ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                             : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -1242,12 +1290,13 @@ export default function WalkinSales() {
                                 )}
 
                                 {loadingRange ? (
-                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
+                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100/80 text-gray-400 text-xs font-semibold">
                                         <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
                                         {t('dashboard.loading')}
                                     </div>
                                 ) : (
-                                    <button onClick={handleDownloadPDF} disabled={loadingRange} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-40 transition">
+                                    <button onClick={handleDownloadPDF} disabled={loadingRange}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-semibold hover:shadow-lg hover:shadow-gray-900/30 transition disabled:opacity-40 shadow-sm">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                         PDF
                                     </button>
@@ -1255,309 +1304,32 @@ export default function WalkinSales() {
                             </div>
                         </div>
 
-                        <button onClick={() => { setEditingMrp(false); setShowMrpModal(true); }}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 mt-4">
-                            <Settings size={13} /> {t('walkinSale.mrpRates')}
-                        </button>
-                        <button onClick={() => setShowProductModal(true)}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 mt-4">
-                            <Milk size={13} /> Products
-                        </button>
-
-                        {/* AFTER the Products button */}
-                        {namedBuyerSummaries.filter(b => b.outstanding > 0).length > 0 && (
-                            <button onClick={() => setShowClearBillModal(true)}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-rose-500 text-white hover:bg-rose-600 mt-4">
-                                <Banknote size={13} /> Clear Bills ({namedBuyerSummaries.filter(b => b.outstanding > 0).length})
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button onClick={() => { setEditingMrp(false); setShowMrpModal(true); }}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 shadow-sm">
+                                <Settings size={13} /> {t('walkinSale.mrpRates')}
                             </button>
-                        )}
-                        <button onClick={startWalkinSalesTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gray-100 text-gray-600 hover:bg-gray-200 mt-4">
-                            <BadgeCheck size={13} /> Take a Tour
-                        </button>
-                    </div>
-                </div>
+                            <button onClick={() => setShowProductModal(true)}
+                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 shadow-sm">
+                                <Milk size={13} /> Products
+                            </button>
 
-                {/* MRP Rates Modal */}
-                {showMrpModal && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-sm shadow-xl p-6 flex flex-col gap-5">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                                        <Settings size={15} className="text-gray-500" /> {t('walkinSale.mrpSettings')}
-                                    </h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">{t('walkinSale.mrpDesc')}</p>
-                                </div>
-                                <button onClick={() => { setShowMrpModal(false); setEditingMrp(false); fetchMRPRates(); }}
-                                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                    <X size={14} />
+                            {namedBuyerSummaries.filter(b => b.outstanding > 0).length > 0 && (
+                                <button onClick={() => setShowClearBillModal(true)}
+                                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-gradient-to-br from-rose-500 to-rose-600 text-white hover:shadow-lg hover:shadow-rose-500/30 shadow-sm">
+                                    <Banknote size={13} /> Clear Bills ({namedBuyerSummaries.filter(b => b.outstanding > 0).length})
                                 </button>
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                                <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                                        <Milk size={12} className="text-amber-600" /> {t('walkinSale.cowMrp')}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={mrpRates.cow}
-                                        onChange={(e) => setMrpRates(prev => ({ ...prev, cow: e.target.value }))}
-                                        placeholder="₹0.00"
-                                        step="0.01"
-                                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                                        <Milk size={12} className="text-blue-600" /> {t('walkinSale.buffaloMrp')}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={mrpRates.buffalo}
-                                        onChange={(e) => setMrpRates(prev => ({ ...prev, buffalo: e.target.value }))}
-                                        placeholder="₹0.00"
-                                        step="0.01"
-                                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <button onClick={() => { setShowMrpModal(false); setEditingMrp(false); fetchMRPRates(); }}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
-                                    {t('walkinSale.cancel')}
-                                </button>
-                                <button onClick={async () => { await saveMRPRates(); setShowMrpModal(false); }}
-                                    disabled={savingMrp}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {savingMrp && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    {savingMrp ? t('walkinSale.saving') : t('walkinSale.saveRates')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-
-                {/* Product Types Modal */}
-                {showProductModal && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-md shadow-xl p-6 flex flex-col gap-5 max-h-[80vh] overflow-y-auto">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                                        <Milk size={15} className="text-gray-500" /> Product Types
-                                    </h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">Register loose/packaged milk products. Packaged adds extra rate on top of base MRP.</p>
-                                </div>
-                                <button onClick={() => setShowProductModal(false)}
-                                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                    <X size={14} />
-                                </button>
-                            </div>
-
-                            {/* Add new product */}
-                            <div className="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Add product type</p>
-                                <TinyInput
-                                    value={newProduct.name}
-                                    onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))}
-                                    placeholder="e.g. Loose Milk, 500ml Packet"
-                                    className="w-full"
-                                />
-                                <div className="flex gap-2">
-                                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold flex-1">
-                                        {["loose", "packaged"].map(t => (
-                                            <button key={t} type="button"
-                                                onClick={() => setNewProduct(p => ({ ...p, type: t }))}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-[7px] transition ${newProduct.type === t ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                                {t === 'loose' ? <Milk size={12} /> : <Package size={12} />}
-                                                {t === 'loose' ? 'Loose' : 'Packaged'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                                        {[{ v: "both", l: "Both" }, { v: "cow", l: "Cow" }, { v: "buffalo", l: "Buf" }].map(({ v, l }) => (
-                                            <button key={v} type="button"
-                                                onClick={() => setNewProduct(p => ({ ...p, milk_type: v }))}
-                                                className={`px-2 py-[7px] transition border-r last:border-r-0 border-gray-200 ${newProduct.milk_type === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                                {l}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                {newProduct.type === 'packaged' && (
-                                    <TinyInput
-                                        value={newProduct.extra_rate}
-                                        onChange={e => setNewProduct(p => ({ ...p, extra_rate: e.target.value }))}
-                                        placeholder="Extra rate per litre (₹)"
-                                        type="number"
-                                        step="0.50"
-                                        className="w-full"
-                                    />
-                                )}
-                                <button onClick={saveProductType} disabled={savingProduct || !newProduct.name}
-                                    className="py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition disabled:opacity-40 flex items-center justify-center gap-2">
-                                    {savingProduct && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    Save Product Type
-                                </button>
-                            </div>
-
-                            {/* Existing product types */}
-                            {productTypes.length > 0 && (
-                                <div className="flex flex-col gap-2">
-                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Registered types</p>
-                                    {productTypes.map(p => (
-                                        <div key={p.product_type_id} className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
-                                            <div>
-                                                <p className="text-sm font-semibold text-gray-800">{p.name}</p>
-                                                <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
-                                                    {p.type === 'packaged'
-                                                        ? <><Package size={10} className="inline" /> {`Packaged · +₹${p.extra_rate}/L`}</>
-                                                        : <><Milk size={10} className="inline" /> Loose</>}
-                                                    {' · '}
-                                                    {p.milk_type === 'both' ? 'Both milk types' : p.milk_type === 'cow' ? 'Cow only' : 'Buffalo only'}
-                                                </p>
-                                            </div>
-                                            <button onClick={() => deleteProductType(p.product_type_id)}
-                                                className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition">
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
                             )}
                         </div>
                     </div>
-                )}
+                </SectionCard>
 
-                {/* Clear Bill Modal */}
-                {showClearBillModal && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-md shadow-xl p-6 flex flex-col gap-5 max-h-[80vh] overflow-y-auto">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                                        <Banknote size={15} className="text-rose-500" /> Clear Buyer Bills
-                                    </h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                        Select a buyer and enter amount paid. Remaining will carry forward.
-                                    </p>
-                                </div>
-                                <button onClick={() => { setShowClearBillModal(false); setClearBillBuyer(null); setClearBillAmount(""); }}
-                                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                    <X size={14} />
-                                </button>
-                            </div>
-
-                            {/* Buyer list with outstanding balances */}
-                            <div className="flex flex-col gap-2">
-                                {namedBuyerSummaries.filter(b => b.outstanding > 0).map(b => (
-                                    <button key={b.buyer_id} type="button"
-                                        onClick={() => { setClearBillBuyer(b); setClearBillAmount(String(b.outstanding.toFixed(2))); }}
-                                        className={`flex items-center justify-between px-4 py-3 rounded-xl border text-left transition
-                            ${clearBillBuyer?.buyer_id === b.buyer_id
-                                                ? "border-rose-300 bg-rose-50"
-                                                : "border-gray-200 bg-white hover:border-gray-300"}`}>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-800">{b.name}</p>
-                                            <p className="text-[10px] text-gray-400 mt-0.5">
-                                                Total: ₹{parseFloat(b.total_amount).toFixed(2)} · Paid: ₹{parseFloat(b.total_paid).toFixed(2)}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold text-rose-600">₹{parseFloat(b.outstanding).toFixed(2)}</p>
-                                            <p className="text-[10px] text-gray-400">outstanding</p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Payment input */}
-                            {clearBillBuyer && (
-                                <div className="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                    <p className="text-xs font-semibold text-gray-600">
-                                        Clearing bill for <strong>{clearBillBuyer.name}</strong> — Outstanding: ₹{clearBillBuyer.outstanding.toFixed(2)}
-                                    </p>
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                                            Amount Paid
-                                        </label>
-                                        <TinyInput
-                                            value={clearBillAmount}
-                                            onChange={e => setClearBillAmount(e.target.value)}
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            max={clearBillBuyer.outstanding}
-                                            placeholder="₹0.00"
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    {clearBillAmount && parseFloat(clearBillAmount) < clearBillBuyer.outstanding && (
-                                        <p className="text-xs text-amber-600 font-medium">
-                                            ₹{(clearBillBuyer.outstanding - parseFloat(clearBillAmount)).toFixed(2)} will carry forward as previous balance
-                                        </p>
-                                    )}
-                                    {clearBillAmount && parseFloat(clearBillAmount) >= clearBillBuyer.outstanding && (
-                                        <p className="text-xs text-emerald-600 font-medium">
-                                            Bill fully cleared ✓
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="flex gap-2">
-                                <button onClick={() => { setShowClearBillModal(false); setClearBillBuyer(null); setClearBillAmount(""); }}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
-                                    Cancel
-                                </button>
-                                <button onClick={handleClearBill}
-                                    disabled={clearingBill || !clearBillBuyer || !clearBillAmount || parseFloat(clearBillAmount) <= 0}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition disabled:opacity-40 flex items-center justify-center gap-2">
-                                    {clearingBill && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    {clearingBill ? "Clearing…" : "Clear Bill"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="sales-stats">
-                    {[
-                        { label: t('walkinSale.salesToday'), value: sales.length, icon: <ShoppingCart size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('walkinSale.cowSold'), value: `${sales.filter(s => s.milk_type === "cow").reduce((a, s) => a + parseFloat(s.quantity || 0), 0).toFixed(1)} L`, icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
-                        { label: t('walkinSale.buffaloSold'), value: `${sales.filter(s => s.milk_type === "buffalo").reduce((a, s) => a + parseFloat(s.quantity || 0), 0).toFixed(1)} L`, icon: <Milk size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('walkinSale.totalRevenue'), value: `₹${totalRevenue.toFixed(2)}`, icon: <TrendingUp size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                    ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Flash Message */}
-                {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
-                        {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
-                        </button>
-                    </div>
-                )}
-
-                {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+                {/* ── Entry Form ── */}
+                <SectionCard
+                    title={t('walkinSale.newSale')}
+                    icon={<ShoppingCart size={16} className="text-white" />}
+                    className="relative z-20"
+                >
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{t('walkinSale.newSale')}</p>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -1583,7 +1355,9 @@ export default function WalkinSales() {
                                 type="button"
                                 onClick={() => handleBuyerModeChange(val)}
                                 className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border text-xs font-semibold transition
-                                    ${form.buyer_mode === val ? "bg-gray-900 text-white border-gray-900" : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300"}`}
+                                    ${form.buyer_mode === val
+                                        ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
+                                        : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
                             >
                                 {icon}
                                 <span>{label}</span>
@@ -1597,14 +1371,13 @@ export default function WalkinSales() {
                         {/* Anonymous Buyer */}
                         {form.buyer_mode === "anon" && (
                             <Field label={t('walkinSale.buyer')} icon={<User size={12} />}>
-                                <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100 border border-gray-200 text-gray-400 text-sm font-medium w-28">
+                                <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium w-28">
                                     <UserCircle2 size={14} /> {t('walkinSale.anonymous')}
                                 </div>
                             </Field>
                         )}
 
                         {/* Named Buyer */}
-                        {/* Named Buyer — searchable dropdown like seller */}
                         {form.buyer_mode === "named" && (
                             <Field label={t('walkinSale.buyerName')} icon={<User size={12} />}>
                                 <div className="relative w-44">
@@ -1631,7 +1404,6 @@ export default function WalkinSales() {
                                             else if (e.key === "Enter") {
                                                 e.preventDefault();
                                                 if (namedBuyerHighlight === filtered.length) {
-                                                    // "Register new" option
                                                     saveNamedBuyer(namedBuyerSearch.trim()).then(nb => {
                                                         if (nb) { set("buyer_id", nb.buyer_id); set("buyer_name", nb.name); setNamedBuyerSearch(nb.name); fetchBuyerBalance(nb.buyer_id); }
                                                     });
@@ -1646,12 +1418,18 @@ export default function WalkinSales() {
                                         className="w-44 pr-7"
                                     />
                                     {namedBuyerDropdownOpen && (() => {
-                                        const filtered = namedBuyers.filter(b =>
-                                            !namedBuyerSearch || b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase())
-                                        );
+                                        const buyerFrequency = sales.reduce((acc, s) => {
+                                            if (s.buyer_id) acc[s.buyer_id] = (acc[s.buyer_id] || 0) + 1;
+                                            return acc;
+                                        }, {});
+                                        const filtered = namedBuyerSearch
+                                            ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
+                                            : [...namedBuyers]
+                                                .sort((a, b) => (buyerFrequency[b.buyer_id] || 0) - (buyerFrequency[a.buyer_id] || 0))
+                                                .slice(0, 5);
                                         const showRegister = namedBuyerSearch.trim() && !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
                                         return (filtered.length > 0 || showRegister) ? (
-                                            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                                            <div className="absolute top-full left-0 mt-1 w-56 bg-white/80 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                                     {namedBuyerSearch ? `${filtered.length} match${filtered.length !== 1 ? 'es' : ''}` : 'Registered buyers'}
                                                 </p>
@@ -1734,7 +1512,7 @@ export default function WalkinSales() {
                                         className="w-36 pr-7"
                                     />
                                     {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                                        <div className="absolute top-full left-0 mt-1 w-56 bg-white/80 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                             <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                                 {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('walkinSale.matchesPlural') : t('walkinSale.matches')}` : t('walkinSale.sellersAZ')}
                                             </p>
@@ -1808,8 +1586,8 @@ export default function WalkinSales() {
                                 type="number"
                                 step="0.01"
                                 className={`w-20 ${availableStock && parseFloat(form.quantity) > (form.milk_type === 'cow' ? availableStock.cow : availableStock.buffalo)
-                                    ? 'bg-rose-50 border-rose-300 text-rose-700'
-                                    : 'bg-blue-50 border-blue-200 text-blue-700'
+                                    ? 'bg-rose-50/80 border-rose-300 text-rose-700'
+                                    : 'bg-blue-50/80 border-blue-200 text-blue-700'
                                     }`}
                             />
                             {availableStock && (
@@ -1829,7 +1607,7 @@ export default function WalkinSales() {
                                 placeholder="₹0.00"
                                 type="number"
                                 step="0.01"
-                                className="w-20 bg-gray-50 border-gray-200"
+                                className="w-20 bg-gray-50/80 border-gray-200/60"
                             />
                         </Field>
 
@@ -1844,7 +1622,7 @@ export default function WalkinSales() {
                                     if (pt) set("product_type", pt.type);
                                     else set("product_type", "loose");
                                 }}
-                                className="border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition w-36"
+                                className="border border-gray-200/60 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-36 shadow-sm"
                             >
                                 <option value="">Default (Loose)</option>
                                 {productTypes
@@ -1863,7 +1641,7 @@ export default function WalkinSales() {
                             )}
                         </Field>
 
-                        {/* Amount Paid (partial payment — only for named buyers) */}
+                        {/* Amount Paid */}
                         {form.buyer_mode === "named" && form.buyer_id && amount && (
                             <Field label="Amt Paid">
                                 <TinyInput
@@ -1872,7 +1650,7 @@ export default function WalkinSales() {
                                     placeholder={`₹${amount}`}
                                     type="number"
                                     step="0.01"
-                                    className="w-24 bg-amber-50 border-amber-200 text-amber-800"
+                                    className="w-24 bg-amber-50/80 border-amber-200 text-amber-800"
                                 />
                                 {amountPaid && parseFloat(amountPaid) < parseFloat(amount) && (
                                     <p className="text-[10px] text-rose-500 font-medium mt-0.5">
@@ -1883,17 +1661,16 @@ export default function WalkinSales() {
                         )}
 
                         {/* Payment Mode */}
-                        {/* Payment Mode — only show when paying now */}
                         {form.pay_now && (
                             <Field label={t('walkinSale.paymentLabel')} icon={<Banknote size={12} />}>
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                     {PAYMENT_MODES.map(({ val, label, icon, active }) => (
                                         <button
                                             key={val}
                                             type="button"
                                             onClick={() => set("payment_mode", val)}
-                                            className={`flex items-center gap-1 px-2 py-[7px] border-r last:border-r-0 border-gray-200 transition-colors
-                    ${form.payment_mode === val ? active : "bg-white text-gray-400 hover:bg-gray-50"}`}
+                                            className={`flex items-center gap-1 px-2 py-[7px] border-r last:border-r-0 border-gray-200/60 transition-colors
+                    ${form.payment_mode === val ? active : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}
                                         >
                                             {icon} {label}
                                         </button>
@@ -1901,14 +1678,14 @@ export default function WalkinSales() {
                                 </div>
                             </Field>
                         )}
-                        {/* Pay Now / Pay After toggle — show for all modes */}
+                        {/* Pay Now / Pay After toggle */}
                         <Field label="Payment" icon={<Banknote size={12} />}>
-                            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold" data-tour="payment-toggle">
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold" data-tour="payment-toggle">
                                 <button
                                     type="button"
                                     onClick={() => { set("pay_now", true); set("payment_mode", "cash"); }}
                                     className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
-                ${form.pay_now ? "bg-emerald-500 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}
+                ${form.pay_now ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}
                                 >
                                     <CheckCircle2 size={12} /> Pay Now
                                 </button>
@@ -1916,7 +1693,7 @@ export default function WalkinSales() {
                                     type="button"
                                     onClick={() => { set("pay_now", false); set("payment_mode", "credit"); }}
                                     className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
-                ${!form.pay_now ? "bg-orange-500 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}
+                ${!form.pay_now ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}
                                 >
                                     <Clock size={12} /> Pay After
                                 </button>
@@ -1925,7 +1702,7 @@ export default function WalkinSales() {
                         {/* Amount */}
                         {amount && (
                             <Field label={t('walkinSale.amountLabel')}>
-                                <div className="h-[35px] px-4 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
+                                <div className="h-[35px] px-4 flex items-center rounded-xl bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 font-bold text-sm whitespace-nowrap">
                                     ₹{amount}
                                 </div>
                             </Field>
@@ -1933,8 +1710,7 @@ export default function WalkinSales() {
                     </div>
 
                     {/* Form Footer */}
-                    {/* Form Footer */}
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200/60">
                         <p className="text-xs text-gray-400">
                             {editingSaleId
                                 ? <span className="text-amber-600 font-medium">✏️ Editing sale #{editingSaleId}</span>
@@ -1969,7 +1745,7 @@ export default function WalkinSales() {
                                             setSellerSearch("");
                                         }
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-600 border border-gray-200 hover:bg-gray-50 transition"
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-600 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 >
                                     <X size={14} /> Cancel Edit
                                 </button>
@@ -1979,28 +1755,33 @@ export default function WalkinSales() {
                                 onClick={handleSave}
                                 disabled={saving}
                                 data-tour="save-btn"
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                ${saving ? "bg-gray-300 cursor-not-allowed"
-                                        : editingSaleId ? "bg-amber-500 hover:bg-amber-600 active:scale-95"
-                                            : "bg-black hover:bg-gray-800 active:scale-95"}`}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
+                                ${saving ? "bg-gray-300 cursor-not-allowed"
+                                        : editingSaleId
+                                            ? "bg-gradient-to-br from-amber-500 to-amber-600 hover:shadow-lg hover:shadow-amber-500/30 active:scale-95"
+                                            : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}
                             >
                                 <Save size={15} />
                                 {saving ? t('walkinSale.saving') : editingSaleId ? "Update Sale" : t('walkinSale.recordSale')}
                             </button>
                         </div>
                     </div>
-                </div>
+                </SectionCard>
 
-                {/* Sales Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="sales-table">
+                {/* ── Sales Table ── */}
+                <SectionCard
+                    title={t('walkinSale.salesToday')}
+                    icon={<ShoppingCart size={16} className="text-white" />}
+                    data-tour="sales-table"
+                >
                     {/* Search + filter bar */}
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60 flex-wrap">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 bg-gray-50/60 rounded-t-xl flex-wrap">
                         <input
                             type="text"
                             value={searchName}
                             onChange={e => { setSearchName(e.target.value); setCurrentPage(1); }}
                             placeholder={t('walkinSale.filterPlaceholder')}
-                            className="border border-gray-200 bg-white rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition w-48"
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-48"
                         />
                         {searchName && (
                             <button onClick={() => { setSearchName(""); setCurrentPage(1); }}
@@ -2010,7 +1791,7 @@ export default function WalkinSales() {
                         )}
 
                         {/* Buyer Type Filter */}
-                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                             {[
                                 { v: "all", l: t('walkinSale.all'), icon: null },
                                 { v: "anon", l: t('walkinSale.anonymous'), icon: <UserCircle2 size={12} /> },
@@ -2019,8 +1800,8 @@ export default function WalkinSales() {
                             ].map(({ v, l, icon }) => (
                                 <button key={v} type="button"
                                     onClick={() => { setFilterBuyerType(v); setCurrentPage(1); }}
-                                    className={`flex items-center gap-1 px-3 py-1.5 transition border-r last:border-r-0 border-gray-200
-                    ${filterBuyerType === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                    className={`flex items-center gap-1 px-3 py-1.5 transition border-r last:border-r-0 border-gray-200/60
+                    ${filterBuyerType === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                     {icon}{l}
                                 </button>
                             ))}
@@ -2034,9 +1815,9 @@ export default function WalkinSales() {
                     </div>
 
                     {/* Table Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -2056,7 +1837,7 @@ export default function WalkinSales() {
                         <div className="overflow-x-auto">
                             <div className="min-w-max">
                                 {paginatedSales.map((s, i) => (
-                                    <div key={s.sale_id || i} className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors" style={{ gridTemplateColumns: GRID }}>
+                                    <div key={s.sale_id || i} className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors" style={{ gridTemplateColumns: GRID }}>
                                         {/* Buyer */}
                                         <TableCell>
                                             <div className="flex items-center gap-2">
@@ -2074,11 +1855,11 @@ export default function WalkinSales() {
                                         <TableCell className="text-gray-500 font-mono text-xs">
                                             {fmtRowDate(s)}
                                         </TableCell>
-                                        
+
                                         {/* Milk Type */}
                                         <TableCell>
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
-                                                ${s.milk_type === "cow" ? "bg-amber-50 text-amber-700 border-amber-100" : "bg-blue-50 text-blue-700 border-blue-100"}`}>
+                                                ${s.milk_type === "cow" ? "bg-amber-50/80 text-amber-700 border-amber-200/60" : "bg-blue-50/80 text-blue-700 border-blue-200/60"}`}>
                                                 {s.milk_type === "cow" ? t('walkinSale.cow') : t('walkinSale.buffalo')}
                                             </span>
                                         </TableCell>
@@ -2108,7 +1889,7 @@ export default function WalkinSales() {
                                         {/* Shift */}
                                         <TableCell>
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
-                                                ${s.shift === "morning" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>
+                                                ${s.shift === "morning" ? "bg-yellow-50/80 text-yellow-700 border-yellow-200/60" : "bg-indigo-50/80 text-indigo-600 border-indigo-200/60"}`}>
                                                 {s.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}
                                                 {s.shift === "morning" ? t('walkinSale.morning') : t('walkinSale.evening')}
                                             </span>
@@ -2127,21 +1908,21 @@ export default function WalkinSales() {
                                                     className={`w-6 h-6 flex items-center justify-center rounded-lg transition
                 ${editingSaleId === s.sale_id
                                                             ? "bg-amber-500 text-white"
-                                                            : "bg-gray-100 hover:bg-amber-100 text-gray-400 hover:text-amber-600"}`}
+                                                            : "bg-gray-100/80 hover:bg-amber-100 text-gray-400 hover:text-amber-600"}`}
                                                     title="Edit"
                                                 >
                                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                    </svg> {t('walkinSale.edit')}
+                                                    </svg>
                                                 </button>
                                                 {can('walkin_sales', 'D') && (
                                                     <button
                                                         onClick={() => confirmDelete(s.sale_id)}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
+                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
                                                         title="Delete"
                                                     >
-                                                        <Trash2 size={11} /> {t('walkinSale.delete')}
+                                                        <Trash2 size={11} />
                                                     </button>
                                                 )}
                                             </div>
@@ -2151,16 +1932,16 @@ export default function WalkinSales() {
                             </div>
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
-                {/* Pagination */}
+                {/* ── Pagination ── */}
                 {filteredSales.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/60 shadow-sm">
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                 {t('walkinSale.prev')}
                             </button>
                             <div className="flex items-center gap-1">
@@ -2176,7 +1957,7 @@ export default function WalkinSales() {
                                             ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
                                             : <button key={p} onClick={() => setCurrentPage(p)}
                                                 className={`w-7 h-7 rounded-lg text-xs font-semibold transition border
-                                                    ${currentPage === p ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+                                                    ${currentPage === p ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-sm' : 'bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400'}`}>
                                                 {p}
                                             </button>
                                     )}
@@ -2184,7 +1965,7 @@ export default function WalkinSales() {
                             <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                 {t('walkinSale.next')}
                             </button>
                             <span className="text-xs text-gray-400 ml-1">
@@ -2197,15 +1978,15 @@ export default function WalkinSales() {
                                 type="number" min={1} max={filteredSales.length || 1}
                                 value={pageSize}
                                 onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
-                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="w-14 border border-gray-200/60 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
                     </div>
                 )}
 
-                {/* Totals Footer */}
+                {/* ── Totals Footer ── */}
                 {sales.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
                         <div className="grid px-4 py-3 gap-4" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
                             <div className="flex flex-col gap-0.5">
                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('walkinSale.cowSold')}</p>
@@ -2231,7 +2012,7 @@ export default function WalkinSales() {
                     </div>
                 )}
 
-                {/* Legend */}
+                {/* ── Legend ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400">
                     <span>• <strong className="text-gray-600">{sales.length}</strong> {t('walkinSale.sales')} {t('walkinSale.recordedToday')}</span>
                     <span>• {t('walkinSale.legendAnonymous')}</span>
@@ -2239,13 +2020,259 @@ export default function WalkinSales() {
                 </div>
             </main>
 
+            {/* ── MRP Rates Modal ── */}
+            {showMrpModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 w-full max-w-sm shadow-xl p-6 flex flex-col gap-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                                    <Settings size={15} className="text-gray-500" /> {t('walkinSale.mrpSettings')}
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">{t('walkinSale.mrpDesc')}</p>
+                            </div>
+                            <button onClick={() => { setShowMrpModal(false); setEditingMrp(false); fetchMRPRates(); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200 text-gray-500 transition">
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <div>
+                                <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <Milk size={12} className="text-amber-600" /> {t('walkinSale.cowMrp')}
+                                </label>
+                                <input
+                                    type="number"
+                                    value={mrpRates.cow}
+                                    onChange={(e) => setMrpRates(prev => ({ ...prev, cow: e.target.value }))}
+                                    placeholder="₹0.00"
+                                    step="0.01"
+                                    className="w-full border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-900 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <Milk size={12} className="text-blue-600" /> {t('walkinSale.buffaloMrp')}
+                                </label>
+                                <input
+                                    type="number"
+                                    value={mrpRates.buffalo}
+                                    onChange={(e) => setMrpRates(prev => ({ ...prev, buffalo: e.target.value }))}
+                                    placeholder="₹0.00"
+                                    step="0.01"
+                                    className="w-full border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-900 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button onClick={() => { setShowMrpModal(false); setEditingMrp(false); fetchMRPRates(); }}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
+                                {t('walkinSale.cancel')}
+                            </button>
+                            <button onClick={async () => { await saveMRPRates(); setShowMrpModal(false); }}
+                                disabled={savingMrp}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm">
+                                {savingMrp && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                {savingMrp ? t('walkinSale.saving') : t('walkinSale.saveRates')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Product Types Modal ── */}
+            {showProductModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 w-full max-w-md shadow-xl p-6 flex flex-col gap-5 max-h-[80vh] overflow-y-auto">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                                    <Milk size={15} className="text-gray-500" /> Product Types
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">Register loose/packaged milk products. Packaged adds extra rate on top of base MRP.</p>
+                            </div>
+                            <button onClick={() => setShowProductModal(false)}
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200 text-gray-500 transition">
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        {/* Add new product */}
+                        <div className="flex flex-col gap-3 p-4 bg-gray-50/80 backdrop-blur-sm rounded-xl border border-gray-200/60">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Add product type</p>
+                            <TinyInput
+                                value={newProduct.name}
+                                onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))}
+                                placeholder="e.g. Loose Milk, 500ml Packet"
+                                className="w-full"
+                            />
+                            <div className="flex gap-2">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold flex-1">
+                                    {["loose", "packaged"].map(t => (
+                                        <button key={t} type="button"
+                                            onClick={() => setNewProduct(p => ({ ...p, type: t }))}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 py-[7px] transition ${newProduct.type === t ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                            {t === 'loose' ? <Milk size={12} /> : <Package size={12} />}
+                                            {t === 'loose' ? 'Loose' : 'Packaged'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                                    {[{ v: "both", l: "Both" }, { v: "cow", l: "Cow" }, { v: "buffalo", l: "Buf" }].map(({ v, l }) => (
+                                        <button key={v} type="button"
+                                            onClick={() => setNewProduct(p => ({ ...p, milk_type: v }))}
+                                            className={`px-2 py-[7px] transition border-r last:border-r-0 border-gray-200/60 ${newProduct.milk_type === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                            {l}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {newProduct.type === 'packaged' && (
+                                <TinyInput
+                                    value={newProduct.extra_rate}
+                                    onChange={e => setNewProduct(p => ({ ...p, extra_rate: e.target.value }))}
+                                    placeholder="Extra rate per litre (₹)"
+                                    type="number"
+                                    step="0.50"
+                                    className="w-full"
+                                />
+                            )}
+                            <button onClick={saveProductType} disabled={savingProduct || !newProduct.name}
+                                className="py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 transition disabled:opacity-40 flex items-center justify-center gap-2 shadow-sm">
+                                {savingProduct && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                Save Product Type
+                            </button>
+                        </div>
+
+                        {/* Existing product types */}
+                        {productTypes.length > 0 && (
+                            <div className="flex flex-col gap-2">
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Registered types</p>
+                                {productTypes.map(p => (
+                                    <div key={p.product_type_id} className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-gray-200/60 bg-white/60 backdrop-blur-sm">
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-800">{p.name}</p>
+                                            <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                                {p.type === 'packaged'
+                                                    ? <><Package size={10} className="inline" /> {`Packaged · +₹${p.extra_rate}/L`}</>
+                                                    : <><Milk size={10} className="inline" /> Loose</>}
+                                                {' · '}
+                                                {p.milk_type === 'both' ? 'Both milk types' : p.milk_type === 'cow' ? 'Cow only' : 'Buffalo only'}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => deleteProductType(p.product_type_id)}
+                                            className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition">
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Clear Bill Modal ── */}
+            {showClearBillModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 w-full max-w-md shadow-xl p-6 flex flex-col gap-5 max-h-[80vh] overflow-y-auto">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                                    <Banknote size={15} className="text-rose-500" /> Clear Buyer Bills
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Select a buyer and enter amount paid. Remaining will carry forward.
+                                </p>
+                            </div>
+                            <button onClick={() => { setShowClearBillModal(false); setClearBillBuyer(null); setClearBillAmount(""); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200 text-gray-500 transition">
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        {/* Buyer list with outstanding balances */}
+                        <div className="flex flex-col gap-2">
+                            {namedBuyerSummaries.filter(b => b.outstanding > 0).map(b => (
+                                <button key={b.buyer_id} type="button"
+                                    onClick={() => { setClearBillBuyer(b); setClearBillAmount(String(b.outstanding.toFixed(2))); }}
+                                    className={`flex items-center justify-between px-4 py-3 rounded-xl border text-left transition shadow-sm
+                            ${clearBillBuyer?.buyer_id === b.buyer_id
+                                            ? "border-rose-300 bg-rose-50/80"
+                                            : "border-gray-200/60 bg-white/60 backdrop-blur-sm hover:border-gray-400"}`}>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-800">{b.name}</p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                            Total: ₹{parseFloat(b.total_amount).toFixed(2)} · Paid: ₹{parseFloat(b.total_paid).toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-bold text-rose-600">₹{parseFloat(b.outstanding).toFixed(2)}</p>
+                                        <p className="text-[10px] text-gray-400">outstanding</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Payment input */}
+                        {clearBillBuyer && (
+                            <div className="flex flex-col gap-3 p-4 bg-gray-50/80 backdrop-blur-sm rounded-xl border border-gray-200/60">
+                                <p className="text-xs font-semibold text-gray-600">
+                                    Clearing bill for <strong>{clearBillBuyer.name}</strong> — Outstanding: ₹{clearBillBuyer.outstanding.toFixed(2)}
+                                </p>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                        Amount Paid
+                                    </label>
+                                    <TinyInput
+                                        value={clearBillAmount}
+                                        onChange={e => setClearBillAmount(e.target.value)}
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        max={clearBillBuyer.outstanding}
+                                        placeholder="₹0.00"
+                                        className="w-full"
+                                    />
+                                </div>
+                                {clearBillAmount && parseFloat(clearBillAmount) < clearBillBuyer.outstanding && (
+                                    <p className="text-xs text-amber-600 font-medium">
+                                        ₹{(clearBillBuyer.outstanding - parseFloat(clearBillAmount)).toFixed(2)} will carry forward as previous balance
+                                    </p>
+                                )}
+                                {clearBillAmount && parseFloat(clearBillAmount) >= clearBillBuyer.outstanding && (
+                                    <p className="text-xs text-emerald-600 font-medium">
+                                        Bill fully cleared ✓
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2">
+                            <button onClick={() => { setShowClearBillModal(false); setClearBillBuyer(null); setClearBillAmount(""); }}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
+                                Cancel
+                            </button>
+                            <button onClick={handleClearBill}
+                                disabled={clearingBill || !clearBillBuyer || !clearBillAmount || parseFloat(clearBillAmount) <= 0}
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 transition disabled:opacity-40 flex items-center justify-center gap-2 shadow-sm">
+                                {clearingBill && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                {clearingBill ? "Clearing…" : "Clear Bill"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Delete Confirmation Modal ── */}
             {deleteModal.open && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-80 flex flex-col gap-4">
                         <div className="flex flex-col items-center gap-2 text-center">
-                            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
-                                <Trash2 size={22} className="text-red-500" />
+                            <div className="w-12 h-12 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center">
+                                <Trash2 size={22} className="text-rose-500" />
                             </div>
                             <h2 className="text-gray-800 font-semibold text-base">Delete Sale</h2>
                             <p className="text-gray-400 text-xs leading-relaxed">
@@ -2255,7 +2282,7 @@ export default function WalkinSales() {
                         <div className="flex gap-2 mt-1">
                             <button
                                 onClick={() => setDeleteModal({ open: false, saleId: null })}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 disabled={processingDelete}
                             >
                                 Cancel
@@ -2263,7 +2290,7 @@ export default function WalkinSales() {
                             <button
                                 onClick={handleConfirmDelete}
                                 disabled={processingDelete}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-100 transition active:scale-95"
+                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 transition active:scale-95 shadow-sm"
                             >
                                 {processingDelete
                                     ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />

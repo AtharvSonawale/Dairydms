@@ -4,13 +4,30 @@ import { useTranslation } from "react-i18next";
 import {
     Receipt, Wallet, CheckCircle2, Circle, Layers,
     Calendar, Download, FileText, Building2, CreditCard, Hash,
-    AlertTriangle, BadgeCheck, X, PieChart, TrendingUp
+    AlertTriangle, BadgeCheck, X, PieChart, TrendingUp,
+    Home
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -56,6 +73,19 @@ const applyRange = (mode, anchorDate) => {
     if (mode === "yearly") return getYearRange(anchorDate);
     return null;
 };
+
+// ── StatCard ──────────────────────────────────────────────────
+function StatCard({ label, value, icon, color }) {
+    return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+            <div className="shrink-0">{icon}</div>
+            <div>
+                <p className="text-xs text-gray-400 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            </div>
+        </div>
+    );
+}
 
 // ── Main Component ──────────────────────────────────────────────
 export default function ExpensesReport() {
@@ -282,7 +312,7 @@ export default function ExpensesReport() {
 
     // ── Permissions ──
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -291,21 +321,25 @@ export default function ExpensesReport() {
 
     // ── Render ──
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <PieChart size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('expensesReport.title')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <PieChart size={12} /> Report
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('expensesReport.title')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('expensesReport.subtitle')}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('expensesReport.title')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('expensesReport.subtitle')}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
@@ -315,15 +349,14 @@ export default function ExpensesReport() {
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => handleDateChange(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expensesReport.period')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
                                     {[
                                         { v: "daily", l: t('expensesReport.periodDay') },
                                         { v: "weekly", l: t('expensesReport.periodWeek') },
@@ -333,7 +366,7 @@ export default function ExpensesReport() {
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button"
                                             onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -343,16 +376,16 @@ export default function ExpensesReport() {
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate}
                                             onChange={e => setFromDate(e.target.value)}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate}
                                             onChange={e => setToDate(e.target.value)}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                         {fromDate === toDate
                                             ? fmtDate(fromDate)
                                             : `${fmtDate(fromDate)} → ${fmtDate(toDate)}`}
@@ -363,47 +396,57 @@ export default function ExpensesReport() {
                     </div>
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
-                {/* Summary Cards */}
+                {/* ── Summary Cards ── */}
                 {!loading && summary && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {[
-                            { label: t('expensesReport.totalExpenses'), value: fmtCurrency(summary.total_amount), icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                            { label: t('expensesReport.paid'), value: fmtCurrency(summary.paid_amount), icon: <CheckCircle2 size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                            { label: t('expensesReport.unpaid'), value: fmtCurrency(summary.unpaid_amount), icon: <Circle size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
-                            { label: t('expensesReport.entries'), value: summary.total_entries, icon: <Layers size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
-                        ].map(({ label, value, icon, color }) => (
-                            <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                                <div className="shrink-0">{icon}</div>
-                                <div>
-                                    <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                    <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                                </div>
-                            </div>
-                        ))}
+                        <StatCard
+                            label={t('expensesReport.totalExpenses')}
+                            value={fmtCurrency(summary.total_amount)}
+                            icon={<Wallet size={14} className="text-blue-600" />}
+                            color="text-blue-600 bg-blue-50/80 border-blue-200/60"
+                        />
+                        <StatCard
+                            label={t('expensesReport.paid')}
+                            value={fmtCurrency(summary.paid_amount)}
+                            icon={<CheckCircle2 size={14} className="text-emerald-600" />}
+                            color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60"
+                        />
+                        <StatCard
+                            label={t('expensesReport.unpaid')}
+                            value={fmtCurrency(summary.unpaid_amount)}
+                            icon={<Circle size={14} className="text-rose-600" />}
+                            color="text-rose-600 bg-rose-50/80 border-rose-200/60"
+                        />
+                        <StatCard
+                            label={t('expensesReport.entries')}
+                            value={summary.total_entries}
+                            icon={<Layers size={14} className="text-violet-600" />}
+                            color="text-violet-600 bg-violet-50/80 border-violet-200/60"
+                        />
                     </div>
                 )}
 
-                {/* Breakdowns & Actions */}
+                {/* ── Breakdowns ── */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Payment Mode Breakdown */}
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                            <CreditCard size={14} /> {t('expensesReport.paymentModes')}
-                        </div>
+                    <SectionCard
+                        title={t('expensesReport.paymentModes')}
+                        icon={<CreditCard size={16} className="text-white" />}
+                    >
                         {loading ? (
                             <div className="flex justify-center py-6">
                                 <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
@@ -411,7 +454,7 @@ export default function ExpensesReport() {
                         ) : (
                             <div className="space-y-2">
                                 {Object.entries(modeBreakdown).map(([mode, amount]) => (
-                                    <div key={mode} className="flex items-center justify-between">
+                                    <div key={mode} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50/50 transition">
                                         <span className="text-sm capitalize text-gray-700">{getModeLabel(mode)}</span>
                                         <span className="text-sm font-semibold text-gray-900">{fmtCurrency(amount)}</span>
                                     </div>
@@ -421,13 +464,13 @@ export default function ExpensesReport() {
                                 )}
                             </div>
                         )}
-                    </div>
+                    </SectionCard>
 
                     {/* Payment Status Breakdown */}
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                            <CheckCircle2 size={14} /> {t('expensesReport.paymentStatus')}
-                        </div>
+                    <SectionCard
+                        title={t('expensesReport.paymentStatus')}
+                        icon={<CheckCircle2 size={16} className="text-white" />}
+                    >
                         {loading ? (
                             <div className="flex justify-center py-6">
                                 <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
@@ -435,19 +478,22 @@ export default function ExpensesReport() {
                         ) : (
                             <div className="space-y-2">
                                 {Object.entries(statusBreakdown).map(([status, amount]) => (
-                                    <div key={status} className="flex items-center justify-between">
+                                    <div key={status} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50/50 transition">
                                         <span className="text-sm capitalize text-gray-700">{getStatusLabel(status)}</span>
                                         <span className="text-sm font-semibold text-gray-900">{fmtCurrency(amount)}</span>
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </SectionCard>
                 </div>
 
-                {/* Entries Table (compact) */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                {/* ── Entries Table ── */}
+                <SectionCard
+                    title={t('expensesReport.detailedEntries')}
+                    icon={<Receipt size={16} className="text-white" />}
+                >
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/60 bg-gray-50/60 rounded-t-xl">
                         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('expensesReport.detailedEntries')}</span>
                         <span className="text-xs text-gray-400">{t('expensesReport.entriesCount', { count: entries.length })}</span>
                     </div>
@@ -464,7 +510,7 @@ export default function ExpensesReport() {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50/80 text-xs text-gray-400 uppercase tracking-wide">
+                                <thead className="bg-gray-50/80 text-xs text-gray-400 uppercase tracking-wide border-b border-gray-200/60">
                                     <tr>
                                         <th className="px-3 py-2 text-left">{t('expensesReport.date')}</th>
                                         <th className="px-3 py-2 text-left">{t('expensesReport.reason')}</th>
@@ -477,24 +523,24 @@ export default function ExpensesReport() {
                                 </thead>
                                 <tbody>
                                     {entries.slice(0, 20).map((e) => (
-                                        <tr key={e.expense_id} className="border-t border-gray-50 hover:bg-blue-50/20 transition-colors">
+                                        <tr key={e.expense_id} className="border-t border-gray-200/60 hover:bg-blue-50/20 transition-colors">
                                             <td className="px-3 py-2 text-gray-500 font-mono text-xs">{fmtDate(e.expense_date)}</td>
                                             <td className="px-3 py-2 text-gray-800 text-xs font-medium">{e.reason}</td>
                                             <td className="px-3 py-2 text-gray-600 text-xs">{e.vendor_name || "—"}</td>
                                             <td className="px-3 py-2 text-gray-500 font-mono text-xs">{e.bill_no || "—"}</td>
                                             <td className="px-3 py-2">
-                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase
-                                                    ${e.payment_mode === "cash" ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                                        : e.payment_mode === "card" ? "bg-blue-50 text-blue-700 border border-blue-100"
-                                                            : "bg-violet-50 text-violet-700 border border-violet-100"}`}>
+                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase border
+                                                    ${e.payment_mode === "cash" ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+                                                        : e.payment_mode === "card" ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
+                                                            : "bg-violet-50/80 text-violet-700 border-violet-200/60"}`}>
                                                     {getModeLabel(e.payment_mode)}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-2">
-                                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border
                                                     ${e.payment_status === "paid"
-                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                                        : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
+                                                        ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+                                                        : "bg-rose-50/80 text-rose-700 border-rose-200/60"}`}>
                                                     {e.payment_status === "paid" ? <CheckCircle2 size={9} /> : <Circle size={9} />}
                                                     {getStatusLabel(e.payment_status)}
                                                 </span>
@@ -508,7 +554,7 @@ export default function ExpensesReport() {
                                 {entries.length > 20 && (
                                     <tfoot>
                                         <tr>
-                                            <td colSpan="7" className="px-3 py-2 text-xs text-gray-400 text-center">
+                                            <td colSpan="7" className="px-3 py-2 text-xs text-gray-400 text-center border-t border-gray-200/60">
                                                 {t('expensesReport.showingFirst', { count: 20, total: entries.length })}
                                             </td>
                                         </tr>
@@ -517,17 +563,17 @@ export default function ExpensesReport() {
                             </table>
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
-                {/* PDF Download Button */}
+                {/* ── PDF Download Button ── */}
                 <div className="flex justify-end">
                     <button
                         onClick={generatePDF}
                         disabled={loading || entries.length === 0}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
                             ${loading || entries.length === 0
                                 ? "bg-gray-300 cursor-not-allowed"
-                                : "bg-black hover:bg-gray-800 active:scale-95"}`}
+                                : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}
                     >
                         <Download size={15} />
                         {t('expensesReport.downloadPDF')}

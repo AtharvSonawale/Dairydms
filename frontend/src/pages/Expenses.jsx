@@ -5,11 +5,27 @@ import {
     Receipt, Save, AlertTriangle, BadgeCheck, X,
     Building2, CreditCard, Hash, Wallet,
     Layers, Trash2, Pencil, CheckCircle2, Circle,
-    FileText, Calendar,
+    FileText, Calendar, Home
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -29,14 +45,14 @@ const EMPTY_FORM = {
 };
 
 const PAYMENT_MODES = [
-    { value: "cash", labelKey: "expenses.paymentModeCash", activeClass: "bg-emerald-500 text-white" },
-    { value: "card", labelKey: "expenses.paymentModeCard", activeClass: "bg-blue-500 text-white" },
-    { value: "upi", labelKey: "expenses.paymentModeUpi", activeClass: "bg-violet-500 text-white" },
+    { value: "cash", labelKey: "expenses.paymentModeCash", activeClass: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm" },
+    { value: "card", labelKey: "expenses.paymentModeCard", activeClass: "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm" },
+    { value: "upi", labelKey: "expenses.paymentModeUpi", activeClass: "bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-sm" },
 ];
 
 const PAYMENT_STATUS = [
-    { value: "paid", labelKey: "expenses.statusPaid", icon: <CheckCircle2 size={12} />, activeClass: "bg-emerald-500 text-white" },
-    { value: "unpaid", labelKey: "expenses.statusUnpaid", icon: <Circle size={12} />, activeClass: "bg-rose-500 text-white" },
+    { value: "paid", labelKey: "expenses.statusPaid", icon: <CheckCircle2 size={12} />, activeClass: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm" },
+    { value: "unpaid", labelKey: "expenses.statusUnpaid", icon: <Circle size={12} />, activeClass: "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-sm" },
 ];
 
 // ── sub-components ────────────────────────────────────────────
@@ -55,8 +71,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2.5 py-[7px] text-sm text-gray-900
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -64,15 +80,15 @@ function TinyInput({ className = "", ...props }) {
 
 function ToggleGroup({ value, onChange, options, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden h-[35px]">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden h-[35px] bg-white/50 backdrop-blur-sm shadow-sm">
             {options.map((opt, i) => (
                 <button
                     key={opt.value}
                     type="button"
                     onClick={() => onChange(opt.value)}
-                    className={`flex items-center gap-1.5 px-3 text-xs font-semibold transition
-                        ${i > 0 ? "border-l border-gray-200" : ""}
-                        ${value === opt.value ? opt.activeClass : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                    className={`flex items-center gap-1.5 px-3 text-xs font-semibold transition-all duration-200
+                        ${i > 0 ? "border-l border-gray-200/60" : ""}
+                        ${value === opt.value ? opt.activeClass : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}
                 >
                     {opt.icon}{t(opt.labelKey)}
                 </button>
@@ -85,6 +101,19 @@ function TableCell({ children, className = "" }) {
     return (
         <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
             {children}
+        </div>
+    );
+}
+
+// ── StatCard ──────────────────────────────────────────────────
+function StatCard({ label, value, icon, color }) {
+    return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+            <div className="shrink-0">{icon}</div>
+            <div>
+                <p className="text-xs text-gray-400 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            </div>
         </div>
     );
 }
@@ -295,7 +324,7 @@ export default function Expenses() {
     const GRID = "90px 1.4fr 1fr 100px 90px 90px 100px";
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -303,23 +332,27 @@ export default function Expenses() {
     if (!can('expenses', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Receipt size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('expenses.title')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs font-semibold shadow-md shadow-blue-500/30">
+                                <Receipt size={12} /> Expenses
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('expenses.title')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('expenses.subtitle', {
-                                    date: new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
-                                })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('expenses.title')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('expenses.subtitle', {
+                                date: new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
+                            })}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
@@ -329,15 +362,14 @@ export default function Expenses() {
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => handleDateChange(e.target.value)}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expenses.period')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
                                     {[
                                         { v: "daily", l: t('expenses.periodDay') },
                                         { v: "weekly", l: t('expenses.periodWeek') },
@@ -347,7 +379,7 @@ export default function Expenses() {
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button"
                                             onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -357,16 +389,16 @@ export default function Expenses() {
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate}
                                             onChange={e => setFromDate(e.target.value)}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate}
                                             onChange={e => setToDate(e.target.value)}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                         {fromDate === toDate
                                             ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
                                             : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`}
@@ -377,47 +409,57 @@ export default function Expenses() {
                     </div>
                 </div>
 
-                {/* Stats */}
+                {/* ── Stats ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
-                        { label: t('expenses.stats.total'), value: "₹" + totalAmount.toFixed(2), icon: <Wallet size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('expenses.stats.paid'), value: "₹" + paidAmount.toFixed(2), icon: <CheckCircle2 size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                        { label: t('expenses.stats.unpaid'), value: "₹" + unpaidAmount.toFixed(2), icon: <Circle size={14} />, color: "text-rose-600 bg-rose-50 border-rose-100" },
-                        { label: t('expenses.stats.entries'), value: entries.length, icon: <Layers size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100" },
-                    ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                            </div>
-                        </div>
-                    ))}
+                    <StatCard
+                        label={t('expenses.stats.total')}
+                        value={"₹" + totalAmount.toFixed(2)}
+                        icon={<Wallet size={14} className="text-blue-600" />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60"
+                    />
+                    <StatCard
+                        label={t('expenses.stats.paid')}
+                        value={"₹" + paidAmount.toFixed(2)}
+                        icon={<CheckCircle2 size={14} className="text-emerald-600" />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60"
+                    />
+                    <StatCard
+                        label={t('expenses.stats.unpaid')}
+                        value={"₹" + unpaidAmount.toFixed(2)}
+                        icon={<Circle size={14} className="text-rose-600" />}
+                        color="text-rose-600 bg-rose-50/80 border-rose-200/60"
+                    />
+                    <StatCard
+                        label={t('expenses.stats.entries')}
+                        value={entries.length}
+                        icon={<Layers size={14} className="text-violet-600" />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60"
+                    />
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
-                {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
+                {/* ── Entry Form ── */}
+                <SectionCard
+                    title={editingId ? t('expenses.editExpense') : t('expenses.newExpense')}
+                    icon={<Receipt size={16} className="text-white" />}
+                >
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                            {editingId ? t('expenses.editExpense') : t('expenses.newExpense')}
-                        </p>
                         {editingId && (
                             <button onClick={handleCancelEdit}
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
+                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100/80">
                                 <X size={12} /> {t('expenses.cancelEdit')}
                             </button>
                         )}
@@ -449,7 +491,7 @@ export default function Expenses() {
                                 value={form.amount}
                                 onChange={(e) => set("amount", e.target.value)}
                                 placeholder="0.00"
-                                className="w-28 bg-blue-50 border-blue-200 text-blue-700"
+                                className="w-28 bg-blue-50/80 border-blue-200/60 text-blue-700"
                             />
                         </Field>
 
@@ -500,7 +542,7 @@ export default function Expenses() {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200/60">
                         <p className="text-xs text-gray-400">
                             {t('expenses.entryCount', { count: entries.length })}
                             {totalAmount > 0 && (
@@ -511,27 +553,31 @@ export default function Expenses() {
                             type="button"
                             onClick={editingId ? handleUpdate : handleSave}
                             disabled={saving || !isFormReady()}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
                                 ${saving || !isFormReady()
                                     ? "bg-gray-300 cursor-not-allowed"
-                                    : editingId ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}
+                                    : editingId
+                                        ? "bg-gradient-to-br from-amber-500 to-amber-600 hover:shadow-lg hover:shadow-amber-500/30 active:scale-95"
+                                        : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}
                         >
                             <Save size={15} />
                             {saving ? (editingId ? t('expenses.updating') : t('expenses.saving')) : editingId ? t('expenses.updateButton') : t('expenses.saveButton')}
                         </button>
                     </div>
-                </div>
+                </SectionCard>
 
-                {/* Entries Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                {/* ── Entries Table ── */}
+                <SectionCard
+                    title={t('expenses.entries')}
+                    icon={<Receipt size={16} className="text-white" />}
+                >
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 bg-gray-50/60 rounded-t-xl flex-wrap">
                         <input
                             type="text"
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
                             placeholder={t('expenses.searchPlaceholder')}
-                            className="border border-gray-200 bg-white rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition w-64"
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-64"
                         />
                         {searchText && (
                             <button onClick={() => setSearchText("")} className="text-gray-400 hover:text-gray-600 transition">
@@ -543,9 +589,9 @@ export default function Expenses() {
                         </span>
                     </div>
 
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: `${GRID} 100px` }}>
+                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: `${GRID} 100px` }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -567,7 +613,7 @@ export default function Expenses() {
                                 {[...filteredEntries].reverse().map((e, i) => (
                                     <div
                                         key={e.expense_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors"
                                         style={{ gridTemplateColumns: `${GRID} 100px` }}
                                     >
                                         <TableCell className="text-gray-500 font-mono text-xs">
@@ -590,10 +636,10 @@ export default function Expenses() {
                                         </TableCell>
 
                                         <TableCell>
-                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase
-                                                ${e.payment_mode === "cash" ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                                    : e.payment_mode === "card" ? "bg-blue-50 text-blue-700 border border-blue-100"
-                                                        : "bg-violet-50 text-violet-700 border border-violet-100"}`}>
+                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase border
+                                                ${e.payment_mode === "cash" ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+                                                    : e.payment_mode === "card" ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
+                                                        : "bg-violet-50/80 text-violet-700 border-violet-200/60"}`}>
                                                 {e.payment_mode === "cash" ? t('expenses.paymentModeCash')
                                                     : e.payment_mode === "card" ? t('expenses.paymentModeCard')
                                                         : t('expenses.paymentModeUpi')}
@@ -601,10 +647,10 @@ export default function Expenses() {
                                         </TableCell>
 
                                         <TableCell>
-                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
+                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border
                                                 ${e.payment_status === "paid"
-                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                                    : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
+                                                    ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+                                                    : "bg-rose-50/80 text-rose-700 border-rose-200/60"}`}>
                                                 {e.payment_status === "paid" ? <CheckCircle2 size={9} /> : <Circle size={9} />}
                                                 {e.payment_status === "paid" ? t('expenses.statusPaid') : t('expenses.statusUnpaid')}
                                             </span>
@@ -617,13 +663,13 @@ export default function Expenses() {
                                         <TableCell className="justify-center gap-1">
                                             <button
                                                 onClick={() => handleEdit(e)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-blue-50/80 text-blue-600 border-blue-200/60 hover:bg-blue-100/80 shadow-sm"
                                             >
                                                 <Pencil size={14} />
                                             </button>
                                             <button
                                                 onClick={() => setDeleteConfirmId(e.expense_id)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-rose-50/80 text-rose-600 border-rose-200/60 hover:bg-rose-100/80 shadow-sm"
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -636,38 +682,39 @@ export default function Expenses() {
 
                     {/* Totals footer */}
                     {filteredEntries.length > 0 && (
-                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: `${GRID} 100px` }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                        <div className="grid border-t-2 border-gray-200/60 bg-gray-50/60 rounded-b-xl" style={{ gridTemplateColumns: `${GRID} 100px` }}>
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {t('expenses.entryCount', { count: filteredEntries.length })}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-200/60">
                                 ₹{filteredEntries.reduce((a, e) => a + parseFloat(e.amount || 0), 0).toFixed(2)}
                             </div>
                             <div className="px-3 py-2.5" />
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
+                {/* ── Delete Confirm Modal ── */}
                 {deleteConfirmId && (
-                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 max-w-sm w-full">
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-2xl p-6 max-w-sm w-full">
                             <h3 className="text-lg font-bold text-gray-900 mb-2">{t('expenses.deleteTitle')}</h3>
                             <p className="text-sm text-gray-500 mb-4">{t('expenses.deleteConfirm')}</p>
                             <div className="flex gap-2 justify-end">
                                 <button
                                     onClick={() => setDeleteConfirmId(null)}
-                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+                                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100/80 hover:bg-gray-200/80 transition shadow-sm"
                                 >
                                     {t('expenses.cancel')}
                                 </button>
                                 <button
                                     onClick={() => handleDelete(deleteConfirmId)}
-                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition"
+                                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 transition shadow-sm"
                                 >
                                     {t('expenses.delete')}
                                 </button>

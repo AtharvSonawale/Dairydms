@@ -446,17 +446,17 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                 )}
             </nav>
 
-            {/* Bottom Avatar */}
+            {/* Bottom Avatar - Updated to match Dashboard glass-morphism style */}
             <div className={`border-t p-3 ${isAdmin ? 'border-gray-800' : 'border-emerald-700'}`}>
                 <div className={`flex items-center gap-3 px-2 py-2 rounded-xl transition
-                    ${isAdmin ? 'hover:bg-gray-800' : 'hover:bg-emerald-700'}`}>
+                    ${isAdmin ? 'hover:bg-gray-800/50' : 'hover:bg-emerald-700/50'}`}>
                     {isAdmin ? (
                         <button
                             onClick={() => navigate('/admin/profile')}
                             title={t('nav.myProfile', { defaultValue: 'My Profile' })}
                             className="flex items-center gap-3 flex-1 min-w-0 text-left"
                         >
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gray-600 text-white">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gradient-to-br from-gray-600 to-gray-700 text-white shadow-lg shadow-gray-800/20">
                                 {initials(user?.name)}
                             </div>
                             {(!collapsed || mobile) && (
@@ -468,7 +468,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                         </button>
                     ) : (
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-emerald-300 text-emerald-900">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gradient-to-br from-emerald-300 to-emerald-400 text-emerald-900 shadow-lg shadow-emerald-400/20">
                                 {initials(user?.name)}
                             </div>
                             {(!collapsed || mobile) && (
@@ -487,8 +487,8 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                         <button onClick={handleLogout} title={t('actions.logout')}
                             className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition
                                 ${isAdmin
-                                    ? 'text-gray-400 hover:bg-gray-700 hover:text-rose-400'
-                                    : 'text-emerald-300 hover:bg-emerald-600 hover:text-rose-300'}`}>
+                                    ? 'text-gray-400 hover:bg-gray-700/50 hover:text-rose-400'
+                                    : 'text-emerald-300 hover:bg-emerald-600/50 hover:text-rose-300'}`}>
                             <LogOut size={14} />
                         </button>
                     )}
@@ -497,8 +497,8 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                     <button onClick={handleLogout} title={t('actions.logout')}
                         className={`mt-1 w-full flex items-center justify-center py-2 rounded-xl transition
                             ${isAdmin
-                                ? 'text-gray-400 hover:bg-gray-800 hover:text-rose-400'
-                                : 'text-emerald-300 hover:bg-emerald-700 hover:text-rose-300'}`}>
+                                ? 'text-gray-400 hover:bg-gray-800/50 hover:text-rose-400'
+                                : 'text-emerald-300 hover:bg-emerald-700/50 hover:text-rose-300'}`}>
                         <LogOut size={15} />
                     </button>
                 )}
@@ -595,7 +595,7 @@ export default function AppLayout() {
                 ? { ...match, favId: f.id }
                 : { label: f.nav_label, to: f.nav_path, icon: <Star size={14} />, favId: f.id };
         }),
-    [favorites, flatNavItems]);
+        [favorites, flatNavItems]);
 
     // Synthetic "Favourites" group — reuses the same collapsible-group
     // rendering path as every other nav section, so no extra JSX is needed.
@@ -774,8 +774,9 @@ export default function AppLayout() {
         navigate(isAdmin ? '/' : isFarmer ? '/seller/login' : '/operator/login');
     };
 
+    // Updated main container background to match Dashboard
     return (
-        <div className="flex h-screen overflow-hidden bg-[#f5f4f0]"
+        <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100/50"
             style={{ fontFamily: "'DM Sans', sans-serif" }}>
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
@@ -786,14 +787,13 @@ export default function AppLayout() {
             `}</style>
 
             {mobileOpen && (
-                <div className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 lg:hidden"
                     onClick={() => setMobileOpen(false)} />
             )}
 
             {/* Mobile sidebar */}
             <aside data-sidebar="mobile" className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 lg:hidden
-                ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}
-                ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}`}>
                 <SidebarContent mobile
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
                     navItems={displayNavItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
@@ -802,10 +802,12 @@ export default function AppLayout() {
                 />
             </aside>
 
-            {/* Desktop sidebar */}
+            {/* Desktop sidebar - Updated with glass-morphism effect */}
             <aside data-sidebar="desktop" className={`relative hidden lg:flex flex-col shrink-0 transition-all duration-300
                 ${collapsed ? 'w-[68px]' : 'w-56'}
-                ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}`}>
+                ${isAdmin
+                    ? 'bg-gradient-to-b from-gray-900 to-gray-800'
+                    : 'bg-gradient-to-b from-emerald-800 to-emerald-900'}`}>
                 <ToggleBtn collapsed={collapsed} onClick={() => setCollapsed(p => !p)} isAdmin={isAdmin} />
                 <SidebarContent
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
@@ -817,13 +819,13 @@ export default function AppLayout() {
 
             {/* Main content */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* Mobile top bar */}
-                <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b bg-white border-gray-200">
+                {/* Mobile top bar - Updated with glass-morphism */}
+                <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b bg-white/80 backdrop-blur-sm border-gray-200/60 shadow-lg shadow-gray-200/50">
                     <button onClick={() => setMobileOpen(true)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 transition text-gray-600">
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-gray-200/80 transition text-gray-600 shadow-sm">
                         <Menu size={16} />
                     </button>
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden shadow-sm
                         ${isAdmin ? 'bg-gray-100 text-white' : 'bg-gray-100 text-white'}`}>
                         {logoUrl
                             ? <img src={logoUrl} alt={appName} className="w-full h-full object-contain p-0.5" />
@@ -831,20 +833,20 @@ export default function AppLayout() {
                         }
                     </div>
                     <span className="text-sm font-semibold text-gray-800">{appName}</span>
-                    <div className={`ml-auto w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-                        ${isAdmin ? 'bg-gray-200 text-gray-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                    <div className={`ml-auto w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm
+                        ${isAdmin ? 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700' : 'bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-700'}`}>
                         {initials(user?.name)}
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto tracking-tighter">
+                <main className="flex-1 overflow-y-auto tracking-tighter bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
                     <Outlet />
                 </main>
             </div>
             {
                 showLogoutConfirm && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                        <div className="bg-white rounded-2xl shadow-xl px-6 py-5 w-80 flex flex-col gap-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 px-6 py-5 w-80 flex flex-col gap-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
                                     <LogOut size={16} className="text-rose-500" />
@@ -856,11 +858,11 @@ export default function AppLayout() {
                             </div>
                             <div className="flex gap-2 justify-center">
                                 <button onClick={() => setShowLogoutConfirm(false)}
-                                    className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                                    className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                                     Cancel
                                 </button>
                                 <button onClick={confirmLogout}
-                                    className="px-4 py-2 text-sm font-semibold rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition">
+                                    className="px-4 py-2 text-sm font-semibold rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">
                                     Logout
                                 </button>
                             </div>

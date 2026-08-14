@@ -8,8 +8,24 @@ import {
     Star, Plus, Pencil, Trash2, RefreshCw, X,
     AlertTriangle, BadgeCheck, Search, Users,
     ChevronDown, ChevronUp, Milk, Calendar,
-    CheckCircle2, Clock, Ban, Filter,
+    CheckCircle2, Clock, Ban, Filter, Home,
 } from "lucide-react";
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
@@ -30,21 +46,34 @@ const EMPTY_FORM = {
 function Field({ label, required, children, ...rest }) {
     return (
         <div className="flex flex-col gap-1" {...rest}>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
             </label>
             {children}
         </div>
     );
 }
+
 function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
-                placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-sm text-gray-900
+                placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm
                 ${className}`}
         />
+    );
+}
+
+function StatCard({ label, value, icon, color, t }) {
+    return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+            <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center">{icon}</div>
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            </div>
+        </div>
     );
 }
 
@@ -55,38 +84,26 @@ function StatusBadge({ rate, t }) {
 
     if (!rate.is_active)
         return (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 border border-gray-200">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100/80 text-gray-400 border border-gray-200/60">
                 <Ban size={9} /> {t('premiumRates.inactive')}
             </span>
         );
     if (from > now)
         return (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50/80 text-blue-600 border border-blue-200/60">
                 <Clock size={9} /> {t('premiumRates.upcoming')}
             </span>
         );
     if (to && to < now)
         return (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-500 border border-rose-100">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50/80 text-rose-500 border border-rose-200/60">
                 <Ban size={9} /> {t('premiumRates.expired')}
             </span>
         );
     return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50/80 text-emerald-600 border border-emerald-200/60">
             <CheckCircle2 size={9} /> {t('premiumRates.active')}
         </span>
-    );
-}
-
-function StatCard({ label, value, icon, color, t }) {
-    return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-            </div>
-        </div>
     );
 }
 
@@ -300,95 +317,81 @@ export default function PremiumRates() {
     const uniqueSellers = [...new Set(rates.map(r => r.seller_id))].length;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* ── Header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-md shadow-amber-200">
-                            <Star size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('premiumRates.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white text-xs font-semibold shadow-md shadow-amber-500/30">
+                                <Star size={12} /> Premium
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('premiumRates.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('premiumRates.pageSubtitle')}
-                            </p>
-                        </div>
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium ml-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            {activeCount} {t('premiumRates.activeCount')}
-                        </span>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('premiumRates.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('premiumRates.pageSubtitle')}
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={startPremiumRatesTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t('premiumRates.startTour') || 'Take a Tour'}
+                            <BadgeCheck size={15} /> {t('premiumRates.startTour') || 'Take a Tour'}
                         </button>
                         <button onClick={openAdd} data-tour="assign-btn"
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-amber-500 text-white hover:bg-amber-600 transition shadow-sm shadow-amber-200">
-                            <Plus size={14} /> {t('premiumRates.assignPremium')}
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200">
+                            <Plus size={15} /> {t('premiumRates.assignPremium')}
                         </button>
                     </div>
-                </div>
-
-                {/* ── Stats ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="stats">
-                    <StatCard label={t('premiumRates.totalAssigned')} value={rates.length}
-                        icon={<Star size={14} />}
-                        color="text-amber-600 bg-amber-50 border-amber-100" t={t} />
-                    <StatCard label={t('premiumRates.activeNow')} value={activeCount}
-                        icon={<CheckCircle2 size={14} />}
-                        color="text-emerald-600 bg-emerald-50 border-emerald-100" t={t} />
-                    <StatCard label={t('premiumRates.uniqueSellers')} value={uniqueSellers}
-                        icon={<Users size={14} />}
-                        color="text-blue-600 bg-blue-50 border-blue-100" t={t} />
-                    <StatCard
-                        label={t('premiumRates.cowBuffalo')}
-                        value={`${cowCount} / ${buffaloCount}`}
-                        icon={<Milk size={14} />}
-                        color="text-violet-600 bg-violet-50 border-violet-100" t={t} />
                 </div>
 
                 {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="stats">
+                    <StatCard label={t('premiumRates.totalAssigned')} value={rates.length}
+                        icon={<Star size={14} className="text-amber-600" />}
+                        color="text-amber-600 bg-amber-50/80 border-amber-200/60" t={t} />
+                    <StatCard label={t('premiumRates.activeNow')} value={activeCount}
+                        icon={<CheckCircle2 size={14} className="text-emerald-600" />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60" t={t} />
+                    <StatCard label={t('premiumRates.uniqueSellers')} value={uniqueSellers}
+                        icon={<Users size={14} className="text-blue-600" />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60" t={t} />
+                    <StatCard
+                        label={t('premiumRates.cowBuffalo')}
+                        value={`${cowCount} / ${buffaloCount}`}
+                        icon={<Milk size={14} className="text-violet-600" />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60" t={t} />
+                </div>
+
                 {/* ── Add / Edit Form ── */}
                 {showForm && (
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-amber-50/50">
-                            <div>
-                                <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                                    <Star size={14} className="text-amber-500" />
-                                    {editId ? t('premiumRates.editPremiumRate') : t('premiumRates.assignPremiumRate')}
-                                </h2>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                    {editId ? t('premiumRates.editDesc') : t('premiumRates.assignDesc')}
-                                </p>
-                            </div>
-                            <button onClick={() => { setShowForm(false); setFormError(""); }}
-                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                <X size={14} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <SectionCard
+                        title={editId ? t('premiumRates.editPremiumRate') : t('premiumRates.assignPremiumRate')}
+                        icon={<Star size={16} className="text-white" />}
+                    >
+                        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
                                 {/* Seller search */}
                                 <Field label={t('premiumRates.seller')} required>
@@ -410,12 +413,12 @@ export default function PremiumRates() {
                                             className="w-full pr-8"
                                         />
                                         {sellerSearch && filteredSellers.length > 0 && !form.seller_id && (
-                                            <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-44 overflow-y-auto">
+                                            <div className="absolute top-full left-0 mt-1 w-full bg-white/90 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-44 overflow-y-auto">
                                                 {filteredSellers.map(s => (
                                                     <button key={s.seller_id} type="button"
                                                         onClick={() => { set("seller_id", s.seller_id); setSellerSearch(s.name); }}
-                                                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-amber-50 text-left transition">
-                                                        <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-xs font-bold text-amber-700 shrink-0">
+                                                        className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-amber-50/80 text-left transition">
+                                                        <div className="w-6 h-6 rounded-full bg-amber-100/80 flex items-center justify-center text-xs font-bold text-amber-700 shrink-0">
                                                             {s.name?.charAt(0)?.toUpperCase()}
                                                         </div>
                                                         <div>
@@ -442,14 +445,14 @@ export default function PremiumRates() {
 
                                 {/* Milk type */}
                                 <Field label={t('premiumRates.milkType')} required>
-                                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
                                         {[
-                                            { val: "cow", label: t('premiumRates.cow'), active: "bg-amber-400 text-amber-900" },
-                                            { val: "buffalo", label: t('premiumRates.buffalo'), active: "bg-blue-500 text-white" },
+                                            { val: "cow", label: t('premiumRates.cow'), active: "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 shadow-sm" },
+                                            { val: "buffalo", label: t('premiumRates.buffalo'), active: "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm" },
                                         ].map(({ val, label, active }) => (
                                             <button key={val} type="button" onClick={() => set("milk_type", val)}
-                                                className={`flex-1 px-3 py-2 transition
-                                                    ${form.milk_type === val ? active : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                                className={`flex-1 px-4 py-2.5 transition
+                                                    ${form.milk_type === val ? active : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
                                                 {label}
                                             </button>
                                         ))}
@@ -483,75 +486,81 @@ export default function PremiumRates() {
                                 <textarea value={form.reason} required rows={2}
                                     onChange={e => set("reason", e.target.value)}
                                     placeholder={t('premiumRates.reasonPlaceholder')}
-                                    className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
-                                        placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition resize-none" />
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-900
+                                        placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm resize-none" />
                             </Field>
 
                             {formError && (
-                                <div className="flex items-center gap-2 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 text-sm text-rose-700">
+                                <div className="flex items-center gap-2 bg-rose-50/80 border border-rose-200/60 rounded-xl px-4 py-3 text-sm text-rose-700">
                                     <AlertTriangle size={14} /> {formError}
                                 </div>
                             )}
 
                             <div className="flex items-center justify-end gap-3 pt-1">
                                 <button type="button" onClick={() => { setShowForm(false); setFormError(""); }}
-                                    className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
+                                    className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition">
                                     {t('premiumRates.cancel')}
                                 </button>
                                 <button type="submit" disabled={saving}
-                                    className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl
-                                        text-white bg-amber-500 hover:bg-amber-600 transition disabled:opacity-50">
-                                    {saving && <RefreshCw size={13} className="animate-spin" />}
+                                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold
+                                        text-white bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200 disabled:opacity-50">
+                                    {saving && <RefreshCw size={14} className="animate-spin" />}
                                     {saving ? t('premiumRates.saving') : editId ? t('premiumRates.updateRate') : t('premiumRates.assignRate')}
                                 </button>
                             </div>
                         </form>
-                    </div>
+                    </SectionCard>
                 )}
 
                 {/* ── Filters ── */}
-                <div className="flex items-center gap-2 flex-wrap" data-tour="filters">
-                    <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder={t('premiumRates.searchPlaceholder')}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
-                    </div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4" data-tour="filters">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="relative flex-1 max-w-xs">
+                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                            <input value={search} onChange={e => setSearch(e.target.value)}
+                                placeholder={t('premiumRates.searchPlaceholder')}
+                                className="w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200/60 rounded-xl bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:text-gray-300" />
+                        </div>
 
-                    {/* Milk filter */}
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                        {[["all", t('premiumRates.all')], ["cow", t('premiumRates.cow')], ["buffalo", t('premiumRates.buffalo')]].map(([v, l]) => (
-                            <button key={v} onClick={() => setFilterMilk(v)}
-                                className={`px-3 py-2 transition
-                                    ${filterMilk === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Milk Type</span>
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
+                                {[["all", t('premiumRates.all')], ["cow", t('premiumRates.cow')], ["buffalo", t('premiumRates.buffalo')]].map(([v, l]) => (
+                                    <button key={v} onClick={() => setFilterMilk(v)}
+                                        className={`px-4 py-2 transition-all duration-200
+                                            ${filterMilk === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                    {/* Status filter */}
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                        {[["all", t('premiumRates.all')], ["active", t('premiumRates.active')], ["upcoming", t('premiumRates.upcoming')], ["expired", t('premiumRates.expired')], ["inactive", t('premiumRates.inactive')]].map(([v, l]) => (
-                            <button key={v} onClick={() => setFilterStatus(v)}
-                                className={`px-3 py-2 transition
-                                    ${filterStatus === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</span>
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
+                                {[["all", t('premiumRates.all')], ["active", t('premiumRates.active')], ["upcoming", t('premiumRates.upcoming')], ["expired", t('premiumRates.expired')], ["inactive", t('premiumRates.inactive')]].map(([v, l]) => (
+                                    <button key={v} onClick={() => setFilterStatus(v)}
+                                        className={`px-3 py-2 transition-all duration-200
+                                            ${filterStatus === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                    <span className="ml-auto text-xs text-gray-400">{filtered.length} {t('premiumRates.entries')}</span>
+                        <span className="ml-auto text-xs text-gray-400">{filtered.length} {t('premiumRates.entries')}</span>
+                    </div>
                 </div>
 
                 {/* ── Rates List ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="rates-table">
-
-                    {/* Table header */}
-                    {/* Scrollable table area */}
+                <SectionCard
+                    title={t('premiumRates.premiumRatesList')}
+                    icon={<Star size={16} className="text-white" />}
+                    data-tour="rates-table"
+                >
                     <div className="overflow-x-auto">
                         {/* Table header */}
-                        <div className="grid bg-gray-50 border-b border-gray-100 min-w-max"
+                        <div className="grid bg-gray-50/80 border-b border-gray-200/60 rounded-t-xl min-w-max"
                             style={{ gridTemplateColumns: "1.4fr 90px 90px 110px 110px 100px 110px" }}>
                             {[t('premiumRates.seller'), t('premiumRates.milk'), t('premiumRates.rateL'), t('premiumRates.from'), t('premiumRates.to'), t('premiumRates.status'), t('premiumRates.actions')].map(h => (
                                 <div key={h} className="px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
@@ -575,7 +584,7 @@ export default function PremiumRates() {
                             const status = getStatus(rate);
 
                             return (
-                                <div key={rate.id} className="border-b border-gray-50 last:border-b-0">
+                                <div key={rate.id} className="border-b border-gray-200/60 last:border-b-0">
                                     {/* Main row */}
                                     <div className="grid hover:bg-amber-50/20 transition-colors group min-w-max"
                                         style={{ gridTemplateColumns: "1.4fr 90px 90px 110px 110px 100px 110px" }}>
@@ -583,7 +592,7 @@ export default function PremiumRates() {
                                         {/* Seller */}
                                         <div className="px-4 py-3 flex items-center gap-2 cursor-pointer"
                                             onClick={() => toggleExpand(rate.id)}>
-                                            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs shrink-0">
+                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
                                                 {(seller?.name || "?").charAt(0).toUpperCase()}
                                             </div>
                                             <div className="min-w-0">
@@ -598,9 +607,9 @@ export default function PremiumRates() {
                                         {/* Milk type */}
                                         <div className="px-4 py-3 flex items-center">
                                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
-                                            ${rate.milk_type === "cow"
-                                                    ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                    : "bg-blue-50 text-blue-700 border-blue-100"}`}>
+                                                ${rate.milk_type === "cow"
+                                                    ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                                                    : "bg-blue-50/80 text-blue-700 border-blue-200/60"}`}>
                                                 {rate.milk_type === "cow" ? t('premiumRates.cow') : t('premiumRates.buffalo')}
                                             </span>
                                         </div>
@@ -632,19 +641,19 @@ export default function PremiumRates() {
                                             {isAdmin && (
                                                 <>
                                                     <button onClick={() => openEdit(rate)}
-                                                        className="flex items-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition border border-blue-100 text-xs font-medium">
+                                                        className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50/80 hover:bg-blue-100/80 text-blue-600 rounded-lg transition border border-blue-200/60 text-[10px] font-semibold shadow-sm">
                                                         <Pencil size={10} /> {t('premiumRates.edit')}
                                                     </button>
                                                     {rate.is_active ? (
                                                         <button onClick={() => confirmDeactivate(rate.id)}
                                                             disabled={deleting === rate.id}
-                                                            className="flex items-center gap-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition border border-amber-100 text-xs font-medium disabled:opacity-50">
+                                                            className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50/80 hover:bg-amber-100/80 text-amber-600 rounded-lg transition border border-amber-200/60 text-[10px] font-semibold shadow-sm disabled:opacity-50">
                                                             <Ban size={10} /> {deleting === rate.id ? "…" : t('premiumRates.off')}
                                                         </button>
                                                     ) : (
                                                         <button onClick={() => confirmDelete(rate.id)}
                                                             disabled={deleting === rate.id}
-                                                            className="flex items-center gap-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition border border-rose-100 text-xs font-medium disabled:opacity-50">
+                                                            className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50/80 hover:bg-rose-100/80 text-rose-600 rounded-lg transition border border-rose-200/60 text-[10px] font-semibold shadow-sm disabled:opacity-50">
                                                             <Trash2 size={10} /> {deleting === rate.id ? "…" : t('premiumRates.del')}
                                                         </button>
                                                     )}
@@ -655,7 +664,7 @@ export default function PremiumRates() {
 
                                     {/* ── Expanded reason ── */}
                                     {isOpen && (
-                                        <div className="px-5 pb-3 pt-1 border-t border-amber-50 bg-amber-50/30">
+                                        <div className="px-5 pb-3 pt-1 border-t border-amber-200/60 bg-amber-50/30">
                                             <div className="flex items-start gap-2">
                                                 <Star size={12} className="text-amber-400 mt-0.5 shrink-0" />
                                                 <div>
@@ -673,11 +682,11 @@ export default function PremiumRates() {
                                 </div>
                             );
                         })}
-                    </div>{/* end scrollable */}
-                </div>
+                    </div>
+                </SectionCard>
 
                 {/* ── Legend ── */}
-                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2">
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400">
                     <span>• <strong className="text-emerald-600">{t('premiumRates.active')}</strong> — {t('premiumRates.activeDesc')}</span>
                     <span>• <strong className="text-blue-600">{t('premiumRates.upcoming')}</strong> — {t('premiumRates.upcomingDesc')}</span>
                     <span>• <strong className="text-rose-500">{t('premiumRates.expired')}</strong> — {t('premiumRates.expiredDesc')}</span>
@@ -689,13 +698,13 @@ export default function PremiumRates() {
 
             {/* ── Confirmation Modal ── */}
             {confirmModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-80 flex flex-col gap-4">
                         <div className="flex flex-col items-center gap-2 text-center">
                             <div className={`w-12 h-12 rounded-full border flex items-center justify-center
                                 ${confirmModal.action === 'deactivate'
-                                    ? 'bg-amber-50 border-amber-100 text-amber-500'
-                                    : 'bg-red-50 border-red-100 text-red-500'}`}>
+                                    ? 'bg-amber-50/80 border-amber-200/60 text-amber-500'
+                                    : 'bg-rose-50/80 border-rose-200/60 text-rose-500'}`}>
                                 {confirmModal.action === 'deactivate'
                                     ? <Ban size={22} />
                                     : <Trash2 size={22} />}
@@ -714,7 +723,7 @@ export default function PremiumRates() {
                         <div className="flex gap-2 mt-1">
                             <button
                                 onClick={() => setConfirmModal({ open: false, id: null, action: null })}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 disabled={processing}
                             >
                                 {t('premiumRates.cancel')}
@@ -722,10 +731,10 @@ export default function PremiumRates() {
                             <button
                                 onClick={handleConfirmAction}
                                 disabled={processing}
-                                className={`flex-1 py-2 rounded-xl text-sm font-semibold text-white shadow-md transition active:scale-95
+                                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md transition active:scale-95
                                     ${confirmModal.action === 'deactivate'
-                                        ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100'
-                                        : 'bg-red-500 hover:bg-red-600 shadow-red-100'}`}
+                                        ? 'bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40'
+                                        : 'bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40'}`}
                             >
                                 {processing ? (
                                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />

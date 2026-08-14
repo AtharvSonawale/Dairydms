@@ -5,7 +5,8 @@ import {
     BarChart3, ChevronDown, ChevronUp, Download, Search, Calendar,
     Sprout, Banknote, Smartphone, CreditCard, DollarSign, Clock,
     CheckCircle2, AlertTriangle, X, Printer, Users, TrendingUp,
-    FileText, BadgeCheck, ArrowUpDown, Milk
+    FileText, BadgeCheck, ArrowUpDown, Milk,
+    Home, Settings
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -22,19 +23,20 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", {
 const fmtShort = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
 
 const MODE_STYLES = {
-    cash: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    upi: "bg-blue-50 text-blue-700 border-blue-100",
-    credit: "bg-orange-50 text-orange-700 border-orange-100",
+    cash: "bg-emerald-50/80 text-emerald-700 border-emerald-200/60",
+    upi: "bg-blue-50/80 text-blue-700 border-blue-200/60",
+    credit: "bg-orange-50/80 text-orange-700 border-orange-200/60",
 };
 
 // ── Sub-components ────────────────────────────────────────────
 function StatCard({ label, value, icon, color, sub }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+            <div className="relative z-10">
+                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                 {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
             </div>
         </div>
@@ -45,7 +47,7 @@ function PaymentBadge({ mode }) {
     const { t } = useTranslation();
     const labels = { cash: t("payments.cash"), upi: t("payments.upi"), credit: t("payments.credit") };
     return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${MODE_STYLES[mode] || MODE_STYLES.cash}`}>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-sm ${MODE_STYLES[mode] || MODE_STYLES.cash}`}>
             {labels[mode] || mode}
         </span>
     );
@@ -567,66 +569,68 @@ export default function WalkinSellerReports() {
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('walkin_payments', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-md">
-                            <BarChart3 size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t("sellerPaymentsReport.pageBreadcrumb", { defaultValue: 'Walk-in Reports' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                {t("sellerPaymentsReport.title")}
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t("sellerPaymentsReport.subtitle")}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t("sellerPaymentsReport.title")}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t("sellerPaymentsReport.subtitle")}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <button
                             onClick={startTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t("sellerPaymentsReport.takeTour")}
+                            <BadgeCheck size={15} /> {t("sellerPaymentsReport.takeTour")}
                         </button>
                         <button
                             onClick={handleExportPDF}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"
                         >
-                            <Download size={14} /> {t("sellerPaymentsReport.exportPDF")}
+                            <Download size={16} /> {t("sellerPaymentsReport.exportPDF")}
                         </button>
                     </div>
                 </div>
 
-                {/* Date Range + Mode */}
+                {/* ── Date Range + Mode ── */}
                 <div className="flex items-center gap-3 flex-wrap" data-tour="seller-date-filters">
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                         {[
                             { v: "daily", l: t("payments.day") },
                             { v: "weekly", l: t("payments.week") },
                             { v: "monthly", l: t("payments.month") },
                         ].map(({ v, l }) => (
                             <button key={v} type="button" onClick={() => handleDateRangeChange(v)}
-                                className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}>
                                 {l}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Calendar size={12} className="text-gray-400" />
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm">
+                        <Calendar size={14} className="text-gray-400" />
                         <input type="date" value={dateRange.from}
                             onChange={(e) => {
                                 const newFrom = e.target.value;
@@ -634,7 +638,7 @@ export default function WalkinSellerReports() {
                                 setDateRange(prev => ({ ...prev, from: newFrom }));
                                 fetchAll(newFrom, dateRange.to);
                             }}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                         <span className="text-gray-400 text-xs">→</span>
                         <input type="date" value={dateRange.to}
                             onChange={(e) => {
@@ -643,10 +647,10 @@ export default function WalkinSellerReports() {
                                 setDateRange(prev => ({ ...prev, to: newTo }));
                                 fetchAll(dateRange.from, newTo);
                             }}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                     </div>
 
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                         {[
                             { v: "all", l: t("payments.all"), icon: null },
                             { v: "cash", l: t("payments.cash"), icon: <Banknote size={12} /> },
@@ -654,44 +658,51 @@ export default function WalkinSellerReports() {
                             { v: "credit", l: t("payments.credit"), icon: <CreditCard size={12} /> },
                         ].map(({ v, l, icon }) => (
                             <button key={v} type="button" onClick={() => setFilterMode(v)}
-                                className={`flex items-center gap-1.5 px-3 py-2 transition border-r last:border-r-0 border-gray-200
-                                    ${filterMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`flex items-center gap-1.5 px-3.5 py-2 transition-all duration-200 border-r last:border-r-0 border-gray-200/60
+                                    ${filterMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}>
                                 {icon}{l}
                             </button>
                         ))}
                     </div>
+
+                    {/* Period label */}
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-500 text-xs font-medium shadow-sm">
+                        <span>{dateRange.from === dateRange.to ? fmtShort(dateRange.from) : `${fmtShort(dateRange.from)} — ${fmtShort(dateRange.to)}`}</span>
+                    </div>
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="seller-stats">
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" data-tour="seller-stats">
                     <StatCard
                         label={t("sellerPaymentsReport.stats.milkCollected")}
                         value={`${overall.totalQty.toFixed(2)} L`}
-                        icon={<Milk size={14} />}
-                        color="text-violet-600 bg-violet-50 border-violet-100"
+                        icon={<Milk size={16} />}
+                        color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700"
                     />
                     <StatCard
                         label={t("sellerPaymentsReport.stats.salesAmount")}
                         value={fmt(overall.totalSalesAmt)}
-                        icon={<TrendingUp size={14} />}
-                        color="text-blue-600 bg-blue-50 border-blue-100"
+                        icon={<TrendingUp size={16} />}
+                        color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700"
                     />
                     <StatCard
                         label={t("sellerPaymentsReport.stats.amountCollected")}
                         value={fmt(overall.totalCollected)}
-                        icon={<DollarSign size={14} />}
-                        color="text-emerald-600 bg-emerald-50 border-emerald-100"
+                        icon={<DollarSign size={16} />}
+                        color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700"
                     />
                     <StatCard
                         label={t("sellerPaymentsReport.stats.totalOutstanding")}
@@ -700,42 +711,42 @@ export default function WalkinSellerReports() {
                             count: overall.outstandingCount,
                             total: overall.activeSellers,
                         })}
-                        icon={<Clock size={14} />}
-                        color="text-rose-600 bg-rose-50 border-rose-100"
+                        icon={<Clock size={16} />}
+                        color="from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-600"
                     />
                 </div>
 
-                {/* Search + Filter + Sort */}
+                {/* ── Search + Filter + Sort ── */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             value={search}
                             onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
                             placeholder={t("sellerPaymentsReport.searchPlaceholder")}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300"
+                            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl text-gray-700 shadow-sm
+                                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition placeholder:text-gray-300"
                         />
                     </div>
 
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                         {[
                             ["all", t("payments.all")],
                             ["outstanding", t("payments.outstanding")],
                             ["cleared", t("payments.cleared")],
                         ].map(([v, l]) => (
                             <button key={v} onClick={() => { setFilterStatus(v); setCurrentPage(1); }}
-                                className={`px-3 py-2 transition border-r last:border-r-0 border-gray-200
-                                    ${filterStatus === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3.5 py-2 transition-all duration-200 border-r last:border-r-0 border-gray-200/60
+                                    ${filterStatus === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}>
                                 {l}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs">
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm text-xs">
+                        <ArrowUpDown size={14} className="text-gray-400" />
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition">
                             <option value="outstanding">{t("sellerPaymentsReport.sort.outstanding")}</option>
                             <option value="sales">{t("sellerPaymentsReport.sort.salesAmount")}</option>
                             <option value="paid">{t("sellerPaymentsReport.sort.paid")}</option>
@@ -748,29 +759,29 @@ export default function WalkinSellerReports() {
                     </span>
                 </div>
 
-                {/* Seller Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" data-tour="seller-table">
+                {/* ── Seller Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="seller-table">
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : paginated.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Users size={32} />
-                            <p className="text-sm">{t("sellerPaymentsReport.noSellers")}</p>
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <Users size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">{t("sellerPaymentsReport.noSellers")}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                                        <th className="px-4 py-3 w-10">#</th>
-                                        <th className="px-4 py-3 min-w-[130px]">{t("sellerPaymentsReport.table.seller")}</th>
-                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.qty")}</th>
-                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.salesAmt")}</th>
-                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.totalPaid")}</th>
-                                        <th className="px-4 py-3 text-right">{t("sellerPaymentsReport.table.balance")}</th>
-                                        <th className="px-4 py-3 text-center">{t("sellerPaymentsReport.table.lastPaid")}</th>
+                                    <tr className="bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                        <th className="px-4 py-3 w-10 border-r border-gray-200/60">#</th>
+                                        <th className="px-4 py-3 min-w-[130px] border-r border-gray-200/60">{t("sellerPaymentsReport.table.seller")}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t("sellerPaymentsReport.table.qty")}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t("sellerPaymentsReport.table.salesAmt")}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t("sellerPaymentsReport.table.totalPaid")}</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">{t("sellerPaymentsReport.table.balance")}</th>
+                                        <th className="px-4 py-3 text-center border-r border-gray-200/60">{t("sellerPaymentsReport.table.lastPaid")}</th>
                                         <th className="px-4 py-3 text-center">{t("sellerPaymentsReport.table.actions")}</th>
                                     </tr>
                                 </thead>
@@ -784,16 +795,16 @@ export default function WalkinSellerReports() {
                                             <React.Fragment key={seller.seller_id}>
                                                 {/* Main row */}
                                                 <tr
-                                                    className={`border-b border-gray-100 hover:bg-gray-50/50 transition cursor-pointer ${hasOutstanding ? 'bg-rose-50/30' : ''}`}
+                                                    className={`border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors cursor-pointer ${hasOutstanding ? 'bg-rose-50/20' : ''}`}
                                                     onClick={() => toggleExpand(seller)}
                                                 >
-                                                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                                                    <td className="px-4 py-3 text-center text-xs text-gray-400 border-r border-gray-100/60">
                                                         {idx + 1 + (currentPage - 1) * pageSize}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3 border-r border-gray-100/60">
                                                         <div className="flex items-center gap-2">
-                                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                                                                ${hasOutstanding ? "bg-rose-100 text-rose-700" : "bg-violet-100 text-violet-700"}`}>
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm
+                                                                ${hasOutstanding ? "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-rose-500/30" : "bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-violet-500/30"}`}>
                                                                 {seller.name?.charAt(0)?.toUpperCase()}
                                                             </div>
                                                             <div>
@@ -802,19 +813,19 @@ export default function WalkinSellerReports() {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-right font-mono text-sm">
+                                                    <td className="px-4 py-3 text-right font-mono text-sm text-blue-600 border-r border-gray-100/60">
                                                         {seller.range_qty > 0 ? seller.range_qty.toFixed(2) : "—"}
                                                     </td>
-                                                    <td className="px-4 py-3 text-right font-semibold text-gray-700">
+                                                    <td className="px-4 py-3 text-right font-semibold text-gray-700 border-r border-gray-100/60">
                                                         {seller.range_sales_amt > 0 ? fmt(seller.range_sales_amt) : "—"}
                                                     </td>
-                                                    <td className="px-4 py-3 text-right font-semibold text-blue-600">
+                                                    <td className="px-4 py-3 text-right font-semibold text-blue-600 border-r border-gray-100/60">
                                                         {seller.range_paid > 0 ? fmt(seller.range_paid) : "—"}
                                                     </td>
-                                                    <td className={`px-4 py-3 text-right font-bold ${hasOutstanding ? "text-rose-600" : "text-emerald-600"}`}>
+                                                    <td className={`px-4 py-3 text-right font-bold border-r border-gray-100/60 ${hasOutstanding ? "text-rose-600" : "text-emerald-600"}`}>
                                                         {hasOutstanding ? fmt(seller.outstanding_balance) : "✓ " + t("sellerPaymentsReport.nil")}
                                                     </td>
-                                                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                                                    <td className="px-4 py-3 text-center text-xs text-gray-400 border-r border-gray-100/60">
                                                         {seller.last_payment_date ? fmtShort(seller.last_payment_date) : "—"}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
@@ -827,7 +838,7 @@ export default function WalkinSellerReports() {
                                                                         setClearBillAmount(String(seller.outstanding_balance.toFixed(2)));
                                                                         setShowClearBillModal(true);
                                                                     }}
-                                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-semibold transition shadow-sm"
+                                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 text-white text-[10px] font-semibold transition-all duration-200 shadow-sm"
                                                                 >
                                                                     <Banknote size={10} /> {t("payments.clear_bill")}
                                                                 </button>
@@ -838,7 +849,7 @@ export default function WalkinSellerReports() {
                                                                     if (!entries.length) buildStatement(seller);
                                                                     printSellerStatement(seller);
                                                                 }}
-                                                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition shadow-sm"
+                                                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-gray-800 to-gray-700 hover:shadow-lg hover:shadow-gray-800/30 text-white text-[10px] font-semibold transition-all duration-200 shadow-sm"
                                                             >
                                                                 <Printer size={10} /> {t("sellerPaymentsReport.pdfLabel")}
                                                             </button>
@@ -847,7 +858,7 @@ export default function WalkinSellerReports() {
                                                                     e.stopPropagation();
                                                                     toggleExpand(seller);
                                                                 }}
-                                                                className="flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition"
+                                                                className="flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm shadow-sm"
                                                             >
                                                                 {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                                             </button>
@@ -855,13 +866,13 @@ export default function WalkinSellerReports() {
                                                     </td>
                                                 </tr>
 
-                                                {/* Expanded statement row */}
+                                                {/* ── Expanded statement row ── */}
                                                 {isOpen && (
                                                     <tr>
-                                                        <td colSpan="8" className="px-4 py-4 bg-gray-50/80 border-t border-gray-100">
+                                                        <td colSpan="8" className="px-4 py-4 bg-gray-50/50 backdrop-blur-sm border-t border-gray-200/60">
                                                             <div className="flex flex-col gap-3">
                                                                 <div className="flex items-center justify-between">
-                                                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                                                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                                                                         {t("sellerPaymentsReport.statement")} · {fmtShort(dateRange.from)} → {fmtShort(dateRange.to)}
                                                                     </p>
                                                                     <div className="flex items-center gap-3 text-[10px]">
@@ -874,14 +885,14 @@ export default function WalkinSellerReports() {
 
                                                                 {loadingStatement[seller.seller_id] ? (
                                                                     <div className="flex justify-center py-6">
-                                                                        <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                                                                        <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                                                                     </div>
                                                                 ) : entries.length === 0 ? (
                                                                     <p className="text-xs text-gray-400 py-2">{t("sellerPaymentsReport.noTransactions")}</p>
                                                                 ) : (
-                                                                    <div className="rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+                                                                    <div className="rounded-xl border border-gray-200/60 overflow-hidden overflow-x-auto shadow-sm bg-white/50 backdrop-blur-sm">
                                                                         <div className="min-w-[640px]">
-                                                                            <div className="grid bg-gray-100 border-b border-gray-200"
+                                                                            <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60"
                                                                                 style={{ gridTemplateColumns: "90px 1fr 80px 100px 100px 110px 80px" }}>
                                                                                 {[
                                                                                     t("sellerPaymentsReport.statementHeaders.date"),
@@ -892,14 +903,14 @@ export default function WalkinSellerReports() {
                                                                                     t("sellerPaymentsReport.statementHeaders.balance"),
                                                                                     "",
                                                                                 ].map(h => (
-                                                                                    <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{h}</div>
+                                                                                    <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">{h}</div>
                                                                                 ))}
                                                                             </div>
                                                                             {entries.map((e, i) => (
-                                                                                <div key={i} className="grid border-b border-gray-50 last:border-0 hover:bg-white transition"
+                                                                                <div key={i} className="grid border-b border-gray-100/60 last:border-0 hover:bg-white/50 transition"
                                                                                     style={{ gridTemplateColumns: "90px 1fr 80px 100px 100px 110px 80px" }}>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-600">{fmtShort(e.date)}</div>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-700">
+                                                                                    <div className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100/60">{fmtShort(e.date)}</div>
+                                                                                    <div className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100/60">
                                                                                         {e.type === 'sale' ? e.label : (
                                                                                             <span className="flex items-center gap-1.5">
                                                                                                 <PaymentBadge mode={e.payment_mode} />
@@ -907,17 +918,17 @@ export default function WalkinSellerReports() {
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-500 font-mono">{e.qty != null ? e.qty.toFixed(2) : "—"}</div>
-                                                                                    <div className="px-3 py-2 text-xs font-semibold text-rose-600">{e.debit > 0 ? fmt(e.debit) : "—"}</div>
-                                                                                    <div className="px-3 py-2 text-xs font-semibold text-emerald-600">{e.credit > 0 ? fmt(e.credit) : "—"}</div>
-                                                                                    <div className="px-3 py-2 text-xs font-bold text-gray-800">{fmt(e.running_balance)}</div>
+                                                                                    <div className="px-3 py-2 text-xs text-gray-500 font-mono border-r border-gray-100/60">{e.qty != null ? e.qty.toFixed(2) : "—"}</div>
+                                                                                    <div className="px-3 py-2 text-xs font-semibold text-rose-600 border-r border-gray-100/60">{e.debit > 0 ? fmt(e.debit) : "—"}</div>
+                                                                                    <div className="px-3 py-2 text-xs font-semibold text-emerald-600 border-r border-gray-100/60">{e.credit > 0 ? fmt(e.credit) : "—"}</div>
+                                                                                    <div className="px-3 py-2 text-xs font-bold text-gray-800 border-r border-gray-100/60">{fmt(e.running_balance)}</div>
                                                                                     <div className="px-3 py-2 flex items-center">
                                                                                         {e.type === 'payment' && (
                                                                                             <button
                                                                                                 onClick={() => confirmUndoPayment(seller, e.payment_id)}
-                                                                                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold
-                                                                                                    bg-rose-50 text-rose-600 border border-rose-100
-                                                                                                    hover:bg-rose-100 transition"
+                                                                                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold
+                                                                                                    bg-rose-50/80 text-rose-600 border border-rose-200/60 backdrop-blur-sm
+                                                                                                    hover:bg-rose-100/80 transition shadow-sm"
                                                                                             >
                                                                                                 <X size={10} />
                                                                                                 {t("payments.undo")}
@@ -941,41 +952,49 @@ export default function WalkinSellerReports() {
                         </div>
                     )}
 
-                    {/* Pagination */}
+                    {/* ── Pagination ── */}
                     {filteredSellers.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200 bg-gray-50/80">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200/60 bg-white/50 backdrop-blur-sm">
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                     {t("payments.prev")}
                                 </button>
                                 <span className="text-xs text-gray-600">{t("payments.page")} {currentPage} {t("payments.of")} {totalPages}</span>
                                 <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                     {t("payments.next")}
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400">{t("payments.rows_per_page")}:</span>
                                 <select value={pageSize} onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition">
                                     {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
                                 </select>
                             </div>
                         </div>
                     )}
                 </div>
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t("sellerPaymentsReport.footerRole", { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t("sellerPaymentsReport.footerSellers", { defaultValue: 'Total sellers' })}: <strong className="text-gray-600">{sellers.length}</strong></span>
+                    <span>· {t("sellerPaymentsReport.footerOutstanding", { defaultValue: 'With outstanding' })}: <strong className="text-rose-600">{overall.outstandingCount}</strong></span>
+                </div>
+
             </main>
 
             {/* ── Undo Payment Confirmation Modal ── */}
             {undoModal.open && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-80 flex flex-col gap-4">
                         <div className="flex flex-col items-center gap-2 text-center">
-                            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
-                                <X size={22} className="text-rose-500" />
+                            <div className="w-14 h-14 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
+                                <X size={24} className="text-rose-500" />
                             </div>
-                            <h2 className="text-gray-800 font-semibold text-base">Undo Payment</h2>
+                            <h2 className="text-gray-800 font-bold text-base">Undo Payment</h2>
                             <p className="text-gray-400 text-xs leading-relaxed">
                                 {t("payments.undo_payment_confirm")}
                             </p>
@@ -983,7 +1002,7 @@ export default function WalkinSellerReports() {
                         <div className="flex gap-2 mt-1">
                             <button
                                 onClick={() => setUndoModal({ open: false, seller: null, paymentId: null })}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 disabled={processingUndo}
                             >
                                 Cancel
@@ -991,7 +1010,7 @@ export default function WalkinSellerReports() {
                             <button
                                 onClick={handleConfirmUndo}
                                 disabled={processingUndo}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-100 transition active:scale-95"
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 active:scale-95"
                             >
                                 {processingUndo
                                     ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
@@ -1003,31 +1022,32 @@ export default function WalkinSellerReports() {
                 </div>
             )}
 
-            {/* Clear Bill Modal */}
+            {/* ── Clear Bill Modal ── */}
             {showClearBillModal && clearBillSeller && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-md shadow-xl p-6">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-2xl w-full max-w-md p-6">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                                    <Banknote size={15} className="text-rose-500" /> {t("payments.clear_bill")}
+                                <h2 className="font-bold text-gray-800 flex items-center gap-2">
+                                    <Banknote size={16} className="text-rose-500" /> {t("payments.clear_bill")}
                                 </h2>
-                                <p className="text-xs text-gray-400 mt-0.5">{clearBillSeller.name}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{clearBillSeller.name}</p>
                             </div>
-                            <button onClick={() => setShowClearBillModal(false)} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                <X size={14} />
+                            <button onClick={() => setShowClearBillModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                <X size={16} />
                             </button>
                         </div>
                         <div className="space-y-4">
-                            <div className="p-3 bg-gray-50 rounded-xl">
-                                <p className="text-sm text-gray-600">{t("payments.outstanding_balance")}</p>
-                                <p className="text-2xl font-bold text-rose-600">₹{clearBillSeller.outstanding_balance.toFixed(2)}</p>
+                            <div className="relative overflow-hidden rounded-xl border border-rose-200/60 bg-gradient-to-br from-rose-50 to-rose-100/50 shadow-sm p-4">
+                                <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-rose-400/10 blur-3xl" />
+                                <p className="text-xs text-gray-500 relative z-10">{t("payments.outstanding_balance")}</p>
+                                <p className="text-2xl font-bold text-rose-600 relative z-10">₹{clearBillSeller.outstanding_balance.toFixed(2)}</p>
                             </div>
                             <div>
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t("payments.amount_paid")}</label>
+                                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t("payments.amount_paid")}</label>
                                 <input type="number" value={clearBillAmount} onChange={e => setClearBillAmount(e.target.value)}
                                     step="0.01" min="0" max={clearBillSeller.outstanding_balance}
-                                    className="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition" />
+                                    className="w-full mt-1 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:bg-white transition" />
                             </div>
                             {clearBillAmount && parseFloat(clearBillAmount) < clearBillSeller.outstanding_balance && (
                                 <p className="text-xs text-amber-600">
@@ -1035,11 +1055,11 @@ export default function WalkinSellerReports() {
                                 </p>
                             )}
                             <div className="flex gap-2 pt-2">
-                                <button onClick={() => setShowClearBillModal(false)} className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                <button onClick={() => setShowClearBillModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                     {t("payments.cancel")}
                                 </button>
                                 <button onClick={clearSellerBill} disabled={clearingBill || !clearBillAmount || parseFloat(clearBillAmount) <= 0}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition disabled:opacity-40 flex items-center justify-center gap-2">
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2">
                                     {clearingBill && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     {clearingBill ? t("payments.processing") : t("payments.clear_bill")}
                                 </button>

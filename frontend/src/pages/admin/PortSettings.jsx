@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Save, BadgeCheck, AlertTriangle, X,
-    RefreshCw, Plug, Terminal, ScanLine, PowerOff
+    RefreshCw, Plug, Terminal, ScanLine, PowerOff,
+    Home, Settings,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { driver } from "driver.js";
@@ -36,15 +37,16 @@ const PARITY_OPTIONS = ['none', 'even', 'odd', 'mark', 'space'];
 // ── Sub-components ────────────────────────────────────────────
 function SectionCard({ title, icon, children, tourId, headerRight }) {
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour={tourId}>
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-                <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" data-tour={tourId}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
                     {icon}
                 </div>
-                <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
                 {headerRight && <div className="ml-auto">{headerRight}</div>}
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-6 relative z-10">{children}</div>
         </div>
     );
 }
@@ -67,8 +69,8 @@ function PortSelect({ value, onChange, options, disabled, renderLabel, placehold
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className={`border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition
                 disabled:opacity-50 disabled:cursor-not-allowed font-mono ${className}`}
         >
             {placeholder && <option value="">{placeholder}</option>}
@@ -81,13 +83,13 @@ function PortSelect({ value, onChange, options, disabled, renderLabel, placehold
 
 function StatusBadge({ status, t }) {
     const map = {
-        connected: { color: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-500', label: t('portSettings.connectionStatus.connected') },
-        disconnected: { color: 'bg-rose-50 text-rose-600 border-rose-100', dot: 'bg-rose-400', label: t('portSettings.connectionStatus.disconnected') },
-        unknown: { color: 'bg-gray-50 text-gray-500 border-gray-100', dot: 'bg-gray-300', label: t('portSettings.connectionStatus.unknown') },
+        connected: { color: 'bg-emerald-50/80 text-emerald-700 border-emerald-200/60', dot: 'bg-emerald-500', label: t('portSettings.connectionStatus.connected') },
+        disconnected: { color: 'bg-rose-50/80 text-rose-600 border-rose-200/60', dot: 'bg-rose-400', label: t('portSettings.connectionStatus.disconnected') },
+        unknown: { color: 'bg-gray-50/80 text-gray-500 border-gray-200/60', dot: 'bg-gray-300', label: t('portSettings.connectionStatus.unknown') },
     };
     const s = map[status] || map.unknown;
     return (
-        <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${s.color}`}>
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full border backdrop-blur-sm ${s.color}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${s.dot} ${status === 'connected' ? 'animate-pulse' : ''}`} />
             {s.label}
         </span>
@@ -269,50 +271,52 @@ export default function PortSettings() {
     };
 
     if (loading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* ── Header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Plug size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('portSettings.pageBreadcrumb', { defaultValue: 'System Configuration' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('portSettings.adminOnly')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('portSettings.title')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">{t('portSettings.subtitle')}</p>
-                        </div>
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-gray-500 text-xs font-medium ml-1">
-                            {t('portSettings.adminOnly')}
-                        </span>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('portSettings.title')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">{t('portSettings.subtitle')}</p>
                     </div>
+
                     <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={startTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t('portSettings.startTour')}
+                            <BadgeCheck size={15} /> {t('portSettings.startTour')}
                         </button>
                         <button
                             onClick={handleReset}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <RefreshCw size={13} /> {t('portSettings.reset')}
+                            <RefreshCw size={15} /> {t('portSettings.reset')}
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 transition disabled:opacity-50"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                         >
                             {saving
-                                ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                : <Save size={13} />}
+                                ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                : <Save size={15} />}
                             {saving ? t('portSettings.saving') : t('portSettings.save')}
                         </button>
                     </div>
@@ -320,14 +324,14 @@ export default function PortSettings() {
 
                 {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
                         ${flash.type === 'success'
-                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                            : 'bg-rose-50 border border-rose-200 text-rose-600'}`}>
-                        {flash.type === 'error' ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
@@ -335,16 +339,16 @@ export default function PortSettings() {
                 {/* ── Serial / RS232 ── */}
                 <SectionCard
                     title={t('portSettings.serialSection')}
-                    icon={<Terminal size={15} className="text-white" />}
+                    icon={<Terminal size={16} className="text-white" />}
                     tourId="serial-ports"
                     headerRight={
                         <button
                             data-tour="scan-btn"
                             onClick={scanPorts}
                             disabled={scanning}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition disabled:opacity-50"
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                         >
-                            <ScanLine size={13} className={scanning ? 'animate-pulse' : ''} />
+                            <ScanLine size={14} className={scanning ? 'animate-pulse' : ''} />
                             {scanning ? t('portSettings.scanning') : t('portSettings.scanPorts')}
                         </button>
                     }
@@ -381,8 +385,8 @@ export default function PortSettings() {
                                         value={form.serial_port}
                                         onChange={e => set('serial_port', e.target.value.toUpperCase())}
                                         placeholder="e.g. COM11"
-                                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 bg-gray-50
-                    focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition font-mono w-full"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
+                                            focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition font-mono w-full"
                                     />
                                 ) : (
                                     <PortSelect
@@ -400,7 +404,7 @@ export default function PortSettings() {
                                 <button
                                     type="button"
                                     onClick={() => setManualPortEntry(v => !v)}
-                                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-2 rounded-lg bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 transition whitespace-nowrap flex-shrink-0"
+                                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm whitespace-nowrap flex-shrink-0"
                                 >
                                     {manualPortEntry ? t('portSettings.comPort.useList') : t('portSettings.comPort.typeManually')}
                                 </button>
@@ -409,9 +413,9 @@ export default function PortSettings() {
                                         type="button"
                                         onClick={closeSelectedPort}
                                         disabled={closingPort}
-                                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-2 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition disabled:opacity-50 whitespace-nowrap flex-shrink-0"
+                                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-3 py-2 rounded-lg bg-rose-50/80 backdrop-blur-sm border border-rose-200/60 text-rose-600 hover:bg-rose-100/80 transition shadow-sm disabled:opacity-50 whitespace-nowrap flex-shrink-0"
                                     >
-                                        <PowerOff size={11} />
+                                        <PowerOff size={12} />
                                         {closingPort ? t('portSettings.comPort.closing') : t('portSettings.comPort.closePort')}
                                     </button>
                                 )}
@@ -464,13 +468,13 @@ export default function PortSettings() {
                             </PortField>
                         )}
                         <PortField label={t('portSettings.connectionStatus.label')}>
-                            <div className="flex items-center gap-3 h-[38px] px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                                <Plug size={13} className="text-gray-400" />
+                            <div className="flex items-center gap-3 h-[42px] px-4 py-2.5 rounded-xl bg-white/50 backdrop-blur-sm border border-gray-200/60 shadow-sm">
+                                <Plug size={14} className="text-gray-400" />
                                 <StatusBadge status={testResult || 'unknown'} t={t} />
                                 <button
                                     onClick={testConnection}
                                     disabled={testing || !form.serial_port}
-                                    className="ml-auto text-[10px] px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition disabled:opacity-50 font-semibold"
+                                    className="ml-auto text-[10px] px-3 py-1 rounded-lg bg-blue-50/80 backdrop-blur-sm border border-blue-200/60 text-blue-600 hover:bg-blue-100/80 transition shadow-sm disabled:opacity-50 font-semibold"
                                 >
                                     {testing ? '…' : t('portSettings.connectionStatus.test')}
                                 </button>
@@ -479,7 +483,7 @@ export default function PortSettings() {
                     </div>
 
                     {/* Summary strip */}
-                    <div className="flex flex-wrap items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 text-xs font-mono text-gray-600">
+                    <div className="flex flex-wrap items-center gap-2 px-4 py-3 rounded-xl bg-white/50 backdrop-blur-sm border border-gray-200/60 text-xs font-mono text-gray-600 shadow-sm">
                         <span className="font-semibold text-gray-800">
                             {t(MACHINE_TYPES.find(m => m.value === machineType)?.labelKey)}
                         </span>
@@ -492,16 +496,23 @@ export default function PortSettings() {
                     </div>
                 </SectionCard>
 
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('portSettings.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('portSettings.footerPort', { defaultValue: 'Port' })}: <strong className="text-gray-600">{form.serial_port || t('portSettings.comPort.noPortSelected')}</strong></span>
+                    <span>· {t('portSettings.footerMachine', { defaultValue: 'Machine type' })}: <strong className="text-gray-600">{t(MACHINE_TYPES.find(m => m.value === machineType)?.labelKey)}</strong></span>
+                </div>
+
                 {/* ── Save footer ── */}
                 <div className="flex justify-end">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3 rounded-xl bg-black text-white hover:bg-gray-800 transition disabled:opacity-50 shadow-md shadow-black/10"
+                        className="flex items-center gap-2.5 text-sm font-semibold px-6 py-3 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                     >
                         {saving
                             ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            : <Save size={14} />}
+                            : <Save size={16} />}
                         {saving ? t('portSettings.saving') : t('portSettings.saveAll')}
                     </button>
                 </div>

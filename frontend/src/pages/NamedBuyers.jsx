@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
     Users, UserPlus, Search, X, Edit2, Trash2, User,
     CheckCircle2, AlertCircle, Phone, MapPin, Filter, Hash,
-    Milk, MapPin as LocationIcon
+    Milk, MapPin as LocationIcon, Home, Settings
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -16,7 +16,7 @@ import "driver.js/dist/driver.css";
 function Field({ label, icon, children }) {
     return (
         <div className="flex flex-col gap-1 shrink-0">
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                 {icon}{label}
             </span>
             {children}
@@ -28,8 +28,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -37,7 +37,7 @@ function TinyInput({ className = "", ...props }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-2.5 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );
@@ -47,10 +47,10 @@ function TableCell({ children, className = "" }) {
 function StatusBadge({ active }) {
     const { t } = useTranslation();
     return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-sm
             ${active
-                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                : "bg-gray-100 text-gray-400 border-gray-200"}`}>
+                ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+                : "bg-gray-100/80 text-gray-400 border-gray-200/60"}`}>
             {active ? (
                 <><CheckCircle2 size={10} /> {t('namedBuyers.active')}</>
             ) : (
@@ -63,13 +63,13 @@ function StatusBadge({ active }) {
 function MilkTypeBadge({ type }) {
     const { t } = useTranslation();
     const map = {
-        cow: { label: t('namedBuyers.cow'), bg: "bg-amber-50 text-amber-700 border-amber-100" },
-        buffalo: { label: t('namedBuyers.buffalo'), bg: "bg-blue-50 text-blue-700 border-blue-100" },
-        mixed: { label: t('namedBuyers.mixed'), bg: "bg-purple-50 text-purple-700 border-purple-100" },
+        cow: { label: t('namedBuyers.cow'), bg: "bg-amber-50/80 text-amber-700 border-amber-200/60" },
+        buffalo: { label: t('namedBuyers.buffalo'), bg: "bg-blue-50/80 text-blue-700 border-blue-200/60" },
+        mixed: { label: t('namedBuyers.mixed'), bg: "bg-purple-50/80 text-purple-700 border-purple-200/60" },
     };
     const style = map[type] || map.mixed;
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${style.bg}`}>
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-sm ${style.bg}`}>
             {style.label}
         </span>
     );
@@ -288,53 +288,56 @@ export default function NamedBuyersManagement() {
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('named_buyers', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Users size={18} className="text-white" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('namedBuyers.pageBreadcrumb', { defaultValue: 'Walk-in Sales' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                {t('namedBuyers.pageTitle')}
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('namedBuyers.pageSubtitle')} — {buyers.length} {t('namedBuyers.totalBuyers')}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('namedBuyers.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('namedBuyers.pageSubtitle')} — {buyers.length} {t('namedBuyers.totalBuyers')}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap" data-tour="search-add">
                         <button
                             onClick={startNamedBuyersTour}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <CheckCircle2 size={13} /> {t('namedBuyers.takeTour')}
+                            <CheckCircle2 size={15} /> {t('namedBuyers.takeTour')}
                         </button>
                         <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder={t('namedBuyers.searchPlaceholder')}
-                                className="pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 bg-white 
-                                    focus:outline-none focus:ring-2 focus:ring-black transition w-48 sm:w-64"
+                                className="pl-9 pr-8 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-700 shadow-sm
+                                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-48 sm:w-64 placeholder:text-gray-300"
                             />
                             {searchTerm && (
                                 <button
                                     onClick={() => setSearchTerm("")}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
                                 >
                                     <X size={14} />
                                 </button>
@@ -344,72 +347,73 @@ export default function NamedBuyersManagement() {
                         {can('named_buyers', 'C') && (
                             <button
                                 onClick={openCreateModal}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition shadow-md"
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"
                             >
-                                <UserPlus size={15} />
+                                <UserPlus size={16} />
                                 {t('namedBuyers.addBuyer')}
                             </button>
                         )}
                     </div>
                 </div>
 
-                {/* Flash Message */}
+                {/* ── Flash Message ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
                         ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertCircle size={15} />}
-                        {flash.type === "success" && <CheckCircle2 size={15} />}
+                            ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700"
+                            : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertCircle size={18} />}
+                        {flash.type === "success" && <CheckCircle2 size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-3 gap-3" data-tour="buyer-stats">
+                {/* ── Stats Cards ── */}
+                <div className="grid grid-cols-3 gap-4" data-tour="buyer-stats">
                     {[
                         {
                             label: t('namedBuyers.total'),
                             value: buyers.length,
-                            icon: <Users size={14} />,
-                            color: "text-blue-600 bg-blue-50 border-blue-100"
+                            icon: <Users size={16} />,
+                            color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700"
                         },
                         {
                             label: t('namedBuyers.active'),
                             value: buyers.filter(b => b.is_active).length,
-                            icon: <CheckCircle2 size={14} />,
-                            color: "text-emerald-600 bg-emerald-50 border-emerald-100"
+                            icon: <CheckCircle2 size={16} />,
+                            color: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700"
                         },
                         {
                             label: t('namedBuyers.inactive'),
                             value: buyers.filter(b => !b.is_active).length,
-                            icon: <AlertCircle size={14} />,
-                            color: "text-gray-500 bg-gray-50 border-gray-200"
+                            icon: <AlertCircle size={16} />,
+                            color: "from-gray-50 to-gray-100/50 border-gray-200/60 text-gray-500"
                         },
                     ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                        <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+                            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+                            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+                            <div className="relative z-10">
+                                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Delete Confirmation Modal */}
+                {/* ── Delete Confirmation Modal ── */}
                 {showDeleteConfirm && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-sm shadow-xl p-6 flex flex-col gap-5">
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center">
+                                <div className="w-11 h-11 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
                                     <Trash2 size={18} className="text-rose-600" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-gray-800">
+                                    <h3 className="font-bold text-gray-800">
                                         {t('namedBuyers.confirmDelete')}
                                     </h3>
                                     <p className="text-sm text-gray-500 mt-1">
@@ -420,13 +424,13 @@ export default function NamedBuyersManagement() {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setShowDeleteConfirm(null)}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 >
                                     {t('namedBuyers.cancel')}
                                 </button>
                                 <button
                                     onClick={() => handleDelete(showDeleteConfirm)}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition"
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200"
                                 >
                                     {t('namedBuyers.delete')}
                                 </button>
@@ -435,19 +439,19 @@ export default function NamedBuyersManagement() {
                     </div>
                 )}
 
-                {/* Create/Edit Modal */}
+                {/* ── Create/Edit Modal ── */}
                 {showModal && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-md shadow-xl p-6 flex flex-col gap-5">
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-2xl w-full max-w-md p-6 flex flex-col gap-5">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                                        <User size={15} className="text-gray-500" />
+                                    <h2 className="font-bold text-gray-800 flex items-center gap-2">
+                                        <User size={16} className="text-gray-500" />
                                         {editingBuyer
                                             ? t('namedBuyers.editBuyer')
                                             : t('namedBuyers.addBuyer')}
                                     </h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">
+                                    <p className="text-xs text-gray-500 mt-0.5">
                                         {editingBuyer
                                             ? t('namedBuyers.editDesc')
                                             : t('namedBuyers.addDesc')}
@@ -455,16 +459,16 @@ export default function NamedBuyersManagement() {
                                 </div>
                                 <button
                                     onClick={() => { setShowModal(false); resetForm(); }}
-                                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition"
+                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm"
                                 >
-                                    <X size={14} />
+                                    <X size={16} />
                                 </button>
                             </div>
 
                             <div className="flex flex-col gap-3">
                                 {/* Code field – read-only */}
                                 <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                         <Hash size={12} /> {t('namedBuyers.colCode')}
                                     </label>
                                     <input
@@ -472,12 +476,12 @@ export default function NamedBuyersManagement() {
                                         name="code"
                                         value={formData.code || (editingBuyer ? "" : "Auto‑generated")}
                                         disabled
-                                        className="w-full border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-500 bg-gray-100 cursor-not-allowed"
+                                        className="w-full border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-500 bg-gray-100/50 cursor-not-allowed shadow-sm"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                         <User size={12} /> {t('namedBuyers.buyerName')} <span className="text-rose-500">*</span>
                                     </label>
                                     <TinyInput
@@ -491,7 +495,7 @@ export default function NamedBuyersManagement() {
                                 </div>
 
                                 <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                         <Phone size={12} /> {t('namedBuyers.mobile')}
                                     </label>
                                     <TinyInput
@@ -505,7 +509,7 @@ export default function NamedBuyersManagement() {
                                 </div>
 
                                 <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                         <MapPin size={12} /> {t('namedBuyers.address')}
                                     </label>
                                     <TinyInput
@@ -519,14 +523,14 @@ export default function NamedBuyersManagement() {
 
                                 {/* Default Milk Type */}
                                 <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                         <Milk size={12} /> {t('namedBuyers.defaultMilkType')}
                                     </label>
                                     <select
                                         name="default_milk_type"
                                         value={formData.default_milk_type}
                                         onChange={handleInputChange}
-                                        className="w-full border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
+                                        className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                     >
                                         <option value="mixed">{t('namedBuyers.mixed')}</option>
                                         <option value="cow">{t('namedBuyers.cow')}</option>
@@ -536,7 +540,7 @@ export default function NamedBuyersManagement() {
 
                                 {/* Pincode */}
                                 <div>
-                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                    <label className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                                         <LocationIcon size={12} /> {t('namedBuyers.pincode')}
                                     </label>
                                     <TinyInput
@@ -553,14 +557,14 @@ export default function NamedBuyersManagement() {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => { setShowModal(false); resetForm(); }}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 >
                                     {t('namedBuyers.cancel')}
                                 </button>
                                 <button
                                     onClick={handleSave}
                                     disabled={saving || !formData.name.trim()}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition disabled:opacity-40 flex items-center justify-center gap-2"
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     {saving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     {saving ? t('namedBuyers.saving') : (editingBuyer ? t('namedBuyers.update') : t('namedBuyers.create'))}
@@ -570,12 +574,12 @@ export default function NamedBuyersManagement() {
                     </div>
                 )}
 
-                {/* Buyers Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="buyers-table">
+                {/* ── Buyers Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="buyers-table">
                     {/* Table Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -584,12 +588,12 @@ export default function NamedBuyersManagement() {
                     {/* Table Rows */}
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : filteredBuyers.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Users size={32} />
-                            <p className="text-sm">
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <Users size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">
                                 {searchTerm ? t('namedBuyers.noMatches') : t('namedBuyers.noBuyers')}
                             </p>
                         </div>
@@ -597,7 +601,7 @@ export default function NamedBuyersManagement() {
                         <div className="overflow-x-auto">
                             <div className="min-w-max">
                                 {paginatedBuyers.map((buyer, idx) => (
-                                    <div key={buyer.buyer_id} className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors" style={{ gridTemplateColumns: GRID }}>
+                                    <div key={buyer.buyer_id} className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors" style={{ gridTemplateColumns: GRID }}>
                                         <TableCell className="text-gray-400 text-xs font-mono">
                                             {(currentPage - 1) * pageSize + idx + 1}
                                         </TableCell>
@@ -606,7 +610,7 @@ export default function NamedBuyersManagement() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center text-xs font-bold shadow-sm shrink-0">
                                                     {buyer.name?.charAt(0)?.toUpperCase()}
                                                 </div>
                                                 <span className="text-xs font-medium text-gray-800 truncate">
@@ -646,23 +650,23 @@ export default function NamedBuyersManagement() {
                                             }
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-1.5">
                                                 {can('named_buyers', 'U') && (
                                                     <button
                                                         onClick={() => openEditModal(buyer)}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition"
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50/80 border border-blue-200/60 text-gray-400 hover:text-amber-600 hover:bg-amber-100/80 transition backdrop-blur-sm shadow-sm"
                                                         title={t('namedBuyers.edit')}
                                                     >
-                                                        <Edit2 size={11} />
+                                                        <Edit2 size={12} />
                                                     </button>
                                                 )}
                                                 {can('named_buyers', 'D') && (
                                                     <button
                                                         onClick={() => setShowDeleteConfirm(buyer)}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50/80 border border-rose-200/60 text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 transition backdrop-blur-sm shadow-sm"
                                                         title={t('namedBuyers.delete')}
                                                     >
-                                                        <Trash2 size={11} />
+                                                        <Trash2 size={12} />
                                                     </button>
                                                 )}
                                             </div>
@@ -674,14 +678,14 @@ export default function NamedBuyersManagement() {
                     )}
                 </div>
 
-                {/* Pagination */}
+                {/* ── Pagination ── */}
                 {filteredBuyers.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60 rounded-2xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-2xl shadow-sm">
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition"
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm"
                             >
                                 {t('namedBuyers.prev')}
                             </button>
@@ -698,7 +702,9 @@ export default function NamedBuyersManagement() {
                                             ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
                                             : <button key={p} onClick={() => setCurrentPage(p)}
                                                 className={`w-7 h-7 rounded-lg text-xs font-semibold transition border
-                                                    ${currentPage === p ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+                                                    ${currentPage === p
+                                                        ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-sm'
+                                                        : 'bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300'}`}>
                                                 {p}
                                             </button>
                                     )}
@@ -706,7 +712,7 @@ export default function NamedBuyersManagement() {
                             <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition"
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm"
                             >
                                 {t('namedBuyers.next')}
                             </button>
@@ -720,11 +726,19 @@ export default function NamedBuyersManagement() {
                                 type="number" min={1} max={filteredBuyers.length || 1}
                                 value={pageSize}
                                 onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
-                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="w-14 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-center text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                             />
                         </div>
                     </div>
                 )}
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('namedBuyers.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('namedBuyers.footerTotal', { defaultValue: 'Total buyers' })}: <strong className="text-gray-600">{buyers.length}</strong></span>
+                    <span>· {t('namedBuyers.footerActive', { defaultValue: 'Active' })}: <strong className="text-emerald-600">{buyers.filter(b => b.is_active).length}</strong></span>
+                </div>
+
             </main>
         </div>
     );

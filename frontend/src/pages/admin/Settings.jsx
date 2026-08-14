@@ -5,7 +5,8 @@ import {
     Settings, Type, Save,
     BadgeCheck, AlertTriangle, X,
     Check, Lock, Unlock, RefreshCw,
-    Users, Building2, Upload, Languages, Percent, Truck, Eye
+    Users, Building2, Upload, Languages, Percent, Truck, Eye,
+    Home,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -333,14 +334,15 @@ const SERVER_DEFAULTS = {
 
 function SectionCard({ title, icon, children, ...rest }) {
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" {...rest}>
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-                <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
                     {icon}
                 </div>
-                <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-6 relative z-10">{children}</div>
         </div>
     );
 }
@@ -413,14 +415,18 @@ export default function AdminSettings() {
 
     // ── Load global settings ──────────────────────────────────
     useEffect(() => {
-        api.get('/settings/global')
-            .then(({ data }) => {
-                // NEW
+        Promise.all([
+            api.get('/settings/global'),
+            api.get('/settings/app'),
+        ])
+            .then(([globalRes, appRes]) => {
+                const data = globalRes.data;
+                const appData = appRes.data;
                 const snap = {
                     appName: data.app_name || SERVER_DEFAULTS.appName,
                     logoUrl: data.logo_url || SERVER_DEFAULTS.logoUrl,
-                    textSize: data.text_size || SERVER_DEFAULTS.textSize,
-                    language: data.language || SERVER_DEFAULTS.language,
+                    textSize: appData.text_size || SERVER_DEFAULTS.textSize,
+                    language: appData.language || SERVER_DEFAULTS.language,
                     fatOnlyAutofill: data.fat_only_autofill === '1' || data.fat_only_autofill === true,
                 };
                 setAppName(snap.appName);
@@ -619,45 +625,49 @@ export default function AdminSettings() {
     );
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* ── Header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Settings size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('settings.pageTitle', { defaultValue: 'System Settings' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('settings.adminOnly')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('settings.title')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">{t('settings.subtitle')}</p>
-                        </div>
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-gray-500 text-xs font-medium ml-1">
-                            {t('settings.adminOnly')}
-                        </span>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('settings.title')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('settings.subtitle')}
+                        </p>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={startSettingsTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t('settings.startTour')}
+                            <BadgeCheck size={15} /> {t('settings.startTour')}
                         </button>
                         <button
                             onClick={handleReset}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <RefreshCw size={13} /> {t('actions.resetDefaults')}
+                            <RefreshCw size={15} /> {t('actions.resetDefaults')}
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={saving}
                             data-tour="save-btn"
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 transition disabled:opacity-50"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                         >
                             {saving
-                                ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                : <Save size={13} />}
+                                ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                : <Save size={15} />}
                             {saving ? t('actions.saving') : t('actions.save')}
                         </button>
                     </div>
@@ -665,20 +675,20 @@ export default function AdminSettings() {
 
                 {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
                         ${flash.type === 'success'
-                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                            : 'bg-rose-50 border border-rose-200 text-rose-600'}`}>
-                        {flash.type === 'error' ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
                 {/* ── App Identity ── */}
-                <SectionCard title={t('settings.appIdentity')} icon={<Building2 size={15} className="text-white" />} data-tour="app-identity">
+                <SectionCard title={t('settings.appIdentity')} icon={<Building2 size={16} className="text-white" />} data-tour="app-identity">
                     <div className="flex flex-col lg:flex-row gap-8">
 
                         {/* App Name */}
@@ -692,16 +702,16 @@ export default function AdminSettings() {
                                 onChange={e => setAppName(e.target.value)}
                                 placeholder={t('settings.appNamePlaceholder')}
                                 maxLength={60}
-                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 text-gray-800 font-semibold text-sm
-                                    focus:outline-none focus:border-gray-900 transition placeholder:font-normal placeholder:text-gray-300"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-800 font-semibold text-sm
+                                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:font-normal placeholder:text-gray-300"
                             />
                             <p className="text-[11px] text-gray-400 mt-2">{t('settings.appNameHint')}</p>
 
                             {/* Live preview */}
-                            <div className="mt-4 flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="mt-4 flex items-center gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/60 shadow-sm">
                                 {logoPreview
                                     ? <img src={logoPreview} alt="logo" className="w-8 h-8 rounded-lg object-contain" />
-                                    : <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
+                                    : <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
                                         <Building2 size={14} />
                                     </div>
                                 }
@@ -720,7 +730,7 @@ export default function AdminSettings() {
 
                             {logoPreview ? (
                                 <div className="relative group flex flex-col items-center justify-center gap-3
-                                    rounded-xl border-2 border-gray-200 bg-gray-50 p-5 h-[140px]">
+                                    rounded-xl border-2 border-gray-200/60 bg-white/50 backdrop-blur-sm p-5 h-[140px] shadow-sm">
                                     <img
                                         src={logoPreview}
                                         alt="App logo"
@@ -729,13 +739,13 @@ export default function AdminSettings() {
                                     <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="px-3 py-1.5 bg-white rounded-lg text-xs font-semibold text-gray-800 hover:bg-gray-100 transition"
+                                            className="px-3 py-1.5 bg-white rounded-lg text-xs font-semibold text-gray-800 hover:bg-gray-100 transition shadow-sm"
                                         >
                                             {t('actions.change')}
                                         </button>
                                         <button
                                             onClick={() => { setLogoPreview(''); setLogoUrl(''); }}
-                                            className="px-3 py-1.5 bg-rose-500 rounded-lg text-xs font-semibold text-white hover:bg-rose-600 transition"
+                                            className="px-3 py-1.5 bg-rose-500 rounded-lg text-xs font-semibold text-white hover:bg-rose-600 transition shadow-sm"
                                         >
                                             {t('actions.remove')}
                                         </button>
@@ -749,11 +759,11 @@ export default function AdminSettings() {
                                     onClick={() => fileInputRef.current?.click()}
                                     className={`flex flex-col items-center justify-center gap-2 h-[140px] rounded-xl border-2 border-dashed cursor-pointer transition-all
                                         ${isDragging
-                                            ? 'border-gray-900 bg-gray-100'
-                                            : 'border-gray-200 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'}`}
+                                            ? 'border-gray-900 bg-gray-100/50 backdrop-blur-sm shadow-lg'
+                                            : 'border-gray-200/60 bg-white/50 backdrop-blur-sm hover:border-gray-400 hover:bg-gray-50/50'}`}
                                 >
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all
-                                        ${isDragging ? 'bg-gray-900' : 'bg-gray-200'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-sm
+                                        ${isDragging ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gray-200/50'}`}>
                                         <Upload size={16} className={isDragging ? 'text-white' : 'text-gray-500'} />
                                     </div>
                                     <div className="text-center">
@@ -778,7 +788,7 @@ export default function AdminSettings() {
                 </SectionCard>
 
                 {/* ── Text Size ── */}
-                <SectionCard title={t('settings.textSize')} icon={<Type size={15} className="text-white" />} data-tour="text-size">
+                <SectionCard title={t('settings.textSize')} icon={<Type size={16} className="text-white" />} data-tour="text-size">
                     <div className="flex gap-3 flex-wrap">
                         {TEXT_SIZES.map(sz => (
                             <button
@@ -786,8 +796,8 @@ export default function AdminSettings() {
                                 onClick={() => setTextSize(sz.key)}
                                 className={`flex flex-col items-center gap-2 px-8 py-4 rounded-xl border-2 transition-all duration-150 min-w-[100px]
                                     ${textSize === sz.key
-                                        ? 'bg-gray-900 border-gray-900 text-white'
-                                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-400'}`}
+                                        ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-900 text-white shadow-lg shadow-gray-900/30'
+                                        : 'bg-white/60 backdrop-blur-sm border-gray-200/60 text-gray-700 hover:border-gray-400 hover:bg-gray-50/50 shadow-sm'}`}
                             >
                                 <span className={`font-bold ${sz.key === 'sm' ? 'text-xs' : sz.key === 'lg' ? 'text-base' : 'text-sm'}
                                     ${textSize === sz.key ? 'text-white' : 'text-gray-800'}`}>
@@ -802,7 +812,7 @@ export default function AdminSettings() {
                 </SectionCard>
 
                 {/* ── Language ── */}
-                <SectionCard title={t('settings.language')} icon={<Languages size={15} className="text-white" />} data-tour="language">
+                <SectionCard title={t('settings.language')} icon={<Languages size={16} className="text-white" />} data-tour="language">
                     <div className="flex gap-3 flex-wrap">
                         {LANGUAGES.map(lang => (
                             <button
@@ -810,8 +820,8 @@ export default function AdminSettings() {
                                 onClick={() => setLanguage(lang.key)}
                                 className={`flex flex-col items-center gap-1.5 px-6 py-4 rounded-xl border-2 transition-all duration-150 min-w-[110px]
                                     ${language === lang.key
-                                        ? 'bg-gray-900 border-gray-900 text-white'
-                                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-400'}`}
+                                        ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-900 text-white shadow-lg shadow-gray-900/30'
+                                        : 'bg-white/60 backdrop-blur-sm border-gray-200/60 text-gray-700 hover:border-gray-400 hover:bg-gray-50/50 shadow-sm'}`}
                             >
                                 <span className={`text-lg font-bold ${language === lang.key ? 'text-white' : 'text-gray-800'}`}>
                                     {lang.native}
@@ -825,7 +835,7 @@ export default function AdminSettings() {
                 </SectionCard>
 
                 {/* ── Fat-Only Rate Auto-Fill ── */}
-                <SectionCard title={t('settings.fatOnlyAutofill.title')} icon={<Percent size={15} className="text-white" />} data-tour="fat-only-autofill">
+                <SectionCard title={t('settings.fatOnlyAutofill.title')} icon={<Percent size={16} className="text-white" />} data-tour="fat-only-autofill">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                         <div className="max-w-lg">
                             <p
@@ -840,24 +850,24 @@ export default function AdminSettings() {
                         <button
                             type="button"
                             onClick={() => setFatOnlyAutofill(v => !v)}
-                            className={`relative inline-flex items-center h-8 w-14 rounded-full transition-colors shrink-0
-                                ${fatOnlyAutofill ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                            className={`relative inline-flex items-center h-8 w-14 rounded-full transition-colors shrink-0 shadow-sm
+                                ${fatOnlyAutofill ? 'bg-emerald-500' : 'bg-gray-300'}`}
                         >
                             <span className={`inline-block w-6 h-6 bg-white rounded-full shadow transform transition-transform
                                 ${fatOnlyAutofill ? 'translate-x-7' : 'translate-x-1'}`} />
                         </button>
                     </div>
                     {fatOnlyAutofill && (
-                        <div className="mt-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                        <div className="mt-4 flex items-center gap-2 bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 rounded-xl px-4 py-2.5 text-xs text-amber-700 shadow-sm">
                             <AlertTriangle size={13} /> {t('settings.fatOnlyAutofill.activeNotification')}
                         </div>
                     )}
-                </SectionCard>  
+                </SectionCard>
 
                 {/* ── Dispatch Settings - FSSAI Code Only ── */}
                 <SectionCard
                     title={t('settings.dispatchSettings')}
-                    icon={<Truck size={15} className="text-white" />}
+                    icon={<Truck size={16} className="text-white" />}
                     data-tour="dispatch-settings"
                 >
                     <div className="max-w-md">
@@ -869,8 +879,8 @@ export default function AdminSettings() {
                             value={fssaiCode}
                             onChange={e => setFssaiCode(e.target.value)}
                             placeholder="e.g. 11111111111111"
-                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 text-gray-800 font-semibold text-sm
-                                focus:outline-none focus:border-gray-900 transition placeholder:font-normal placeholder:text-gray-300"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-800 font-semibold text-sm
+                                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:font-normal placeholder:text-gray-300"
                         />
                         <p className="text-[11px] text-gray-400 mt-2">{t('settings.fssaiCodeHint')}</p>
                     </div>
@@ -879,7 +889,7 @@ export default function AdminSettings() {
                 {/* ── Per-Operator Access ── */}
                 <SectionCard
                     title={t('settings.operatorAccess')}
-                    icon={<Users size={15} className="text-white" />}
+                    icon={<Users size={16} className="text-white" />}
                     data-tour="operator-access"
                 >
                     <div className="mb-5">
@@ -888,7 +898,7 @@ export default function AdminSettings() {
                         </p>
                         {loadingOps ? (
                             <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <div className="w-4 h-4 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                                <div className="w-4 h-4 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                                 {t('settings.loadingOperators')}
                             </div>
                         ) : operators.length === 0 ? (
@@ -903,8 +913,8 @@ export default function AdminSettings() {
                                         )}
                                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm transition-all duration-150
                                             ${selectedOp === op.operator_id
-                                                ? 'bg-gray-900 border-gray-900 text-white'
-                                                : 'bg-white border-gray-200 text-gray-700 hover:border-gray-400'}`}
+                                                ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-900 text-white shadow-lg shadow-gray-900/30'
+                                                : 'bg-white/60 backdrop-blur-sm border-gray-200/60 text-gray-700 hover:border-gray-400 hover:bg-gray-50/50 shadow-sm'}`}
                                     >
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
                                             ${selectedOp === op.operator_id ? 'bg-white text-gray-900' : 'bg-gray-100 text-gray-600'}`}>
@@ -942,7 +952,7 @@ export default function AdminSettings() {
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                                             {t(`settings.permissions.groups.${group.groupKey}`)}
                                         </p>
-                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                        <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
                                             {group.pages.map((page, idx) => {
                                                 const current = opAccess[page.key] || {};
                                                 const allOn = page.ops.every(op => current[op]);
@@ -950,7 +960,7 @@ export default function AdminSettings() {
                                                     <div
                                                         key={page.key}
                                                         className={`flex items-center justify-between px-4 py-3
-                                                            ${idx !== group.pages.length - 1 ? 'border-b border-gray-50' : ''}
+                                                            ${idx !== group.pages.length - 1 ? 'border-b border-gray-200/60' : ''}
                                                             hover:bg-gray-50/50 transition`}
                                                     >
                                                         <div className="flex items-center gap-3">
@@ -958,8 +968,8 @@ export default function AdminSettings() {
                                                                 onClick={() => toggleAllPage(page.key)}
                                                                 className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 transition-all duration-150 shrink-0
                                                                     ${allOn
-                                                                        ? 'bg-gray-900 border-gray-900 text-white'
-                                                                        : 'bg-white border-gray-200 text-gray-300 hover:border-gray-400'}`}
+                                                                        ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-900 text-white shadow-sm'
+                                                                        : 'bg-white/60 backdrop-blur-sm border-gray-200/60 text-gray-300 hover:border-gray-400'}`}
                                                                 title={allOn ? t('settings.revokeAll') : t('settings.grantAll')}
                                                             >
                                                                 {allOn ? <Unlock size={12} /> : <Lock size={12} />}
@@ -988,7 +998,7 @@ export default function AdminSettings() {
                 {/* ── Page Visibility (Flutter/Web, grouped by portal/role) ── */}
                 <SectionCard
                     title="Page Visibility"
-                    icon={<Eye size={15} className="text-white" />}
+                    icon={<Eye size={16} className="text-white" />}
                     data-tour="page-visibility"
                 >
                     <p className="text-[11px] text-gray-400 mb-5">
@@ -999,7 +1009,7 @@ export default function AdminSettings() {
                     </p>
                     {loadingVisibility ? (
                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <div className="w-4 h-4 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                             {t('settings.loadingOperators')}
                         </div>
                     ) : (
@@ -1010,23 +1020,23 @@ export default function AdminSettings() {
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                             {section.label}
                                         </p>
-                                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md
+                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-md
                                             ${section.role === 'Admin'
-                                                ? 'bg-gray-900 text-white'
+                                                ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm'
                                                 : section.role === 'Farmer'
-                                                    ? 'bg-emerald-600 text-white'
-                                                    : 'bg-blue-600 text-white'}`}>
+                                                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm'
+                                                    : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm'}`}>
                                             {section.role}
                                         </span>
                                     </div>
-                                    <div className="rounded-xl border border-gray-100 overflow-hidden">
+                                    <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
                                         {section.pages.map((page, idx) => {
                                             const v = pageVisibility[page.key] || { web: true, flutter: true };
                                             return (
                                                 <div
                                                     key={page.key}
                                                     className={`flex items-center justify-between px-4 py-3
-                                                        ${idx !== section.pages.length - 1 ? 'border-b border-gray-50' : ''}
+                                                        ${idx !== section.pages.length - 1 ? 'border-b border-gray-200/60' : ''}
                                                         hover:bg-gray-50/50 transition`}
                                                 >
                                                     <span className="text-sm font-medium text-gray-700">{page.label}</span>
@@ -1036,8 +1046,8 @@ export default function AdminSettings() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => toggleVisibility(page.key, 'web')}
-                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors
-                                                                    ${v.web ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm
+                                                                    ${v.web ? 'bg-emerald-500' : 'bg-gray-300'}`}
                                                             >
                                                                 <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
                                                                     ${v.web ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -1048,8 +1058,8 @@ export default function AdminSettings() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => toggleVisibility(page.key, 'flutter')}
-                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors
-                                                                    ${v.flutter ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm
+                                                                    ${v.flutter ? 'bg-emerald-500' : 'bg-gray-300'}`}
                                                             >
                                                                 <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
                                                                     ${v.flutter ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -1071,11 +1081,11 @@ export default function AdminSettings() {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3 rounded-xl bg-black text-white hover:bg-gray-800 transition disabled:opacity-50 shadow-md shadow-black/10"
+                        className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                     >
                         {saving
                             ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            : <Save size={14} />}
+                            : <Save size={16} />}
                         {saving ? t('actions.saving') : t('actions.saveAll')}
                     </button>
                 </div>

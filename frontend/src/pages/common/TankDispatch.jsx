@@ -5,7 +5,7 @@ import {
     X, TrendingUp, Milk, FlaskConical, User, Hash,
     MapPin, Warehouse, ChevronDown, Calendar, FileDown, Plus,
     PencilIcon,
-    Trash2, Thermometer
+    Trash2, Thermometer, Home
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -15,6 +15,21 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -58,8 +73,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-white/50 backdrop-blur-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -69,6 +84,19 @@ function TableCell({ children, className = "" }) {
     return (
         <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
             {children}
+        </div>
+    );
+}
+
+function StatCard({ label, value, sub, icon, color }) {
+    return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
+            <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center">{icon}</div>
+            <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                {sub && <p className="text-[10px] text-gray-500 mt-0.5">{sub}</p>}
+            </div>
         </div>
     );
 }
@@ -264,7 +292,6 @@ export default function TankDispatch() {
         const cowL = cowData.reduce((a, d) => a + parseFloat(d.total_liters || 0), 0);
         const bufL = bufData.reduce((a, d) => a + parseFloat(d.total_liters || 0), 0);
 
-        // Group by date + shift
         const shiftGroups = [];
         const seen = new Map();
         for (const d of [...baseData].sort((a, b) => new Date(a.dispatch_date) - new Date(b.dispatch_date) || (a.shift === 'morning' ? -1 : 1))) {
@@ -289,7 +316,6 @@ export default function TankDispatch() {
         <td style="padding:4px 6px;border:1px solid #999;font-size:9px;text-align:right;color:#000">${d.factory_rate ? '₹' + parseFloat(d.factory_rate).toFixed(2) : '—'}</td>
         <td style="padding:4px 6px;border:1px solid #999;font-size:9px;text-align:right;font-weight:700;color:#000">₹${parseFloat(d.total_amount || 0).toFixed(2)}</td>
     ` : `<td colspan="5" style="padding:4px 6px;border:1px solid #999;font-size:9px;color:#aaa;text-align:center">—</td>`;
-            // Sub-group by truck within the shift
             const truckMap = new Map();
             for (const d of group) {
                 const tk = d.vehicle_no || d.factory_name || d.dispatch_id;
@@ -577,13 +603,11 @@ export default function TankDispatch() {
             const weightedFat = shiftDispatches.reduce((a, d) => a + parseFloat(d.avg_fat || 0) * parseFloat(d.total_liters || 0), 0) / (totalL || 1);
             const weightedSnf = shiftDispatches.reduce((a, d) => a + parseFloat(d.avg_snf || 0) * parseFloat(d.total_liters || 0), 0) / (totalL || 1);
 
-            // Get settings from first dispatch or use defaults
             const firstDispatch = shiftDispatches[0];
             const acidity = firstDispatch?.acidity || dispatchSettings.default_acidity || "12.5";
             const temperature = firstDispatch?.temperature || dispatchSettings.default_temperature || "2";
             const fssai = firstDispatch?.fssai_code || dispatchSettings.fssai_code || "11521040000016";
 
-            // Group cow+buffalo pairs by vehicle_no (or factory_name as fallback) = one physical truck
             const truckMap = new Map();
             for (const d of shiftDispatches) {
                 const truckKey = d.vehicle_no || d.factory_name || d.dispatch_id;
@@ -751,9 +775,6 @@ export default function TankDispatch() {
         ? milkType === "cow" ? stock.avg_snf_cow : stock.avg_snf_buffalo
         : null;
 
-    const totalAmount = null; // now computed per-truck inline in the form
-
-
     // fetch remaining stock for date
     const fetchStock = async (date) => {
         setStockLoading(true);
@@ -827,7 +848,6 @@ export default function TankDispatch() {
         const cowStock = stock ? parseFloat(stock.available?.cow || 0) : 0;
         const bufStock = stock ? parseFloat(stock.available?.buffalo || 0) : 0;
 
-        // Check if any truck has quantities
         const hasAnyQty = validTrucks.some(t =>
             (t.cow_qty && parseFloat(t.cow_qty) > 0) ||
             (t.buffalo_qty && parseFloat(t.buffalo_qty) > 0)
@@ -849,7 +869,6 @@ export default function TankDispatch() {
                 const usedBufQty = t.buffalo_qty && parseFloat(t.buffalo_qty) > 0
                     ? parseFloat(t.buffalo_qty) : bufQtyPerTruck;
 
-                // Save cow row
                 if (usedCowQty > 0) {
                     const cowAmt = t.cow_rate ? (usedCowQty * parseFloat(t.cow_rate)).toFixed(2) : 0;
                     await api.post("/tank-dispatch", {
@@ -877,7 +896,6 @@ export default function TankDispatch() {
                     });
                 }
 
-                // Save buffalo row
                 if (usedBufQty > 0) {
                     const bufAmt = t.buffalo_rate ? (usedBufQty * parseFloat(t.buffalo_rate)).toFixed(2) : 0;
                     await api.post("/tank-dispatch", {
@@ -994,7 +1012,6 @@ export default function TankDispatch() {
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
-        // Let factory/vehicle/driver autocomplete dropdowns handle their own Enter
         if (dropdownOpen.factory || dropdownOpen.vehicle || dropdownOpen.driver) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
@@ -1072,7 +1089,7 @@ export default function TankDispatch() {
     };
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -1080,30 +1097,34 @@ export default function TankDispatch() {
     if (!can('product_sales', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Truck size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('tankDispatch.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-semibold shadow-md shadow-gray-900/30">
+                                <Truck size={12} /> Dispatch
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('tankDispatch.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('tankDispatch.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('tankDispatch.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('tankDispatch.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="dispatch-header-actions">
                         <button
                             onClick={startDispatchTour}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('tankDispatch.dateLabel')}</span>
@@ -1116,17 +1137,16 @@ export default function TankDispatch() {
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); fetchRangeDispatches(r.from, r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); fetchRangeDispatches(r.from, r.to); }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                         </div>
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('tankDispatch.registerPDF')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                     {[{ v: "daily", l: t('tankDispatch.day') }, { v: "weekly", l: t('tankDispatch.week') }, { v: "monthly", l: t('tankDispatch.month') }, { v: "custom", l: t('tankDispatch.custom') }].map(({ v, l }) => (
                                         <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -1135,20 +1155,19 @@ export default function TankDispatch() {
                                 {rangeMode === "custom" && (
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPdfReady(false); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate} onChange={e => {
                                             setToDate(e.target.value);
                                             setPdfReady(false);
-                                            // auto-fetch when toDate is selected
                                             setTimeout(() => fetchRangeDispatches(), 0);
                                         }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                         {fromDate === toDate
                                             ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                             : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -1157,20 +1176,20 @@ export default function TankDispatch() {
                                 <div className="flex flex-wrap items-center gap-1.5">
                                     {rangeMode === "daily" && dispatches.length > 0 && (
                                         <button onClick={printCombinedChallan}
-                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition">
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-emerald-500/30 transition shadow-sm">
                                             <FileDown size={13} />
                                             <span className="hidden sm:inline">{t('tankDispatch.combined')} </span>{t('tankDispatch.challan')}
                                         </button>
                                     )}
                                     {rangeMode === "daily" ? (
                                         <button onClick={handlePrintRegister} disabled={dispatches.length === 0}
-                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition shadow-sm">
                                             <FileDown size={13} /> PDF
                                         </button>
                                     ) : (
                                         <>
                                             <button onClick={handlePrintRegister} disabled={!pdfReady}
-                                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition shadow-sm">
                                                 <FileDown size={13} /> PDF
                                             </button>
                                         </>
@@ -1181,121 +1200,131 @@ export default function TankDispatch() {
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="dispatch-stats">
-                    {[
-                        { label: t('tankDispatch.dispatches'), value: `${dispatches.length} (${[...new Set(dispatches.map(d => d.shift + d.dispatch_date))].length} shifts)`, icon: <Truck size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('tankDispatch.totalDispatched'), value: totalDispatched.toFixed(1) + " L", icon: <Milk size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                        { label: t('tankDispatch.factoryRevenue'), value: "₹" + totalFactoryRev.toFixed(2), icon: <TrendingUp size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100" },
-                        {
-                            label: t('tankDispatch.remainingStock'), value: stock ? parseFloat(stock.available?.total || 0).toFixed(1) + " L" : "—", icon: <Warehouse size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100"
-                        },
-                    ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Stock + Dispatch Summary */}
-                <div className="grid grid-cols-3 gap-2" data-tour="dispatch-stock">
-
-                    {/* Cow */}
-                    <div onClick={() => setMilkType("cow")} style={{ cursor: "pointer" }}
-                        className={`flex flex-col px-3 py-3 rounded-2xl border transition
-                            ${milkType === "cow" ? "border-amber-300 bg-amber-50 ring-2 ring-amber-200" : "border-amber-100 bg-amber-50/50"}`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-6 h-6 rounded-lg bg-amber-400 flex items-center justify-center text-xs shrink-0"></div>
-                            <p className="text-[9px] font-semibold text-amber-600 uppercase tracking-wider">{t('tankDispatch.cowRemaining')}</p>
-                            {milkType === "cow" && <span className="ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-amber-900">✓</span>}
-                        </div>
-                        <p className="text-2xl font-bold text-amber-800 leading-tight">
-                            {stockLoading ? "…" : parseFloat(stock?.available?.cow || 0).toFixed(1)}
-                            <span className="text-sm font-medium text-amber-500 ml-1">L</span>
-                        </p>
-                        {stock?.avg_fat_cow && (
-                            <p className="text-[9px] text-amber-500 mt-0.5">
-                                {t('tankDispatch.fat')}: {parseFloat(stock.avg_fat_cow).toFixed(2)}% · {t('tankDispatch.snf')}: {parseFloat(stock.avg_snf_cow).toFixed(2)}%
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Buffalo */}
-                    <div onClick={() => setMilkType("buffalo")} style={{ cursor: "pointer" }}
-                        className={`flex flex-col px-3 py-3 rounded-2xl border transition
-                            ${milkType === "buffalo" ? "border-blue-300 bg-blue-50 ring-2 ring-blue-200" : "border-blue-100 bg-blue-50/50"}`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-6 h-6 rounded-lg bg-blue-500 flex items-center justify-center text-xs shrink-0"></div>
-                            <p className="text-[9px] font-semibold text-blue-600 uppercase tracking-wider">{t('tankDispatch.buffaloRemaining')}</p>
-                            {milkType === "buffalo" && <span className="ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white">✓</span>}
-                        </div>
-                        <p className="text-2xl font-bold text-blue-800 leading-tight">
-                            {stockLoading ? "…" : parseFloat(stock?.available?.buffalo || 0).toFixed(1)}
-                            <span className="text-sm font-medium text-blue-400 ml-1">L</span>
-                        </p>
-                        {stock?.avg_fat_buffalo && (
-                            <p className="text-[9px] text-blue-400 mt-0.5">
-                                {t('tankDispatch.fat')}: {parseFloat(stock.avg_fat_buffalo).toFixed(2)}% · {t('tankDispatch.snf')}: {parseFloat(stock.avg_snf_buffalo).toFixed(2)}%
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Dispatch Summary */}
-                    <div className={`flex flex-col px-3 py-3 rounded-2xl border transition
-                        ${dispatchQty > 0 ? "bg-gray-900 border-gray-700" : "bg-gray-50 border-gray-100"}`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                                <Truck size={13} className={dispatchQty > 0 ? "text-white" : "text-gray-400"} />
-                            </div>
-                            <p className={`text-[9px] font-semibold uppercase tracking-wider ${dispatchQty > 0 ? "text-gray-400" : "text-gray-400"}`}>{t('tankDispatch.readyToDispatch')}</p>
-                        </div>
-                        <p className={`text-2xl font-bold leading-tight ${dispatchQty > 0 ? "text-white" : "text-gray-300"}`}>
-                            {dispatchQty > 0 ? dispatchQty.toFixed(1) : "—"}
-                            {dispatchQty > 0 && <span className="text-sm font-normal text-gray-400 ml-1">{milkType === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buf')} L</span>}
-                        </p>
-                        {dispatchQty > 0 && (
-                            <div className="flex gap-3 mt-0.5 flex-wrap">
-                                {dispatchAvgFat && <p className="text-[9px] text-amber-400">{t('tankDispatch.fat')}: {parseFloat(dispatchAvgFat).toFixed(2)}%</p>}
-                                {dispatchAvgSnf && <p className="text-[9px] text-blue-400">{t('tankDispatch.snf')}: {parseFloat(dispatchAvgSnf).toFixed(2)}%</p>}
-                                {totalAmount && <p className="text-[9px] text-emerald-400">₹{totalAmount}</p>}
-                            </div>
-                        )}
-                    </div>
-
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="dispatch-stats">
+                    <StatCard
+                        label={t('tankDispatch.dispatches')}
+                        value={`${dispatches.length} (${[...new Set(dispatches.map(d => d.shift + d.dispatch_date))].length} shifts)`}
+                        icon={<Truck size={14} className="text-blue-600" />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60"
+                    />
+                    <StatCard
+                        label={t('tankDispatch.totalDispatched')}
+                        value={totalDispatched.toFixed(1) + " L"}
+                        icon={<Milk size={14} className="text-emerald-600" />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60"
+                    />
+                    <StatCard
+                        label={t('tankDispatch.factoryRevenue')}
+                        value={"₹" + totalFactoryRev.toFixed(2)}
+                        icon={<TrendingUp size={14} className="text-amber-600" />}
+                        color="text-amber-600 bg-amber-50/80 border-amber-200/60"
+                    />
+                    <StatCard
+                        label={t('tankDispatch.remainingStock')}
+                        value={stock ? parseFloat(stock.available?.total || 0).toFixed(1) + " L" : "—"}
+                        icon={<Warehouse size={14} className="text-violet-600" />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60"
+                    />
                 </div>
 
-                {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="dispatch-form">
-                    <div className="flex items-center gap-2 mb-4">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                            {editingDispatch ? t('tankDispatch.editDispatch') : t('tankDispatch.newDispatchEntry')}
-                        </p>
-                        {editingDispatch && (
+                {/* ── Stock + Dispatch Summary ── */}
+                <SectionCard
+                    title={t('tankDispatch.availableStock')}
+                    icon={<Warehouse size={16} className="text-white" />}
+                    data-tour="dispatch-stock"
+                >
+                    <div className="grid grid-cols-3 gap-4">
+                        {/* Cow */}
+                        <div onClick={() => setMilkType("cow")} style={{ cursor: "pointer" }}
+                            className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-200 shadow-sm
+                                ${milkType === "cow" ? "border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/50 ring-2 ring-amber-200 shadow-lg shadow-amber-200/30" : "border-amber-200/60 bg-white/60 backdrop-blur-sm"}`}>
+                            <div className="flex items-center gap-1.5 mb-1 relative z-10">
+                                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-xs shrink-0 shadow-sm"></div>
+                                <p className="text-[9px] font-semibold text-amber-600 uppercase tracking-wider">{t('tankDispatch.cowRemaining')}</p>
+                                {milkType === "cow" && <span className="ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-amber-900">✓</span>}
+                            </div>
+                            <p className="text-2xl font-bold text-amber-800 leading-tight relative z-10">
+                                {stockLoading ? "…" : parseFloat(stock?.available?.cow || 0).toFixed(1)}
+                                <span className="text-sm font-medium text-amber-500 ml-1">L</span>
+                            </p>
+                            {stock?.avg_fat_cow && (
+                                <p className="text-[9px] text-amber-500 mt-0.5 relative z-10">
+                                    {t('tankDispatch.fat')}: {parseFloat(stock.avg_fat_cow).toFixed(2)}% · {t('tankDispatch.snf')}: {parseFloat(stock.avg_snf_cow).toFixed(2)}%
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Buffalo */}
+                        <div onClick={() => setMilkType("buffalo")} style={{ cursor: "pointer" }}
+                            className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-200 shadow-sm
+                                ${milkType === "buffalo" ? "border-blue-300/80 bg-gradient-to-br from-blue-50/80 to-blue-100/50 ring-2 ring-blue-200 shadow-lg shadow-blue-200/30" : "border-blue-200/60 bg-white/60 backdrop-blur-sm"}`}>
+                            <div className="flex items-center gap-1.5 mb-1 relative z-10">
+                                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-xs shrink-0 shadow-sm"></div>
+                                <p className="text-[9px] font-semibold text-blue-600 uppercase tracking-wider">{t('tankDispatch.buffaloRemaining')}</p>
+                                {milkType === "buffalo" && <span className="ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white">✓</span>}
+                            </div>
+                            <p className="text-2xl font-bold text-blue-800 leading-tight relative z-10">
+                                {stockLoading ? "…" : parseFloat(stock?.available?.buffalo || 0).toFixed(1)}
+                                <span className="text-sm font-medium text-blue-400 ml-1">L</span>
+                            </p>
+                            {stock?.avg_fat_buffalo && (
+                                <p className="text-[9px] text-blue-400 mt-0.5 relative z-10">
+                                    {t('tankDispatch.fat')}: {parseFloat(stock.avg_fat_buffalo).toFixed(2)}% · {t('tankDispatch.snf')}: {parseFloat(stock.avg_snf_buffalo).toFixed(2)}%
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Dispatch Summary */}
+                        <div className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-200 shadow-sm
+                            ${dispatchQty > 0 ? "bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm border-gray-200/60"}`}>
+                            <div className="flex items-center gap-1.5 mb-1 relative z-10">
+                                <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                                    <Truck size={13} className={dispatchQty > 0 ? "text-white" : "text-gray-400"} />
+                                </div>
+                                <p className={`text-[9px] font-semibold uppercase tracking-wider ${dispatchQty > 0 ? "text-gray-400" : "text-gray-400"}`}>{t('tankDispatch.readyToDispatch')}</p>
+                            </div>
+                            <p className={`text-2xl font-bold leading-tight relative z-10 ${dispatchQty > 0 ? "text-white" : "text-gray-300"}`}>
+                                {dispatchQty > 0 ? dispatchQty.toFixed(1) : "—"}
+                                {dispatchQty > 0 && <span className="text-sm font-normal text-gray-400 ml-1">{milkType === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buf')} L</span>}
+                            </p>
+                            {dispatchQty > 0 && (
+                                <div className="flex gap-3 mt-0.5 flex-wrap relative z-10">
+                                    {dispatchAvgFat && <p className="text-[9px] text-amber-400">{t('tankDispatch.fat')}: {parseFloat(dispatchAvgFat).toFixed(2)}%</p>}
+                                    {dispatchAvgSnf && <p className="text-[9px] text-blue-400">{t('tankDispatch.snf')}: {parseFloat(dispatchAvgSnf).toFixed(2)}%</p>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </SectionCard>
+
+                {/* ── Entry Form ── */}
+                <SectionCard
+                    title={editingDispatch ? t('tankDispatch.editDispatch') : t('tankDispatch.newDispatchEntry')}
+                    icon={<Truck size={16} className="text-white" />}
+                    data-tour="dispatch-form"
+                >
+                    {editingDispatch && (
+                        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-50/80 border border-amber-200/60 text-amber-700 text-xs font-medium flex items-center justify-between">
+                            <span>✏ {t('tankDispatch.editingDispatchTo')} <strong>{editingDispatch.factory_name}</strong> · {editingDispatch.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')} · {parseFloat(editingDispatch.total_liters).toFixed(1)} L</span>
                             <button onClick={handleCancelEdit}
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100 transition">
+                                className="flex items-center gap-1 text-amber-500 hover:text-amber-700 px-2 py-1 rounded-lg hover:bg-amber-100/80 transition">
                                 <X size={12} /> {t('tankDispatch.cancelEdit')}
                             </button>
-                        )}
-                    </div>
-
-                    {editingDispatch && (
-                        <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-                            ✏ {t('tankDispatch.editingDispatchTo')} <strong>{editingDispatch.factory_name}</strong> · {editingDispatch.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')} · {parseFloat(editingDispatch.total_liters).toFixed(1)} L
                         </div>
                     )}
 
@@ -1315,7 +1344,7 @@ export default function TankDispatch() {
 
                         return (
                             <div key={truckIdx}
-                                className={`mb-4 p-4 rounded-xl border-2 transition ${isActive ? "border-gray-300 bg-gray-50/50" : "border-gray-100"}`}
+                                className={`mb-4 p-4 rounded-xl border-2 transition ${isActive ? "border-gray-300/60 bg-gray-50/50" : "border-gray-200/60"}`}
                                 style={{ overflow: "visible" }}
                                 onClick={() => setActiveTruckIdx(truckIdx)}
                                 onKeyDown={handleFormKeyDown}>
@@ -1331,14 +1360,14 @@ export default function TankDispatch() {
                                                 setTrucks(p => p.filter((_, i) => i !== truckIdx));
                                                 setActiveTruckIdx(0);
                                             }}
-                                            className="ml-auto flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition">
+                                            className="ml-auto flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50/80 transition">
                                             <X size={11} /> {t('tankDispatch.remove')}
                                         </button>
                                     )}
                                 </div>
 
                                 {/* Common fields */}
-                                <div className="flex flex-wrap items-start gap-2 mb-3 pb-3 border-b border-gray-100">
+                                <div className="flex flex-wrap items-start gap-2 mb-3 pb-3 border-b border-gray-100/60">
                                     <Field label={t('tankDispatch.factoryName')} icon={<Warehouse size={12} />}>
                                         <div className="relative">
                                             <TinyInput
@@ -1368,8 +1397,8 @@ export default function TankDispatch() {
                                                 className="w-36 sm:w-44 pr-7"
                                             />
                                             {isActive && dropdownOpen.factory && getFilteredSuggestions("factory", truckForm.factory_name || "").length > 0 && (
-                                                <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden" style={{ zIndex: 9999 }}>
-                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">{t('tankDispatch.recentFactories')}</p>
+                                                <div className="absolute top-full left-0 mt-1 w-56 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden" style={{ zIndex: 9999 }}>
+                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100/60">{t('tankDispatch.recentFactories')}</p>
                                                     {getFilteredSuggestions("factory", truckForm.factory_name || "").map((v, idx) => (
                                                         <button key={v.factory_name} type="button"
                                                             onMouseEnter={() => setHighlightedIdx(p => ({ ...p, factory: idx }))}
@@ -1381,7 +1410,7 @@ export default function TankDispatch() {
                                                                 if (v.temperature) setTruckField(truckIdx, "temperature", v.temperature);
                                                                 setDropdownOpen(p => ({ ...p, factory: false }));
                                                             }}
-                                                            className={`w-full text-left px-3 py-2 text-xs transition ${highlightedIdx.factory === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                                                            className={`w-full text-left px-3 py-2 text-xs transition ${highlightedIdx.factory === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
                                                             <div className="font-medium text-gray-800">{v.factory_name}</div>
                                                             {(v.vehicle_no || v.driver_name) && (
                                                                 <div className="text-[10px] text-gray-400 mt-0.5 font-mono">
@@ -1411,13 +1440,13 @@ export default function TankDispatch() {
                                                 onBlur={() => setTimeout(() => setDropdownOpen(p => ({ ...p, vehicle: false })), 150)}
                                                 onChange={(e) => { mkSet("vehicle_no", e.target.value); setDropdownOpen(p => ({ ...p, vehicle: true })); }}
                                                 placeholder={t('tankDispatch.vehiclePlaceholder')}
-                                                className="w-28 sm:w-32 bg-blue-50 border-blue-200 text-blue-700 pr-7" />
+                                                className="w-28 sm:w-32 bg-blue-50/80 border-blue-200/60 text-blue-700 pr-7" />
                                             {isActive && dropdownOpen.vehicle && getFilteredSuggestions("vehicle", truckForm.vehicle_no || "").length > 0 && (
-                                                <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">{t('tankDispatch.vehicles')}</p>
+                                                <div className="absolute top-full left-0 mt-1 w-44 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100/60">{t('tankDispatch.vehicles')}</p>
                                                     {getFilteredSuggestions("vehicle", truckForm.vehicle_no || "").map((v) => (
                                                         <button key={v} type="button" onClick={() => { mkSet("vehicle_no", v); setDropdownOpen(p => ({ ...p, vehicle: false })); }}
-                                                            className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 font-mono transition">{v}</button>
+                                                            className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50/80 font-mono transition">{v}</button>
                                                     ))}
                                                 </div>
                                             )}
@@ -1433,11 +1462,11 @@ export default function TankDispatch() {
                                                 onChange={(e) => { mkSet("driver_name", e.target.value); setDropdownOpen(p => ({ ...p, driver: true })); }}
                                                 placeholder={t('tankDispatch.driverPlaceholder')} className="w-28 sm:w-32 pr-7" />
                                             {isActive && dropdownOpen.driver && getFilteredSuggestions("driver", truckForm.driver_name || "").length > 0 && (
-                                                <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">{t('tankDispatch.drivers')}</p>
+                                                <div className="absolute top-full left-0 mt-1 w-44 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100/60">{t('tankDispatch.drivers')}</p>
                                                     {getFilteredSuggestions("driver", truckForm.driver_name || "").map((v) => (
                                                         <button key={v} type="button" onClick={() => { mkSet("driver_name", v); setDropdownOpen(p => ({ ...p, driver: false })); }}
-                                                            className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition">{v}</button>
+                                                            className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50/80 transition">{v}</button>
                                                     ))}
                                                 </div>
                                             )}
@@ -1450,7 +1479,7 @@ export default function TankDispatch() {
                                             value={truckForm.acidity || dispatchSettings.default_acidity || "12.5"}
                                             onChange={(e) => mkSet("acidity", e.target.value)}
                                             placeholder="Acidity"
-                                            className="w-20 bg-amber-50 border-amber-200 text-amber-700"
+                                            className="w-20 bg-amber-50/80 border-amber-200/60 text-amber-700"
                                         />
                                     </Field>
 
@@ -1459,7 +1488,7 @@ export default function TankDispatch() {
                                             value={truckForm.temperature || dispatchSettings.default_temperature || "2"}
                                             onChange={(e) => mkSet("temperature", e.target.value)}
                                             placeholder="°C"
-                                            className="w-16 bg-blue-50 border-blue-200 text-blue-700"
+                                            className="w-16 bg-blue-50/80 border-blue-200/60 text-blue-700"
                                         />
                                     </Field>
 
@@ -1472,7 +1501,7 @@ export default function TankDispatch() {
                                 {/* Cow + Buffalo side by side */}
                                 <div className="grid grid-cols-2 gap-3">
                                     {/* Cow */}
-                                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-amber-50/60 border border-amber-100">
+                                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-amber-50/60 border border-amber-100/60">
                                         <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">{t('tankDispatch.cow')}</p>
                                         <div className="flex flex-wrap gap-2">
                                             <Field label={t('tankDispatch.qtyL')} icon={<Milk size={12} />}>
@@ -1480,31 +1509,31 @@ export default function TankDispatch() {
                                                     value={truckForm.cow_qty !== undefined && truckForm.cow_qty !== "" ? truckForm.cow_qty : cowQtyDefault}
                                                     onChange={(e) => mkSet("cow_qty", e.target.value)}
                                                     placeholder="0.0"
-                                                    className="w-20 bg-amber-50 border-amber-200 text-amber-800 font-bold" />
+                                                    className="w-20 bg-amber-50/80 border-amber-200/60 text-amber-800 font-bold" />
                                             </Field>
                                             <Field label={t('tankDispatch.ratePerL')} icon={<TrendingUp size={12} />}>
                                                 <TinyInput value={truckForm.cow_rate || ""}
                                                     onChange={(e) => mkSet("cow_rate", e.target.value)}
                                                     placeholder="₹0.00" type="number" step="0.01"
-                                                    className="w-20 bg-amber-50 border-amber-200 text-amber-700" />
+                                                    className="w-20 bg-amber-50/80 border-amber-200/60 text-amber-700" />
                                             </Field>
                                             {stock?.avg_fat_cow && (
                                                 <Field label="FAT%" icon={<FlaskConical size={12} />}>
-                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-amber-100 border border-amber-200 text-amber-700 font-bold text-sm w-14">
+                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-amber-100/80 border border-amber-200/60 text-amber-700 font-bold text-sm w-14">
                                                         {parseFloat(stock.avg_fat_cow).toFixed(2)}
                                                     </div>
                                                 </Field>
                                             )}
                                             {stock?.avg_snf_cow && (
                                                 <Field label="SNF%" icon={<FlaskConical size={12} />}>
-                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-amber-100 border border-amber-200 text-amber-700 font-bold text-sm w-14">
+                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-amber-100/80 border border-amber-200/60 text-amber-700 font-bold text-sm w-14">
                                                         {parseFloat(stock.avg_snf_cow).toFixed(2)}
                                                     </div>
                                                 </Field>
                                             )}
                                             {cowAmt && (
                                                 <Field label={t('tankDispatch.amount')} icon={<TrendingUp size={12} />}>
-                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
+                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 font-bold text-sm whitespace-nowrap">
                                                         ₹{cowAmt}
                                                     </div>
                                                 </Field>
@@ -1513,7 +1542,7 @@ export default function TankDispatch() {
                                     </div>
 
                                     {/* Buffalo */}
-                                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-blue-50/60 border border-blue-100">
+                                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-blue-50/60 border border-blue-100/60">
                                         <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{t('tankDispatch.buffalo')}</p>
                                         <div className="flex flex-wrap gap-2">
                                             <Field label={t('tankDispatch.qtyL')} icon={<Milk size={12} />}>
@@ -1521,31 +1550,31 @@ export default function TankDispatch() {
                                                     value={truckForm.buffalo_qty !== undefined && truckForm.buffalo_qty !== "" ? truckForm.buffalo_qty : bufQtyDefault}
                                                     onChange={(e) => mkSet("buffalo_qty", e.target.value)}
                                                     placeholder="0.0"
-                                                    className="w-20 bg-blue-50 border-blue-200 text-blue-800 font-bold" />
+                                                    className="w-20 bg-blue-50/80 border-blue-200/60 text-blue-800 font-bold" />
                                             </Field>
                                             <Field label={t('tankDispatch.ratePerL')} icon={<TrendingUp size={12} />}>
                                                 <TinyInput value={truckForm.buffalo_rate || ""}
                                                     onChange={(e) => mkSet("buffalo_rate", e.target.value)}
                                                     placeholder="₹0.00" type="number" step="0.01"
-                                                    className="w-20 bg-blue-50 border-blue-200 text-blue-700" />
+                                                    className="w-20 bg-blue-50/80 border-blue-200/60 text-blue-700" />
                                             </Field>
                                             {stock?.avg_fat_buffalo && (
                                                 <Field label="FAT%" icon={<FlaskConical size={12} />}>
-                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-blue-100 border border-blue-200 text-blue-700 font-bold text-sm w-14">
+                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-blue-100/80 border border-blue-200/60 text-blue-700 font-bold text-sm w-14">
                                                         {parseFloat(stock.avg_fat_buffalo).toFixed(2)}
                                                     </div>
                                                 </Field>
                                             )}
                                             {stock?.avg_snf_buffalo && (
                                                 <Field label="SNF%" icon={<FlaskConical size={12} />}>
-                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-blue-100 border border-blue-200 text-blue-700 font-bold text-sm w-14">
+                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-blue-100/80 border border-blue-200/60 text-blue-700 font-bold text-sm w-14">
                                                         {parseFloat(stock.avg_snf_buffalo).toFixed(2)}
                                                     </div>
                                                 </Field>
                                             )}
                                             {bufAmt && (
                                                 <Field label={t('tankDispatch.amount')} icon={<TrendingUp size={12} />}>
-                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
+                                                    <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 font-bold text-sm whitespace-nowrap">
                                                         ₹{bufAmt}
                                                     </div>
                                                 </Field>
@@ -1564,12 +1593,12 @@ export default function TankDispatch() {
                                 setTrucks(p => [...p, { ...EMPTY_TRUCK }]);
                                 setActiveTruckIdx(trucks.length);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 hover:border-gray-900 hover:text-gray-900 text-xs font-semibold transition w-full justify-center mb-4">
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300/60 text-gray-400 hover:border-gray-900/60 hover:text-gray-900 text-xs font-semibold transition w-full justify-center mb-4">
                             <Plus size={13} /> {t('tankDispatch.addAnotherTruck')}
                         </button>
                     )}
 
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200/60">
                         <p className="text-xs text-gray-400">
                             {dispatches.length} {dispatches.length === 1 ? t('tankDispatch.dispatch') : t('tankDispatch.dispatches')} {t('tankDispatch.on')}{" "}
                             {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
@@ -1578,24 +1607,28 @@ export default function TankDispatch() {
                         <button type="button"
                             onClick={editingDispatch ? handleUpdate : handleSave}
                             disabled={saving}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                ${saving ? "bg-gray-300 cursor-not-allowed"
-                                    : editingDispatch ? "bg-amber-600 hover:bg-amber-700 active:scale-95"
-                                        : "bg-black hover:bg-gray-800 active:scale-95"}`}>
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
+                                ${saving ? "bg-gray-300 cursor-not-allowed"
+                                    : editingDispatch ? "bg-gradient-to-br from-amber-500 to-amber-600 hover:shadow-lg hover:shadow-amber-500/30 active:scale-95"
+                                        : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}>
                             <Save size={15} />
                             {saving ? (editingDispatch ? t('tankDispatch.updating') : t('tankDispatch.saving'))
                                 : editingDispatch ? t('tankDispatch.updateDispatch')
                                     : `${t('tankDispatch.record')} ${trucks.length > 1 ? trucks.length + " " + t('tankDispatch.trucks') : t('tankDispatch.dispatch')}`}
                         </button>
                     </div>
-                </div>
+                </SectionCard>
 
-                {/* Dispatch History Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="dispatch-table">
+                {/* ── Dispatch History Table ── */}
+                <SectionCard
+                    title={t('tankDispatch.dispatchHistory')}
+                    icon={<Truck size={16} className="text-white" />}
+                    data-tour="dispatch-table"
+                >
                     {/* Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -1616,13 +1649,12 @@ export default function TankDispatch() {
                                 {[...dispatches].reverse().map((d, i) => (
                                     <div
                                         key={d.dispatch_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors"
                                         style={{ gridTemplateColumns: GRID }}
                                     >
-                                        {/* Existing cells (Factory, Type, Vehicle, Driver, Qty, FAT%, SNF%, Rate, Amount, Acidity, Temp, Remarks, Time, PDF) */}
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
+                                                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center shrink-0 shadow-sm">
                                                     <Truck size={11} className="text-white" />
                                                 </div>
                                                 <span className="text-gray-800 font-medium text-xs truncate">{d.factory_name || "—"}</span>
@@ -1630,9 +1662,9 @@ export default function TankDispatch() {
                                         </TableCell>
                                         <TableCell>
                                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
-        ${d.milk_type === "cow" ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                    : d.milk_type === "buffalo" ? "bg-blue-50 text-blue-700 border-blue-100"
-                                                        : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                                ${d.milk_type === "cow" ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                                                    : d.milk_type === "buffalo" ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
+                                                        : "bg-gray-100/80 text-gray-600 border-gray-200/60"}`}>
                                                 {d.milk_type === "cow" ? t('tankDispatch.cow') : t('tankDispatch.buffalo')}
                                             </span>
                                         </TableCell>
@@ -1668,21 +1700,20 @@ export default function TankDispatch() {
                                         <TableCell>
                                             <button
                                                 onClick={(e) => printChallan(e, d)}
-                                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-semibold transition"
+                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-gray-800 to-gray-700 hover:shadow-lg hover:shadow-gray-800/30 text-white text-[10px] font-semibold transition shadow-sm"
                                             >
                                                 <Truck size={10} /> PDF
                                             </button>
                                         </TableCell>
 
-                                        {/* Edit button (existing) */}
                                         {isAdmin && (
                                             <TableCell>
                                                 <button
                                                     onClick={() => handleEdit(d)}
-                                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border
-            ${editingDispatch?.dispatch_id === d.dispatch_id
-                                                            ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                            : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}
+                                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition border
+                                                        ${editingDispatch?.dispatch_id === d.dispatch_id
+                                                            ? "bg-amber-100/80 text-amber-700 border-amber-200/60"
+                                                            : "bg-blue-50/80 text-blue-600 border-blue-200/60 hover:bg-blue-100/80 shadow-sm"}`}
                                                 >
                                                     <PencilIcon size={10} />
                                                     {editingDispatch?.dispatch_id === d.dispatch_id ? t('tankDispatch.editing') : t('tankDispatch.edit')}
@@ -1690,12 +1721,11 @@ export default function TankDispatch() {
                                             </TableCell>
                                         )}
 
-                                        {/* Delete button (new) */}
                                         {isAdmin && (
                                             <TableCell>
                                                 <button
                                                     onClick={() => setDeleteConfirmId(d.dispatch_id)}
-                                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 text-[10px] font-semibold transition"
+                                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50/80 text-rose-600 border border-rose-200/60 hover:bg-rose-100/80 text-[10px] font-semibold transition shadow-sm"
                                                 >
                                                     <Trash2 size={10} /> {t('tankDispatch.delete')}
                                                 </button>
@@ -1710,22 +1740,22 @@ export default function TankDispatch() {
                     {/* Totals footer */}
                     {dispatches.length > 0 && (
                         <div
-                            className="grid border-t-2 border-gray-100 bg-gray-50/80"
+                            className="grid border-t-2 border-gray-200/60 bg-gray-50/80 rounded-b-xl"
                             style={{ gridTemplateColumns: GRID }}
                         >
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {dispatches.length} {dispatches.length === 1 ? t('tankDispatch.dispatch') : t('tankDispatch.dispatches')}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-emerald-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-emerald-600 border-r border-gray-200/60">
                                 {totalDispatched.toFixed(1)} L
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
                                 ₹{totalFactoryRev.toFixed(2)}
                             </div>
                             <div className="px-3 py-2.5" />
@@ -1740,38 +1770,40 @@ export default function TankDispatch() {
                             )}
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
-                {/* Legend */}
+                {/* ── Legend ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400">
                     <span>• {t('tankDispatch.legendRemaining')}</span>
                     <span>• {t('tankDispatch.legendClickStock')}</span>
                     <span>• {t('tankDispatch.legendFatSnf')}</span>
                 </div>
 
-                {deleteConfirmId && (
-                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 max-w-sm w-full">
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('tankDispatch.deleteConfirmTitle')}</h3>
-                            <p className="text-sm text-gray-500 mb-4">{t('tankDispatch.deleteConfirmMessage')}</p>
-                            <div className="flex gap-2 justify-end">
-                                <button
-                                    onClick={() => setDeleteConfirmId(null)}
-                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
-                                >
-                                    {t('tankDispatch.cancel')}
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(deleteConfirmId)}
-                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition"
-                                >
-                                    {t('tankDispatch.delete')}
-                                </button>
-                            </div>
+            </main>
+
+            {/* ── Delete Confirm Modal ── */}
+            {deleteConfirmId && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-2xl p-6 max-w-sm w-full">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">{t('tankDispatch.deleteConfirmTitle')}</h3>
+                        <p className="text-sm text-gray-500 mb-4">{t('tankDispatch.deleteConfirmMessage')}</p>
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100/80 hover:bg-gray-200/80 transition shadow-sm"
+                            >
+                                {t('tankDispatch.cancel')}
+                            </button>
+                            <button
+                                onClick={() => handleDelete(deleteConfirmId)}
+                                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 transition shadow-sm"
+                            >
+                                {t('tankDispatch.delete')}
+                            </button>
                         </div>
                     </div>
-                )}
-            </main>
+                </div>
+            )}
         </div>
     );
 }

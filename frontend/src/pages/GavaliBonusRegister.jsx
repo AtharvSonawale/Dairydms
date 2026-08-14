@@ -5,7 +5,8 @@ import {
     Gift, ChevronDown, ChevronUp, RefreshCw, Printer,
     BadgeCheck, AlertTriangle, X, Users, Sparkles,
     CheckCircle2, Clock, Search, Banknote, Plus,
-    Edit2, Check, Trash2, Settings, Calendar, TrendingUp
+    Edit2, Check, Trash2, Settings, Calendar, TrendingUp,
+    Home
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +16,21 @@ import AccessDenied from '../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
@@ -37,7 +53,7 @@ const DEFAULT_SLABS = [
 // ── StatCard ──────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon, color }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
             <div className="shrink-0">{icon}</div>
             <div>
                 <p className="text-xs text-gray-400 leading-none">{label}</p>
@@ -279,14 +295,6 @@ export default function GavaliBonusRegister() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Permission checks
-    if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
-        </div>
-    );
-    if (!can('gavali_bonus_register', 'R')) return <AccessDenied />;
-
     // ── Compute Rows with Growth Percentage ─────────────────────
     const computeRows = () =>
         sellers.map(seller => {
@@ -470,23 +478,18 @@ export default function GavaliBonusRegister() {
         const MON_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-        // ── Helper: get real monthly qty — coerce seller_id to string to match backend ──
-        // ── Helper: get real monthly qty ────────────────────────────
         const getMonthQty = (sellerId, monthKey, milkType, totalQty) => {
             const sid = String(sellerId);
             const sellerData = monthlyBreakdown[sid];
 
             if (sellerData) {
-                // Seller found in breakdown — use real data, 0 if no entries that month
                 return sellerData[monthKey]
                     ? parseFloat(sellerData[monthKey][milkType] || 0)
                     : 0;
             }
 
-            // Seller not in breakdown (no milk entries at all in range) → even fallback
             return totalMonths > 0 ? totalQty / totalMonths : 0;
         };
-        
         
         // ── Build data rows ─────────────────────────────────────
         let brnCounter = 0;
@@ -503,7 +506,6 @@ export default function GavaliBonusRegister() {
             if (row.hasBuffalo) milkTypes.push({ type: "BUF", milkKey: "buffalo_qty", totalQty: row.buffalo_qty, totalBonus: row.buffalo_qty * buffaloBonus, rate: buffaloBonus });
 
             return milkTypes.map((mt, mtIdx) => {
-                // ── Per paired-column cells with real monthly data ──
                 const pairedCells = pairedCols.map((col) => {
                     const topQty = getMonthQty(row.seller_id, col.top.key, mt.milkKey, mt.totalQty);
                     const topAmt = topQty * mt.rate;
@@ -522,7 +524,6 @@ export default function GavaliBonusRegister() {
                 </td>`;
                 }).join("");
 
-                // ── Total Qty: sum of first-half months / second-half months (real data) ──
                 const firstHalfQty = topMonths.reduce((a, m) =>
                     a + getMonthQty(row.seller_id, m.key, mt.milkKey, mt.totalQty), 0);
                 const secondHalfQty = bottomMonths.reduce((a, m) =>
@@ -562,7 +563,6 @@ export default function GavaliBonusRegister() {
         const grandTotalQty = filtered.reduce((a, r) => a + r.cow_qty + r.buffalo_qty, 0);
         const grandTotalBonus = filtered.reduce((a, r) => a + (r.cow_qty * cowBonus + r.buffalo_qty * buffaloBonus), 0);
 
-        // Real half-totals: sum all sellers' real monthly qty across each half
         const grandFirstHalf = filtered.reduce((acc, row) =>
             acc + topMonths.reduce((a, m) =>
                 a + getMonthQty(row.seller_id, m.key, "cow_qty", row.cow_qty)
@@ -572,7 +572,6 @@ export default function GavaliBonusRegister() {
                 a + getMonthQty(row.seller_id, m.key, "cow_qty", row.cow_qty)
                 + getMonthQty(row.seller_id, m.key, "buffalo_qty", row.buffalo_qty), 0), 0);
 
-        // ── Month header cells ──────────────────────────────────
         const monthHeaderCells = pairedCols.map(col =>
             `<th style="padding:4px 3px;border:1px solid #555;background:#1a1a1a;color:#fff;font-size:8px;text-align:center;min-width:58px;line-height:1.4">
             <span style="display:block;font-weight:700">${MON_NAMES[col.top.month]}</span>
@@ -701,8 +700,16 @@ export default function GavaliBonusRegister() {
     const grandBonus = rows.reduce((a, r) => a + r.total_bonus, 0);
     const paidCount = rows.filter(r => r.is_paid).length;
 
+    // Permission checks
+    if (permLoading) return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        </div>
+    );
+    if (!can('gavali_bonus_register', 'R')) return <AccessDenied />;
+
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
             <style>{`
                 @media print {
                     .no-print { display: none !important; }
@@ -711,28 +718,32 @@ export default function GavaliBonusRegister() {
                 }
             `}</style>
 
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* ── Header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Gift size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5 no-print">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('gavaliBonus.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
+                                <Gift size={12} /> Bonus
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('gavaliBonus.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('gavaliBonus.pageSubtitle')}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('gavaliBonus.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('gavaliBonus.pageSubtitle')}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="gavali-header-actions">
                         <button
                             onClick={startGavaliBonusTour}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition mt-4"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         {/* Event selector */}
                         <div className="flex flex-col gap-0.5">
@@ -740,8 +751,7 @@ export default function GavaliBonusRegister() {
                             <select
                                 value={selectedEventId ?? "none"}
                                 onChange={e => setSelectedEventId(e.target.value === "none" ? null : Number(e.target.value))}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition max-w-[200px]">
+                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm max-w-[200px]">
                                 <option value="none">{t('gavaliBonus.noEvent')}</option>
                                 {events.map(ev => (
                                     <option key={ev.event_id} value={ev.event_id}>
@@ -755,45 +765,41 @@ export default function GavaliBonusRegister() {
                         {selectedEvent && (
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.period')}</span>
-                                <span className="text-xs font-semibold text-gray-600 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                                <span className="text-xs font-semibold text-gray-600 px-3 py-2 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-sm">
                                     {fmtDate(activeFrom)} → {fmtDate(activeTo)}
                                 </span>
                             </div>
                         )}
 
                         <button onClick={() => setShowNewEventForm(v => !v)}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-amber-500 text-white hover:bg-amber-600 transition mt-4">
-                            <Plus size={13} /> {t('gavaliBonus.newEvent')}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200">
+                            <Plus size={15} /> {t('gavaliBonus.newEvent')}
                         </button>
 
                         {selectedEvent && (
                             <>
                                 <button onClick={handleEditEvent}
-                                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                        bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition mt-4">
-                                    <Edit2 size={13} /> {t('gavaliBonus.editEvent')}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                                    <Edit2 size={15} /> {t('gavaliBonus.editEvent')}
                                 </button>
                                 <button onClick={handleDeleteEvent} disabled={deletingEvent}
-                                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                        bg-rose-500 text-white hover:bg-rose-600 transition mt-4 disabled:opacity-50">
-                                    {deletingEvent ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 disabled:opacity-50">
+                                    {deletingEvent ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
                                     {t('gavaliBonus.deleteEvent')}
                                 </button>
                             </>
                         )}
 
                         <button onClick={handlePrint}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-black text-white hover:bg-gray-800 transition mt-4">
-                            <Printer size={13} /> {t('gavaliBonus.print')}
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
+                            <Printer size={15} /> {t('gavaliBonus.print')}
                         </button>
                     </div>
                 </div>
 
                 {/* ── New Event Form ── */}
                 {showNewEventForm && (
-                    <div className="bg-white rounded-2xl border border-amber-200 shadow-sm px-6 py-5 flex flex-col gap-4 no-print">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-amber-200/60 shadow-lg shadow-amber-200/30 px-6 py-5 flex flex-col gap-4 no-print">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-amber-500" />
@@ -809,15 +815,13 @@ export default function GavaliBonusRegister() {
                                 <input value={newEvent.event_name}
                                     onChange={e => setNewEvent(p => ({ ...p, event_name: e.target.value }))}
                                     placeholder={t('gavaliBonus.eventNamePlaceholder')}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition w-44" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-44" />
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.occasion')}</span>
                                 <select value={newEvent.occasion}
                                     onChange={e => setNewEvent(p => ({ ...p, occasion: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition">
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
                                     {["diwali", "holi", "eid", "custom"].map(o => (
                                         <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
                                     ))}
@@ -827,19 +831,16 @@ export default function GavaliBonusRegister() {
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.fromDate')}</span>
                                 <input type="date" value={newEvent.from_date}
                                     onChange={e => setNewEvent(p => ({ ...p, from_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.toDate')}</span>
                                 <input type="date" value={newEvent.to_date}
                                     onChange={e => setNewEvent(p => ({ ...p, to_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <button onClick={handleCreateEvent} disabled={creatingEvent}
-                                className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-xl
-                                    bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition">
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200 disabled:opacity-50">
                                 {creatingEvent ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
                                 {t('gavaliBonus.createEventBtn')}
                             </button>
@@ -852,7 +853,7 @@ export default function GavaliBonusRegister() {
 
                 {/* ── Edit Event Form ── */}
                 {editingEvent && editEventDraft && (
-                    <div className="bg-white rounded-2xl border border-blue-200 shadow-sm px-6 py-5 flex flex-col gap-4 no-print">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-blue-200/60 shadow-lg shadow-blue-200/30 px-6 py-5 flex flex-col gap-4 no-print">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Edit2 size={14} className="text-blue-500" />
@@ -867,15 +868,13 @@ export default function GavaliBonusRegister() {
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.eventName')}</span>
                                 <input value={editEventDraft.event_name}
                                     onChange={e => setEditEventDraft(p => ({ ...p, event_name: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition w-44" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-44" />
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.occasion')}</span>
                                 <select value={editEventDraft.occasion}
                                     onChange={e => setEditEventDraft(p => ({ ...p, occasion: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition">
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
                                     {["diwali", "holi", "eid", "custom"].map(o => (
                                         <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
                                     ))}
@@ -885,19 +884,16 @@ export default function GavaliBonusRegister() {
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.fromDate')}</span>
                                 <input type="date" value={editEventDraft.from_date}
                                     onChange={e => setEditEventDraft(p => ({ ...p, from_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.toDate')}</span>
                                 <input type="date" value={editEventDraft.to_date}
                                     onChange={e => setEditEventDraft(p => ({ ...p, to_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <button onClick={handleSaveEditEvent} disabled={savingEvent}
-                                className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-xl
-                                    bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50">
                                 {savingEvent ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
                                 {t('gavaliBonus.saveChanges')}
                             </button>
@@ -906,26 +902,21 @@ export default function GavaliBonusRegister() {
                 )}
 
                 {/* ── Date Range Controls ── */}
-                <div className="flex items-center gap-3 flex-wrap no-print">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-3 flex-wrap no-print">
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.from')}</span>
                         <input type="date" value={customFrom}
                             onChange={e => setCustomFrom(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                     </div>
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('gavaliBonus.to')}</span>
                         <input type="date" value={customTo}
                             onChange={e => setCustomTo(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider opacity-0">{t('gavaliBonus.go')}</span>
+                            className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                     </div>
                     {!selectedEvent && (
-                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium mt-4">
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50/80 border border-amber-200/60 text-amber-600 text-xs font-medium shadow-sm">
                             <Sparkles size={11} />
                             {t('gavaliBonus.noEventSelected')}
                         </div>
@@ -943,35 +934,35 @@ export default function GavaliBonusRegister() {
                 {/* ── Stats ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-tour="gavali-stats">
                     <StatCard label={t('gavaliBonus.totalSellers')} value={rows.length}
-                        icon={<Users size={14} />}
-                        color="text-blue-600 bg-blue-50 border-blue-100" />
+                        icon={<Users size={14} className="text-blue-600" />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60" />
                     <StatCard label={t('gavaliBonus.totalQty')} value={`${fmtQty(grandQty)} L`}
-                        icon={<Sparkles size={14} />}
-                        color="text-amber-600 bg-amber-50 border-amber-100" />
+                        icon={<Sparkles size={14} className="text-amber-600" />}
+                        color="text-amber-600 bg-amber-50/80 border-amber-200/60" />
                     <StatCard label={t('gavaliBonus.totalBonusAmt')} value={fmt(grandBonus)}
-                        icon={<Banknote size={14} />}
-                        color="text-emerald-600 bg-emerald-50 border-emerald-100" />
+                        icon={<Banknote size={14} className="text-emerald-600" />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60" />
                     <StatCard
                         label={t('gavaliBonus.bonusRates')}
                         value={`${fmt(displaySlabs.find(s => s.milk_type === "cow")?.bonus || 0)} / ${fmt(displaySlabs.find(s => s.milk_type === "buffalo")?.bonus || 0)}`}
                         sub={`${t('gavaliBonus.cow')} / ${t('gavaliBonus.buffalo')}`}
-                        icon={<Settings size={14} />}
-                        color="text-violet-600 bg-violet-50 border-violet-100" />
+                        icon={<Settings size={14} className="text-violet-600" />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60" />
                 </div>
 
                 {/* ── Progress bar ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center gap-4 no-print" data-tour="gavali-progress">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-4 no-print" data-tour="gavali-progress">
                     <div className="flex flex-col gap-1 flex-1">
                         <div className="flex justify-between text-xs font-medium text-gray-500 mb-1">
                             <span>{t('gavaliBonus.paymentProgress')}</span>
                             <span className="text-gray-700 font-semibold">{paidCount} / {rows.length} {t('gavaliBonus.paid')}</span>
                         </div>
-                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                        <div className="h-2 rounded-full bg-gray-100/80 overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
                                 style={{ width: rows.length ? `${(paidCount / rows.length) * 100}%` : "0%" }} />
                         </div>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 text-xs font-semibold shadow-sm">
                         <CheckCircle2 size={13} />
                         {rows.length > 0 ? Math.round((paidCount / rows.length) * 100) : 0}% {t('gavaliBonus.done')}
                     </div>
@@ -979,40 +970,40 @@ export default function GavaliBonusRegister() {
 
                 {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
                 {/* ── Slab Config ── */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden no-print" data-tour="gavali-config">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <Settings size={14} className="text-gray-400" />
-                            <span className="text-sm font-semibold text-gray-700">{t('gavaliBonus.bonusConfig')}</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">
-                                {t('gavaliBonus.ratesCount')}
-                            </span>
-                        </div>
+                <SectionCard 
+                    title={t('gavaliBonus.bonusConfig')}
+                    icon={<Settings size={16} className="text-white" />}
+                    data-tour="gavali-config"
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                            {t('gavaliBonus.ratesCount')}
+                        </span>
                         {!editingSlabs ? (
                             <button
                                 onClick={() => { setDraftSlabs(slabs); setEditingSlabs(true); }}
                                 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                    bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                                    bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 transition shadow-sm">
                                 <Edit2 size={11} /> {t('gavaliBonus.editRates')}
                             </button>
                         ) : (
                             <div className="flex items-center gap-2">
                                 <button onClick={handleSaveSlabs}
                                     className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                        bg-gray-900 text-white hover:bg-gray-700 transition">
+                                        bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition">
                                     <Check size={11} /> {t('gavaliBonus.save')}
                                 </button>
                                 <button onClick={() => setEditingSlabs(false)}
@@ -1024,36 +1015,34 @@ export default function GavaliBonusRegister() {
                     </div>
 
                     {editingSlabs ? (
-                        <div className="px-5 py-4 flex flex-col gap-2">
+                        <div className="flex flex-col gap-2">
                             <div className="grid text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1"
                                 style={{ gridTemplateColumns: "1fr 1fr 36px" }}>
                                 <span>{t('gavaliBonus.milkType')}</span><span>{t('gavaliBonus.bonusPerL')}</span><span />
                             </div>
                             {draftSlabs.map((slab, idx) => (
                                 <div key={idx}
-                                    className="grid gap-2 items-center py-2 border-b border-gray-100 last:border-b-0"
+                                    className="grid gap-2 items-center py-2 border-b border-gray-200/60 last:border-b-0"
                                     style={{ gridTemplateColumns: "1fr 1fr 36px" }}>
                                     <select
                                         value={slab.milk_type}
                                         onChange={e => handleSlabChange(idx, "milk_type", e.target.value)}
-                                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                            focus:outline-none focus:ring-2 focus:ring-black transition">
+                                        className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
                                         <option value="cow">{t('gavaliBonus.cow')}</option>
                                         <option value="buffalo">{t('gavaliBonus.buffalo')}</option>
                                     </select>
                                     <input type="number" step="0.1"
                                         value={slab.bonus}
                                         onChange={e => handleSlabChange(idx, "bonus", e.target.value)}
-                                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                            focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                        className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 flex-wrap px-5 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
                             {displaySlabs.map((s, i) => (
                                 <div key={i}
-                                    className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 text-xs">
+                                    className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50/60 border border-gray-200/60 text-xs shadow-sm">
                                     <span className="font-semibold text-gray-700">
                                         {s.milk_type === "cow" ? t('gavaliBonus.cow') : t('gavaliBonus.buffalo')}
                                     </span>
@@ -1068,36 +1057,40 @@ export default function GavaliBonusRegister() {
                             )}
                         </div>
                     )}
-                </div>
+                </SectionCard>
 
                 {/* ── Search + Filter ── */}
-                <div className="flex items-center gap-2 no-print" data-tour="gavali-search">
-                    <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder={t('gavaliBonus.searchPlaceholder')}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
-                    </div>
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                        {[["all", t('gavaliBonus.all')], ["unpaid", t('gavaliBonus.unpaid')], ["paid", t('gavaliBonus.paid')]].map(([v, l]) => (
-                            <button key={v} onClick={() => setFilterPaid(v)}
-                                className={`px-3 py-2 transition
-                                    ${filterPaid === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {l}
-                            </button>
-                        ))}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4 no-print" data-tour="gavali-search">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <div className="relative flex-1 max-w-xs">
+                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                            <input value={search} onChange={e => setSearch(e.target.value)}
+                                placeholder={t('gavaliBonus.searchPlaceholder')}
+                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200/60 rounded-xl bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:text-gray-300" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</span>
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                                {[["all", t('gavaliBonus.all')], ["unpaid", t('gavaliBonus.unpaid')], ["paid", t('gavaliBonus.paid')]].map(([v, l]) => (
+                                    <button key={v} onClick={() => setFilterPaid(v)}
+                                        className={`px-3 py-2 transition-all duration-200
+                                            ${filterPaid === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* ── Seller Cards ── */}
                 <div className="flex flex-col gap-3" data-tour="gavali-sellers">
                     {loading ? (
-                        <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+                        <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200 gap-2 text-gray-300">
+                        <div className="flex flex-col items-center justify-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 gap-2 text-gray-300">
                             <Gift size={32} />
                             <p className="text-sm">{t('gavaliBonus.noSellersFound')}</p>
                         </div>
@@ -1105,15 +1098,15 @@ export default function GavaliBonusRegister() {
                         const isOpen = expanded[row.seller_id];
                         return (
                             <div key={row.seller_id}
-                                className={`bg-white rounded-2xl border transition-all print-break
-                                    ${row.is_paid ? "border-emerald-200" : "border-gray-200"}`}>
+                                className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all shadow-lg shadow-gray-200/50 print-break
+                                    ${row.is_paid ? "border-emerald-200/60" : "border-gray-200/60"}`}>
 
                                 {/* ── Row ── */}
                                 <div className="flex items-center gap-3 px-5 py-4 cursor-pointer"
                                     onClick={() => toggleExpand(row.seller_id)}>
 
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0
-                                        ${row.is_paid ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 shadow-sm
+                                        ${row.is_paid ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white" : "bg-gradient-to-br from-gray-700 to-gray-900 text-white"}`}>
                                         {row.name?.charAt(0).toUpperCase()}
                                     </div>
 
@@ -1125,25 +1118,25 @@ export default function GavaliBonusRegister() {
                                             {row.is_paid
                                                 ? (
                                                     <>
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50/80 text-emerald-600 border border-emerald-200/60">
                                                             <CheckCircle2 size={9} /> {t('gavaliBonus.paid')}
                                                         </span>
                                                         {row.percentage_increase > 0 ? (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50/80 text-emerald-600 border border-emerald-200/60">
                                                                 <TrendingUp size={9} /> +{row.percentage_increase}% {t('gavaliBonus.vsLastYear')}
                                                             </span>
                                                         ) : row.percentage_increase < 0 ? (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100">
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50/80 text-rose-600 border border-rose-200/60">
                                                                 <TrendingUp size={9} /> {row.percentage_increase}% {t('gavaliBonus.vsLastYear')}
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-50/80 text-gray-600 border border-gray-200/60">
                                                                 {row.percentage_increase}% {t('gavaliBonus.vsLastYear')}
                                                             </span>
                                                         )}
                                                     </>
                                                 )
-                                                : <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                                                : <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50/80 text-amber-600 border border-amber-200/60">
                                                     <Clock size={9} /> {t('gavaliBonus.pending')}
                                                 </span>
                                             }
@@ -1178,8 +1171,8 @@ export default function GavaliBonusRegister() {
                                             onClick={(e) => handleMarkPaid(e, row.seller_id)}
                                             disabled={paying === row.seller_id}
                                             className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                                                bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold
-                                                transition disabled:opacity-50 shadow-sm shadow-emerald-200">
+                                                bg-gradient-to-br from-emerald-500 to-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white text-xs font-semibold
+                                                transition disabled:opacity-50 shadow-sm">
                                             {paying === row.seller_id
                                                 ? <RefreshCw size={11} className="animate-spin" />
                                                 : <CheckCircle2 size={11} />}
@@ -1187,7 +1180,7 @@ export default function GavaliBonusRegister() {
                                         </button>
                                     ) : !row.is_paid && !selectedEventId ? (
                                         <span className="shrink-0 no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                                            bg-gray-100 text-gray-400 text-xs font-semibold border border-gray-200">
+                                            bg-gray-100/80 text-gray-400 text-xs font-semibold border border-gray-200/60 shadow-sm">
                                             {t('gavaliBonus.selectEventToPay')}
                                         </span>
                                     ) : (
@@ -1195,8 +1188,8 @@ export default function GavaliBonusRegister() {
                                             onClick={(e) => handleUndoPaid(e, row.seller_id)}
                                             disabled={undoing === row.seller_id}
                                             className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                                                bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold
-                                                transition disabled:opacity-50 shadow-sm shadow-rose-200">
+                                                bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 text-white text-xs font-semibold
+                                                transition disabled:opacity-50 shadow-sm">
                                             {undoing === row.seller_id
                                                 ? <RefreshCw size={11} className="animate-spin" />
                                                 : <X size={11} />}
@@ -1217,21 +1210,21 @@ export default function GavaliBonusRegister() {
 
                                 {/* ── Expanded Breakdown ── */}
                                 {isOpen && (
-                                    <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
+                                    <div className="border-t border-gray-200/60 px-5 py-4 flex flex-col gap-4">
                                         {/* Cow Breakdown */}
                                         {row.hasCow && (
                                             <div>
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                                     {t('gavaliBonus.cowBonusBreakdown')}
                                                 </p>
-                                                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                                    <div className="grid bg-gray-50 border-b border-gray-100"
+                                                <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
+                                                    <div className="grid bg-gray-50/80 border-b border-gray-200/60"
                                                         style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                                                         {[t('gavaliBonus.milkType'), t('gavaliBonus.qtyL'), t('gavaliBonus.bonusAmount')].map((h, i) => (
                                                             <div key={i} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
                                                         ))}
                                                     </div>
-                                                    <div className="grid bg-white border-b border-gray-50 last:border-b-0"
+                                                    <div className="grid bg-white/50 border-b border-gray-200/60 last:border-b-0"
                                                         style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                                                         <div className="px-3 py-2 text-xs font-semibold text-gray-700">{t('gavaliBonus.cow')}</div>
                                                         <div className="px-3 py-2 text-xs text-blue-600 font-mono font-semibold">{fmtQty(row.cow_qty)} L</div>
@@ -1247,14 +1240,14 @@ export default function GavaliBonusRegister() {
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                                     {t('gavaliBonus.buffaloBonusBreakdown')}
                                                 </p>
-                                                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                                    <div className="grid bg-gray-50 border-b border-gray-100"
+                                                <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
+                                                    <div className="grid bg-gray-50/80 border-b border-gray-200/60"
                                                         style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                                                         {[t('gavaliBonus.milkType'), t('gavaliBonus.qtyL'), t('gavaliBonus.bonusAmount')].map((h, i) => (
                                                             <div key={i} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
                                                         ))}
                                                     </div>
-                                                    <div className="grid bg-white border-b border-gray-50 last:border-b-0"
+                                                    <div className="grid bg-white/50 border-b border-gray-200/60 last:border-b-0"
                                                         style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                                                         <div className="px-3 py-2 text-xs font-semibold text-gray-700">{t('gavaliBonus.buffalo')}</div>
                                                         <div className="px-3 py-2 text-xs text-blue-600 font-mono font-semibold">{fmtQty(row.buffalo_qty)} L</div>
@@ -1271,16 +1264,16 @@ export default function GavaliBonusRegister() {
                                                     {t('gavaliBonus.yearOverYearComparison')}
                                                 </p>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    <div className="bg-gray-50 rounded-lg p-2">
+                                                    <div className="bg-gray-50/60 rounded-lg p-2 border border-gray-200/60">
                                                         <p className="text-[9px] text-gray-400">{t('gavaliBonus.lastYearQty')} ({new Date().getFullYear() - 1})</p>
                                                         <p className="text-sm font-bold text-gray-700">{fmtQty(row.last_year_qty)} L</p>
                                                     </div>
-                                                    <div className="bg-gray-50 rounded-lg p-2">
+                                                    <div className="bg-gray-50/60 rounded-lg p-2 border border-gray-200/60">
                                                         <p className="text-[9px] text-gray-400">{t('gavaliBonus.currentYearQty')} ({new Date().getFullYear()})</p>
                                                         <p className="text-sm font-bold text-gray-700">{fmtQty(row.current_year_qty)} L</p>
                                                     </div>
                                                 </div>
-                                                <div className={`mt-2 p-2 rounded-lg ${row.percentage_increase > 0 ? 'bg-emerald-50' : row.percentage_increase < 0 ? 'bg-rose-50' : 'bg-gray-50'}`}>
+                                                <div className={`mt-2 p-2 rounded-lg border ${row.percentage_increase > 0 ? 'bg-emerald-50/80 border-emerald-200/60' : row.percentage_increase < 0 ? 'bg-rose-50/80 border-rose-200/60' : 'bg-gray-50/80 border-gray-200/60'}`}>
                                                     <p className="text-[9px] text-gray-400">{t('gavaliBonus.growth')}</p>
                                                     <p className={`text-base font-bold ${row.percentage_increase > 0 ? 'text-emerald-600' : row.percentage_increase < 0 ? 'text-rose-600' : 'text-gray-600'}`}>
                                                         {row.percentage_increase > 0 ? '+' : ''}{row.percentage_increase}%
@@ -1294,7 +1287,7 @@ export default function GavaliBonusRegister() {
                                             <p>{t('gavaliBonus.totalMilkQty')}: <strong className="text-gray-800 ml-1">{fmtQty(row.total_qty)} L</strong></p>
                                             {row.hasCow && <p>{t('gavaliBonus.cow')}: <strong className="text-gray-800 ml-1">{fmtQty(row.cow_qty)} L</strong></p>}
                                             {row.hasBuffalo && <p>{t('gavaliBonus.buffalo')}: <strong className="text-gray-800 ml-1">{fmtQty(row.buffalo_qty)} L</strong></p>}
-                                            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-900 text-white mt-2">
+                                            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 mt-2">
                                                 <span className="text-xs font-semibold uppercase tracking-wider">{row.milk_type} {t('gavaliBonus.netBonus')}</span>
                                                 <span className="text-base font-bold">{fmt(row.total_bonus)}</span>
                                             </div>
@@ -1315,7 +1308,7 @@ export default function GavaliBonusRegister() {
 
                 {/* ── Grand Total Footer ── */}
                 {filtered.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-6 py-4 flex items-center justify-between">
                         <div className="flex items-center gap-6 text-sm">
                             <div>
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('gavaliBonus.totalSellers')}</p>
@@ -1351,12 +1344,13 @@ export default function GavaliBonusRegister() {
 
             </main>
 
+            {/* ── Delete Confirmation Modal ── */}
             {deleteConfirmOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-xl bg-rose-100/80 flex items-center justify-center">
                                     <Trash2 size={18} className="text-rose-600" />
                                 </div>
                                 <div>
@@ -1365,7 +1359,7 @@ export default function GavaliBonusRegister() {
                                 </div>
                             </div>
                             <button onClick={() => setDeleteConfirmOpen(false)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
                                 <X size={15} />
                             </button>
                         </div>
@@ -1373,7 +1367,7 @@ export default function GavaliBonusRegister() {
                             <p className="text-sm text-gray-600">
                                 {t('gavaliBonus.deleteEventConfirm', { name: selectedEvent?.event_name })}
                             </p>
-                            <div className="rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1">
+                            <div className="rounded-xl bg-rose-50/80 border border-rose-200/60 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1 shadow-sm">
                                 <p className="font-semibold">{t('gavaliBonus.willBeDeleted')}:</p>
                                 <ul className="list-disc list-inside text-rose-600 mt-1 space-y-0.5">
                                     <li>{t('gavaliBonus.deletePayments')}</li>
@@ -1381,13 +1375,13 @@ export default function GavaliBonusRegister() {
                                 </ul>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200/60">
                             <button onClick={() => setDeleteConfirmOpen(false)}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                                 {t('gavaliBonus.cancel')}
                             </button>
                             <button onClick={confirmDeleteEvent} disabled={deletingEvent}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50">
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-br from-rose-600 to-rose-700 text-white hover:shadow-lg hover:shadow-rose-500/30 transition disabled:opacity-50 shadow-sm">
                                 {deletingEvent
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Trash2 size={12} />}

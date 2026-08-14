@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
     User, AlertTriangle, BadgeCheck, X,
-    TrendingUp, Hash, ChevronDown, Milk, Trash2, Scale,
-    Weight, Pencil, ShoppingCart, Package
+    TrendingUp, ChevronDown, Milk, Trash2, Scale,
+    Pencil, ShoppingCart, Package, Plug, PlugZap, Radio,
+    Calendar, Settings, Home
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -32,7 +33,7 @@ const fmtDate = (d) =>
 const waterRisk = (v) => parseFloat(v) > 5;
 
 const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
-const FIXED_AUTOFILL_SNF = "8.5"; // used for rate lookup when "Fat-Only Rate Auto-Fill" is enabled
+const FIXED_AUTOFILL_SNF = "8.5";
 const snfBelowThreshold = (v, milk_type) =>
     v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) < (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
 const snfAboveThreshold = (v, milk_type) =>
@@ -56,8 +57,8 @@ const isValidSnf = (v) => parseFloat(v) >= SNF_MIN && parseFloat(v) <= SNF_MAX;
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children, ...rest }) {
     return (
-        <div className="flex flex-col gap-1.5 shrink-0 self-end" {...rest}>
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+        <div className="flex flex-col gap-1.5 shrink-0" {...rest}>
+            <span className="flex items-center gap-1 text-[10.5px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                 {icon}{label}
             </span>
             {children}
@@ -71,8 +72,8 @@ function TinyInput({ className = "", style = {}, ...props }) {
         <input
             {...props}
             style={{ minWidth: 0, ...style }}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black ${focusBg} transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 ${focusBg} transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -80,16 +81,16 @@ function TinyInput({ className = "", style = {}, ...props }) {
 
 function ShiftToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
             {["morning", "evening"].map((s) => (
                 <button key={s} type="button" onClick={() => onChange(s)}
-                    className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
                         ${value === s
                             ? s === "morning"
-                                ? "bg-yellow-400 text-yellow-900"
-                                : "bg-indigo-500 text-white"
-                            : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                    {s === "morning" ? <Sun size={12} /> : <Moon size={12} />}
+                                ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30"
+                                : "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                            : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
+                    {s === "morning" ? <Sun size={13} /> : <Moon size={13} />}
                     {s === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
                 </button>
             ))}
@@ -99,14 +100,14 @@ function ShiftToggle({ value, onChange, t }) {
 
 function MilkTypeToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
             {[
-                { val: "cow", label: t('milkEntry.cow'), active: "bg-amber-400 text-amber-900" },
-                { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-blue-500 text-white" },
+                { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
+                { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" onClick={() => onChange(val)}
-                    className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
-                        ${value === val ? active : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
+                        ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
                     {label}
                 </button>
             ))}
@@ -116,14 +117,14 @@ function MilkTypeToggle({ value, onChange, t }) {
 
 function SellerTypeToggle({ value, onChange }) {
     return (
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
             {[
-                { val: "Utpadak", active: "bg-emerald-500 text-white" },
-                { val: "Gavali", active: "bg-orange-400 text-white" },
+                { val: "Utpadak", active: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30" },
+                { val: "Gavali", active: "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30" },
             ].map(({ val, active }) => (
                 <button key={val} type="button" onClick={() => onChange(val)}
-                    className={`flex items-center gap-1.5 px-3 py-[7px] transition-colors
-                        ${value === val ? active : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
+                        ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
                     {val}
                 </button>
             ))}
@@ -133,8 +134,95 @@ function SellerTypeToggle({ value, onChange }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-3 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
+        </div>
+    );
+}
+
+function DigitReadout({ label, value, unit, connected, accent, primary, width }) {
+    const accents = {
+        emerald: { box: "bg-emerald-50/70 backdrop-blur-sm border-emerald-200/60", label: "text-emerald-600/80" },
+        amber: { box: "bg-amber-50/70 backdrop-blur-sm border-amber-200/60", label: "text-amber-600/80" },
+        rose: { box: "bg-rose-50/70 backdrop-blur-sm border-rose-200/60", label: "text-rose-600/80" },
+    }[accent];
+
+    const len = (value || "").length;
+    const primarySize = len >= 8 ? "1.7rem" : len >= 7 ? "1.95rem" : len >= 6 ? "2.25rem" : len >= 5 ? "2.55rem" : "2.9rem";
+    const secondarySize = len >= 7 ? "1.05rem" : len >= 6 ? "1.2rem" : len >= 5 ? "1.4rem" : "1.65rem";
+
+    const opacityClass = connected ? "opacity-100" : "opacity-40";
+
+    return (
+        <div className="flex flex-col items-center gap-1 flex-1" style={width ? { minWidth: width } : undefined}>
+            <span className={`text-[9.5px] font-bold uppercase tracking-[0.15em] ${accents.label}`}>{label}</span>
+            <div className={`w-full rounded-xl border ${accents.box} ${primary ? "px-3 py-2" : "px-2 py-1.5"} flex items-baseline justify-center gap-1 shadow-sm`}
+                style={{ boxShadow: "inset 0 1px 3px rgba(0,0,0,0.08)" }}>
+                <span
+                    className={`font-mono font-bold tabular-nums leading-none whitespace-nowrap text-gray-900 ${opacityClass}`}
+                    style={{ fontSize: primary ? primarySize : secondarySize, letterSpacing: "-0.02em" }}
+                >
+                    {value && value !== "" ? value : "—.—"}
+                </span>
+                {unit ? (
+                    <span className={`font-mono font-bold uppercase ${primary ? "text-xs sm:text-sm" : "text-[10px]"} text-gray-600 ${opacityClass}`}>
+                        {unit}
+                    </span>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+function ConnectionPill({ connected, label }) {
+    return (
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border backdrop-blur-sm shadow-sm
+            ${connected ? "bg-emerald-50/80 border-emerald-300/60 text-emerald-700" : "bg-gray-100/80 border-gray-200/60 text-gray-400"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-gray-400"}`} />
+            {connected ? label || "Live" : "Offline"}
+        </span>
+    );
+}
+
+function SectionHeader({ icon, title, sub, action }) {
+    return (
+        <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <div>
+                    <p className="text-sm font-bold text-gray-800 leading-tight">{title}</p>
+                    {sub && <p className="text-xs text-gray-500 leading-tight">{sub}</p>}
+                </div>
+            </div>
+            {action}
+        </div>
+    );
+}
+
+function CompactCard({ children, className = "" }) {
+    return (
+        <div className={`relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 hover:shadow-xl transition-shadow duration-300 p-5 ${className}`}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            {children}
+        </div>
+    );
+}
+
+function Spinner() {
+    return (
+        <div className="flex items-center justify-center py-8">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+        </div>
+    );
+}
+
+function EmptyState({ icon, text }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-gray-400">
+            <div className="p-4 rounded-full bg-gray-100/50">{icon}</div>
+            <p className="text-sm font-medium">{text}</p>
         </div>
     );
 }
@@ -199,26 +287,29 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-                    <div>
-                        <h2 className="text-sm font-bold text-gray-900">Quick Product Sale</h2>
-                        <p className="text-[10px] text-gray-400">
-                            Seller: <span className="font-semibold text-gray-700">{sellerName || `ID:${sellerId}`}</span>
-                            {" · "}{new Date(saleDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-blue-50/50 to-white/50 rounded-t-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0">
+                            <ShoppingCart size={16} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">Quick Product Sale</h2>
+                            <p className="text-[11px] text-gray-500">
+                                Seller: <span className="font-semibold text-gray-700">{sellerName || `ID:${sellerId}`}</span>
+                                {" · "}{new Date(saleDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </p>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 transition">
-                        <X size={15} />
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
                     </button>
                 </div>
 
-                {/* Lines */}
                 <div className="flex-1 overflow-y-auto px-6 py-4">
                     <div className="flex flex-col gap-3">
-                        <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                        <div className="grid gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider px-1"
                             style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
                             <span>Product</span>
                             <span>Qty</span>
@@ -235,7 +326,6 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                             return (
                                 <div key={line._key} className="grid gap-2 items-start"
                                     style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
-                                    {/* Product picker */}
                                     <div className="relative">
                                         <TinyInput
                                             value={searchVal}
@@ -255,7 +345,7 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                                             className="w-full"
                                         />
                                         {showProductDrop[line._key] && (
-                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
                                                 {(productSearch[line._key]?.trim()
                                                     ? products.filter(p => p.product_name.toLowerCase().includes(productSearch[line._key].toLowerCase()))
                                                     : products
@@ -267,7 +357,7 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                                                             setProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                             setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
                                                         }}
-                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                         <div>
                                                             <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
                                                             <p className="text-[10px] text-gray-400">
@@ -283,31 +373,28 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                                         )}
                                     </div>
 
-                                    {/* Qty */}
                                     <TinyInput
                                         value={line.quantity}
                                         onChange={(e) => setLine(line._key, "quantity", e.target.value)}
                                         placeholder="0.0" type="number" step="0.01"
-                                        className="w-full bg-blue-50 border-blue-200 text-blue-700"
+                                        className="w-full bg-blue-50/30 border-blue-200/60 text-blue-700"
                                     />
 
-                                    {/* Rate */}
                                     <TinyInput
                                         value={line.rate}
                                         onChange={(e) => setLine(line._key, "rate", e.target.value)}
                                         placeholder="₹0.00" type="number" step="0.01"
-                                        className="w-full bg-amber-50 border-amber-200 text-amber-700"
+                                        className="w-full bg-amber-50/30 border-amber-200/60 text-amber-700"
                                     />
 
-                                    {/* Line total */}
-                                    <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap
-                                        ${lt ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                                    <div className={`h-[41px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
+                                        ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
                                         {lt ? `₹${lt.toFixed(2)}` : "—"}
                                     </div>
 
                                     <button type="button" onClick={() => removeLine(line._key)}
                                         disabled={lines.length === 1}
-                                        className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 disabled:opacity-20 transition">
+                                        className="w-7 h-[41px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
                                         <X size={12} />
                                     </button>
                                 </div>
@@ -316,23 +403,22 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                     </div>
 
                     <button type="button" onClick={addLine}
-                        className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
+                        className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500 px-3 py-1.5 rounded-xl transition bg-white/50 backdrop-blur-sm shadow-sm">
                         <span className="text-base leading-none">+</span> Add Product
                     </button>
                 </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/60 shrink-0 bg-gray-50/60 rounded-b-2xl">
                     <div className="text-sm font-bold text-gray-800">
                         Grand Total: <span className="text-emerald-700">₹{grandTotal.toFixed(2)}</span>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={onClose}
-                            className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                             Cancel
                         </button>
                         <button onClick={handleSave} disabled={saving}
-                            className={`px-6 py-2 rounded-xl text-sm font-semibold text-white transition ${saving ? "bg-gray-300" : "bg-black hover:bg-gray-800"}`}>
+                            className={`px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 ${saving ? "bg-gray-300" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40"}`}>
                             {saving ? "Saving…" : "Record Sale"}
                         </button>
                     </div>
@@ -402,26 +488,29 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-                    <div>
-                        <h2 className="text-sm font-bold text-gray-900">Quick Feed Sale</h2>
-                        <p className="text-[10px] text-gray-400">
-                            Seller: <span className="font-semibold text-gray-700">{sellerName || `ID:${sellerId}`}</span>
-                            {" · "}{new Date(saleDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-emerald-50/50 to-white/50 rounded-t-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
+                            <Package size={16} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">Quick Feed Sale</h2>
+                            <p className="text-[11px] text-gray-500">
+                                Seller: <span className="font-semibold text-gray-700">{sellerName || `ID:${sellerId}`}</span>
+                                {" · "}{new Date(saleDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </p>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 transition">
-                        <X size={15} />
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
                     </button>
                 </div>
 
-                {/* Lines */}
                 <div className="flex-1 overflow-y-auto px-6 py-4">
                     <div className="flex flex-col gap-3">
-                        <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                        <div className="grid gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider px-1"
                             style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
                             <span>Feed</span>
                             <span>Qty</span>
@@ -438,7 +527,6 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                             return (
                                 <div key={line._key} className="grid gap-2 items-start"
                                     style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
-                                    {/* Feed picker */}
                                     <div className="relative">
                                         <TinyInput
                                             value={searchVal}
@@ -458,7 +546,7 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                                             className="w-full"
                                         />
                                         {showFeedDrop[line._key] && (
-                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
+                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
                                                 {(feedSearch[line._key]?.trim()
                                                     ? feeds.filter(f => f.feed_name.toLowerCase().includes(feedSearch[line._key].toLowerCase()))
                                                     : feeds
@@ -470,7 +558,7 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                                                             setFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                             setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
                                                         }}
-                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                         <div>
                                                             <p className="text-xs font-medium text-gray-800">{f.feed_name}</p>
                                                             <p className="text-[10px] text-gray-400">
@@ -486,31 +574,28 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                                         )}
                                     </div>
 
-                                    {/* Qty */}
                                     <TinyInput
                                         value={line.quantity}
                                         onChange={(e) => setLine(line._key, "quantity", e.target.value)}
                                         placeholder="0.0" type="number" step="0.01"
-                                        className="w-full bg-blue-50 border-blue-200 text-blue-700"
+                                        className="w-full bg-blue-50/30 border-blue-200/60 text-blue-700"
                                     />
 
-                                    {/* Rate */}
                                     <TinyInput
                                         value={line.rate}
                                         onChange={(e) => setLine(line._key, "rate", e.target.value)}
                                         placeholder="₹0.00" type="number" step="0.01"
-                                        className="w-full bg-amber-50 border-amber-200 text-amber-700"
+                                        className="w-full bg-amber-50/30 border-amber-200/60 text-amber-700"
                                     />
 
-                                    {/* Line total */}
-                                    <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap
-                                        ${lt ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                                    <div className={`h-[41px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
+                                        ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
                                         {lt ? `₹${lt.toFixed(2)}` : "—"}
                                     </div>
 
                                     <button type="button" onClick={() => removeLine(line._key)}
                                         disabled={lines.length === 1}
-                                        className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 disabled:opacity-20 transition">
+                                        className="w-7 h-[41px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
                                         <X size={12} />
                                     </button>
                                 </div>
@@ -519,23 +604,22 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                     </div>
 
                     <button type="button" onClick={addLine}
-                        className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
+                        className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500 px-3 py-1.5 rounded-xl transition bg-white/50 backdrop-blur-sm shadow-sm">
                         <span className="text-base leading-none">+</span> Add Feed
                     </button>
                 </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/60 shrink-0 bg-gray-50/60 rounded-b-2xl">
                     <div className="text-sm font-bold text-gray-800">
                         Grand Total: <span className="text-emerald-700">₹{grandTotal.toFixed(2)}</span>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={onClose}
-                            className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                             Cancel
                         </button>
                         <button onClick={handleSave} disabled={saving}
-                            className={`px-6 py-2 rounded-xl text-sm font-semibold text-white transition ${saving ? "bg-gray-300" : "bg-black hover:bg-gray-800"}`}>
+                            className={`px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 ${saving ? "bg-gray-300" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40"}`}>
                             {saving ? "Saving…" : "Record Sale"}
                         </button>
                     </div>
@@ -570,11 +654,9 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const { can, loading: permLoading } = usePermission();
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-    // ── Quick Sale modals state ──
     const [showProductModal, setShowProductModal] = useState(false);
     const [showFeedModal, setShowFeedModal] = useState(false);
 
-    // RS232 Machine Quantity — now driven by the backend's live weight machine reader
     const [weightBySubtype, setWeightBySubtype] = useState({
         weight_gavali: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
         weight_utpadak: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
@@ -588,7 +670,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const [savingWeightConfig, setSavingWeightConfig] = useState(false);
     const weightPortConfigRef = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
 
-    // The scale that feeds this form is decided by the selected seller's type
     const activeWeightKey = portSwitchingEnabled
         ? (form.seller_type === "Gavali" ? "weight_gavali" : "weight_utpadak")
         : "weight";
@@ -603,7 +684,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const machineUom2 = activeWeight.uom2;
     const isMachineConnected = activeWeight.connected;
 
-    // RS232 Fat & SNF Machine — driven by the backend's live fat-machine reader
     const [machineFat, setMachineFat] = useState("");
     const [machineSnf, setMachineSnf] = useState("");
     const [machineProtein, setMachineProtein] = useState("");
@@ -612,7 +692,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const [fatPortConfig, setFatPortConfig] = useState(null);
     const [lastFatUpdateAt, setLastFatUpdateAt] = useState(null);
 
-    // ── Load the weight/fat machines' configured ports (for display under "Weight" / "Fat & SNF") ──
     useEffect(() => {
         api.get("/settings/ports")
             .then(({ data }) => {
@@ -623,10 +702,9 @@ export default function MilkEntryBase({ fixedSellerType }) {
                 });
                 setFatPortConfig(data?.fat || null);
             })
-            .catch(() => { /* leave as null — shown as "not configured" */ });
+            .catch(() => { });
     }, []);
 
-    // ── Load the port-switching toggle (for the Weight card's Switch by Seller Type control) ──
     useEffect(() => {
         api.get("/settings/ports/weight-config")
             .then(({ data }) => {
@@ -637,12 +715,11 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
     useEffect(() => { portSwitchingEnabledRef.current = portSwitchingEnabled; }, [portSwitchingEnabled]);
 
-    // ── Connect to the backend's WebSocket and listen for live weight updates ──
     useEffect(() => {
         const resolvedSocketUrl =
             import.meta.env.VITE_SOCKET_URL ||
             api.defaults.baseURL.replace(/\/api\/?$/, "") ||
-            "http://localhost:5000"; // last-resort dev default matching your Express port
+            "http://localhost:5000";
 
         const socket = io(resolvedSocketUrl, {
             transports: ["websocket"],
@@ -661,32 +738,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     raw: reading.raw || prev[subtypeKey].raw,
                 },
             }));
-            // NEW
-            // Prefer the actual liters reading (value2, native or derived via
-            // the Kg↔Ltr 0.97 conversion) for what gets billed. Fall back to
-            // the raw first value only if no liters figure exists yet
-            // (e.g. the Kg→Ltr toggle is off).
-            // NEW
-            // Quantity in the entry form is ALWAYS in liters. value2/unit2 is
-            // the Ltr slot (native reading, or derived from Kg via the 0.97
-            // factor). Kg (value/unit) is never used to fill Quantity — if no
-            // Ltr figure exists yet (e.g. the Kg→Ltr toggle is off and the
-            // scale sent Kg only), Quantity simply doesn't auto-fill.
-            // NEW
-            // Quantity in the entry form is ALWAYS in liters, taken from the
-            // Ltr slot only (reading.value2). If the scale sends Ltr directly,
-            // this is that native reading. If the scale sends Kg, the backend
-            // (weightMachine.service.js) has already derived this Ltr value
-            // via the 0.97 factor before broadcasting. The Kg slot
-            // (reading.value) is NEVER used to fill Quantity.
-            // NEW
-            // Quantity (and machine_qty) in the entry form come ONLY from the
-            // Ltr slot (reading.value2) — never from reading.value (Kg).
-            // reading.value2 is either:
-            //   - the scale's own native Ltr reading, when it sends Ltr directly, or
-            //   - the Kg reading × 0.97, already computed server-side in
-            //     weightMachine.service.js, when the scale sends Kg only.
-            // Either way, this is the single source of truth for the form.
             const unitPref = weightPortConfigRef.current[subtypeKey]?.default_weight_unit || "ltr";
             const fillValue = unitPref === "kg" ? reading.value : reading.value2;
 
@@ -695,7 +746,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     const isActive = portSwitchingEnabledRef.current
                         ? ((subtypeKey === "weight_gavali" && p.seller_type === "Gavali") ||
                             (subtypeKey === "weight_utpadak" && p.seller_type === "Utpadak"))
-                        : subtypeKey === "weight"; // toggle off → only the Default Scale drives the form
+                        : subtypeKey === "weight";
                     if (!isActive) return p;
                     const signedValue = fillValue.toFixed(3);
                     return { ...p, machine_qty: signedValue, quantity: signedValue };
@@ -738,10 +789,10 @@ export default function MilkEntryBase({ fixedSellerType }) {
         };
     }, []);
 
-    // Manual connect/disconnect — talks to the backend, not the browser's hardware
     const connectSerialPort = async (subtype, silent = false) => {
         const label = subtype === "gavali" ? "Gavali" : subtype === "utpadak" ? "Utpadak" : "Default";
-        if (!silent) showFlash("success", `Connecting to ${label} weight machine…`);        try {
+        if (!silent) showFlash("success", `Connecting to ${label} weight machine…`);
+        try {
             const { data } = await api.post(`/settings/ports/weight/${subtype}/connect`);
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
         } catch (err) {
@@ -777,7 +828,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
         }
     };
 
-    // Manual connect/disconnect for the Fat & SNF machine
     const connectFatPort = async (silent = false) => {
         if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
         try {
@@ -797,16 +847,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
         }
     };
 
-
-    // ── Auto-connect to the weight machine the moment this page mounts ──
-    // (e.g. navigating here from AppLayout's sidebar) — no button click needed.
-    // Stays connected in the background even after navigating away, by design.
-    //
-    // Guarded with a ref because React StrictMode double-invokes effects in
-    // dev (mount → cleanup → mount again). Without this guard, two concurrent
-    // /weight/connect requests race each other opening the same serial port,
-    // and the loser surfaces a spurious "Access denied" toast even though the
-    // connection ultimately succeeds.
     const autoConnectFired = useRef(false);
     useEffect(() => {
         if (autoConnectFired.current) return;
@@ -814,18 +854,15 @@ export default function MilkEntryBase({ fixedSellerType }) {
         connectSerialPort("gavali", true);
         connectSerialPort("utpadak", true);
         connectSerialPort("default", true);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const autoConnectFatFired = useRef(false);
     useEffect(() => {
         if (autoConnectFatFired.current) return;
         autoConnectFatFired.current = true;
-        connectFatPort(true); // silent: skip the "Connecting…" toast on auto-attempt
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        connectFatPort(true);
     }, []);
 
-    // Start the tour
     const startMilkEntryTour = () => {
         const driverObj = driver({
             showProgress: true,
@@ -864,14 +901,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
         driverObj.drive();
     };
 
-    // Date range & PDF
     const [rangeMode, setRangeMode] = useState("daily");
     const [fromDate, setFromDate] = useState(today());
     const [toDate, setToDate] = useState(today());
     const [rangeEntries, setRangeEntries] = useState([]);
     const [loadingRange, setLoadingRange] = useState(false);
     const [pdfReady, setPdfReady] = useState(false);
-    const [lastUpdateAt, setLastUpdateAt] = useState(null); // new
+    const [lastUpdateAt, setLastUpdateAt] = useState(null);
 
     const [pageSize, setPageSize] = useState(5);
 
@@ -889,7 +925,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
         try {
             const { data } = await api.get("/sellers");
             setSellers(data);
-        } catch { /* silent */ }
+        } catch { }
     };
 
     const totalSellers = sellers.length;
@@ -939,8 +975,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
     const autoRateTimer = useRef(null);
     const fetchAutoRate = (fat, snf, milk_type) => {
-        // When "Fat-Only Rate Auto-Fill" is on, always look up the rate using a
-        // fixed SNF of 8.5, so a lower/higher measured SNF never blocks the fill.
         const snfForLookup = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : snf;
         if (!fat || !snfForLookup || !milk_type) return;
         if (!isValidFat(fat) || !isValidSnf(snfForLookup)) return;
@@ -954,7 +988,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     set("rate_applied", data.rate);
                     showFlash("success", t('milkEntry.rateAutoFilled', { rate: data.rate }));
                 }
-            } catch { /* no match found, leave rate as-is */ }
+            } catch { }
         }, 500);
     };
 
@@ -968,7 +1002,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                 set("rate_applied", data.rate_per_liter);
                 showFlash("success", t('milkEntry.premiumAutoFilled', { rate: data.rate_per_liter }));
             }
-        } catch { /* no premium rate, fall through to normal rate lookup */ }
+        } catch { }
     };
 
     const fetchLiveStock = async (date) => {
@@ -978,7 +1012,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                 cow: parseFloat(data.collected?.cow || 0),
                 buffalo: parseFloat(data.collected?.buffalo || 0),
             });
-        } catch { /* silent */ }
+        } catch { }
     };
 
     useEffect(() => { fetchSellers(); }, []);
@@ -1126,7 +1160,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
-        if (dropdownOpen) return; // seller search box handles its own Enter
+        if (dropdownOpen) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
         if (saving || !isFormReady()) return;
@@ -1296,7 +1330,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
 </style>
 </head><body>
 
-<!-- Header -->
 <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
     <div>
         <div style="font-size:16px;font-weight:900;color:#000;letter-spacing:0.5px">${appName}</div>
@@ -1318,7 +1351,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
     </div>
 </div>
 
-<!-- Table -->
 <table>
     <thead>
         <tr style="background:#000;color:#fff">
@@ -1339,7 +1371,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
     </thead>
     <tbody>
         ${tableRows}
-        <!-- Grand Total -->
         <tr style="background:#000;color:#fff;border-top:2px solid #000">
             <td colspan="${isMultiDay ? 6 : 5}" style="padding:5px 6px;border:1px solid #555;font-size:9px;font-weight:700">
                 ${t('milkEntry.pdfGrandTotal')} — ${data.length} ${t('milkEntry.pdfEntries')} &nbsp;|&nbsp; ${t('milkEntry.pdfCow')} ${totalCow.toFixed(2)} L &nbsp;|&nbsp; ${t('milkEntry.pdfBuf')} ${totalBuf.toFixed(2)} L
@@ -1396,35 +1427,39 @@ export default function MilkEntryBase({ fixedSellerType }) {
         : "40px 1.4fr 70px 100px 90px 72px 65px 65px 65px 75px 75px 85px";
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('milk_entry', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Droplets size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('milkEntry.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('milkEntry.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('milkEntry.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('milkEntry.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('milkEntry.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('milkEntry.dateLabel')}</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('milkEntry.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -1434,22 +1469,22 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-40" />
                         </div>
 
                         <button
                             type="button"
                             onClick={startMilkEntryTour}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-gray-200 transition self-end"
+                            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-xs font-bold hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> {t('milkEntry.startTour') || 'Take a Tour'}
+                            <BadgeCheck size={15} /> {t('milkEntry.startTour') || 'Take a Tour'}
                         </button>
 
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('milkEntry.downloadPDF')}</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('milkEntry.downloadPDF')}</span>
 
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
                                     {[
                                         { v: "daily", l: t('milkEntry.day') },
                                         { v: "weekly", l: t('milkEntry.week') },
@@ -1458,7 +1493,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button"
                                             onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                            className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -1468,16 +1503,16 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     <div className="flex flex-wrap items-center gap-1">
                                         <input type="date" value={fromDate}
                                             onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                                         <span className="text-gray-400 text-xs">→</span>
                                         <input type="date" value={toDate}
                                             onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                            className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                                     </div>
                                 )}
 
                                 {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                    <span className="text-xs text-gray-500 px-3 py-1.5 bg-white/50 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                         {fromDate === toDate
                                             ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                             : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -1485,13 +1520,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 )}
 
                                 {loadingRange ? (
-                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
+                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100/80 text-gray-400 text-xs font-bold shadow-sm">
                                         <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
                                         {t('dashboard.loading')}
                                     </div>
                                 ) : (
                                     <button onClick={handleDownloadPDF} disabled={rangeMode === "daily" ? entries.length === 0 : !pdfReady}
-                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-40 transition">
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-bold hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 shadow-lg shadow-gray-900/30 disabled:opacity-50">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                         PDF
                                     </button>
@@ -1501,327 +1536,204 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     </div>
                 </div>
 
-                {/* Stats Bar */}
-                <div className={`grid grid-cols-2 gap-3 ${isAdmin ? "sm:grid-cols-4 lg:grid-cols-6" : "sm:grid-cols-2"}`}>
+                {/* ── Stats Bar ── */}
+                <div className={`grid grid-cols-2 gap-4 ${isAdmin ? "sm:grid-cols-4 lg:grid-cols-6" : "sm:grid-cols-2"}`}>
                     {[
-                        { label: rangeMode === "daily" ? t('milkEntry.entriesToday') : t('milkEntry.totalEntries'), value: rangeMode === "daily" ? entries.length : rangeEntries.length, icon: <Droplets size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100", adminOnly: true },
-                        { label: t('milkEntry.cowMilk'), value: entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={14} />, color: "text-amber-600 bg-amber-50 border-amber-100", adminOnly: true },
-                        { label: t('milkEntry.buffaloMilk'), value: entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100", adminOnly: true },
-                        { label: t('milkEntry.totalAmount'), value: "₹" + entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2), icon: <TrendingUp size={14} />, color: "text-violet-600 bg-violet-50 border-violet-100", adminOnly: true },
-                        { label: t('milkEntry.remainingMorning'), value: `${remainingMorningSellers} ${t('milkEntry.sellers')}`, icon: <Sun size={14} />, color: "text-yellow-600 bg-yellow-50 border-yellow-100", adminOnly: false },
-                        { label: t('milkEntry.remainingEvening'), value: `${remainingEveningSellers} ${t('milkEntry.sellers')}`, icon: <Moon size={14} />, color: "text-indigo-600 bg-indigo-50 border-indigo-100", adminOnly: false },
+                        { label: rangeMode === "daily" ? t('milkEntry.entriesToday') : t('milkEntry.totalEntries'), value: rangeMode === "daily" ? entries.length : rangeEntries.length, icon: <Droplets size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700", adminOnly: true },
+                        { label: t('milkEntry.cowMilk'), value: entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700", adminOnly: true },
+                        { label: t('milkEntry.buffaloMilk'), value: entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={16} />, color: "from-slate-50 to-slate-100/50 border-slate-200/60 text-slate-700", adminOnly: true },
+                        { label: t('milkEntry.totalAmount'), value: "₹" + entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2), icon: <TrendingUp size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700", adminOnly: true },
+                        { label: t('milkEntry.remainingMorning'), value: `${remainingMorningSellers} ${t('milkEntry.sellers')}`, icon: <Sun size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700", adminOnly: false },
+                        { label: t('milkEntry.remainingEvening'), value: `${remainingEveningSellers} ${t('milkEntry.sellers')}`, icon: <Moon size={16} />, color: "from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700", adminOnly: false },
                     ].filter(card => isAdmin || !card.adminOnly)
                         .map(({ label, value, icon, color }) => (
-                            <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                                <div className="shrink-0">{icon}</div>
-                                <div>
-                                    <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                    <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                            <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+                                <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+                                <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center relative z-10">{icon}</div>
+                                <div className="relative z-10">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
+                                    <p className="text-lg font-bold text-gray-900 leading-tight mt-1">{value}</p>
                                 </div>
                             </div>
                         ))}
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-sm
+                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Entry Form */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                {/* ── Entry Form ── */}
+                <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-5 sm:px-6 py-5 z-20">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                        <p className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">
                             {editingEntry ? t('milkEntry.editEntry') : t('milkEntry.newEntry')}
                         </p>
                         {editingEntry && (
                             <button onClick={handleCancelEdit}
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
+                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1 rounded-lg hover:bg-gray-100/80">
                                 <X size={12} /> {t('milkEntry.cancelEdit')}
                             </button>
                         )}
                     </div>
                     {editingEntry && (
-                        <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+                        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 text-amber-700 text-xs font-semibold shadow-sm relative z-10">
                             ✏ {t('milkEntry.editingBanner')} <strong>{editingEntry.seller_name}</strong> · {editingEntry.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')} · {editingEntry.milk_type === "cow" ? t('milkEntry.cow') : t('milkEntry.buffalo')} · {new Date(editingEntry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </div>
                     )}
 
-                    {/* Machine status rows — side-by-side on sm+ screens, stacked on mobile */}
-                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    {/* ── Instrument cluster ── */}
+                    <div className="flex flex-col lg:flex-row gap-3 mb-5 relative z-10">
 
-                        {/* Weight */}
+                        {/* Weight instrument */}
                         <div
                             data-tour="machine-qty-field"
-                            className="flex flex-wrap items-center justify-between gap-3 flex-1 px-4 py-3 rounded-2xl bg-gray-950 border-2 border-emerald-400 shadow-lg shadow-emerald-500/10"
+                            className="flex-1 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-emerald-200/60 shadow-lg shadow-emerald-200/30 overflow-hidden"
                         >
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                                    <Scale size={16} className="text-emerald-400" />
-                                </div>
-
-                                <div>
-                                    <span className="block text-[10px] font-bold text-emerald-300 uppercase tracking-widest">
-                                        Weight · {
-                                            activeWeightKey === "weight_gavali" ? "Gavali Scale"
-                                                : activeWeightKey === "weight_utpadak" ? "Utpadak Scale"
-                                                    : "Default Scale"
-                                        }
-                                    </span>
-
-                                    <div className="flex items-center gap-2 ml-2">
-                                        <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest">
-                                            Switch by Seller Type
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={toggleWeightPortSwitching}
-                                            disabled={savingWeightConfig}
-                                            className={`relative w-9 h-5 rounded-full transition-colors ${portSwitchingEnabled ? "bg-emerald-400" : "bg-gray-600"}`}
-                                        >
-                                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${portSwitchingEnabled ? "translate-x-4" : ""}`} />
-                                        </button>
-                                        {!portSwitchingEnabled && (
-                                            <span className="text-[9px] text-gray-400">
-                                                Using Default Scale — configure in Port Settings
-                                            </span>
-                                        )}
+                            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-center shrink-0">
+                                        <Scale size={17} className="text-emerald-600" />
                                     </div>
-
-                                    <span
-                                        className={`flex items-center gap-1.5 text-xs font-mono ${isMachineConnected ? "text-emerald-300" : "text-gray-400"
-                                            }`}
-                                    >
-                                        <span
-                                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMachineConnected
-                                                ? "bg-emerald-400 animate-pulse"
-                                                : "bg-gray-500"
-                                                }`}
-                                        />
-
-                                        {weightPortConfig[activeWeightKey]?.serial_port ? (
-                                            <>
-                                                {weightPortConfig[activeWeightKey].serial_port} ·{" "}
-                                                {weightPortConfig[activeWeightKey].serial_baud_rate} baud
-                                                {isMachineConnected
-                                                    ? " · Live"
-                                                    : " · Not connected"}
-                                            </>
-                                        ) : (
-                                            "No port configured — set up in Port Settings"
-                                        )}
-                                    </span>
+                                    <div>
+                                        <span className="block text-[11px] font-extrabold text-emerald-700 uppercase tracking-widest leading-none">
+                                            Weight Scale
+                                        </span>
+                                        <span className="block text-[10px] text-gray-400 font-semibold mt-1">
+                                            {activeWeightKey === "weight_gavali" ? "Gavali Scale"
+                                                : activeWeightKey === "weight_utpadak" ? "Utpadak Scale"
+                                                    : "Default Scale"}
+                                        </span>
+                                    </div>
                                 </div>
-
-                                {/* Qty 1 */}
-                                {/* Ltr — this is the value that auto-fills Quantity on the form,
-                                    whether it's the scale's native Ltr reading or derived from Kg */}
-                                <div className="relative ml-1 flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
-                                        Qty
-                                    </span>
-
-                                    <TinyInput
-                                        value={machineQty2}
-                                        readOnly
-                                        placeholder="0.0"
-                                        type="text"
-                                        inputMode="decimal"
-                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
-                                            ? "border-emerald-400 text-emerald-300"
-                                            : "border-white/20 text-white/70"
-                                            }`}
-                                        style={{ width: "100px", padding: "8px 6px" }}
-                                    />
-
-                                    {isMachineConnected && (
-                                        <span className="absolute top-3.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-400 animate-pulse ring-2 ring-gray-950" />
-                                    )}
-                                </div>
-
-                                {/* Ltr unit */}
-                                <div className="relative flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
-                                        UOM
-                                    </span>
-
-                                    <TinyInput
-                                        value={machineUom2}
-                                        readOnly
-                                        placeholder="—"
-                                        type="text"
-                                        className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
-                                            ? "border-emerald-400 text-emerald-300"
-                                            : "border-white/20 text-white/70"
-                                            }`}
-                                        style={{ width: "50px", padding: "8px 4px" }}
-                                    />
-                                </div>
-
-                                {/* Kg */}
-                                <div className="relative ml-2 flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
-                                        Qty
-                                    </span>
-
-                                    <TinyInput
-                                        value={machineQty}
-                                        readOnly
-                                        placeholder="0.0"
-                                        type="text"
-                                        inputMode="decimal"
-                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
-                                            ? "border-emerald-400 text-emerald-300"
-                                            : "border-white/20 text-white/70"
-                                            }`}
-                                        style={{ width: "100px", padding: "8px 6px" }}
-                                    />
-                                </div>
-
-                                {/* Kg unit */}
-                                <div className="relative flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-widest text-center">
-                                        UOM
-                                    </span>
-
-                                    <TinyInput
-                                        value={machineUom}
-                                        readOnly
-                                        placeholder="—"
-                                        type="text"
-                                        className={`font-mono font-bold text-xs uppercase text-center border-2 cursor-not-allowed select-none bg-gray-900/80 ${isMachineConnected
-                                            ? "border-emerald-400 text-emerald-300"
-                                            : "border-white/20 text-white/70"
-                                            }`}
-                                        style={{ width: "50px", padding: "8px 4px" }}
-                                    />
-                                </div>
+                                <ConnectionPill connected={isMachineConnected} />
                             </div>
 
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={() => connectSerialPort(activeWeightSubtypeParam)}
-                                    disabled={isMachineConnected}
-                                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isMachineConnected
-                                        ? "bg-emerald-400 text-emerald-950"
-                                        : "bg-blue-500 text-white hover:bg-blue-400"
-                                        }`}
-                                >
-                                    {isMachineConnected ? "Connected" : "Connect RS232"}
-                                </button>
+                            <div className="flex flex-wrap items-end justify-center gap-4 px-4 py-3">
+                                <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="180px" />
+                                <span className="text-emerald-200 text-2xl font-black pb-3">/</span>
+                                <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" width="140px" />
+                            </div>
 
-                                {isMachineConnected && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9.5px] font-bold text-emerald-600/70 uppercase tracking-wider">
+                                        Switch by Seller
+                                    </span>
                                     <button
                                         type="button"
-                                        onClick={() => disconnectMachine(activeWeightSubtypeParam)}
-                                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition whitespace-nowrap"
+                                        onClick={toggleWeightPortSwitching}
+                                        disabled={savingWeightConfig}
+                                        className={`relative w-9 h-5 rounded-full transition-colors shadow-sm ${portSwitchingEnabled ? "bg-emerald-500" : "bg-gray-300"}`}
                                     >
-                                        Disconnect
+                                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform ${portSwitchingEnabled ? "translate-x-4" : ""}`} />
                                     </button>
-                                )}
+                                    <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">
+                                        {weightPortConfig[activeWeightKey]?.serial_port
+                                            ? `${weightPortConfig[activeWeightKey].serial_port} · ${weightPortConfig[activeWeightKey].serial_baud_rate} baud`
+                                            : "No port configured"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => connectSerialPort(activeWeightSubtypeParam)}
+                                        disabled={isMachineConnected}
+                                        className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isMachineConnected
+                                            ? "bg-emerald-400 text-emerald-950"
+                                            : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                                            }`}
+                                    >
+                                        <Plug size={11} /> {isMachineConnected ? "Connected" : "Connect"}
+                                    </button>
+                                    {isMachineConnected && (
+                                        <button
+                                            type="button"
+                                            onClick={() => disconnectMachine(activeWeightSubtypeParam)}
+                                            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition whitespace-nowrap"
+                                        >
+                                            Disconnect
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Fat & SNF */}
+                        {/* Fat & SNF instrument */}
                         <div
                             data-tour="fat-snf-field"
-                            className="flex flex-wrap items-center justify-between gap-3 flex-1 px-4 py-3 rounded-2xl bg-gray-950 border-2 border-violet-400 shadow-lg shadow-violet-500/10"
+                            className="flex-1 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-amber-200/60 shadow-lg shadow-amber-200/30 overflow-hidden"
                         >
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                                    <FlaskConical size={16} className="text-violet-400" />
+                            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-50/70 border border-amber-200/60 flex items-center justify-center shrink-0">
+                                        <FlaskConical size={17} className="text-amber-600" />
+                                    </div>
+                                    <div>
+                                        <span className="block text-[11px] font-extrabold text-amber-700 uppercase tracking-widest leading-none">
+                                            Fat & SNF Analyzer
+                                        </span>
+                                        <span className="block text-[10px] text-gray-400 font-semibold mt-1">
+                                            Milko-tester
+                                        </span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="block text-[10px] font-bold text-violet-300 uppercase tracking-widest">
-                                        Fat & SNF
-                                    </span>
-                                    <span className={`flex items-center gap-1.5 text-xs font-mono ${isFatConnected ? "text-violet-300" : "text-gray-400"}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFatConnected ? "bg-violet-400 animate-pulse" : "bg-gray-500"}`} />
-                                        {fatPortConfig?.serial_port
-                                            ? <>
-                                                {fatPortConfig.serial_port} · {fatPortConfig.serial_baud_rate} baud
-                                                {isFatConnected ? " · Live" : " · Not connected"}
-                                            </>
-                                            : "No port configured — set up in Port Settings"}
-                                    </span>
-                                </div>
-                                <div className="relative ml-1 flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest text-center">Fat</span>
-                                    <TinyInput
-                                        value={machineFat}
-                                        readOnly
-                                        placeholder="Fat"
-                                        type="text"
-                                        inputMode="decimal"
-                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isFatConnected ? "bg-violet-500/15 border-violet-400 text-violet-300" : "bg-white/5 border-white/20 text-black"}`}
-                                        style={{ width: "76px", padding: "8px 6px" }}
-                                    />
-                                    {isFatConnected && (
-                                        <span className="absolute top-3.5 -right-1.5 w-4 h-4 rounded-full bg-violet-400 animate-pulse ring-2 ring-gray-950" />
-                                    )}
-                                </div>
-                                <div className="relative flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest text-center">SNF</span>
-                                    <TinyInput
-                                        value={machineSnf}
-                                        readOnly
-                                        placeholder="SNF"
-                                        type="text"
-                                        inputMode="decimal"
-                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isFatConnected ? "bg-violet-500/15 border-violet-400 text-violet-300" : "bg-white/5 border-white/20 text-black"}`}
-                                        style={{ width: "76px", padding: "8px 6px" }}
-                                    />
-                                </div>
-                                <div className="relative flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest text-center">Protein</span>
-                                    <TinyInput
-                                        value={machineProtein}
-                                        readOnly
-                                        placeholder="Prot"
-                                        type="text"
-                                        inputMode="decimal"
-                                        className={`font-mono font-extrabold text-lg text-center border-2 cursor-not-allowed select-none ${isFatConnected ? "bg-violet-500/15 border-violet-400 text-violet-300" : "bg-white/5 border-white/20 text-black"}`}
-                                        style={{ width: "76px", padding: "8px 6px" }}
-                                    />
-                                </div>
+                                <ConnectionPill connected={isFatConnected} />
                             </div>
 
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={connectFatPort}
-                                    disabled={isFatConnected}
-                                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isFatConnected
-                                        ? "bg-violet-400 text-violet-950"
-                                        : "bg-blue-500 text-white hover:bg-blue-400"
-                                        }`}
-                                >
-                                    {isFatConnected ? "Connected" : "Connect RS232"}
-                                </button>
+                            <div className="flex flex-wrap items-end justify-center gap-3 px-4 py-3">
+                                <DigitReadout label="Fat %" value={machineFat} connected={isFatConnected} accent="amber" primary width="120px" />
+                                <DigitReadout label="SNF %" value={machineSnf} connected={isFatConnected} accent="amber" primary width="120px" />
+                                <DigitReadout label="Protein %" value={machineProtein} connected={isFatConnected} accent="rose" width="110px" />
+                            </div>
 
-                                {isFatConnected && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60">
+                                <span className="text-[10px] text-gray-500 font-mono">
+                                    {fatPortConfig?.serial_port
+                                        ? `${fatPortConfig.serial_port} · ${fatPortConfig.serial_baud_rate} baud`
+                                        : "No port configured"}
+                                </span>
+                                <div className="flex items-center gap-1.5">
                                     <button
                                         type="button"
-                                        onClick={disconnectFatMachine}
-                                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-400 transition whitespace-nowrap"
+                                        onClick={connectFatPort}
+                                        disabled={isFatConnected}
+                                        className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isFatConnected
+                                            ? "bg-amber-400 text-amber-950"
+                                            : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                                            }`}
                                     >
-                                        Disconnect
+                                        <Plug size={11} /> {isFatConnected ? "Connected" : "Connect"}
                                     </button>
-                                )}
+                                    {isFatConnected && (
+                                        <button
+                                            type="button"
+                                            onClick={disconnectFatMachine}
+                                            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition whitespace-nowrap"
+                                        >
+                                            Disconnect
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
                     </div>
-                    <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
+
+                    {/* ── Manual entry fields ── */}
+                    <div className="flex items-start gap-3 flex-wrap p-4 rounded-2xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm relative z-10" onKeyDown={handleFormKeyDown}>
 
                         <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />} data-tour="seller-field">
-                            <div className="relative" style={{ width: "160px" }}>
+                            <div className="relative" style={{ width: "175px" }}>
                                 <TinyInput
                                     value={sellerSearch}
                                     onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
@@ -1832,10 +1744,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         setHighlightedIdx(-1);
                                         setDropdownOpen(true);
                                         if (!val) { set("seller_id", ""); return; }
+                                        const trimmed = val.trim();
+                                        const isDigitsOnly = /^\d+$/.test(trimmed);
                                         const exact = sellers.find(
                                             (s) =>
-                                                String(s.seller_id) === val.trim() ||
-                                                (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
+                                                String(s.seller_id) === trimmed ||
+                                                (s.seller_code || "").toLowerCase() === trimmed.toLowerCase() ||
+                                                (isDigitsOnly && (s.seller_code || "").toLowerCase() === `s${trimmed}`.toLowerCase())
                                         );
                                         if (exact) {
                                             handleSellerChange(exact.seller_id);
@@ -1865,11 +1780,11 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     }}
                                     placeholder={t('milkEntry.searchPlaceholder')}
                                     className="pr-7"
-                                    style={{ width: "160px" }}
+                                    style={{ width: "175px" }}
                                 />
                                 {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                        <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white/98 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                        <p className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
                                             {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('milkEntry.matchesPlural') : t('milkEntry.matches')}` : t('milkEntry.sellersAZ')}
                                         </p>
                                         {filteredSellers.map((s, idx) => (
@@ -1881,9 +1796,9 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                                     setDropdownOpen(false);
                                                 }}
                                                 className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                                                    ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                                                    ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
                                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                                                    ${highlightedIdx === idx ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                                                    ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
                                                     {s.name?.charAt(0)?.toUpperCase()}
                                                 </div>
                                                 <div>
@@ -1902,7 +1817,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 )}
                             </div>
                             {selectedSeller && (
-                                <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                                <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">
                                     ID: {selectedSeller.seller_id} · {selectedSeller.seller_type || "—"}
                                 </p>
                             )}
@@ -1931,8 +1846,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                         <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={12} />} data-tour="qty-field">
                             <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
                                 placeholder="0.0" type="number" step="0.01"
-                                className="bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-200"
-                                style={{ width: "72px" }} />
+                                className="bg-blue-50/30 border-blue-200/60 text-blue-700 font-bold focus:ring-blue-500/50"
+                                style={{ width: "84px" }} />
                         </Field>
 
                         <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={12} />} data-tour="fat-field">
@@ -1943,8 +1858,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     fetchAutoRate(e.target.value, form.snf, form.milk_type);
                                 }}
                                 placeholder="0.0" type="number" step="0.01"
-                                className="bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-100"
-                                style={{ width: "64px" }} />
+                                className="bg-amber-50/30 border-amber-200/60 text-amber-700 font-bold focus:ring-amber-500/50"
+                                style={{ width: "76px" }} />
                         </Field>
 
                         <Field label={t('milkEntry.snfLabel')} icon={<FlaskConical size={12} />}>
@@ -1957,31 +1872,31 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     }}
                                     placeholder="0.0" type="number" step="0.01"
                                     className={
-                                        snfBelowThreshold(form.snf, form.milk_type)
-                                            ? "bg-red-50 border-red-300 text-red-600 focus:ring-red-100"
+                                        "font-bold " + (snfBelowThreshold(form.snf, form.milk_type)
+                                            ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
                                             : snfAboveThreshold(form.snf, form.milk_type)
-                                                ? "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-100"
-                                                : "bg-violet-50 border-violet-200 text-violet-700 focus:ring-violet-100"
+                                                ? "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50"
+                                                : "bg-violet-50/30 border-violet-200/60 text-violet-700 focus:ring-violet-500/50")
                                     }
-                                    style={{ width: "64px" }} />
+                                    style={{ width: "76px" }} />
                                 {snfBelowThreshold(form.snf, form.milk_type) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center">
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
                                         <AlertTriangle size={8} className="text-white" />
                                     </span>
                                 )}
                                 {snfAboveThreshold(form.snf, form.milk_type) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
                                         <BadgeCheck size={8} className="text-white" />
                                     </span>
                                 )}
                             </div>
                             {snfBelowThreshold(form.snf, form.milk_type) && (
-                                <p className="text-[10px] text-red-500 font-semibold mt-0.5">
+                                <p className="text-[10px] text-rose-500 font-bold mt-0.5">
                                     Below {SNF_THRESHOLD[form.milk_type]}% min
                                 </p>
                             )}
                             {snfAboveThreshold(form.snf, form.milk_type) && (
-                                <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                                <p className="text-[10px] text-emerald-600 font-bold mt-0.5">
                                     SNF OK ✓
                                 </p>
                             )}
@@ -1992,26 +1907,26 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 value={form.protein}
                                 onChange={(e) => set("protein", e.target.value)}
                                 placeholder="0.0" type="number" step="0.01"
-                                className="bg-pink-50 border-pink-200 text-pink-700 focus:ring-pink-100"
-                                style={{ width: "64px" }} />
+                                className="bg-pink-50/30 border-pink-200/60 text-pink-700 font-bold focus:ring-pink-500/50"
+                                style={{ width: "76px" }} />
                         </Field>
 
                         <Field label={t('milkEntry.waterLabel')} icon={<Waves size={12} />}>
                             <div className="relative">
                                 <TinyInput value={form.water} onChange={(e) => set("water", e.target.value)}
                                     placeholder="0.0" type="number" step="0.01"
-                                    className={waterRisk(form.water)
-                                        ? "bg-red-50 border-red-300 text-red-600 focus:ring-red-100"
-                                        : "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-100"}
-                                    style={{ width: "64px" }} />
+                                    className={"font-bold " + (waterRisk(form.water)
+                                        ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
+                                        : "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50")}
+                                    style={{ width: "76px" }} />
                                 {waterRisk(form.water) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center">
+                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
                                         <AlertTriangle size={8} className="text-white" />
                                     </span>
                                 )}
                             </div>
                             {waterRisk(form.water) && (
-                                <p className="text-[10px] text-red-500 font-semibold mt-0.5">{t('milkEntry.waterRisk')}</p>
+                                <p className="text-[10px] text-rose-500 font-bold mt-0.5">{t('milkEntry.waterRisk')}</p>
                             )}
                         </Field>
 
@@ -2019,34 +1934,33 @@ export default function MilkEntryBase({ fixedSellerType }) {
                             <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={12} />}>
                                 <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
                                     placeholder="₹0.00" type="number" step="0.01"
-                                    className="bg-gray-50 border-gray-200 text-gray-800"
-                                    style={{ width: "80px" }} />
+                                    className="bg-gray-100/50 border-gray-200/60 text-gray-800 font-bold"
+                                    style={{ width: "92px" }} />
                             </Field>
                         )}
 
                         {isAdmin && amount && (
                             <Field label={t('milkEntry.amountLabel')} icon={<TrendingUp size={12} />}>
-                                <div className="h-[35px] px-3 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
+                                <div className="h-[43px] px-4 flex items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 border border-emerald-700 text-white font-extrabold text-base whitespace-nowrap shadow-lg shadow-emerald-500/30">
                                     ₹{amount}
                                 </div>
                             </Field>
                         )}
                     </div>
 
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-200/60 relative z-10">
                         <p className="text-xs text-gray-400">
                             {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')} {t('milkEntry.entriesOn')}{" "}
                             {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </p>
 
-                        {/* ── Quick Sale Buttons ── */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             {can('product_sales', 'C') && (
                                 <button
                                     type="button"
                                     onClick={() => setShowProductModal(true)}
                                     disabled={!form.seller_id}
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-40 transition"
+                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-blue-200/60 bg-blue-50/80 text-blue-600 hover:bg-blue-100/80 disabled:opacity-40 transition shadow-sm backdrop-blur-sm"
                                 >
                                     <ShoppingCart size={13} /> Product Sale
                                 </button>
@@ -2056,7 +1970,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     type="button"
                                     onClick={() => setShowFeedModal(true)}
                                     disabled={!form.seller_id}
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-40 transition"
+                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-emerald-200/60 bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100/80 disabled:opacity-40 transition shadow-sm backdrop-blur-sm"
                                 >
                                     <Package size={13} /> Feed Sale
                                 </button>
@@ -2067,8 +1981,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 data-tour="save-btn"
                                 onClick={editingEntry ? handleUpdate : handleSave}
                                 disabled={saving}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                    ${saving ? "bg-gray-300 cursor-not-allowed" : editingEntry ? "bg-amber-600 hover:bg-amber-700 active:scale-95" : "bg-black hover:bg-gray-800 active:scale-95"}`}
+                                className={`flex items-center gap-2 px-7 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all duration-200
+                                    ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : editingEntry ? "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 active:scale-95" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}
                             >
                                 <Save size={15} />
                                 {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
@@ -2077,16 +1991,16 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     </div>
                 </div>
 
-                {/* Entries Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                {/* ── Entries Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden">
 
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
                         <input
                             type="text"
                             value={searchName}
                             onChange={e => { setSearchName(e.target.value); setCurrentPage(1); }}
                             placeholder={t('milkEntry.filterPlaceholder')}
-                            className="border border-gray-200 bg-white rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition w-52"
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-xs text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-52"
                         />
                         {searchName && (
                             <button onClick={() => { setSearchName(""); setCurrentPage(1); }}
@@ -2094,15 +2008,15 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 <X size={13} />
                             </button>
                         )}
-                        <span className="ml-auto text-xs text-gray-400">
+                        <span className="ml-auto text-xs text-gray-400 font-medium">
                             {filteredEntries.length} {filteredEntries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
                             {searchName && ` ${t('milkEntry.matching')} "${searchName}"`}
                         </span>
                     </div>
 
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" data-tour="entries-table" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" data-tour="entries-table" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 flex items-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -2110,19 +2024,19 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : entries.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Droplets size={32} />
-                            <p className="text-sm">{t('milkEntry.noEntries')}</p>
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <Droplets size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">{t('milkEntry.noEntries')}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <div className="min-w-max">
                                 {[...paginatedEntries].map((r, i) => (
                                     <div key={r.entry_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
                                         style={{ gridTemplateColumns: GRID }}>
 
                                         <TableCell className="text-gray-400 font-mono text-xs justify-center">
@@ -2131,7 +2045,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs shrink-0">
+                                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs shrink-0 shadow-sm">
                                                     {(r.seller_name || "?").charAt(0).toUpperCase()}
                                                 </div>
                                                 <span className="text-gray-800 font-medium text-xs truncate">{r.seller_name || `ID:${r.seller_id}`}</span>
@@ -2139,53 +2053,53 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         </TableCell>
 
                                         <TableCell>
-                                            <span className="font-mono text-xs text-gray-500 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded-md">
+                                            <span className="font-mono text-xs text-gray-500 bg-gray-50/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
                                                 {r.seller_code || "—"}
                                             </span>
                                         </TableCell>
 
                                         <TableCell>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-sm
                                                 ${r.shift === "morning"
-                                                    ? "bg-yellow-50 text-yellow-700 border-yellow-100"
-                                                    : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>
+                                                    ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                                                    : "bg-indigo-50/80 text-indigo-600 border-indigo-200/60"}`}>
                                                 {r.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}
                                                 {r.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
                                             </span>
                                         </TableCell>
 
                                         <TableCell>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-sm
                                                 ${r.milk_type === "cow"
-                                                    ? "bg-amber-50 text-amber-700 border-amber-100"
-                                                    : "bg-blue-50 text-blue-700 border-blue-100"}`}>
+                                                    ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                                                    : "bg-slate-100/80 text-slate-700 border-slate-200/60"}`}>
                                                 {r.milk_type === "cow" ? t('milkEntry.cow') : t('milkEntry.buffalo')}
                                             </span>
                                         </TableCell>
 
-                                        <TableCell className="text-blue-600 font-mono font-semibold text-xs">{r.quantity}</TableCell>
-                                        <TableCell className="text-amber-600 font-mono font-semibold text-xs">{r.fat}</TableCell>
-                                        <TableCell className="text-violet-600 font-mono font-semibold text-xs">{r.snf}</TableCell>
-                                        <TableCell className="text-violet-600 font-mono font-semibold text-xs">{r.protein}</TableCell>
+                                        <TableCell className="text-blue-700 font-mono font-bold text-xs">{r.quantity}</TableCell>
+                                        <TableCell className="text-amber-700 font-mono font-bold text-xs">{r.fat}</TableCell>
+                                        <TableCell className="text-violet-700 font-mono font-bold text-xs">{r.snf}</TableCell>
+                                        <TableCell className="text-pink-700 font-mono font-bold text-xs">{r.protein}</TableCell>
 
                                         <TableCell>
-                                            <span className={`font-mono text-xs font-semibold ${parseFloat(r.water) > 5 ? "text-red-500" : "text-emerald-600"}`}>
+                                            <span className={`font-mono text-xs font-bold ${parseFloat(r.water) > 5 ? "text-rose-500" : "text-emerald-600"}`}>
                                                 {r.water}
-                                                {parseFloat(r.water) > 5 && <AlertTriangle size={10} className="inline ml-1 text-red-400" />}
+                                                {parseFloat(r.water) > 5 && <AlertTriangle size={10} className="inline ml-1 text-rose-400" />}
                                             </span>
                                         </TableCell>
 
                                         {isAdmin && (
-                                            <TableCell className="text-gray-700 font-mono text-xs font-semibold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
+                                            <TableCell className="text-gray-700 font-mono text-xs font-bold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
                                         )}
                                         {isAdmin && (
-                                            <TableCell className="text-gray-900 font-bold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
+                                            <TableCell className="text-gray-900 font-extrabold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
                                         )}
                                         <TableCell className="text-gray-400 font-mono text-xs">{fmtTime(r.entry_time)}</TableCell>
 
                                         <TableCell>
                                             {r.is_premium
-                                                ? <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">{t('milkEntry.premium')}</span>
+                                                ? <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50/80 text-amber-700 border border-amber-200/60 backdrop-blur-sm">{t('milkEntry.premium')}</span>
                                                 : <span className="text-gray-300 text-xs">—</span>}
                                         </TableCell>
 
@@ -2194,16 +2108,16 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => handleEdit(r)}
-                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border
-                ${editingEntry?.entry_id === r.entry_id
-                                                                ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                                : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"}`}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border backdrop-blur-sm shadow-sm
+                                                            ${editingEntry?.entry_id === r.entry_id
+                                                                ? "bg-amber-100/80 text-amber-700 border-amber-200/60"
+                                                                : "bg-blue-50/80 text-blue-600 border-blue-200/60 hover:bg-blue-100/80"}`}
                                                     >
                                                         <Pencil size={12} /> {editingEntry?.entry_id === r.entry_id ? t('milkEntry.editing') : t('milkEntry.edit')}
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(r.entry_id)}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border bg-rose-50/80 text-rose-600 border-rose-200/60 hover:bg-rose-100/80 backdrop-blur-sm shadow-sm"
                                                     >
                                                         <Trash2 size={12} /> {t('milkEntry.delete')}
                                                     </button>
@@ -2217,14 +2131,14 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     )}
                 </div>
 
-                {/* Pagination */}
+                {/* ── Pagination ── */}
                 {filteredEntries.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-lg shadow-gray-200/50">
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
                                 {t('milkEntry.prev')}
                             </button>
                             <div className="flex items-center gap-1">
@@ -2239,8 +2153,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         p === '...'
                                             ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
                                             : <button key={p} onClick={() => setCurrentPage(p)}
-                                                className={`w-7 h-7 rounded-lg text-xs font-semibold transition border
-                                    ${currentPage === p ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+                                                className={`w-7 h-7 rounded-lg text-xs font-bold transition border shadow-sm
+                                                    ${currentPage === p ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30' : 'bg-white/50 text-gray-500 border-gray-200/60 hover:border-gray-300/80 hover:bg-gray-50/50'}`}>
                                                 {p}
                                             </button>
                                     )}
@@ -2248,7 +2162,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                             <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
                                 {t('milkEntry.next')}
                             </button>
                             <span className="text-xs text-gray-400 ml-1">
@@ -2261,57 +2175,65 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 type="number" min={1} max={filteredEntries.length || 1}
                                 value={pageSize}
                                 onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
-                                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
+                                className="w-14 border border-gray-200/60 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition shadow-sm"
                             />
                         </div>
                     </div>
                 )}
 
-                {/* Totals Footer */}
+                {/* ── Totals Footer ── */}
                 {entries.length > 0 && (
-                    <div className="bg-white rounded-b-2xl border-t-2 border-gray-100 overflow-x-auto">
-                        <div className="grid bg-gray-50/80 min-w-max"
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-x-auto">
+                        <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 min-w-max rounded-2xl"
                             style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* No */}
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
-                            </div> {/* Seller */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Code */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Shift */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Milk */}
-                            <div className="px-3 py-2.5 border-r border-gray-100">
+                            </div>
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60">
                                 <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] text-amber-600 font-semibold">
+                                    <span className="text-[10px] text-amber-600 font-bold">
                                         {entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
                                     </span>
-                                    <span className="text-[10px] text-blue-600 font-semibold">
+                                    <span className="text-[10px] text-slate-600 font-bold">
                                         {entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
                                     </span>
                                 </div>
-                            </div> {/* Qty */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Fat */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Snf */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Protein */}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Water */}
+                            </div>
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
                             {isAdmin && (
                                 <>
-                                    <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Rate */}
-                                    <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                                    <div className="px-3 py-2.5 text-xs font-extrabold text-gray-900 border-r border-gray-200/60">
                                         ₹{entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2)}
-                                    </div> {/* Amount */}
+                                    </div>
                                 </>
                             )}
-                            <div className="px-3 py-2.5 border-r border-gray-100" /> {/* Time */}
-                            <div className={isAdmin ? "px-3 py-2.5 border-r border-gray-100" : "px-3 py-2.5"} /> {/* Premium */}
-                            {isAdmin && <div className="px-3 py-2.5" />} {/* Actions */}
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className={isAdmin ? "px-3 py-2.5 border-r border-gray-200/60" : "px-3 py-2.5"} />
+                            {isAdmin && <div className="px-3 py-2.5" />}
                         </div>
                     </div>
                 )}
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('milkEntry.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('milkEntry.footerEntries', { defaultValue: 'Total entries' })}: <strong className="text-gray-600">{entries.length}</strong></span>
+                    <span>· {t('milkEntry.footerSellers', { defaultValue: 'Sellers' })}: <strong className="text-gray-600">{totalSellers}</strong></span>
+                </div>
+
             </main>
 
-            {/* Delete Confirmation Modal */}
+            {/* ── Delete Confirmation Modal ── */}
             {deleteConfirmOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                             <div className="flex items-center gap-3">
@@ -2375,11 +2297,11 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
                         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
                             <button onClick={cancelDelete}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
                                 {t('milkEntry.cancel')}
                             </button>
                             <button onClick={confirmDelete}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition">
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition">
                                 {t('milkEntry.deleteEntry')}
                             </button>
                         </div>
@@ -2394,7 +2316,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     sellerName={selectedSeller?.name || ""}
                     saleDate={selectedDate}
                     onClose={() => setShowProductModal(false)}
-                    onSuccess={() => { }} // optionally refresh data
+                    onSuccess={() => { }}
                     showFlash={showFlash}
                 />
             )}

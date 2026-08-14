@@ -5,7 +5,7 @@ import {
     Download, Search, Calendar,
     DollarSign, Clock, AlertTriangle, X, Users, TrendingUp,
     BadgeCheck, ArrowUpDown, Milk, ChevronDown, ChevronUp,
-    Gift, CheckCircle2, RotateCcw, RefreshCw
+    Gift, CheckCircle2, RotateCcw, RefreshCw, Home
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -22,10 +22,26 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", {
 const fmtShort = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
 const fmtQty = (n) => parseFloat(n || 0).toFixed(2);
 
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
+
 // ── Sub-components ────────────────────────────────────────────
 function StatCard({ label, value, icon, color, sub }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
             <div className="shrink-0">{icon}</div>
             <div>
                 <p className="text-xs text-gray-400 leading-none">{label}</p>
@@ -44,23 +60,20 @@ export default function GavaliBonusReport() {
     // ── State ───────────────────────────────────────────────────
     const [events, setEvents] = useState([]);
     const [selectedEventId, setSelectedEventId] = useState("");
-    const [registerData, setRegisterData] = useState(null); // { event, sellers }
+    const [registerData, setRegisterData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [loadingEvents, setLoadingEvents] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Date range (only used when no event is selected)
     const [dateRange, setDateRange] = useState({ from: today(), to: today() });
     const [rangeMode, setRangeMode] = useState("daily");
 
-    // ── Search / filter / sort / pagination ─────────────────────
     const [search, setSearch] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all"); // all, paid, unpaid
+    const [filterStatus, setFilterStatus] = useState("all");
     const [sortBy, setSortBy] = useState("name");
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
-    // ── Expand for monthly breakdown ──────────────────────────
     const [expanded, setExpanded] = useState({});
     const [monthlyBreakdown, setMonthlyBreakdown] = useState({});
     const [loadingMonthly, setLoadingMonthly] = useState({});
@@ -101,7 +114,6 @@ export default function GavaliBonusReport() {
 
     const fetchRegister = async (eventId) => {
         if (!eventId) {
-            // No event selected → use custom date range
             await fetchNoEventRegister();
             return;
         }
@@ -123,21 +135,19 @@ export default function GavaliBonusReport() {
         setLoading(true);
         try {
             const { data } = await api.get(`/gavali-bonus/no-event-register?from=${dateRange.from}&to=${dateRange.to}`);
-            // Shape: { sellers: [ { seller_id, seller_code, name, milk_type, cow_qty, buffalo_qty, total_qty } ] }
-            // We'll wrap it as a pseudo-event for consistency
             setRegisterData({
                 event: {
                     event_name: "Custom Range",
                     from_date: dateRange.from,
                     to_date: dateRange.to,
-                    cow_bonus: 0, // not used for display
+                    cow_bonus: 0,
                     buffalo_bonus: 0,
                 },
                 sellers: data.sellers.map(s => ({
                     ...s,
                     is_paid: false,
                     paid_at: null,
-                    total_bonus: 0, // no bonus calculation without event rates
+                    total_bonus: 0,
                 })),
             });
             setExpanded({});
@@ -151,7 +161,6 @@ export default function GavaliBonusReport() {
     };
 
     const fetchMonthlyBreakdown = async (sellerId) => {
-        // Use the event's date range or custom range
         let from, to;
         if (selectedEventId && registerData?.event) {
             from = registerData.event.from_date;
@@ -163,7 +172,6 @@ export default function GavaliBonusReport() {
         setLoadingMonthly(prev => ({ ...prev, [sellerId]: true }));
         try {
             const { data } = await api.get(`/gavali-bonus/monthly-breakdown?from=${from}&to=${to}`);
-            // data.breakdown: { "seller_id": { "YYYY-MM": { cow_qty, buffalo_qty } } }
             setMonthlyBreakdown(prev => ({
                 ...prev,
                 [sellerId]: data.breakdown[sellerId] || {},
@@ -182,7 +190,6 @@ export default function GavaliBonusReport() {
 
     useEffect(() => {
         if (selectedEventId === "") {
-            // No event selected – use custom range
             fetchNoEventRegister();
         } else {
             fetchRegister(selectedEventId);
@@ -200,7 +207,6 @@ export default function GavaliBonusReport() {
         setRefreshing(false);
     };
 
-    // ── Date range change (only when no event selected) ────────
     const handleDateRangeChange = (mode) => {
         setRangeMode(mode);
         let from = dateRange.from, to = dateRange.to;
@@ -226,10 +232,8 @@ export default function GavaliBonusReport() {
             to = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
         }
         setDateRange({ from, to });
-        // fetchNoEventRegister will be triggered by useEffect
     };
 
-    // ── Filter, sort, paginate ──────────────────────────────────
     const filteredSellers = useMemo(() => {
         if (!registerData) return [];
         let sellers = registerData.sellers || [];
@@ -262,7 +266,6 @@ export default function GavaliBonusReport() {
     const totalPages = Math.max(1, Math.ceil(filteredSellers.length / pageSize));
     const paginatedSellers = filteredSellers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-    // ── Overall stats ─────────────────────────────────────────────
     const stats = useMemo(() => {
         if (!registerData) return { totalSellers: 0, totalCow: 0, totalBuffalo: 0, totalQty: 0, totalBonus: 0, paidCount: 0 };
         const sellers = registerData.sellers || [];
@@ -274,7 +277,6 @@ export default function GavaliBonusReport() {
         return { totalSellers: sellers.length, totalCow, totalBuffalo, totalQty, totalBonus, paidCount };
     }, [registerData]);
 
-    // ── Mark as paid / undo ─────────────────────────────────────
     const handleMarkPaid = async (sellerId) => {
         if (!selectedEventId) {
             showFlash("error", "Please select an event to mark paid.");
@@ -310,7 +312,6 @@ export default function GavaliBonusReport() {
         }
     };
 
-    // ── Toggle expand ──────────────────────────────────────────
     const toggleExpand = async (sellerId) => {
         const willOpen = !expanded[sellerId];
         setExpanded(prev => ({ ...prev, [sellerId]: willOpen }));
@@ -319,7 +320,6 @@ export default function GavaliBonusReport() {
         }
     };
 
-    // ── Export PDF ───────────────────────────────────────────────
     const handleExportPDF = () => {
         if (!registerData) return;
         const win = window.open("", "_blank", "width=1200,height=900");
@@ -419,7 +419,7 @@ export default function GavaliBonusReport() {
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
@@ -427,180 +427,210 @@ export default function GavaliBonusReport() {
     if (!can('gavali_bonus', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-green-600 flex items-center justify-center shadow-md">
-                            <Gift size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>Gavali Bonus Report</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
+                                <Gift size={12} /> Bonus
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                Gavali Bonus Report
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                Bonus details for Gavali sellers
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            Gavali Bonus Report
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Bonus details for Gavali sellers
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={startTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <button
                             onClick={handleRefresh}
                             disabled={refreshing || loading}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-300 transition disabled:opacity-40"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm disabled:opacity-40"
                         >
-                            <RefreshCw size={14} className={refreshing || loading ? "animate-spin" : ""} />
+                            <RefreshCw size={15} className={refreshing || loading ? "animate-spin" : ""} />
                             Refresh
                         </button>
                         <button
                             onClick={handleExportPDF}
                             disabled={!registerData || filteredSellers.length === 0}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition disabled:opacity-40"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                         >
-                            <Download size={14} /> Export PDF
+                            <Download size={15} /> Export PDF
                         </button>
                     </div>
                 </div>
 
-                {/* Event Selector / Date Range */}
-                <div className="flex flex-wrap items-center gap-3" data-tour="gavali-event-select">
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Select Event</span>
-                        <select
-                            value={selectedEventId}
-                            onChange={(e) => setSelectedEventId(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition min-w-[200px]"
-                            disabled={loadingEvents}
-                        >
-                            <option value="">No Event (Custom Range)</option>
-                            {events.map(ev => (
-                                <option key={ev.event_id} value={ev.event_id}>
-                                    {ev.event_name} ({fmtDate(ev.from_date)} – {fmtDate(ev.to_date)})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {!selectedEventId && (
-                        <>
-                            <div className="flex flex-col gap-0.5">
-                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">From</span>
-                                <input
-                                    type="date"
-                                    value={dateRange.from}
-                                    onChange={e => setDateRange(prev => ({ ...prev, from: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-0.5">
-                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">To</span>
-                                <input
-                                    type="date"
-                                    value={dateRange.to}
-                                    onChange={e => setDateRange(prev => ({ ...prev, to: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition"
-                                />
-                            </div>
-                            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                                {[
-                                    { v: "daily", l: "Day" },
-                                    { v: "weekly", l: "Week" },
-                                    { v: "monthly", l: "Month" },
-                                ].map(({ v, l }) => (
-                                    <button key={v} type="button" onClick={() => handleDateRangeChange(v)}
-                                        className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                        {l}
-                                    </button>
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {loadingEvents && <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />}
-                </div>
-
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Stats */}
+                {/* ── Event Selector / Date Range ── */}
+                <SectionCard 
+                    title="Select Period" 
+                    icon={<Calendar size={16} className="text-white" />}
+                    data-tour="gavali-event-select"
+                >
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Event</span>
+                            <select
+                                value={selectedEventId}
+                                onChange={(e) => setSelectedEventId(e.target.value)}
+                                className="border border-gray-200/60 rounded-xl px-4 py-3 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm min-w-[220px]"
+                                disabled={loadingEvents}
+                            >
+                                <option value="">No Event (Custom Range)</option>
+                                {events.map(ev => (
+                                    <option key={ev.event_id} value={ev.event_id}>
+                                        {ev.event_name} ({fmtDate(ev.from_date)} – {fmtDate(ev.to_date)})
+                                    </option>
+                                ))}
+                            </select>
+                            {loadingEvents && <div className="w-4 h-4 border-2 border-gray-200 border-t-black rounded-full animate-spin mt-1" />}
+                        </div>
+
+                        {!selectedEventId && (
+                            <>
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">From</span>
+                                    <input
+                                        type="date"
+                                        value={dateRange.from}
+                                        onChange={e => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                                        className="border border-gray-200/60 rounded-xl px-4 py-3 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">To</span>
+                                    <input
+                                        type="date"
+                                        value={dateRange.to}
+                                        onChange={e => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                                        className="border border-gray-200/60 rounded-xl px-4 py-3 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Quick Range</span>
+                                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                                        {[
+                                            { v: "daily", l: "Day" },
+                                            { v: "weekly", l: "Week" },
+                                            { v: "monthly", l: "Month" },
+                                        ].map(({ v, l }) => (
+                                            <button key={v} type="button" onClick={() => handleDateRangeChange(v)}
+                                                className={`px-4 py-2 transition ${rangeMode === v 
+                                                    ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" 
+                                                    : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                                {l}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </SectionCard>
+
+                {/* ── Stats ── */}
                 {registerData && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="gavali-stats">
                         <StatCard label="Total Sellers" value={stats.totalSellers}
                             icon={<Users size={14} />}
-                            color="text-blue-600 bg-blue-50 border-blue-100" />
+                            color="text-blue-600 bg-blue-50/80 border-blue-200/60" />
                         <StatCard label="Cow Milk" value={`${fmtQty(stats.totalCow)} L`}
                             icon={<Milk size={14} className="text-amber-600" />}
-                            color="text-amber-600 bg-amber-50 border-amber-100" />
+                            color="text-amber-600 bg-amber-50/80 border-amber-200/60" />
                         <StatCard label="Buffalo Milk" value={`${fmtQty(stats.totalBuffalo)} L`}
                             icon={<Milk size={14} className="text-blue-600" />}
-                            color="text-blue-600 bg-blue-50 border-blue-100" />
+                            color="text-blue-600 bg-blue-50/80 border-blue-200/60" />
                         <StatCard label="Total Bonus" value={fmt(stats.totalBonus)}
                             sub={`${stats.paidCount} / ${stats.totalSellers} paid`}
                             icon={<DollarSign size={14} />}
-                            color="text-emerald-600 bg-emerald-50 border-emerald-100" />
+                            color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60" />
                     </div>
                 )}
 
-                {/* Search, Filter, Sort */}
-                <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-                            placeholder="Search by seller name or code"
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
-                    </div>
+                {/* ── Search, Filter, Sort ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="relative flex-1 max-w-xs">
+                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                            <input 
+                                value={search} 
+                                onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                                placeholder="Search by seller name or code"
+                                className="w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200/60 rounded-xl bg-white/50 backdrop-blur-sm
+                                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:text-gray-300" 
+                            />
+                        </div>
 
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                        {[
-                            ["all", "All"],
-                            ["paid", "Paid"],
-                            ["unpaid", "Unpaid"],
-                        ].map(([v, l]) => (
-                            <button key={v} onClick={() => { setFilterStatus(v); setCurrentPage(1); }}
-                                className={`px-3 py-2 transition border-r last:border-r-0 border-gray-200
-                                    ${filterStatus === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</span>
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                                {[
+                                    ["all", "All"],
+                                    ["paid", "Paid"],
+                                    ["unpaid", "Unpaid"],
+                                ].map(([v, l]) => (
+                                    <button key={v} onClick={() => { setFilterStatus(v); setCurrentPage(1); }}
+                                        className={`px-4 py-2 transition border-r last:border-r-0 border-gray-200/60
+                                            ${filterStatus === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                    <div className="flex items-center gap-1.5 text-xs">
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
-                            <option value="name">Sort: Name</option>
-                            <option value="cow">Sort: Cow Qty</option>
-                            <option value="buffalo">Sort: Buffalo Qty</option>
-                            <option value="total">Sort: Total Qty</option>
-                            <option value="bonus">Sort: Bonus</option>
-                        </select>
-                    </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Sort By</span>
+                            <div className="flex items-center gap-1.5">
+                                <ArrowUpDown size={12} className="text-gray-400" />
+                                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
+                                    <option value="name">Name</option>
+                                    <option value="cow">Cow Qty</option>
+                                    <option value="buffalo">Buffalo Qty</option>
+                                    <option value="total">Total Qty</option>
+                                    <option value="bonus">Bonus</option>
+                                </select>
+                            </div>
+                        </div>
 
-                    <span className="ml-auto text-xs text-gray-400">
-                        {filteredSellers.length} {filteredSellers.length !== 1 ? "sellers" : "seller"}
-                    </span>
+                        <div className="ml-auto text-xs text-gray-400">
+                            {filteredSellers.length} {filteredSellers.length !== 1 ? "sellers" : "seller"}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" data-tour="gavali-table">
+                {/* ── Table ── */}
+                <SectionCard 
+                    title="Gavali Sellers" 
+                    icon={<Users size={16} className="text-white" />}
+                    data-tour="gavali-table"
+                >
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
@@ -619,7 +649,7 @@ export default function GavaliBonusReport() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                    <tr className="bg-gray-50/80 border-b border-gray-200/60 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                                         <th className="px-4 py-3 w-10">#</th>
                                         <th className="px-4 py-3 min-w-[130px]">Seller</th>
                                         <th className="px-4 py-3 text-right">Cow Qty (L)</th>
@@ -640,14 +670,14 @@ export default function GavaliBonusReport() {
 
                                         return (
                                             <React.Fragment key={seller.seller_id}>
-                                                <tr className={`border-b border-gray-100 hover:bg-gray-50/50 transition ${isPaid ? 'bg-emerald-50/30' : ''}`}>
+                                                <tr className={`border-b border-gray-200/60 hover:bg-gray-50/50 transition ${isPaid ? 'bg-emerald-50/30' : ''}`}>
                                                     <td className="px-4 py-3 text-center text-xs text-gray-400">
                                                         {idx + 1 + (currentPage - 1) * pageSize}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                                                                ${isPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                                                ${isPaid ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm" : "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-sm"}`}>
                                                                 {seller.name?.charAt(0)?.toUpperCase()}
                                                             </div>
                                                             <div>
@@ -670,11 +700,11 @@ export default function GavaliBonusReport() {
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         {isPaid ? (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-200/60 bg-emerald-50/80 text-emerald-700">
                                                                 <CheckCircle2 size={11} /> Paid
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-rose-200 bg-rose-50 text-rose-700">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-rose-200/60 bg-rose-50/80 text-rose-700">
                                                                 <Clock size={11} /> Unpaid
                                                             </span>
                                                         )}
@@ -688,7 +718,7 @@ export default function GavaliBonusReport() {
                                                                 <button
                                                                     onClick={() => handleMarkPaid(seller.seller_id)}
                                                                     disabled={updating[seller.seller_id]}
-                                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-semibold transition shadow-sm disabled:opacity-40"
+                                                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white text-[10px] font-semibold transition shadow-sm disabled:opacity-40"
                                                                 >
                                                                     {updating[seller.seller_id] ? (
                                                                         <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -702,14 +732,14 @@ export default function GavaliBonusReport() {
                                                                 <button
                                                                     onClick={() => handleUndoPaid(seller.seller_id)}
                                                                     disabled={updating[seller.seller_id]}
-                                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-semibold border border-rose-200 transition disabled:opacity-40"
+                                                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-600 text-[10px] font-semibold border border-rose-200/60 transition shadow-sm disabled:opacity-40"
                                                                 >
                                                                     <RotateCcw size={10} /> Undo
                                                                 </button>
                                                             )}
                                                             <button
                                                                 onClick={() => toggleExpand(seller.seller_id)}
-                                                                className="flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition"
+                                                                className="flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition shadow-sm"
                                                             >
                                                                 {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                                             </button>
@@ -720,7 +750,7 @@ export default function GavaliBonusReport() {
                                                 {/* Expanded monthly breakdown */}
                                                 {isOpen && (
                                                     <tr>
-                                                        <td colSpan="9" className="px-4 py-4 bg-gray-50/80 border-t border-gray-100">
+                                                        <td colSpan="9" className="px-4 py-4 bg-gray-50/60 border-t border-gray-200/60">
                                                             <div className="flex flex-col gap-2">
                                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                                                                     Monthly Breakdown
@@ -732,8 +762,8 @@ export default function GavaliBonusReport() {
                                                                 ) : months.length === 0 ? (
                                                                     <p className="text-xs text-gray-400">No monthly data available for this period.</p>
                                                                 ) : (
-                                                                    <div className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                        <div className="grid bg-gray-100 border-b border-gray-200"
+                                                                    <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
+                                                                        <div className="grid bg-gray-100/80 border-b border-gray-200/60"
                                                                             style={{ gridTemplateColumns: "120px 1fr 1fr 1fr" }}>
                                                                             <div className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Month</div>
                                                                             <div className="px-3 py-2 text-[10px] font-semibold text-amber-600 uppercase tracking-wide text-right">Cow Qty (L)</div>
@@ -746,7 +776,7 @@ export default function GavaliBonusReport() {
                                                                             const buffalo = data?.buffalo_qty || 0;
                                                                             const total = cow + buffalo;
                                                                             return (
-                                                                                <div key={month} className="grid border-b border-gray-50 last:border-0 hover:bg-white transition"
+                                                                                <div key={month} className="grid border-b border-gray-200/60 last:border-0 hover:bg-white/30 transition"
                                                                                     style={{ gridTemplateColumns: "120px 1fr 1fr 1fr" }}>
                                                                                     <div className="px-3 py-2 text-xs text-gray-600 font-medium">
                                                                                         {new Date(month + "-01").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
@@ -763,7 +793,7 @@ export default function GavaliBonusReport() {
                                                                                 </div>
                                                                             );
                                                                         })}
-                                                                        <div className="grid bg-gray-50 border-t border-gray-200 font-semibold"
+                                                                        <div className="grid bg-gray-100/80 border-t border-gray-200/60 font-semibold"
                                                                             style={{ gridTemplateColumns: "120px 1fr 1fr 1fr" }}>
                                                                             <div className="px-3 py-2 text-xs text-gray-600">Total</div>
                                                                             <div className="px-3 py-2 text-xs text-amber-700 text-right">
@@ -790,30 +820,50 @@ export default function GavaliBonusReport() {
                         </div>
                     )}
 
-                    {/* Pagination */}
+                    {/* ── Pagination ── */}
                     {filteredSellers.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200 bg-gray-50/80">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200/60 bg-gray-50/60 rounded-b-xl">
                             <div className="flex items-center gap-2">
-                                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm"
+                                >
                                     Prev
                                 </button>
-                                <span className="text-xs text-gray-600">Page {currentPage} of {totalPages}</span>
-                                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                <span className="text-xs text-gray-600">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm"
+                                >
                                     Next
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400">Rows per page:</span>
-                                <select value={pageSize} onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                                <select 
+                                    value={pageSize} 
+                                    onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-gray-200/60 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                >
                                     {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
                                 </select>
                             </div>
                         </div>
                     )}
+                </SectionCard>
+
+                {/* ── Legend ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                    <span>• <strong className="text-gray-600">{registerData?.sellers?.length || 0}</strong> total Gavali sellers</span>
+                    <span>• <span className="text-emerald-600 font-semibold">Paid</span> — bonus has been disbursed</span>
+                    <span>• <span className="text-rose-600 font-semibold">Unpaid</span> — bonus pending</span>
+                    <span>• Click <ChevronDown size={11} className="inline" /> to see monthly breakdown</span>
                 </div>
+
             </main>
         </div>
     );

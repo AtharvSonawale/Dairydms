@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Percent, Milk, Save, RefreshCw, AlertTriangle, BadgeCheck, Info, Calculator } from "lucide-react";
+import { Percent, Milk, Save, RefreshCw, AlertTriangle, BadgeCheck, Info, Calculator, Home, Settings, X } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from "../../context/PermissionContext";
 import AccessDenied from "../../components/AccessDenied";
@@ -27,10 +27,12 @@ function MilkTypeCard({ label, accentIcon, data, onChange, preview, onPreviewCha
     const effectiveRate = round2((parseFloat(preview.rate) || 0) + commission);
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="relative overflow-hidden rounded-2xl border bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50">
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200/60 relative z-10">
                 <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${accentIcon}`}>
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${accentIcon} flex items-center justify-center shadow-lg`}>
                         <Milk size={16} className="text-white" />
                     </div>
                     <div>
@@ -46,67 +48,68 @@ function MilkTypeCard({ label, accentIcon, data, onChange, preview, onPreviewCha
                 </label>
             </div>
 
-            <div className="px-5 py-5 flex flex-col gap-4">
+            <div className="px-5 py-5 flex flex-col gap-4 relative z-10">
                 <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('commission.baseFat') || 'Base Fat %'}</label>
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('commission.baseFat') || 'Base Fat %'}</label>
                         <input type="number" step="0.01" value={data.base_fat}
                             onChange={e => onChange('base_fat', e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('commission.baseSnf') || 'Base SNF'}</label>
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('commission.baseSnf') || 'Base SNF'}</label>
                         <input type="number" step="0.01" value={data.base_snf}
                             onChange={e => onChange('base_snf', e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1 col-span-2">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                             {t('commission.baseCommission') || 'Standard Commission (\u20B9/L at base Fat & SNF)'}
                         </label>
                         <input type="number" step="0.01" value={data.base_commission}
                             onChange={e => onChange('base_commission', e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('commission.fatStepCut') || 'Fat Step Cut (per 0.1)'}</label>
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('commission.fatStepCut') || 'Fat Step Cut (per 0.1)'}</label>
                         <input type="number" step="0.01" value={data.fat_step_cut}
                             onChange={e => onChange('fat_step_cut', e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('commission.snfStepCut') || 'SNF Step Cut (per 0.1)'}</label>
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('commission.snfStepCut') || 'SNF Step Cut (per 0.1)'}</label>
                         <input type="number" step="0.01" value={data.snf_step_cut}
                             onChange={e => onChange('snf_step_cut', e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 transition" />
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-violet-600 uppercase tracking-wider">
+                <div className="relative overflow-hidden rounded-xl border border-violet-200/60 bg-gradient-to-br from-violet-50 to-violet-100/50 shadow-lg shadow-violet-200/30 px-4 py-3 flex flex-col gap-2">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-violet-400/10 blur-3xl" />
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-violet-600 uppercase tracking-wider relative z-10">
                         <Calculator size={11} /> {t('commission.tryIt') || 'Try it out'}
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2 relative z-10">
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[9px] text-gray-400 uppercase">{t('commission.fat') || 'Fat'}</span>
                             <input type="number" step="0.01" value={preview.fat}
                                 onChange={e => onPreviewChange('fat', e.target.value)}
-                                className="border border-violet-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                                className="border border-violet-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                         </div>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[9px] text-gray-400 uppercase">{t('commission.snf') || 'SNF'}</span>
                             <input type="number" step="0.01" value={preview.snf}
                                 onChange={e => onPreviewChange('snf', e.target.value)}
-                                className="border border-violet-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                                className="border border-violet-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                         </div>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[9px] text-gray-400 uppercase">{t('commission.milkRate') || 'Milk Rate ₹'}</span>
                             <input type="number" step="0.01" value={preview.rate}
                                 onChange={e => onPreviewChange('rate', e.target.value)}
-                                className="border border-violet-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                                className="border border-violet-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                         </div>
                     </div>
-                    <div className="flex items-center justify-between pt-1 mt-1 border-t border-violet-100">
+                    <div className="flex items-center justify-between pt-1 mt-1 border-t border-violet-200/60 relative z-10">
                         <span className="text-xs text-violet-600">
                             {t('commission.commissionAdded') || 'Commission'}: <strong>₹{commission.toFixed(2)}</strong>/L
                         </span>
@@ -173,45 +176,52 @@ export default function CommissionSettings() {
     };
 
     if (permLoading || loading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('commission_settings', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-md shadow-violet-200">
-                            <Percent size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('commission.pageBreadcrumb', { defaultValue: 'Commission Management' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                {t('commission.pageTitle') || 'Gavali Commission Settings'}
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('commission.pageSubtitle') || "Configure the per-litre commission added to Gavali sellers' milk rate"}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('commission.pageTitle') || 'Gavali Commission Settings'}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('commission.pageSubtitle') || "Configure the per-litre commission added to Gavali sellers' milk rate"}
+                        </p>
                     </div>
 
                     {can('commission_settings', 'W') && (
-                        <button onClick={handleSave} disabled={saving}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-xl
-                                bg-violet-600 text-white hover:bg-violet-700 transition disabled:opacity-50 shadow-sm">
-                            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200 disabled:opacity-50"
+                        >
+                            {saving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
                             {saving ? (t('commission.saving') || 'Saving…') : (t('commission.saveSettings') || 'Save Settings')}
                         </button>
                     )}
                 </div>
 
-                <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4">
-                    <Info size={16} className="text-blue-500 mt-0.5 shrink-0" />
-                    <div className="text-xs text-blue-700 leading-relaxed">
+                {/* ── Info Banner ── */}
+                <div className="relative overflow-hidden rounded-2xl border border-blue-200/60 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-lg shadow-blue-200/30 px-5 py-4 flex items-start gap-3">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-blue-400/10 blur-3xl" />
+                    <Info size={18} className="text-blue-500 mt-0.5 shrink-0 relative z-10" />
+                    <div className="text-xs text-blue-700 leading-relaxed relative z-10">
                         <p className="font-semibold mb-1">{t('commission.howItWorks') || 'How commission works'}</p>
                         <p>
                             {t('commission.howItWorksDesc') ||
@@ -220,20 +230,28 @@ export default function CommissionSettings() {
                     </div>
                 </div>
 
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
                         ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                            ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700"
+                            : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
+                        <button
+                            onClick={() => setFlash(null)}
+                            className="ml-auto opacity-50 hover:opacity-100 transition"
+                        >
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
+                {/* ── Commission Cards ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <MilkTypeCard
                         label={t('commission.cowMilk') || "Cow's Milk"}
-                        accentIcon="bg-amber-500"
+                        accentIcon="from-amber-500 to-amber-600"
                         data={settings.cow}
                         onChange={(key, value) => handleChange('cow', key, value)}
                         preview={preview.cow}
@@ -242,13 +260,20 @@ export default function CommissionSettings() {
                     />
                     <MilkTypeCard
                         label={t('commission.buffaloMilk') || "Buffalo's Milk"}
-                        accentIcon="bg-indigo-500"
+                        accentIcon="from-indigo-500 to-indigo-600"
                         data={settings.buffalo}
                         onChange={(key, value) => handleChange('buffalo', key, value)}
                         preview={preview.buffalo}
                         onPreviewChange={(key, value) => handlePreviewChange('buffalo', key, value)}
                         t={t}
                     />
+                </div>
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('commission.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('commission.footerMilkTypes', { defaultValue: 'Milk types' })}: <strong className="text-gray-600">Cow & Buffalo</strong></span>
+                    <span>· {t('commission.footerApplicable', { defaultValue: 'Applicable to' })}: <strong className="text-gray-600">Gavali sellers only</strong></span>
                 </div>
 
             </main>

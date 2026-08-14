@@ -6,6 +6,7 @@ router.use(protect);
 
 // Walk-in sales routes
 router.get('/', ctrl.getSales);
+router.get('/available-stock', ctrl.getAvailableStock);
 router.post('/', ctrl.createSale);
 router.delete('/:id', ctrl.deleteSale);
 

@@ -5,7 +5,8 @@ import {
     BarChart3, Download, Search, Calendar,
     DollarSign, Clock, AlertTriangle, X, Users, TrendingUp,
     BadgeCheck, ArrowUpDown, Milk, ChevronDown, ChevronUp,
-    Gift, CheckCircle2, RotateCcw, RefreshCw
+    Gift, CheckCircle2, RotateCcw, RefreshCw,
+    Home, Settings
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -24,11 +25,12 @@ const fmtShort = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-di
 // ── Sub-components ────────────────────────────────────────────
 function StatCard({ label, value, icon, color, sub }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+            <div className="relative z-10">
+                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                 {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
             </div>
         </div>
@@ -297,66 +299,68 @@ export default function BonusReport() {
 
     // ── Render ─────────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('bonus', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center shadow-md">
-                            <Gift size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('bonusReport.pageBreadcrumb', { defaultValue: 'Reports' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                                Bonus Report
-                            </h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                View bonus details for sellers per event
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            Bonus Report
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            View bonus details for sellers per event
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <button
                             onClick={startTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <button
                             onClick={handleRefresh}
                             disabled={refreshing || loading}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-300 transition disabled:opacity-40"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm disabled:opacity-50"
                         >
-                            <RefreshCw size={14} className={refreshing || loading ? "animate-spin" : ""} />
+                            <RefreshCw size={15} className={refreshing || loading ? "animate-spin" : ""} />
                             Refresh
                         </button>
                         <button
                             onClick={handleExportPDF}
                             disabled={!registerData || filteredSellers.length === 0}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition disabled:opacity-40"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
                         >
-                            <Download size={14} /> Export PDF
+                            <Download size={16} /> Export PDF
                         </button>
                     </div>
                 </div>
 
-                {/* Event Selector */}
+                {/* ── Event Selector ── */}
                 <div className="flex items-center gap-3 flex-wrap" data-tour="bonus-event-select">
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Select Event</span>
+                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Select Event</span>
                         <select
                             value={selectedEventId}
                             onChange={(e) => setSelectedEventId(parseInt(e.target.value))}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition min-w-[200px]"
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition min-w-[200px]"
                             disabled={loadingEvents}
                         >
                             <option value="">Select an event</option>
@@ -367,58 +371,87 @@ export default function BonusReport() {
                             ))}
                         </select>
                     </div>
-                    {loadingEvents && <div className="w-5 h-5 border-2 border-gray-200 border-t-black rounded-full animate-spin" />}
+                    {loadingEvents && <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />}
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === "success"
+                            ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700"
+                            : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Stats */}
+                {/* ── Stats ── */}
                 {registerData && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-tour="bonus-stats">
-                        <StatCard label="Total Milk" value={`${stats.totalQty.toFixed(2)} L`} icon={<Milk size={14} />} color="text-violet-600 bg-violet-50 border-violet-100" />
-                        <StatCard label="Total Bonus" value={fmt(stats.totalBonus)} icon={<DollarSign size={14} />} color="text-amber-600 bg-amber-50 border-amber-100" />
-                        <StatCard label="Paid Sellers" value={`${stats.paidCount} / ${stats.totalSellers}`} icon={<CheckCircle2 size={14} />} color="text-emerald-600 bg-emerald-50 border-emerald-100" />
-                        <StatCard label="Unpaid Sellers" value={stats.totalSellers - stats.paidCount} icon={<Clock size={14} />} color="text-rose-600 bg-rose-50 border-rose-100" />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" data-tour="bonus-stats">
+                        <StatCard
+                            label="Total Milk"
+                            value={`${stats.totalQty.toFixed(2)} L`}
+                            icon={<Milk size={16} />}
+                            color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700"
+                        />
+                        <StatCard
+                            label="Total Bonus"
+                            value={fmt(stats.totalBonus)}
+                            icon={<DollarSign size={16} />}
+                            color="from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700"
+                        />
+                        <StatCard
+                            label="Paid Sellers"
+                            value={`${stats.paidCount} / ${stats.totalSellers}`}
+                            icon={<CheckCircle2 size={16} />}
+                            color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700"
+                        />
+                        <StatCard
+                            label="Unpaid Sellers"
+                            value={stats.totalSellers - stats.paidCount}
+                            icon={<Clock size={16} />}
+                            color="from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-600"
+                        />
                     </div>
                 )}
 
-                {/* Search, Filter, Sort */}
+                {/* ── Search, Filter, Sort ── */}
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            value={search}
+                            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
                             placeholder="Search by seller name or code"
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
+                            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl text-gray-700 shadow-sm
+                                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition placeholder:text-gray-300"
+                        />
                     </div>
 
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                         {[
                             ["all", "All"],
                             ["paid", "Paid"],
                             ["unpaid", "Unpaid"],
                         ].map(([v, l]) => (
                             <button key={v} onClick={() => { setFilterStatus(v); setCurrentPage(1); }}
-                                className={`px-3 py-2 transition border-r last:border-r-0 border-gray-200
-                                    ${filterStatus === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                className={`px-3.5 py-2 transition-all duration-200 border-r last:border-r-0 border-gray-200/60
+                                    ${filterStatus === v
+                                        ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30"
+                                        : "text-gray-500 hover:bg-gray-100/50"}`}>
                                 {l}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs">
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm text-xs">
+                        <ArrowUpDown size={14} className="text-gray-400" />
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition">
                             <option value="name">Sort: Name</option>
                             <option value="qty">Sort: Quantity</option>
                             <option value="bonus">Sort: Bonus</option>
@@ -430,33 +463,33 @@ export default function BonusReport() {
                     </span>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" data-tour="bonus-table">
+                {/* ── Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="bonus-table">
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : !registerData ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Gift size={32} />
-                            <p className="text-sm">Select a bonus event to view the register</p>
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <Gift size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">Select a bonus event to view the register</p>
                         </div>
                     ) : paginatedSellers.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Users size={32} />
-                            <p className="text-sm">No sellers found for this event</p>
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <Users size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">No sellers found for this event</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                                        <th className="px-4 py-3 w-10">#</th>
-                                        <th className="px-4 py-3 min-w-[130px]">Seller</th>
-                                        <th className="px-4 py-3 text-right">Total Qty (L)</th>
-                                        <th className="px-4 py-3 text-right">Bonus Amount</th>
-                                        <th className="px-4 py-3 text-center">Status</th>
-                                        <th className="px-4 py-3 text-center">Paid At</th>
+                                    <tr className="bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                        <th className="px-4 py-3 w-10 border-r border-gray-200/60">#</th>
+                                        <th className="px-4 py-3 min-w-[130px] border-r border-gray-200/60">Seller</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">Total Qty (L)</th>
+                                        <th className="px-4 py-3 text-right border-r border-gray-200/60">Bonus Amount</th>
+                                        <th className="px-4 py-3 text-center border-r border-gray-200/60">Status</th>
+                                        <th className="px-4 py-3 text-center border-r border-gray-200/60">Paid At</th>
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -468,14 +501,16 @@ export default function BonusReport() {
 
                                         return (
                                             <React.Fragment key={seller.seller_id}>
-                                                <tr className={`border-b border-gray-100 hover:bg-gray-50/50 transition ${isPaid ? 'bg-emerald-50/30' : ''}`}>
-                                                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                                                <tr className={`border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors ${isPaid ? 'bg-emerald-50/20' : ''}`}>
+                                                    <td className="px-4 py-3 text-center text-xs text-gray-400 border-r border-gray-100/60">
                                                         {idx + 1 + (currentPage - 1) * pageSize}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-4 py-3 border-r border-gray-100/60">
                                                         <div className="flex items-center gap-2">
-                                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-                                                                ${isPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm
+                                                                ${isPaid
+                                                                    ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30"
+                                                                    : "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-amber-500/30"}`}>
                                                                 {seller.name?.charAt(0)?.toUpperCase()}
                                                             </div>
                                                             <div>
@@ -484,24 +519,24 @@ export default function BonusReport() {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-right font-mono text-sm">
+                                                    <td className="px-4 py-3 text-right font-mono text-sm text-blue-600 border-r border-gray-100/60">
                                                         {seller.total_qty.toFixed(2)}
                                                     </td>
-                                                    <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                                                    <td className="px-4 py-3 text-right font-semibold text-amber-600 border-r border-gray-100/60">
                                                         {fmt(seller.total_bonus)}
                                                     </td>
-                                                    <td className="px-4 py-3 text-center">
+                                                    <td className="px-4 py-3 text-center border-r border-gray-100/60">
                                                         {isPaid ? (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-sm border-emerald-200/60 bg-emerald-50/80 text-emerald-700">
                                                                 <CheckCircle2 size={11} /> Paid
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-rose-200 bg-rose-50 text-rose-700">
+                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-sm border-rose-200/60 bg-rose-50/80 text-rose-700">
                                                                 <Clock size={11} /> Unpaid
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                                                    <td className="px-4 py-3 text-center text-xs text-gray-400 border-r border-gray-100/60">
                                                         {isPaid ? fmtShort(seller.paid_at) : "—"}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
@@ -510,7 +545,7 @@ export default function BonusReport() {
                                                                 <button
                                                                     onClick={() => handleMarkPaid(seller.seller_id)}
                                                                     disabled={updating[seller.seller_id]}
-                                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-semibold transition shadow-sm disabled:opacity-40"
+                                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white text-[10px] font-semibold transition-all duration-200 shadow-sm disabled:opacity-50"
                                                                 >
                                                                     {updating[seller.seller_id] ? (
                                                                         <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -524,14 +559,14 @@ export default function BonusReport() {
                                                                 <button
                                                                     onClick={() => handleUndoPaid(seller.seller_id)}
                                                                     disabled={updating[seller.seller_id]}
-                                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-semibold border border-rose-200 transition disabled:opacity-40"
+                                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-600 text-[10px] font-semibold border border-rose-200/60 backdrop-blur-sm transition shadow-sm disabled:opacity-50"
                                                                 >
                                                                     <RotateCcw size={10} /> Undo
                                                                 </button>
                                                             )}
                                                             <button
                                                                 onClick={() => setExpanded(prev => ({ ...prev, [seller.seller_id]: !prev[seller.seller_id] }))}
-                                                                className="flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition"
+                                                                className="flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm shadow-sm"
                                                             >
                                                                 {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                                             </button>
@@ -539,22 +574,22 @@ export default function BonusReport() {
                                                     </td>
                                                 </tr>
 
-                                                {/* Expanded slab details */}
+                                                {/* ── Expanded slab details ── */}
                                                 {isOpen && (
                                                     <tr>
-                                                        <td colSpan="7" className="px-4 py-4 bg-gray-50/80 border-t border-gray-100">
+                                                        <td colSpan="7" className="px-4 py-4 bg-gray-50/50 backdrop-blur-sm border-t border-gray-200/60">
                                                             <div className="flex flex-col gap-2">
-                                                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                                                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                                                                     Slab-wise breakdown
                                                                 </p>
                                                                 {slabs.length === 0 ? (
                                                                     <p className="text-xs text-gray-400">No slabs configured.</p>
                                                                 ) : (
-                                                                    <div className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                        <div className="grid bg-gray-100 border-b border-gray-200"
+                                                                    <div className="rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm overflow-hidden shadow-sm">
+                                                                        <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60"
                                                                             style={{ gridTemplateColumns: "120px 120px 100px 1fr 120px" }}>
                                                                             {["Fat Range", "Rate / L", "Vahatuk", "Qty (L)", "Amount"].map(h => (
-                                                                                <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{h}</div>
+                                                                                <div key={h} className="px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">{h}</div>
                                                                             ))}
                                                                         </div>
                                                                         {slabs.map((slab, idx) => {
@@ -563,18 +598,18 @@ export default function BonusReport() {
                                                                             const amt = bucket?.amt || 0;
                                                                             if (qty === 0 && amt === 0) return null;
                                                                             return (
-                                                                                <div key={idx} className="grid border-b border-gray-50 last:border-0 hover:bg-white transition"
+                                                                                <div key={idx} className="grid border-b border-gray-100/60 last:border-0 hover:bg-white/50 transition"
                                                                                     style={{ gridTemplateColumns: "120px 120px 100px 1fr 120px" }}>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-600">
+                                                                                    <div className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100/60">
                                                                                         {slab.fat_min} – {slab.fat_max}%
                                                                                     </div>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-600">
+                                                                                    <div className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100/60">
                                                                                         {fmt(slab.rate)}
                                                                                     </div>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-600">
+                                                                                    <div className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100/60">
                                                                                         {slab.vahatuk}
                                                                                     </div>
-                                                                                    <div className="px-3 py-2 text-xs text-gray-600 font-mono text-right">
+                                                                                    <div className="px-3 py-2 text-xs text-gray-600 font-mono text-right border-r border-gray-100/60">
                                                                                         {qty.toFixed(2)}
                                                                                     </div>
                                                                                     <div className="px-3 py-2 text-xs font-semibold text-amber-600 text-right">
@@ -583,12 +618,12 @@ export default function BonusReport() {
                                                                                 </div>
                                                                             );
                                                                         })}
-                                                                        <div className="grid bg-gray-50 border-t border-gray-200 font-semibold"
+                                                                        <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 border-t border-gray-200/60 font-semibold"
                                                                             style={{ gridTemplateColumns: "120px 120px 100px 1fr 120px" }}>
-                                                                            <div className="px-3 py-2 text-xs text-gray-600">Total</div>
-                                                                            <div></div>
-                                                                            <div></div>
-                                                                            <div className="px-3 py-2 text-xs text-gray-800 text-right">
+                                                                            <div className="px-3 py-2 text-xs text-gray-600 border-r border-gray-200/60">Total</div>
+                                                                            <div className="border-r border-gray-200/60"></div>
+                                                                            <div className="border-r border-gray-200/60"></div>
+                                                                            <div className="px-3 py-2 text-xs text-gray-800 text-right border-r border-gray-200/60">
                                                                                 {seller.total_qty.toFixed(2)}
                                                                             </div>
                                                                             <div className="px-3 py-2 text-xs text-amber-700 text-right">
@@ -609,30 +644,38 @@ export default function BonusReport() {
                         </div>
                     )}
 
-                    {/* Pagination */}
+                    {/* ── Pagination ── */}
                     {filteredSellers.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200 bg-gray-50/80">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-200/60 bg-white/50 backdrop-blur-sm">
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                     Prev
                                 </button>
                                 <span className="text-xs text-gray-600">Page {currentPage} of {totalPages}</span>
                                 <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
                                     Next
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-400">Rows per page:</span>
                                 <select value={pageSize} onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition">
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition">
                                     {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
                                 </select>
                             </div>
                         </div>
                     )}
                 </div>
+
+                {/* ── Footer ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
+                    <span>· {t('bonusReport.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
+                    <span>· {t('bonusReport.footerEvent', { defaultValue: 'Event' })}: <strong className="text-gray-600">{registerData?.event?.event_name || '—'}</strong></span>
+                    <span>· {t('bonusReport.footerTotalSellers', { defaultValue: 'Total sellers' })}: <strong className="text-gray-600">{stats.totalSellers}</strong></span>
+                </div>
+
             </main>
         </div>
     );

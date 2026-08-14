@@ -5,7 +5,7 @@ import {
     Gift, ChevronDown, ChevronUp, RefreshCw, Printer,
     BadgeCheck, AlertTriangle, X, Users, Sparkles,
     CheckCircle2, Clock, Search, Banknote, Plus,
-    Edit2, Check, Trash2, Settings, Calendar
+    Edit2, Check, Trash2, Settings, Calendar, Home
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -14,6 +14,22 @@ import AccessDenied from '../components/AccessDenied';
 
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+
+// ── SectionCard Component (matching Settings page) ────────────────────────────
+function SectionCard({ title, icon, children, ...rest }) {
+    return (
+        <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200/60 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
@@ -37,7 +53,7 @@ const DEFAULT_SLABS = [
 // ── StatCard ──────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon, color }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
             <div className="shrink-0">{icon}</div>
             <div>
                 <p className="text-xs text-gray-400 leading-none">{label}</p>
@@ -684,14 +700,14 @@ export default function UtpadakBonusRegister() {
 
     // Permission checks
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
         </div>
     );
     if (!can('utpadak_bonus_register', 'R')) return <AccessDenied />;
 
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
             <style>{`
                 @media print {
                     .no-print { display: none !important; }
@@ -700,36 +716,39 @@ export default function UtpadakBonusRegister() {
                 }
             `}</style>
 
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <Gift size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5 no-print">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('utpadakBonus.pageTitle')}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white text-xs font-semibold shadow-md shadow-amber-500/30">
+                                <Gift size={12} /> Bonus
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('utpadakBonus.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('utpadakBonus.pageSubtitle')}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('utpadakBonus.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('utpadakBonus.pageSubtitle')}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="bonus-header-actions">
                         <button
                             onClick={startBonusTour}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition mt-4"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.bonusEvent')}</span>
                             <select
                                 value={selectedEventId ?? "none"}
                                 onChange={e => setSelectedEventId(e.target.value === "none" ? null : Number(e.target.value))}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition max-w-[200px]">
+                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm max-w-[200px]">
                                 <option value="none">{t('utpadakBonus.noEvent')}</option>
                                 {events.map(ev => (
                                     <option key={ev.event_id} value={ev.event_id}>
@@ -742,7 +761,7 @@ export default function UtpadakBonusRegister() {
                         {selectedEvent && (
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.period')}</span>
-                                <span className="text-xs font-semibold text-gray-600 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                                <span className="text-xs font-semibold text-gray-600 px-3 py-2 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-sm">
                                     {fmtDate(activeFrom)} → {fmtDate(activeTo)}
                                 </span>
                             </div>
@@ -752,37 +771,33 @@ export default function UtpadakBonusRegister() {
                             setNewEvent(p => ({ ...p, from_date: customFrom, to_date: customTo }));
                             setShowNewEventForm(v => !v);
                         }}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-amber-500 text-white hover:bg-amber-600 transition mt-4">
-                            <Plus size={13} /> {t('utpadakBonus.newEvent')}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200">
+                            <Plus size={15} /> {t('utpadakBonus.newEvent')}
                         </button>
 
                         {selectedEvent && (
                             <>
                                 <button onClick={handleEditEvent}
-                                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                        bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition mt-4">
-                                    <Edit2 size={13} /> {t('utpadakBonus.editEvent')}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                                    <Edit2 size={15} /> {t('utpadakBonus.editEvent')}
                                 </button>
                                 <button onClick={handleDeleteEvent} disabled={deletingEvent}
-                                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                        bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50 transition mt-4">
-                                    {deletingEvent ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 disabled:opacity-50">
+                                    {deletingEvent ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
                                     {t('utpadakBonus.deleteEvent')}
                                 </button>
                             </>
                         )}
 
                         <button onClick={handlePrint}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-black text-white hover:bg-gray-800 transition mt-4">
-                            <Printer size={13} /> {t('utpadakBonus.print')}
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
+                            <Printer size={15} /> {t('utpadakBonus.print')}
                         </button>
                     </div>
                 </div>
 
                 {showNewEventForm && (
-                    <div className="bg-white rounded-2xl border border-amber-200 shadow-sm px-6 py-5 flex flex-col gap-4 no-print">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-amber-200/60 shadow-lg shadow-amber-200/30 px-6 py-5 flex flex-col gap-4 no-print">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-amber-500" />
@@ -798,15 +813,13 @@ export default function UtpadakBonusRegister() {
                                 <input value={newEvent.event_name}
                                     onChange={e => setNewEvent(p => ({ ...p, event_name: e.target.value }))}
                                     placeholder={t('utpadakBonus.eventNamePlaceholder')}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition w-44" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-44" />
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.occasion')}</span>
                                 <select value={newEvent.occasion}
                                     onChange={e => setNewEvent(p => ({ ...p, occasion: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition">
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
                                     {["diwali", "holi", "eid", "custom"].map(o => (
                                         <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
                                     ))}
@@ -816,19 +829,16 @@ export default function UtpadakBonusRegister() {
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.fromDate')}</span>
                                 <input type="date" value={newEvent.from_date}
                                     onChange={e => setNewEvent(p => ({ ...p, from_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.toDate')}</span>
                                 <input type="date" value={newEvent.to_date}
                                     onChange={e => setNewEvent(p => ({ ...p, to_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                             </div>
                             <button onClick={handleCreateEvent} disabled={creatingEvent}
-                                className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-xl
-                                    bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition">
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200 disabled:opacity-50">
                                 {creatingEvent ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
                                 {t('utpadakBonus.createEventBtn')}
                             </button>
@@ -841,7 +851,7 @@ export default function UtpadakBonusRegister() {
 
                 {/* Edit Event Form */}
                 {editingEvent && editEventDraft && (
-                    <div className="bg-white rounded-2xl border border-blue-200 shadow-sm px-6 py-5 flex flex-col gap-4 no-print">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-blue-200/60 shadow-lg shadow-blue-200/30 px-6 py-5 flex flex-col gap-4 no-print">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Edit2 size={14} className="text-blue-500" />
@@ -858,8 +868,7 @@ export default function UtpadakBonusRegister() {
                                     value={editEventDraft.event_name}
                                     onChange={e => setEditEventDraft(p => ({ ...p, event_name: e.target.value }))}
                                     placeholder={t('utpadakBonus.eventNamePlaceholder')}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition w-44"
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm w-44"
                                 />
                             </div>
                             <div className="flex flex-col gap-0.5">
@@ -867,8 +876,7 @@ export default function UtpadakBonusRegister() {
                                 <select
                                     value={editEventDraft.occasion}
                                     onChange={e => setEditEventDraft(p => ({ ...p, occasion: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition"
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                                 >
                                     {["diwali", "holi", "eid", "custom"].map(o => (
                                         <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
@@ -881,8 +889,7 @@ export default function UtpadakBonusRegister() {
                                     type="date"
                                     value={editEventDraft.from_date}
                                     onChange={e => setEditEventDraft(p => ({ ...p, from_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition"
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                                 />
                             </div>
                             <div className="flex flex-col gap-0.5">
@@ -891,15 +898,13 @@ export default function UtpadakBonusRegister() {
                                     type="date"
                                     value={editEventDraft.to_date}
                                     onChange={e => setEditEventDraft(p => ({ ...p, to_date: e.target.value }))}
-                                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                        focus:outline-none focus:ring-2 focus:ring-black transition"
+                                    className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                                 />
                             </div>
                             <button
                                 onClick={handleSaveEditEvent}
                                 disabled={savingEvent}
-                                className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-xl
-                                    bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition"
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50"
                             >
                                 {savingEvent ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
                                 {t('utpadakBonus.saveChanges')}
@@ -909,26 +914,21 @@ export default function UtpadakBonusRegister() {
                 )}
 
                 {/* Date Range Controls */}
-                <div className="flex items-center gap-3 flex-wrap no-print">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-3 flex-wrap no-print">
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.from')}</span>
                         <input type="date" value={customFrom}
                             onChange={e => setCustomFrom(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                            className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                     </div>
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('utpadakBonus.to')}</span>
                         <input type="date" value={customTo}
                             onChange={e => setCustomTo(e.target.value)}
-                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition" />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider opacity-0">{t('utpadakBonus.go')}</span>
+                            className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                     </div>
                     {!selectedEvent && (
-                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium mt-4">
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50/80 border border-amber-200/60 text-amber-600 text-xs font-medium shadow-sm">
                             <Sparkles size={11} />
                             {t('utpadakBonus.noEventSelected')}
                         </div>
@@ -943,82 +943,82 @@ export default function UtpadakBonusRegister() {
                     </p>
                 </div>
 
-                {/* Stats */}
+                {/* ── Stats ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-tour="bonus-stats">
                     <StatCard label={t('utpadakBonus.totalSellers')} value={rows.length}
-                        icon={<Users size={14} />}
-                        color="text-blue-600 bg-blue-50 border-blue-100" />
+                        icon={<Users size={14} className="text-blue-600" />}
+                        color="text-blue-600 bg-blue-50/80 border-blue-200/60" />
                     <StatCard label={t('utpadakBonus.totalQty')} value={`${fmtQty(grandQty)} L`}
-                        icon={<Sparkles size={14} />}
-                        color="text-amber-600 bg-amber-50 border-amber-100" />
+                        icon={<Sparkles size={14} className="text-amber-600" />}
+                        color="text-amber-600 bg-amber-50/80 border-amber-200/60" />
                     <StatCard label={t('utpadakBonus.totalBonusAmt')} value={fmt(grandAmt)}
-                        icon={<Banknote size={14} />}
-                        color="text-emerald-600 bg-emerald-50 border-emerald-100" />
+                        icon={<Banknote size={14} className="text-emerald-600" />}
+                        color="text-emerald-600 bg-emerald-50/80 border-emerald-200/60" />
                     <StatCard label={t('utpadakBonus.activeSlabs')} value={slabs.length}
                         sub={t('utpadakBonus.fatBased')}
-                        icon={<Settings size={14} />}
-                        color="text-violet-600 bg-violet-50 border-violet-100" />
+                        icon={<Settings size={14} className="text-violet-600" />}
+                        color="text-violet-600 bg-violet-50/80 border-violet-200/60" />
                 </div>
 
-                {/* Progress bar */}
-                <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center gap-4 no-print" data-tour="bonus-progress">
+                {/* ── Progress bar ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-4 no-print" data-tour="bonus-progress">
                     <div className="flex flex-col gap-1 flex-1">
                         <div className="flex justify-between text-xs font-medium text-gray-500 mb-1">
                             <span>{t('utpadakBonus.paymentProgress')}</span>
                             <span className="text-gray-700 font-semibold">{paidCount} / {rows.length} {t('utpadakBonus.paid')}</span>
                         </div>
-                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                        <div className="h-2 rounded-full bg-gray-100/80 overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
                                 style={{ width: rows.length ? `${(paidCount / rows.length) * 100}%` : "0%" }} />
                         </div>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 text-xs font-semibold shadow-sm">
                         <CheckCircle2 size={13} />
                         {rows.length > 0 ? Math.round((paidCount / rows.length) * 100) : 0}% {t('utpadakBonus.done')}
                     </div>
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success"
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
-                            : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={15} /> : <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === 'success'
+                            ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
+                            : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {flash.type === 'error' ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100">
-                            <X size={14} />
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
                         </button>
                     </div>
                 )}
 
-                {/* Slab Config */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden no-print" data-tour="bonus-slabs">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <Settings size={14} className="text-gray-400" />
-                            <span className="text-sm font-semibold text-gray-700">{t('utpadakBonus.slabConfig')}</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">
-                                {slabs.length} {t('utpadakBonus.slabs')}
-                            </span>
-                        </div>
+                {/* ── Slab Config ── */}
+                <SectionCard
+                    title={t('utpadakBonus.slabConfig')}
+                    icon={<Settings size={16} className="text-white" />}
+                    data-tour="bonus-slabs"
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                            {slabs.length} {t('utpadakBonus.slabs')}
+                        </span>
                         {!editingSlabs ? (
                             <button
                                 onClick={() => { setDraftSlabs(slabs); setEditingSlabs(true); }}
                                 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                    bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                                    bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 transition shadow-sm">
                                 <Edit2 size={11} /> {t('utpadakBonus.editSlabs')}
                             </button>
                         ) : (
                             <div className="flex items-center gap-2">
                                 <button onClick={handleAddSlab}
                                     className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                        bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                                        bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 transition shadow-sm">
                                     <Plus size={11} /> {t('utpadakBonus.addSlab')}
                                 </button>
                                 <button onClick={handleSaveSlabs}
                                     className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                        bg-gray-900 text-white hover:bg-gray-700 transition">
+                                        bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm hover:shadow-md transition">
                                     <Check size={11} /> {t('utpadakBonus.save')}
                                 </button>
                                 <button onClick={() => setEditingSlabs(false)}
@@ -1030,7 +1030,7 @@ export default function UtpadakBonusRegister() {
                     </div>
 
                     {editingSlabs ? (
-                        <div className="px-5 py-4 flex flex-col gap-2">
+                        <div className="flex flex-col gap-2">
                             <div className="grid text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1"
                                 style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 36px" }}>
                                 <span>{t('utpadakBonus.fatMin')}</span><span>{t('utpadakBonus.fatMax')}</span>
@@ -1039,29 +1039,28 @@ export default function UtpadakBonusRegister() {
                             </div>
                             {draftSlabs.map((slab, idx) => (
                                 <div key={idx}
-                                    className="grid gap-2 items-center py-2 border-b border-gray-100 last:border-b-0"
+                                    className="grid gap-2 items-center py-2 border-b border-gray-200/60 last:border-b-0"
                                     style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 36px" }}>
                                     {["fat_min", "fat_max", "bonus", "vahatuk", "rate"].map(field => (
                                         <input key={field} type="number" step="0.1"
                                             value={slab[field]}
                                             onChange={e => handleSlabChange(idx, field, e.target.value)}
-                                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                                focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                            className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
                                     ))}
                                     <button onClick={() => handleSlabDelete(idx)}
                                         disabled={draftSlabs.length <= 1}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg text-rose-400
-                                            hover:bg-rose-50 disabled:opacity-30 transition">
+                                            hover:bg-rose-50/80 disabled:opacity-30 transition">
                                         <Trash2 size={13} />
                                     </button>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 flex-wrap px-5 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
                             {slabs.map((s, i) => (
                                 <div key={i}
-                                    className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 text-xs">
+                                    className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50/60 border border-gray-200/60 text-xs shadow-sm">
                                     <span className="font-semibold text-gray-700">
                                         {t('utpadakBonus.fatRange', { min: s.fat_min, max: s.fat_max })}
                                     </span>
@@ -1073,36 +1072,40 @@ export default function UtpadakBonusRegister() {
                             ))}
                         </div>
                     )}
+                </SectionCard>
+
+                {/* ── Search + Filter ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4 no-print" data-tour="bonus-search">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <div className="relative flex-1 max-w-xs">
+                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                            <input value={search} onChange={e => setSearch(e.target.value)}
+                                placeholder={t('utpadakBonus.searchPlaceholder')}
+                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200/60 rounded-xl bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:text-gray-300" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</span>
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                                {[["all", t('utpadakBonus.all')], ["unpaid", t('utpadakBonus.unpaid')], ["paid", t('utpadakBonus.paid')]].map(([v, l]) => (
+                                    <button key={v} onClick={() => setFilterPaid(v)}
+                                        className={`px-3 py-2 transition-all duration-200
+                                            ${filterPaid === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Search + Filter */}
-                <div className="flex items-center gap-2 no-print" data-tour="bonus-search">
-                    <div className="relative flex-1 max-w-xs">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                        <input value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder={t('utpadakBonus.searchPlaceholder')}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white
-                                focus:outline-none focus:ring-2 focus:ring-black transition placeholder:text-gray-300" />
-                    </div>
-                    <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
-                        {[["all", t('utpadakBonus.all')], ["unpaid", t('utpadakBonus.unpaid')], ["paid", t('utpadakBonus.paid')]].map(([v, l]) => (
-                            <button key={v} onClick={() => setFilterPaid(v)}
-                                className={`px-3 py-2 transition
-                                    ${filterPaid === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
-                                {l}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Seller Cards */}
+                {/* ── Seller Cards ── */}
                 <div className="flex flex-col gap-3" data-tour="bonus-sellers">
                     {loading ? (
-                        <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+                        <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
                             <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200 gap-2 text-gray-300">
+                        <div className="flex flex-col items-center justify-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 gap-2 text-gray-300">
                             <Gift size={32} />
                             <p className="text-sm">{t('utpadakBonus.noSellersFound')}</p>
                         </div>
@@ -1110,15 +1113,15 @@ export default function UtpadakBonusRegister() {
                         const isOpen = expanded[row.seller_id];
                         return (
                             <div key={row.seller_id}
-                                className={`bg-white rounded-2xl border transition-all print-break
-                                    ${row.is_paid ? "border-emerald-200" : "border-gray-200"}`}>
+                                className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all shadow-lg shadow-gray-200/50 print-break
+                                    ${row.is_paid ? "border-emerald-200/60" : "border-gray-200/60"}`}>
 
                                 {/* Row */}
                                 <div className="flex items-center gap-3 px-5 py-4 cursor-pointer"
                                     onClick={() => toggleExpand(row.seller_id)}>
 
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0
-                                        ${row.is_paid ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 shadow-sm
+                                        ${row.is_paid ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white" : "bg-gradient-to-br from-gray-700 to-gray-900 text-white"}`}>
                                         {row.name?.charAt(0).toUpperCase()}
                                     </div>
 
@@ -1128,10 +1131,10 @@ export default function UtpadakBonusRegister() {
                                                 {row.name} <span className="text-xs text-gray-400">({row.milk_type})</span>
                                             </p>
                                             {row.is_paid
-                                                ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                                ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50/80 text-emerald-600 border border-emerald-200/60">
                                                     <CheckCircle2 size={9} /> {t('utpadakBonus.paid')}
                                                 </span>
-                                                : <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                                                : <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50/80 text-amber-600 border border-amber-200/60">
                                                     <Clock size={9} /> {t('utpadakBonus.pending')}
                                                 </span>
                                             }
@@ -1163,8 +1166,8 @@ export default function UtpadakBonusRegister() {
                                             onClick={(e) => handleMarkPaid(e, row.seller_id)}
                                             disabled={paying === row.seller_id}
                                             className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                                                bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold
-                                                transition disabled:opacity-50 shadow-sm shadow-emerald-200">
+                                                bg-gradient-to-br from-emerald-500 to-emerald-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white text-xs font-semibold
+                                                transition disabled:opacity-50 shadow-sm">
                                             {paying === row.seller_id
                                                 ? <RefreshCw size={11} className="animate-spin" />
                                                 : <CheckCircle2 size={11} />}
@@ -1172,7 +1175,7 @@ export default function UtpadakBonusRegister() {
                                         </button>
                                     ) : !row.is_paid && !selectedEventId ? (
                                         <span className="shrink-0 no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                                            bg-gray-100 text-gray-400 text-xs font-semibold border border-gray-200">
+                                            bg-gray-100/80 text-gray-400 text-xs font-semibold border border-gray-200/60 shadow-sm">
                                             {t('utpadakBonus.selectEventToPay')}
                                         </span>
                                     ) : selectedEventId ? (
@@ -1180,8 +1183,8 @@ export default function UtpadakBonusRegister() {
                                             onClick={(e) => handleUndoPaid(e, row.seller_id)}
                                             disabled={undoingPaid === row.seller_id}
                                             className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                                                bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold
-                                                transition disabled:opacity-50 shadow-sm shadow-rose-200">
+                                                bg-gradient-to-br from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/30 text-white text-xs font-semibold
+                                                transition disabled:opacity-50 shadow-sm">
                                             {undoingPaid === row.seller_id
                                                 ? <RefreshCw size={11} className="animate-spin" />
                                                 : <X size={11} />}
@@ -1202,15 +1205,15 @@ export default function UtpadakBonusRegister() {
 
                                 {/* Expanded slab breakdown */}
                                 {isOpen && (
-                                    <div className="border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
+                                    <div className="border-t border-gray-200/60 px-5 py-4 flex flex-col gap-4">
                                         {/* Cow Breakdown */}
                                         {row.hasCow && (
                                             <div>
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                                     {t('utpadakBonus.cowFatSlab')}
                                                 </p>
-                                                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                                    <div className="grid bg-gray-50 border-b border-gray-100"
+                                                <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
+                                                    <div className="grid bg-gray-50/80 border-b border-gray-200/60"
                                                         style={{ gridTemplateColumns: "repeat(4, 1fr) repeat(3, 1fr)" }}>
                                                         {[t('utpadakBonus.fatRange'), t('utpadakBonus.bonusPerL'), t('utpadakBonus.vahatukPerL'), t('utpadakBonus.ratePerL'), t('utpadakBonus.qtyL'), t('utpadakBonus.amount'), ""].map((h, i) => (
                                                             <div key={i} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
@@ -1220,8 +1223,8 @@ export default function UtpadakBonusRegister() {
                                                         const b = row.cowBuckets[bi];
                                                         return (
                                                             <div key={bi}
-                                                                className={`grid border-b border-gray-50 last:border-b-0 transition
-                                                                    ${b.qty > 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50/40 opacity-50"}`}
+                                                                className={`grid border-b border-gray-200/60 last:border-b-0 transition
+                                                                    ${b.qty > 0 ? "bg-white/50 hover:bg-gray-50/50" : "bg-gray-50/30 opacity-50"}`}
                                                                 style={{ gridTemplateColumns: "repeat(4, 1fr) repeat(3, 1fr)" }}>
                                                                 <div className="px-3 py-2 text-xs font-semibold text-gray-700">{s.fat_min}–{s.fat_max}</div>
                                                                 <div className="px-3 py-2 text-xs text-emerald-600 font-mono">{fmt(s.bonus)}</div>
@@ -1233,7 +1236,7 @@ export default function UtpadakBonusRegister() {
                                                             </div>
                                                         );
                                                     })}
-                                                    <div className="grid bg-gray-50 border-t border-gray-100"
+                                                    <div className="grid bg-gray-50/80 border-t border-gray-200/60"
                                                         style={{ gridTemplateColumns: "repeat(4, 1fr) repeat(3, 1fr)" }}>
                                                         <div className="px-3 py-2 text-xs font-bold text-gray-600 col-span-4">
                                                             {t('utpadakBonus.cowTotal')} ({slabs.filter((_, bi) => row.cowBuckets[bi].qty > 0).length} {t('utpadakBonus.slabs')})
@@ -1256,8 +1259,8 @@ export default function UtpadakBonusRegister() {
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                                     {t('utpadakBonus.buffaloFatSlab')}
                                                 </p>
-                                                <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                                    <div className="grid bg-gray-50 border-b border-gray-100"
+                                                <div className="rounded-xl border border-gray-200/60 bg-white/30 backdrop-blur-sm overflow-hidden shadow-sm">
+                                                    <div className="grid bg-gray-50/80 border-b border-gray-200/60"
                                                         style={{ gridTemplateColumns: "repeat(4, 1fr) repeat(3, 1fr)" }}>
                                                         {[t('utpadakBonus.fatRange'), t('utpadakBonus.bonusPerL'), t('utpadakBonus.vahatukPerL'), t('utpadakBonus.ratePerL'), t('utpadakBonus.qtyL'), t('utpadakBonus.amount'), ""].map((h, i) => (
                                                             <div key={i} className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{h}</div>
@@ -1267,8 +1270,8 @@ export default function UtpadakBonusRegister() {
                                                         const b = row.buffaloBuckets[bi];
                                                         return (
                                                             <div key={bi}
-                                                                className={`grid border-b border-gray-50 last:border-b-0 transition
-                                                                    ${b.qty > 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50/40 opacity-50"}`}
+                                                                className={`grid border-b border-gray-200/60 last:border-b-0 transition
+                                                                    ${b.qty > 0 ? "bg-white/50 hover:bg-gray-50/50" : "bg-gray-50/30 opacity-50"}`}
                                                                 style={{ gridTemplateColumns: "repeat(4, 1fr) repeat(3, 1fr)" }}>
                                                                 <div className="px-3 py-2 text-xs font-semibold text-gray-700">{s.fat_min}–{s.fat_max}</div>
                                                                 <div className="px-3 py-2 text-xs text-emerald-600 font-mono">{fmt(s.bonus)}</div>
@@ -1280,7 +1283,7 @@ export default function UtpadakBonusRegister() {
                                                             </div>
                                                         );
                                                     })}
-                                                    <div className="grid bg-gray-50 border-t border-gray-100"
+                                                    <div className="grid bg-gray-50/80 border-t border-gray-200/60"
                                                         style={{ gridTemplateColumns: "repeat(4, 1fr) repeat(3, 1fr)" }}>
                                                         <div className="px-3 py-2 text-xs font-bold text-gray-600 col-span-4">
                                                             {t('utpadakBonus.buffaloTotal')} ({slabs.filter((_, bi) => row.buffaloBuckets[bi].qty > 0).length} {t('utpadakBonus.slabs')})
@@ -1302,7 +1305,7 @@ export default function UtpadakBonusRegister() {
                                             <p>{t('utpadakBonus.totalMilkQty')}: <strong className="text-gray-800 ml-1">{fmtQty(row.totalQty)} L</strong></p>
                                             {row.hasCow && <p>{t('utpadakBonus.cow')}: <strong className="text-gray-800 ml-1">{fmtQty(row.cowBuckets.reduce((a, b) => a + b.qty, 0))} L</strong></p>}
                                             {row.hasBuffalo && <p>{t('utpadakBonus.buffalo')}: <strong className="text-gray-800 ml-1">{fmtQty(row.buffaloBuckets.reduce((a, b) => a + b.qty, 0))} L</strong></p>}
-                                            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-900 text-white mt-2">
+                                            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 mt-2">
                                                 <span className="text-xs font-semibold uppercase tracking-wider">{row.milk_type} {t('utpadakBonus.netBonus')}</span>
                                                 <span className="text-base font-bold">{fmt(row.totalAmt)}</span>
                                             </div>
@@ -1321,9 +1324,9 @@ export default function UtpadakBonusRegister() {
                     })}
                 </div>
 
-                {/* Grand Total Footer */}
+                {/* ── Grand Total Footer ── */}
                 {filtered.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-x-auto">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-x-auto">
                         <div className="flex flex-wrap items-center gap-4 text-sm">
                             <div>
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('utpadakBonus.totalSellers')}</p>
@@ -1361,12 +1364,13 @@ export default function UtpadakBonusRegister() {
 
             </main>
 
+            {/* ── Delete Confirmation Modal ── */}
             {deleteConfirmOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-xl bg-rose-100/80 flex items-center justify-center">
                                     <Trash2 size={18} className="text-rose-600" />
                                 </div>
                                 <div>
@@ -1375,7 +1379,7 @@ export default function UtpadakBonusRegister() {
                                 </div>
                             </div>
                             <button onClick={() => setDeleteConfirmOpen(false)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
                                 <X size={15} />
                             </button>
                         </div>
@@ -1383,7 +1387,7 @@ export default function UtpadakBonusRegister() {
                             <p className="text-sm text-gray-600">
                                 {t('utpadakBonus.deleteEventConfirm', { name: selectedEvent?.event_name })}
                             </p>
-                            <div className="rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1">
+                            <div className="rounded-xl bg-rose-50/80 border border-rose-200/60 px-4 py-3 text-xs text-rose-700 flex flex-col gap-1 shadow-sm">
                                 <p className="font-semibold">{t('utpadakBonus.willBeDeleted')}:</p>
                                 <ul className="list-disc list-inside text-rose-600 mt-1 space-y-0.5">
                                     <li>{t('utpadakBonus.deleteSlabs')}</li>
@@ -1392,13 +1396,13 @@ export default function UtpadakBonusRegister() {
                                 </ul>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+                        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200/60">
                             <button onClick={() => setDeleteConfirmOpen(false)}
-                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                                className="px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                                 {t('utpadakBonus.cancel')}
                             </button>
                             <button onClick={confirmDeleteEvent} disabled={deletingEvent}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50">
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-br from-rose-600 to-rose-700 text-white hover:shadow-lg hover:shadow-rose-500/30 transition disabled:opacity-50 shadow-sm">
                                 {deletingEvent
                                     ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                     : <Trash2 size={12} />}

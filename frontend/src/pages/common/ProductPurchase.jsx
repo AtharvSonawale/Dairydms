@@ -1,15 +1,46 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
     Package, Save, User, AlertTriangle,
     BadgeCheck, RefreshCw, X, TrendingUp,
-    ShoppingBag, Layers, Banknote, FileDown, Trash2
+    ShoppingBag, Layers, Banknote, FileDown, Trash2,
+    Home, Settings, Calendar
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+
+// ── portal for dropdowns (escapes clipping/stacking of any ancestor) ──
+function DropdownPortal({ anchorRef, open, width, children }) {
+    const [style, setStyle] = useState(null);
+
+    useEffect(() => {
+        if (!open || !anchorRef.current) { setStyle(null); return; }
+        const update = () => {
+            const r = anchorRef.current.getBoundingClientRect();
+            setStyle({
+                position: "fixed",
+                top: r.bottom + 4,
+                left: r.left,
+                width: width || r.width,
+                zIndex: 9999,
+            });
+        };
+        update();
+        window.addEventListener("scroll", update, true);
+        window.addEventListener("resize", update);
+        return () => {
+            window.removeEventListener("scroll", update, true);
+            window.removeEventListener("resize", update);
+        };
+    }, [open, anchorRef]);
+
+    if (!open || !style) return null;
+    return createPortal(<div style={style}>{children}</div>, document.body);
+}
 
 // ── helpers ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
@@ -29,7 +60,7 @@ const EMPTY_FORM = {
 function Field({ label, icon, children }) {
     return (
         <div className="flex flex-col gap-1 shrink-0">
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                 {icon}{label}
             </span>
             {children}
@@ -41,8 +72,8 @@ function TinyInput({ className = "", ...props }) {
     return (
         <input
             {...props}
-            className={`border border-gray-200 rounded-xl px-2.5 py-[7px] text-sm text-gray-900 bg-gray-50
-                focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -50,7 +81,7 @@ function TinyInput({ className = "", ...props }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-2.5 flex items-center border-r border-gray-50 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-2.5 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );
@@ -81,13 +112,15 @@ export default function ProductPurchase() {
     const [rangeEntries, setRangeEntries] = useState([]);
     const [loadingRange, setLoadingRange] = useState(false);
     const [pdfReady, setPdfReady] = useState(false);
-    const [editingPurchase, setEditingPurchase] = useState(null); // { purchase_id, quantity, rate, mrp_rate, supplier_name, purchase_date }
+    const [editingPurchase, setEditingPurchase] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
 
     // ── Custom delete modal state ──────────────────────────────
     const [deleteModal, setDeleteModal] = useState({ open: false, purchaseId: null });
     const [processingDelete, setProcessingDelete] = useState(false);
+    const productAnchorRef = useRef(null);
+    const supplierAnchorRef = useRef(null);
 
     const handleAddProduct = async (e) => {
         e.preventDefault();
@@ -212,8 +245,6 @@ export default function ProductPurchase() {
         }
     };
 
-    // ADD after fetchRangeEntries function:
-
     const handleEditSave = async () => {
         if (!editingPurchase) return;
         setEditSaving(true);
@@ -311,7 +342,6 @@ export default function ProductPurchase() {
     useEffect(() => {
         if (!form.product_id) return;
 
-        // autofill rate/mrp from product master
         const product = products.find(p => String(p.product_id) === String(form.product_id));
         if (product) {
             setForm(prev => ({
@@ -321,7 +351,6 @@ export default function ProductPurchase() {
             }));
         }
 
-        // autofill supplier_name + rate from last purchase suggestion
         fetchSupplierSuggestions(form.product_id).then((suggestions) => {
             if (suggestions && suggestions.length >= 1) {
                 const top = suggestions[0];
@@ -506,40 +535,44 @@ export default function ProductPurchase() {
     const GRID = "1.6fr 1.2fr 80px 80px 80px 100px 70px 72px";
 
     if (permLoading) return (
-        <div className="min-h-screen bg-[#f5f4f0] flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
     if (!can('product_purchases', 'R')) return <AccessDenied />;
     return (
-        <div className="min-h-screen bg-[#f5f4f0]">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center shadow-md shadow-gray-200">
-                            <ShoppingBag size={18} className="text-white" />
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+                    <div>
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('productPurchase.pageBreadcrumb', { defaultValue: 'Inventory' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                <Settings size={12} /> {t('status.admin')}
+                            </span>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">{t('productPurchase.pageTitle')}</h1>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                                {t('productPurchase.pageSubtitle')} —{" "}
-                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                            {t('productPurchase.pageTitle')}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {t('productPurchase.pageSubtitle')} —{" "}
+                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={startPurchaseTour}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
-                            <BadgeCheck size={13} /> Take a Tour
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <div className="flex flex-col gap-0.5" data-tour="purchase-date">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.dateLabel')}</span>
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchase.dateLabel')}</span>
                             <input type="date" value={selectedDate}
                                 onChange={(e) => {
                                     const d = e.target.value;
@@ -549,20 +582,19 @@ export default function ProductPurchase() {
                                     else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); }
                                     else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); }
                                 }}
-                                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white
-                                    focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                         </div>
 
                     </div>
 
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('productPurchase.downloadPDF')}</span>
+                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchase.downloadPDF')}</span>
 
                         <div className="flex flex-wrap items-center gap-1.5">
-                            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold">
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
                                 {[{ v: "daily", l: t('productPurchase.day') }, { v: "weekly", l: t('productPurchase.week') }, { v: "monthly", l: t('productPurchase.month') }, { v: "custom", l: t('productPurchase.custom') }].map(({ v, l }) => (
                                     <button key={v} type="button" onClick={() => handleRangeModeChange(v)}
-                                        className={`px-3 py-2 transition ${rangeMode === v ? "bg-gray-900 text-white" : "bg-white text-gray-400 hover:bg-gray-50"}`}>
+                                        className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}>
                                         {l}
                                     </button>
                                 ))}
@@ -571,15 +603,15 @@ export default function ProductPurchase() {
                             {rangeMode === "custom" && (
                                 <div className="flex flex-wrap items-center gap-1">
                                     <input type="date" value={fromDate} onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                        className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                                     <span className="text-gray-400 text-xs">→</span>
                                     <input type="date" value={toDate} onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                        className="border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                                 </div>
                             )}
 
                             {rangeMode !== "custom" && (
-                                <span className="text-xs text-gray-500 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-xl whitespace-nowrap hidden sm:inline">
+                                <span className="text-xs text-gray-500 px-3 py-1.5 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
                                     {fromDate === toDate
                                         ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
                                         : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
@@ -587,13 +619,13 @@ export default function ProductPurchase() {
                             )}
 
                             {loadingRange ? (
-                                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-semibold">
+                                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100/80 text-gray-400 text-xs font-semibold">
                                     <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
                                     {t('dashboard.loading')}
                                 </div>
                             ) : (
                                 <button onClick={handleDownloadPDF} disabled={rangeMode === "daily" ? purchases.length === 0 : !pdfReady}
-                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 disabled:opacity-40 transition">
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 shadow-lg shadow-rose-500/30 disabled:opacity-50">
                                     <FileDown size={13} /> PDF
                                 </button>
                             )}
@@ -601,37 +633,41 @@ export default function ProductPurchase() {
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3" data-tour="purchase-stats">
+                {/* ── Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-4" data-tour="purchase-stats">
                     {[
-                        { label: rangeMode === "daily" ? t('productPurchase.purchasesToday') : t('productPurchase.purchasesInRange'), value: activeData.length, icon: <Package size={14} />, color: "text-blue-600 bg-blue-50 border-blue-100" },
-                        { label: t('productPurchase.totalSpent'), value: "₹" + totalSpent.toFixed(2), icon: <Banknote size={14} />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+                        { label: rangeMode === "daily" ? t('productPurchase.purchasesToday') : t('productPurchase.purchasesInRange'), value: activeData.length, icon: <Package size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
+                        { label: t('productPurchase.totalSpent'), value: "₹" + totalSpent.toFixed(2), icon: <Banknote size={16} />, color: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" },
                     ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color}`}>
-                            <div className="shrink-0">{icon}</div>
-                            <div>
-                                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                        <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+                            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+                            <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
+                            <div className="relative z-10">
+                                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
+                                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Flash */}
+                {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium
-                        ${flash.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={15} />}
-                        {flash.type === "success" && <BadgeCheck size={15} />}
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
+                        {flash.type === "error" && <AlertTriangle size={18} />}
+                        {flash.type === "success" && <BadgeCheck size={18} />}
                         {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={14} /></button>
+                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
 
-                {/* Entry Form */}
-                {can('product_purchases', 'C') && <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5" data-tour="purchase-form">
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{t('productPurchase.newPurchaseEntry')}</p>
+                {/* ── Entry Form ── */}
+                {can('product_purchases', 'C') && <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-6 py-5" data-tour="purchase-form">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{t('productPurchase.newPurchaseEntry')}</p>
                         {can('products', 'C') && (
                             <button type="button" onClick={() => setShowNewProduct(true)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-gray-300
@@ -641,11 +677,11 @@ export default function ProductPurchase() {
                         )}
                     </div>
 
-                    <div className="flex items-start gap-3 flex-wrap">
+                    <div className="flex items-start gap-3 flex-wrap relative z-10">
 
                         {/* Product select */}
                         <Field label={t('productPurchase.product')} icon={<Package size={12} />}>
-                            <div className="relative">
+                            <div className="relative" ref={productAnchorRef}>
                                 <TinyInput
                                     value={productSearch !== "" ? productSearch : (products.find(p => String(p.product_id) === String(form.product_id))?.product_name || "")}
                                     onChange={(e) => { setProductSearch(e.target.value); setShowProductDrop(true); }}
@@ -654,9 +690,9 @@ export default function ProductPurchase() {
                                     placeholder={t('productPurchase.searchProductPlaceholder')}
                                     className="w-52"
                                 />
-                                {showProductDrop && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden max-h-48 overflow-y-auto">
-                                        <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                <DropdownPortal anchorRef={productAnchorRef} open={showProductDrop} width={256}>
+                                    <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                                        <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
                                             {t('productPurchase.products')}
                                         </p>
                                         {(productSearch.trim()
@@ -677,7 +713,7 @@ export default function ProductPurchase() {
                                                     fetchSupplierSuggestions(p.product_id);
                                                     setShowSupplierDrop(true);
                                                 }}
-                                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                 <div>
                                                     <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
                                                     <p className="text-[10px] text-gray-400">
@@ -690,7 +726,7 @@ export default function ProductPurchase() {
                                             </button>
                                         ))}
                                     </div>
-                                )}
+                                </DropdownPortal>
                             </div>
                             {selectedProduct && (
                                 <p className="text-[10px] text-gray-400 font-medium mt-0.5">
@@ -705,7 +741,7 @@ export default function ProductPurchase() {
 
                         {/* Supplier name */}
                         <Field label={t('productPurchase.supplier')} icon={<User size={12} />}>
-                            <div className="relative">
+                            <div className="relative" ref={supplierAnchorRef}>
                                 <TinyInput
                                     value={form.supplier_name}
                                     onChange={(e) => { set("supplier_name", e.target.value); setShowSupplierDrop(true); }}
@@ -714,9 +750,9 @@ export default function ProductPurchase() {
                                     placeholder={t('productPurchase.supplierPlaceholder')}
                                     className="w-40"
                                 />
-                                {showSupplierDrop && supplierSuggestions.length > 0 && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                                        <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                <DropdownPortal anchorRef={supplierAnchorRef} open={showSupplierDrop && supplierSuggestions.length > 0} width={256}>
+                                    <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
+                                        <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
                                             {t('productPurchase.pastSuppliers')}
                                         </p>
                                         {supplierSuggestions
@@ -727,7 +763,7 @@ export default function ProductPurchase() {
                                                         setForm(p => ({ ...p, supplier_name: s.supplier_name, rate: String(s.rate) }));
                                                         setShowSupplierDrop(false);
                                                     }}
-                                                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left transition">
+                                                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                     <div>
                                                         <p className="text-xs font-medium text-gray-800">{s.supplier_name}</p>
                                                         <p className="text-[10px] text-gray-400">{t('productPurchase.lastRate')}: ₹{parseFloat(s.rate).toFixed(2)}</p>
@@ -736,7 +772,7 @@ export default function ProductPurchase() {
                                                 </button>
                                             ))}
                                     </div>
-                                )}
+                                </DropdownPortal>
                             </div>
                         </Field>
 
@@ -753,7 +789,7 @@ export default function ProductPurchase() {
                                 value={form.quantity}
                                 onChange={(e) => set("quantity", e.target.value)}
                                 placeholder="0.0" type="number" step="0.01"
-                                className="w-20 bg-blue-50 border-blue-200 text-blue-700"
+                                className={`w-20 ${form.quantity ? "bg-blue-50/30 border-blue-200/60 text-blue-700" : "bg-blue-50/30 border-blue-200/60"}`}
                             />
                             {selectedProduct && (
                                 <p className="text-[10px] text-blue-400 font-medium mt-0.5">{selectedProduct.unit}</p>
@@ -766,7 +802,7 @@ export default function ProductPurchase() {
                                 value={form.rate}
                                 onChange={(e) => set("rate", e.target.value)}
                                 placeholder="₹0.00" type="number" step="0.01"
-                                className="w-20 bg-amber-50 border-amber-200 text-amber-700"
+                                className={`w-20 ${form.rate ? "bg-amber-50/30 border-amber-200/60 text-amber-700" : "bg-amber-50/30 border-amber-200/60"}`}
                             />
                         </Field>
 
@@ -778,14 +814,14 @@ export default function ProductPurchase() {
                                 placeholder="₹0.00"
                                 type="number"
                                 step="0.01"
-                                className="w-20 bg-violet-50 border-violet-200 text-violet-700"
+                                className={`w-20 ${form.mrp_rate ? "bg-violet-50/30 border-violet-200/60 text-violet-700" : "bg-violet-50/30 border-violet-200/60"}`}
                             />
                         </Field>
 
                         {/* Computed total */}
                         {totalAmount && (
                             <Field label={t('productPurchase.total')} icon={<Banknote size={12} />}>
-                                <div className="h-[35px] px-4 flex items-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm whitespace-nowrap">
+                                <div className="h-[35px] px-4 flex items-center rounded-xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/60 text-emerald-700 font-bold text-sm whitespace-nowrap shadow-sm">
                                     ₹{totalAmount}
                                 </div>
                             </Field>
@@ -793,7 +829,7 @@ export default function ProductPurchase() {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200/60 relative z-10">
                         <p className="text-xs text-gray-400">
                             {purchases.length} {purchases.length === 1 ? t('productPurchase.purchase') : t('productPurchase.purchases')} {t('productPurchase.on')}{" "}
                             {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
@@ -802,21 +838,21 @@ export default function ProductPurchase() {
                             )}
                         </p>
                         <button type="button" onClick={handleSave} disabled={saving}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md transition-all
-                                ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-black hover:bg-gray-800 active:scale-95"}`}>
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all duration-200
+                                ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}>
                             <Save size={15} />
                             {saving ? t('productPurchase.saving') : t('productPurchase.recordPurchase')}
                         </button>
                     </div>
                 </div>}
 
-                {/* Purchases Table */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-tour="purchases-table">
+                {/* ── Purchases Table ── */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="purchases-table">
 
                     {/* Header */}
-                    <div className="grid border-b border-gray-100 bg-gray-50/80" style={{ gridTemplateColumns: GRID }}>
+                    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-100 last:border-r-0">
+                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -825,12 +861,12 @@ export default function ProductPurchase() {
                     {/* Rows */}
                     {loading || loadingRange ? (
                         <div className="flex items-center justify-center py-16">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : activeData.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <ShoppingBag size={32} />
-                            <p className="text-sm">
+                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                            <ShoppingBag size={40} className="text-gray-200" />
+                            <p className="text-sm font-medium">
                                 {rangeMode === "daily"
                                     ? t('productPurchase.noPurchasesDaily')
                                     : t('productPurchase.noPurchasesRange')}
@@ -841,14 +877,14 @@ export default function ProductPurchase() {
                             <div className="min-w-max">
                                 {[...activeData].reverse().map((p, i) => (
                                     <div key={p.purchase_id || i}
-                                        className="grid border-b border-gray-50 hover:bg-blue-50/20 transition-colors"
+                                        className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
                                         style={{ gridTemplateColumns: GRID }}>
 
                                         {/* Product */}
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                                                    <Package size={11} className="text-gray-500" />
+                                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shrink-0 shadow-sm">
+                                                    <Package size={13} className="text-gray-500" />
                                                 </div>
                                                 <div className="flex flex-col min-w-0">
                                                     <span className="text-gray-800 font-medium text-xs truncate">{p.product_name || `ID:${p.product_id}`}</span>
@@ -860,7 +896,7 @@ export default function ProductPurchase() {
                                         {/* Supplier */}
                                         <TableCell>
                                             <div className="flex items-center gap-1.5">
-                                                <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-bold text-[10px] shrink-0">
+                                                <div className="w-6 h-6 rounded-full bg-violet-100/80 flex items-center justify-center text-violet-600 font-bold text-[10px] shrink-0">
                                                     {p.supplier_name?.charAt(0)?.toUpperCase()}
                                                 </div>
                                                 <span className="text-gray-700 text-xs font-medium truncate">{p.supplier_name}</span>
@@ -888,7 +924,7 @@ export default function ProductPurchase() {
                                         </TableCell>
 
                                         <TableCell>
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-1.5">
                                                 {can('product_purchases', 'U') && <button
                                                     onClick={() => setEditingPurchase({
                                                         purchase_id: p.purchase_id,
@@ -900,20 +936,20 @@ export default function ProductPurchase() {
                                                         supplier_name: p.supplier_name,
                                                         purchase_date: selectedDate,
                                                     })}
-                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-500 transition"
+                                                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 transition border border-blue-200/60 backdrop-blur-sm shadow-sm"
                                                     title="Edit"
                                                 >
-                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                 </button>}
                                                 {can('product_purchases', 'D') && <button
                                                     onClick={() => confirmDelete(p.purchase_id)}
                                                     disabled={processingDelete && deleteModal.purchaseId === p.purchase_id}
-                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-400 transition disabled:opacity-40"
+                                                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 transition border border-rose-200/60 backdrop-blur-sm shadow-sm disabled:opacity-40"
                                                     title="Delete"
                                                 >
                                                     {processingDelete && deleteModal.purchaseId === p.purchase_id
-                                                        ? <svg className="animate-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0" /></svg>
-                                                        : <Trash2 size={11} />
+                                                        ? <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0" /></svg>
+                                                        : <Trash2 size={12} />
                                                     }
                                                 </button>}
                                             </div>
@@ -926,18 +962,18 @@ export default function ProductPurchase() {
 
                     {/* Totals footer */}
                     {activeData.length > 0 && (
-                        <div className="grid border-t-2 border-gray-100 bg-gray-50/80 min-w-max"
+                        <div className="grid border-t-2 border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 min-w-max"
                             style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-100">
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {activeData.length} {activeData.length === 1 ? t('productPurchase.entry') : t('productPurchase.entries')}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 border-r border-gray-100" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
                                 ₹{totalSpent.toFixed(2)}
                             </div>
                             <div className="px-3 py-2.5" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-100">
+                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
                                 ₹{totalSpent.toFixed(2)}
                             </div>
                             <div className="px-3 py-2.5" />
@@ -945,27 +981,28 @@ export default function ProductPurchase() {
                     )}
                 </div>
 
-                {/* Legend */}
-                <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                {/* ── Legend ── */}
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
                     <span>• <strong className="text-gray-600">{purchases.length}</strong> {purchases.length === 1 ? t('productPurchase.purchase') : t('productPurchase.purchases')} {t('productPurchase.recordedToday')}</span>
                     <span>• {t('productPurchase.stockUpdateNote')}</span>
                     <span>• {t('productPurchase.rateNote')}</span>
+                    <span>· {t('productPurchase.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
                 </div>
 
             </main>
 
-            {/* New Product Modal */}
+            {/* ── New Product Modal ── */}
             {showNewProduct && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[420px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[420px] flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h2 className="text-gray-800 font-semibold text-base">{t('productPurchase.addNewProduct')}</h2>
-                                <p className="text-gray-400 text-xs mt-0.5">{t('productPurchase.addProductDesc')}</p>
+                                <h2 className="text-gray-800 font-bold text-base">{t('productPurchase.addNewProduct')}</h2>
+                                <p className="text-gray-500 text-xs mt-0.5">{t('productPurchase.addProductDesc')}</p>
                             </div>
                             <button onClick={() => setShowNewProduct(false)}
-                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                <X size={14} />
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                <X size={16} />
                             </button>
                         </div>
 
@@ -982,8 +1019,7 @@ export default function ProductPurchase() {
                                         onChange={(e) => setNewProduct(p => ({ ...p, product_name: e.target.value }))}
                                         placeholder={t('productPurchase.productNamePlaceholder')}
                                         required
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
-                                            placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1">
@@ -995,17 +1031,16 @@ export default function ProductPurchase() {
                                         onChange={(e) => setNewProduct(p => ({ ...p, unit: e.target.value }))}
                                         placeholder={t('productPurchase.unitPlaceholder')}
                                         required
-                                        className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
-                                            placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                     />
                                 </div>
                             </div>
 
                             {/* Divider */}
                             <div className="flex items-center gap-2">
-                                <div className="flex-1 h-px bg-gray-100" />
+                                <div className="flex-1 h-px bg-gray-200/60" />
                                 <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">{t('productPurchase.firstPurchaseOptional')}</span>
-                                <div className="flex-1 h-px bg-gray-100" />
+                                <div className="flex-1 h-px bg-gray-200/60" />
                             </div>
 
                             {/* Supplier */}
@@ -1015,8 +1050,7 @@ export default function ProductPurchase() {
                                     value={newProduct.supplier_name || ""}
                                     onChange={(e) => setNewProduct(p => ({ ...p, supplier_name: e.target.value }))}
                                     placeholder={t('productPurchase.supplierPlaceholder')}
-                                    className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900
-                                        placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                 />
                             </div>
 
@@ -1029,8 +1063,7 @@ export default function ProductPurchase() {
                                         value={newProduct.quantity || ""}
                                         onChange={(e) => setNewProduct(p => ({ ...p, quantity: e.target.value }))}
                                         placeholder="0.00"
-                                        className="border border-gray-200 bg-blue-50 border-blue-200 rounded-xl px-3 py-2 text-sm text-blue-700
-                                            placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:bg-white transition"
+                                        className="border border-blue-200/60 bg-blue-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-blue-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition"
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1">
@@ -1040,8 +1073,7 @@ export default function ProductPurchase() {
                                         value={newProduct.rate || ""}
                                         onChange={(e) => setNewProduct(p => ({ ...p, rate: e.target.value }))}
                                         placeholder="₹0.00"
-                                        className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 text-sm text-amber-700
-                                            placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:bg-white transition"
+                                        className="border border-amber-200/60 bg-amber-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-amber-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition"
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1">
@@ -1051,15 +1083,14 @@ export default function ProductPurchase() {
                                         value={newProduct.mrp_rate || ""}
                                         onChange={(e) => setNewProduct(p => ({ ...p, mrp_rate: e.target.value }))}
                                         placeholder="₹0.00"
-                                        className="border border-violet-200 bg-violet-50 rounded-xl px-3 py-2 text-sm text-violet-700
-                                            placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:bg-white transition"
+                                        className="border border-violet-200/60 bg-violet-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-violet-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition"
                                     />
                                 </div>
                             </div>
 
                             {/* Computed total preview */}
                             {newProduct.quantity && newProduct.rate && (
-                                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/60 shadow-sm">
                                     <span className="text-xs text-emerald-600 font-medium">{t('productPurchase.totalAmount')}</span>
                                     <span className="text-sm font-bold text-emerald-700">
                                         ₹{(parseFloat(newProduct.quantity || 0) * parseFloat(newProduct.rate || 0)).toFixed(2)}
@@ -1067,13 +1098,13 @@ export default function ProductPurchase() {
                                 </div>
                             )}
 
-                            <div className="flex gap-2 mt-1">
+                            <div className="flex gap-2 mt-1 border-t border-gray-100/60 pt-4">
                                 <button type="button" onClick={() => setShowNewProduct(false)}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                     {t('productPurchase.cancel')}
                                 </button>
                                 <button type="submit" disabled={savingProduct}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2">
                                     {savingProduct && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     {savingProduct ? t('productPurchase.saving') : t('productPurchase.addProduct')}
                                 </button>
@@ -1083,18 +1114,18 @@ export default function ProductPurchase() {
                 </div>
             )}
 
-            {/* Edit Purchase Modal */}
+            {/* ── Edit Purchase Modal ── */}
             {editingPurchase && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-[380px] flex flex-col gap-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[380px] flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h2 className="text-gray-800 font-semibold text-base">{t('productPurchase.editPurchase') || "Edit Purchase"}</h2>
-                                <p className="text-gray-400 text-xs mt-0.5">{t('productPurchase.editPurchaseDesc') || "Stock will be adjusted by the difference."}</p>
+                                <h2 className="text-gray-800 font-bold text-base">{t('productPurchase.editPurchase') || "Edit Purchase"}</h2>
+                                <p className="text-gray-500 text-xs mt-0.5">{t('productPurchase.editPurchaseDesc') || "Stock will be adjusted by the difference."}</p>
                             </div>
                             <button onClick={() => setEditingPurchase(null)}
-                                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
-                                <X size={14} />
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                <X size={16} />
                             </button>
                         </div>
 
@@ -1106,7 +1137,7 @@ export default function ProductPurchase() {
                                 <input
                                     value={editingPurchase.product_name}
                                     onChange={e => setEditingPurchase(p => ({ ...p, product_name: e.target.value }))}
-                                    className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                 />
                             </div>
 
@@ -1114,7 +1145,7 @@ export default function ProductPurchase() {
                                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchase.supplier')}</label>
                                 <input value={editingPurchase.supplier_name}
                                     onChange={e => setEditingPurchase(p => ({ ...p, supplier_name: e.target.value }))}
-                                    className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black transition" />
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
                             </div>
 
                             <div className="grid grid-cols-3 gap-3">
@@ -1122,24 +1153,24 @@ export default function ProductPurchase() {
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchase.quantity')}</label>
                                     <input type="number" step="0.01" value={editingPurchase.quantity}
                                         onChange={e => setEditingPurchase(p => ({ ...p, quantity: e.target.value }))}
-                                        className="border border-blue-200 bg-blue-50 rounded-xl px-3 py-2 text-sm text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition" />
+                                        className="border border-blue-200/60 bg-blue-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-blue-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchase.rate')}</label>
                                     <input type="number" step="0.01" value={editingPurchase.rate}
                                         onChange={e => setEditingPurchase(p => ({ ...p, rate: e.target.value }))}
-                                        className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 text-sm text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-200 transition" />
+                                        className="border border-amber-200/60 bg-amber-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-amber-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('productPurchase.mrp')}</label>
                                     <input type="number" step="0.01" value={editingPurchase.mrp_rate}
                                         onChange={e => setEditingPurchase(p => ({ ...p, mrp_rate: e.target.value }))}
-                                        className="border border-violet-200 bg-violet-50 rounded-xl px-3 py-2 text-sm text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-200 transition" />
+                                        className="border border-violet-200/60 bg-violet-50/30 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-violet-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition" />
                                 </div>
                             </div>
 
                             {editingPurchase.quantity && editingPurchase.rate && (
-                                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/60 shadow-sm">
                                     <span className="text-xs text-emerald-600 font-medium">{t('productPurchase.total')}</span>
                                     <span className="text-sm font-bold text-emerald-700">
                                         ₹{(parseFloat(editingPurchase.quantity || 0) * parseFloat(editingPurchase.rate || 0)).toFixed(2)}
@@ -1147,13 +1178,13 @@ export default function ProductPurchase() {
                                 </div>
                             )}
 
-                            <div className="flex gap-2 mt-1">
+                            <div className="flex gap-2 mt-1 border-t border-gray-100/60 pt-4">
                                 <button onClick={() => setEditingPurchase(null)}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                     {t('productPurchase.cancel')}
                                 </button>
                                 <button onClick={handleEditSave} disabled={editSaving}
-                                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-black hover:bg-gray-800 disabled:opacity-50 transition flex items-center justify-center gap-2">
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2">
                                     {editSaving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     {editSaving ? t('productPurchase.saving') : "Save Changes"}
                                 </button>
@@ -1165,13 +1196,13 @@ export default function ProductPurchase() {
 
             {/* ── Delete Confirmation Modal ── */}
             {deleteModal.open && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 flex flex-col gap-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-80 flex flex-col gap-4">
                         <div className="flex flex-col items-center gap-2 text-center">
-                            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
-                                <Trash2 size={22} className="text-red-500" />
+                            <div className="w-14 h-14 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
+                                <Trash2 size={24} className="text-rose-500" />
                             </div>
-                            <h2 className="text-gray-800 font-semibold text-base">{t('productPurchase.deleteModalTitle', "Delete Purchase")}</h2>
+                            <h2 className="text-gray-800 font-bold text-base">{t('productPurchase.deleteModalTitle', "Delete Purchase")}</h2>
                             <p className="text-gray-400 text-xs leading-relaxed">
                                 {t('productPurchase.deleteModalWarning', "This action cannot be undone. Stock will be reversed.")}
                             </p>
@@ -1179,7 +1210,7 @@ export default function ProductPurchase() {
                         <div className="flex gap-2 mt-1">
                             <button
                                 onClick={() => setDeleteModal({ open: false, purchaseId: null })}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition"
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
                                 disabled={processingDelete}
                             >
                                 {t('productPurchase.cancel')}
@@ -1187,7 +1218,7 @@ export default function ProductPurchase() {
                             <button
                                 onClick={handleConfirmDelete}
                                 disabled={processingDelete}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-100 transition active:scale-95"
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 active:scale-95"
                             >
                                 {processingDelete
                                     ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />

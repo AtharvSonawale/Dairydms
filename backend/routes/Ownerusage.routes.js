@@ -7,8 +7,11 @@ const ctrl = require('../controllers/ownerUsage.controller');
 // PUT    /api/owner-usage/:id              → update an entry
 // DELETE /api/owner-usage/:id              → remove an entry
 router.get('/', protect, ctrl.getEntries);
+router.get('/summary', protect, ctrl.getSummary);
+router.get('/monthly-summary', protect, ctrl.getMonthlySummary);
+router.get('/centre-summary', protect, ctrl.getCentreSummary);
 router.post('/', protect, ctrl.createEntry);
-router.put('/:id', protect, ctrl.updateEntry);  // Add this line
+router.put('/:id', protect, ctrl.updateEntry);
 router.delete('/:id', protect, ctrl.deleteEntry);
 
 module.exports = router;
