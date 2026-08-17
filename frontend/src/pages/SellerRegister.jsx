@@ -21,7 +21,7 @@ import AccessDenied from '../components/AccessDenied';
 const fmt = (d, t) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-const MILK_TYPES = ["cow", "buffalo", "mixed"];
+const MILK_TYPES = ["cow", "buffalo", "both"];
 const SELLER_TYPES = ["Utpadak", "Gavali"];
 
 const columnMap = {
@@ -109,8 +109,8 @@ const normalizeSellerType = (val) => {
 
 const normalizeMilkType = (val) => {
     const s = String(val || '').trim().toLowerCase();
-    if (['cow', 'buffalo', 'mixed'].includes(s)) return s;
-    return 'mixed';
+    if (['cow', 'buffalo'].includes(s)) return s;
+    return 'both';
 };
 
 const EMPTY_FORM = {
@@ -121,7 +121,7 @@ const EMPTY_FORM = {
     pan_number: "",
     seller_id_code: "",
     seller_type: "Utpadak",
-    milk_type: "mixed",
+    milk_type: "both",
     jamin: "",
     bank_account: "",
     bank_name: "",
@@ -228,6 +228,7 @@ export default function SellerRegister() {
 
                 if (json.length === 0) {
                     setImportErrors([t('sellerRegister.emptyFileError') || 'The file is empty or has no data.']);
+                    setParsingFile(false);
                     return;
                 }
 
@@ -242,11 +243,16 @@ export default function SellerRegister() {
                 if (nameIdx === -1 || mobileIdx === -1) {
                     setMissingRequiredColumns(true);
                     setImportErrors([t('sellerRegister.missingRequiredColumns') || 'Required columns "Name" and "Mobile" not found.']);
+                    setParsingFile(false);
                     return;
                 }
 
                 const BOOL_FIELDS = ['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'];
                 const DECIMAL_FIELDS = ['advance_deduction', 'deposit_per_litre'];
+
+                // Get existing seller codes and mobiles for duplicate checking
+                const existingCodes = sellers.map(s => s.seller_code);
+                const existingMobiles = sellers.map(s => s.mobile);
 
                 const rows = json.map((row, idx) => {
                     const obj = {};
@@ -271,7 +277,15 @@ export default function SellerRegister() {
                         if (obj[f] === undefined) obj[f] = (f === 'advance_enabled' ? 1 : 0);
                     });
                     if (!obj.seller_type) obj.seller_type = 'Utpadak';
-                    if (!obj.milk_type) obj.milk_type = 'mixed';
+                    if (!obj.milk_type) obj.milk_type = 'both';
+                    
+                    // Generate seller_code if not provided
+                    if (!obj.seller_code || obj.seller_code.trim() === '') {
+                        const codes = sellers.map(s => s.seller_code).filter(c => /^\d+$/.test(c)).map(c => parseInt(c, 10));
+                        const next = codes.length > 0 ? Math.max(...codes) + 1 : 1;
+                        obj.seller_code = String(next).padStart(3, "0");
+                    }
+                    
                     return { ...obj, _rowIndex: idx + 1 };
                 });
 
@@ -288,6 +302,17 @@ export default function SellerRegister() {
                             row.mobile = mobileClean;
                         }
                     }
+                    
+                    // Check for duplicates within the import data itself
+                    if (row.seller_code) {
+                        const duplicateInImport = rows.some((r, i) => 
+                            i !== row._rowIndex - 1 && r.seller_code === row.seller_code
+                        );
+                        if (duplicateInImport) {
+                            reasons.push('Duplicate Seller Code in import file');
+                        }
+                    }
+                    
                     row._valid = reasons.length === 0;
                     if (reasons.length > 0) {
                         errors.push(
@@ -334,7 +359,13 @@ export default function SellerRegister() {
         XLSX.writeFile(wb, "farmer_import_template.xlsx");
     };
 
-    const resetImport = () => { setImportFile(null); setImportData([]); setImportErrors([]); setMissingRequiredColumns(false); };
+    const resetImport = () => { 
+        setImportFile(null); 
+        setImportData([]); 
+        setImportErrors([]); 
+        setMissingRequiredColumns(false);
+        setImportResult(null);
+    };
 
     const handleImportSave = async () => {
         if (importData.length === 0) return;
@@ -359,13 +390,16 @@ export default function SellerRegister() {
             setImportResult({ added, skipped });
             await fetchSellers();
 
+            // Close modal if all were added
             if (skipped === 0) {
-                setShowImportModal(false);
-                setImportFile(null);
-                setImportData([]);
+                setTimeout(() => {
+                    setShowImportModal(false);
+                    resetImport();
+                }, 2000);
             }
         } catch (err) {
-            setImportErrors([err.response?.data?.error || err.message]);
+            const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            setImportErrors([errorMsg]);
         } finally {
             setImportLoading(false);
         }
@@ -386,7 +420,7 @@ export default function SellerRegister() {
                 },
                 {
                     element: '[data-tour="filter-tabs"]',
-                    popover: { title: t('sellerRegister.all'), description: t('sellerRegister.tourFilterDesc') || 'Filter the seller list by cow, buffalo, or mixed milk type.' },
+                    popover: { title: t('sellerRegister.all'), description: t('sellerRegister.tourFilterDesc') || 'Filter the seller list by cow, buffalo, or both milk type.' },
                 },
                 {
                     element: '[data-tour="seller-table"]',
@@ -399,9 +433,14 @@ export default function SellerRegister() {
 
     const fetchSellers = async () => {
         setLoading(true);
-        try { const { data } = await api.get("/sellers"); setSellers(data); }
-        catch { showFlash("error", t('sellerRegister.loadError')); }
-        finally { setLoading(false); }
+        try { 
+            const { data } = await api.get("/sellers"); 
+            setSellers(data); 
+        } catch (err) { 
+            showFlash("error", t('sellerRegister.loadError') || 'Failed to load sellers.'); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     useEffect(() => { fetchSellers(); }, [t]);
@@ -414,9 +453,9 @@ export default function SellerRegister() {
     if (!can('seller_register', 'R')) return <AccessDenied />;
 
     const openAdd = () => {
-        const codes = sellers.map(s => s.seller_code).filter(c => /^S\d+$/.test(c)).map(c => parseInt(c.slice(1)));
+        const codes = sellers.map(s => s.seller_code).filter(c => /^\d+$/.test(c)).map(c => parseInt(c, 10));
         const next = codes.length > 0 ? Math.max(...codes) + 1 : 1;
-        setForm({ ...EMPTY_FORM, seller_code: "S" + String(next).padStart(3, "0") });
+        setForm({ ...EMPTY_FORM, seller_code: String(next).padStart(3, "0") });
         setEditingId(null);
         setHasPassword(false);
         setShowForm(true);
@@ -432,7 +471,7 @@ export default function SellerRegister() {
             pan_number: s.pan_number || "",
             seller_id_code: s.seller_id_code || "",
             seller_type: s.seller_type || "Utpadak",
-            milk_type: s.milk_type || "mixed",
+            milk_type: s.milk_type || "both",
             jamin: s.jamin || "",
             bank_account: s.bank_account || "",
             bank_account_confirm: s.bank_account || "",
@@ -481,7 +520,7 @@ export default function SellerRegister() {
             await fetchSellers();
             closeForm();
         } catch (err) {
-            showFlash("error", err.response?.data?.error || t('sellerRegister.saveError'));
+            showFlash("error", err.response?.data?.error || err.response?.data?.message || t('sellerRegister.saveError'));
         } finally { setSaving(false); }
     };
 
@@ -543,7 +582,7 @@ export default function SellerRegister() {
                             {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={startSellerRegisterTour}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                             <BadgeCheck size={15} /> {t('sellerRegister.startTour') || 'Take a Tour'}
@@ -565,7 +604,7 @@ export default function SellerRegister() {
                         { label: t('sellerRegister.totalSellers'), value: sellers.length, icon: <Users size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
                         { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <Milk size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" },
                         { label: t('sellerRegister.buffaloSellers'), value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <Milk size={16} />, color: "from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700" },
-                        { label: t('sellerRegister.mixedSellers'), value: sellers.filter((s) => s.milk_type === "mixed").length, icon: <Milk size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
+                        { label: t('sellerRegister.bothSellers'), value: sellers.filter((s) => s.milk_type === "both").length, icon: <Milk size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
                     ].map(({ label, value, icon, color }) => (
                         <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
                             <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
@@ -621,7 +660,7 @@ export default function SellerRegister() {
                                 </Field>
                             </div>
 
-                            {/* Row 2 */}
+                            {/* Row 2 - Aadhaar, PAN, Seller ID Code */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <Field label={t('sellerRegister.aadhaar')} name="aadhaar" value={form.aadhaar} onChange={handleChange} placeholder="XXXX XXXX XXXX" t={t}>
                                     <input name="aadhaar" value={form.aadhaar}
@@ -645,8 +684,10 @@ export default function SellerRegister() {
                                         className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                     <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.seller_id_code.length}/18</p>
                                 </Field>
+                            </div>
 
-                                {/* Seller Type */}
+                            {/* Row 3 - Seller Type & Milk Type */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Field label={t('sellerRegister.sellerType')} required t={t}>
                                     <div className="flex gap-2">
                                         {SELLER_TYPES.map((type) => (
@@ -661,7 +702,6 @@ export default function SellerRegister() {
                                     </div>
                                 </Field>
 
-                                {/* Milk Type */}
                                 <Field label={t('sellerRegister.milkType')} required t={t}>
                                     <div className="flex gap-2">
                                         {MILK_TYPES.map((type) => (
@@ -671,15 +711,15 @@ export default function SellerRegister() {
                                                         : "bg-gradient-to-br from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-800"
                                                 : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                                 <input type="radio" name="milk_type" value={type} checked={form.milk_type === type} onChange={handleChange} className="hidden" />
-                                                {type === "cow" ? t('sellerRegister.cow') : type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.mixed')}
+                                                {type === "cow" ? t('sellerRegister.cow') : type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
                                             </label>
                                         ))}
                                     </div>
                                 </Field>
                             </div>
 
-                            {/* Row 3 */}
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                            {/* Row 4 - Jamin, Bank Account, Confirm Account */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <Field label={t('sellerRegister.jamin')} name="jamin" value={form.jamin} onChange={handleChange} placeholder={t('sellerRegister.jaminPlaceholder')} t={t}>
                                     <input name="jamin" value={form.jamin}
                                         onChange={e => setForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
@@ -700,6 +740,10 @@ export default function SellerRegister() {
                                     {form.bank_account_confirm && form.bank_account !== form.bank_account_confirm &&
                                         <p className="text-xs text-rose-500 mt-1">{t('sellerRegister.accountMismatch')}</p>}
                                 </Field>
+                            </div>
+
+                            {/* Row 5 - Bank Name, IFSC, Account Holder, Branch */}
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                                 <Field label={t('sellerRegister.bankName')} name="bank_name" value={form.bank_name} onChange={handleChange} placeholder="e.g. SBI, HDFC" t={t}>
                                     <input name="bank_name" value={form.bank_name}
                                         onChange={e => setForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
@@ -712,10 +756,6 @@ export default function SellerRegister() {
                                         placeholder="e.g. SBIN0001234" maxLength={11}
                                         className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
-                            </div>
-
-                            {/* Row 4 */}
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                                 <Field label="Account Holder Name" name="account_holder_name" value={form.account_holder_name} onChange={handleChange} placeholder="As per bank passbook" t={t}>
                                     <input name="account_holder_name" value={form.account_holder_name}
                                         onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
@@ -728,6 +768,10 @@ export default function SellerRegister() {
                                         placeholder="e.g. Pune Main Branch" maxLength={100}
                                         className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
+                            </div>
+
+                            {/* Row 6 - Address, Pincode, Password */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <Field label={t('sellerRegister.address')} name="address" value={form.address} onChange={handleChange} placeholder={t('sellerRegister.addressPlaceholder')} t={t}>
                                     <input name="address" value={form.address} onChange={handleChange}
                                         placeholder={t('sellerRegister.addressPlaceholder')} minLength={10} maxLength={200}
@@ -756,7 +800,7 @@ export default function SellerRegister() {
                                 </Field>
                             </div>
 
-                            {/* Row 5 - Cash Advance */}
+                            {/* Row 7 - Cash Advance */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Field label={t('sellerRegister.cashAdvance')} t={t}>
                                     <div className="flex gap-2">
@@ -783,7 +827,7 @@ export default function SellerRegister() {
                                 )}
                             </div>
 
-                            {/* Deposit per Litre */}
+                            {/* Row 8 - Deposit per Litre */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Field label={t('sellerRegister.depositPerLitre')} t={t}>
                                     <div className="flex gap-2">
@@ -824,7 +868,7 @@ export default function SellerRegister() {
                                 )}
                             </div>
 
-                            {/* Product Sale Toggle */}
+                            {/* Row 9 - Product Sale & Cattle Feed Sale Toggles */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Field label={t('sellerRegister.productSale')} t={t}>
                                     <div className="flex gap-2">
@@ -850,7 +894,6 @@ export default function SellerRegister() {
                                     </div>
                                 </Field>
 
-                                {/* NEW: Cattle Feed Sale Toggle */}
                                 <Field label={t('sellerRegister.cattleFeedSale') || "Cattle Feed Sale"} t={t}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
@@ -876,7 +919,7 @@ export default function SellerRegister() {
                                 </Field>
                             </div>
 
-                            {/* Active Status */}
+                            {/* Row 10 - Active Status */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Field label={t('sellerRegister.sellerStatus')} t={t}>
                                     <div className="flex gap-2">
@@ -911,11 +954,11 @@ export default function SellerRegister() {
 
                 {/* ── Filter Tabs ── */}
                 <div className="flex items-center gap-2 mb-4" data-tour="filter-tabs">
-                    {["all", "cow", "buffalo", "mixed"].map((f) => (
+                    {["all", "cow", "buffalo", "both"].map((f) => (
                         <button key={f} onClick={() => handleFilterChange(f)}
                             className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
                                 ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                            {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.mixed')}
+                            {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
                             {f !== "all" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.milk_type === f).length}</span>}
                         </button>
                     ))}
@@ -988,7 +1031,7 @@ export default function SellerRegister() {
                                     <TableCell>
                                         {s.milk_type
                                             ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${milkBadge(s.milk_type, t)}`}>
-                                                {s.milk_type === "cow" ? t('sellerRegister.cow') : s.milk_type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.mixed')}
+                                                {s.milk_type === "cow" ? t('sellerRegister.cow') : s.milk_type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
                                             </span>
                                             : "—"}
                                     </TableCell>
@@ -1213,7 +1256,7 @@ export default function SellerRegister() {
 
                             {/* Stat pills */}
                             {importData.length > 0 && (
-                                <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center gap-2 mb-4 flex-wrap">
                                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100/80 text-gray-600 border border-gray-200/60 backdrop-blur-sm shadow-sm">
                                         {importData.length} {t('sellerRegister.rowsFound') || 'row(s) found'}
                                     </span>
@@ -1285,7 +1328,7 @@ export default function SellerRegister() {
                                     className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
                                     {t('sellerRegister.cancel')}
                                 </button>
-                                <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || missingRequiredColumns}
+                                <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || missingRequiredColumns || importData.filter(r => r._valid).length === 0}
                                     className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
                                     {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     <Save size={14} />

@@ -22,7 +22,7 @@ import {
     ArrowLeftRight,
     ShoppingBasket,
     Percent,
-    UserCircle
+    UserCircle, Droplets
 } from 'lucide-react';
 
 /**
@@ -326,7 +326,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                     ${isAdmin ? 'bg-white text-gray-900' : 'bg-white text-emerald-700'}`}>
                     {logoUrl
                         ? <img src={logoUrl} alt={appName} className="w-full h-full object-contain p-0.5" />
-                        : <Building2 size={18} strokeWidth={2} />
+                        : <Droplets size={18} strokeWidth={2} />
                     }
                 </div>
                 {(!collapsed || mobile) && (
@@ -381,7 +381,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                                                     before:absolute before:-left-[13px] before:top-1/2 before:-translate-y-1/2 before:w-2.5 before:h-px
                                                     ${isAdmin ? 'before:bg-gray-600' : 'before:bg-emerald-500'}
                                                     ${isActive
-                                                        ? isAdmin ? 'bg-white text-gray-900 font-semibold' : 'bg-white text-emerald-700 font-semibold'
+                                                        ? isAdmin ? 'bg-white/10 text-white font-semibold' : 'bg-white/10 text-white font-semibold'
                                                         : isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'
                                                     }`
                                                 }
@@ -414,7 +414,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                             className={({ isActive }) =>
                                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 group relative
                                 ${isActive
-                                    ? isAdmin ? 'bg-white text-gray-900 font-semibold shadow-sm' : 'bg-white text-emerald-700 font-semibold shadow-sm'
+                                    ? isAdmin ? 'bg-white/10 text-white font-semibold shadow-sm' : 'bg-white/10 text-white font-semibold shadow-sm'
                                     : isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'
                                 }`
                             }
@@ -751,7 +751,7 @@ export default function AppLayout() {
     // navigation attempt so the browser shows its native "can't be
     // reached" page instead of a stale in-memory SPA with broken data.
     useEffect(() => {
-        const HEARTBEAT_INTERVAL = 0;
+        const HEARTBEAT_INTERVAL = 30000; // 30s — was 0, which fired near-continuously and exhausted the browser's connection pool
 
         const checkServer = async () => {
             try {
@@ -829,7 +829,7 @@ export default function AppLayout() {
                         ${isAdmin ? 'bg-gray-100 text-white' : 'bg-gray-100 text-white'}`}>
                         {logoUrl
                             ? <img src={logoUrl} alt={appName} className="w-full h-full object-contain p-0.5" />
-                            : <Building2 size={14} />
+                            : <Droplets size={14} />
                         }
                     </div>
                     <span className="text-sm font-semibold text-gray-800">{appName}</span>
@@ -846,9 +846,9 @@ export default function AppLayout() {
             {
                 showLogoutConfirm && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 px-6 py-5 w-80 flex flex-col gap-4">
+                        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 px-6 py-5 w-80 flex flex-col gap-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                                <div className="w-9 h-9 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">
                                     <LogOut size={16} className="text-rose-500" />
                                 </div>
                                 <div>
@@ -862,7 +862,7 @@ export default function AppLayout() {
                                     Cancel
                                 </button>
                                 <button onClick={confirmLogout}
-                                    className="px-4 py-2 text-sm font-semibold rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition shadow-lg shadow-rose-500/20">
+                                    className="px-4 py-2 text-sm font-semibold rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white hover:shadow-xl hover:shadow-rose-500/30 transition shadow-lg shadow-rose-500/20">
                                     Logout
                                 </button>
                             </div>

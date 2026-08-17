@@ -953,7 +953,7 @@ CREATE TABLE sellers (
    address text,
    pincode varchar(6) DEFAULT NULL,
    seller_type enum('Utpadak','Gavali') NOT NULL DEFAULT 'Utpadak',
-   milk_type enum('cow','buffalo','mixed') NOT NULL DEFAULT 'mixed',
+   milk_type enum('cow','buffalo','both') NOT NULL DEFAULT 'both',
    bank_account varchar(30) DEFAULT NULL,
    bank_name varchar(100) DEFAULT NULL,
    account_holder_name varchar(100) DEFAULT NULL,
@@ -978,7 +978,7 @@ CREATE TABLE sellers (
    CONSTRAINT sellers_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT sellers_ibfk_3 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL,
    CONSTRAINT sellers_ibfk_4 FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE speed_cattle_feeds (
    id int NOT NULL AUTO_INCREMENT,

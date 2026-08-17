@@ -126,6 +126,16 @@ exports.createEntry = async (req, res) => {
             });
         }
 
+        // milk_entries.milk_type only accepts 'cow' or 'buffalo'. Sellers may be
+        // registered as milk_type = 'both', meaning either is valid per-entry —
+        // but the entry itself must always resolve to a single concrete type.
+        if (!['cow', 'buffalo'].includes(milk_type)) {
+            await conn.rollback();
+            return res.status(400).json({
+                error: `Invalid milk_type "${milk_type}". Must be "cow" or "buffalo".`
+            });
+        }
+
         // Insert new entry with centre_id and created_by_admin_id
         const [result] = await conn.query(
             `INSERT INTO milk_entries
@@ -327,6 +337,12 @@ exports.updateEntry = async (req, res) => {
 
         if (!isAdmin && existing[0].operator_id !== operatorId) {
             return res.status(403).json({ error: 'Access denied. You can only edit your own entries.' });
+        }
+
+        if (!['cow', 'buffalo'].includes(milk_type)) {
+            return res.status(400).json({
+                error: `Invalid milk_type "${milk_type}". Must be "cow" or "buffalo".`
+            });
         }
 
         const { seller_id, entry_date } = existing[0];

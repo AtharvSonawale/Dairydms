@@ -6,7 +6,6 @@ exports.listSellers = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
 
-        // Both admin and operator see all sellers under their centre
         const query = `
             SELECT
                 seller_id, seller_code, name, mobile, aadhaar,
@@ -36,7 +35,6 @@ exports.listCentreSellers = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
 
-        // Only admins can access this endpoint
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
@@ -71,12 +69,10 @@ exports.listSellersByOperator = async (req, res) => {
         const { operatorId } = req.params;
         const centreId = req.user.centre_id;
 
-        // Only admins can access this endpoint
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
         }
 
-        // Verify operator belongs to the same centre
         const [operatorCheck] = await pool.query(
             `SELECT operator_id FROM operators 
              WHERE operator_id = ? AND centre_id = ?`,
@@ -175,7 +171,6 @@ exports.getSellerSummary = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -190,7 +185,6 @@ exports.getSellerSummary = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
         }
 
-        // Total milk delivered + total amount earned (all time)
         const [[milkTotals]] = await pool.query(
             `SELECT
                 COUNT(*)                        AS total_entries,
@@ -203,7 +197,6 @@ exports.getSellerSummary = async (req, res) => {
             [id, centreId]
         );
 
-        // This month
         const [[thisMonth]] = await pool.query(
             `SELECT
                 COALESCE(SUM(quantity), 0)     AS month_quantity,
@@ -216,7 +209,6 @@ exports.getSellerSummary = async (req, res) => {
             [id, centreId]
         );
 
-        // Pending cash advance balance (given - received)
         const [[advance]] = await pool.query(
             `SELECT
                 COALESCE(SUM(CASE WHEN type = 'given'    THEN amount ELSE 0 END), 0) AS total_given,
@@ -226,7 +218,6 @@ exports.getSellerSummary = async (req, res) => {
             [id, centreId]
         );
 
-        // Product sales outstanding
         const [[products]] = await pool.query(
             `SELECT COALESCE(SUM(total_amount), 0) AS product_total
              FROM product_sales
@@ -234,7 +225,6 @@ exports.getSellerSummary = async (req, res) => {
             [id, centreId]
         );
 
-        // Active premium rate
         const [premium] = await pool.query(
             `SELECT rate_per_liter, reason, effective_from, effective_to
              FROM premium_rates
@@ -269,7 +259,6 @@ exports.getSellerEntries = async (req, res) => {
         const operatorId = req.user.id;
         const { month, from, to } = req.query;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -320,7 +309,6 @@ exports.getSellerAdvance = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -343,7 +331,6 @@ exports.getSellerAdvance = async (req, res) => {
             [id, centreId]
         );
 
-        // Running balance
         let balance = 0;
         const withBalance = [...rows].reverse().map(r => {
             balance += r.type === 'given' ? Number(r.amount) : -Number(r.amount);
@@ -365,7 +352,6 @@ exports.getSellerDeposits = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -402,7 +388,6 @@ exports.getSellerProducts = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -441,7 +426,6 @@ exports.getSellerPremium = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -508,10 +492,6 @@ exports.createSeller = async (req, res) => {
         const dairy_id = centreRow.dairy_id;
         const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
-        // seller_code is auto-generated per-centre by the frontend (S001, S002...)
-        // so the same code legitimately exists across different centres/dairies --
-        // only check it within this centre. mobile stays a global check since it
-        // has a DB-wide UNIQUE constraint (uq_seller_mobile) by design.
         const [existing] = await conn.query(
             `SELECT seller_id FROM sellers
              WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
@@ -527,22 +507,22 @@ exports.createSeller = async (req, res) => {
 
         const [result] = await conn.query(
             `INSERT INTO sellers (
-    operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
-    pan_number, seller_id_code,
-    seller_type, milk_type, jamin,
-    bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
-    advance_enabled, advance_deduction, product_sale_enabled,
-    deposit_enabled, deposit_per_litre,
-    cattle_feed_sale_enabled,
-    password_hash, must_change_password
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?,
-            ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, ?,
-            ?,
-            ?, ?)`,
+                operator_id, created_by_admin_id, centre_id, dairy_id, seller_code, name, mobile, aadhaar,
+                pan_number, seller_id_code,
+                seller_type, milk_type, jamin,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
+                advance_enabled, advance_deduction, product_sale_enabled,
+                deposit_enabled, deposit_per_litre,
+                cattle_feed_sale_enabled,
+                password_hash, must_change_password
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+                      ?, ?,
+                      ?, ?, ?,
+                      ?, ?, ?, ?, ?, ?, ?,
+                      ?, ?, ?,
+                      ?, ?,
+                      ?,
+                      ?, ?)`,
             [
                 operator_id,
                 created_by_admin_id,
@@ -555,7 +535,7 @@ exports.createSeller = async (req, res) => {
                 pan_number || null,
                 seller_id_code || null,
                 seller_type || 'Utpadak',
-                milk_type || 'mixed',
+                milk_type || 'both',
                 jamin || null,
                 bank_account || null,
                 bank_name || null,
@@ -609,7 +589,6 @@ exports.updateSeller = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        // Check if seller exists and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -624,8 +603,6 @@ exports.updateSeller = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
         }
 
-        // Same scoping fix as createSeller — seller_code is per-centre,
-        // mobile is global (DB-enforced).
         const [duplicate] = await pool.query(
             `SELECT seller_id FROM sellers 
              WHERE ((seller_code = ? AND centre_id = ?) OR mobile = ?)
@@ -643,32 +620,32 @@ exports.updateSeller = async (req, res) => {
 
         const [result] = await pool.query(
             `UPDATE sellers SET
-    seller_code          = ?,
-    name                 = ?,
-    mobile               = ?,
-    aadhaar              = ?,
-    pan_number           = ?,
-    seller_id_code       = ?,
-    seller_type          = ?,
-    milk_type            = ?,
-    jamin                = ?,
-    bank_account         = ?,
-    bank_name            = ?,
-    account_holder_name  = ?,
-    branch_name          = ?,
-    ifsc_code            = ?,
-    address              = ?,
-    pincode              = ?,
-    advance_enabled      = ?,
-    advance_deduction    = ?,
-    product_sale_enabled = ?,
-    deposit_enabled      = ?,
-    deposit_per_litre    = ?,
-    cattle_feed_sale_enabled = ?,
-    is_active            = ?,
-    password_hash        = COALESCE(?, password_hash),
-    must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
-  WHERE seller_id = ? AND centre_id = ?`,
+                seller_code          = ?,
+                name                 = ?,
+                mobile               = ?,
+                aadhaar              = ?,
+                pan_number           = ?,
+                seller_id_code       = ?,
+                seller_type          = ?,
+                milk_type            = ?,
+                jamin                = ?,
+                bank_account         = ?,
+                bank_name            = ?,
+                account_holder_name  = ?,
+                branch_name          = ?,
+                ifsc_code            = ?,
+                address              = ?,
+                pincode              = ?,
+                advance_enabled      = ?,
+                advance_deduction    = ?,
+                product_sale_enabled = ?,
+                deposit_enabled      = ?,
+                deposit_per_litre    = ?,
+                cattle_feed_sale_enabled = ?,
+                is_active            = ?,
+                password_hash        = COALESCE(?, password_hash),
+                must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
+            WHERE seller_id = ? AND centre_id = ?`,
             [
                 seller_code || null,
                 name || null,
@@ -677,7 +654,7 @@ exports.updateSeller = async (req, res) => {
                 pan_number || null,
                 seller_id_code || null,
                 seller_type || 'Utpadak',
-                milk_type || 'mixed',
+                milk_type || 'both',
                 jamin || null,
                 bank_account || null,
                 bank_name || null,
@@ -704,7 +681,6 @@ exports.updateSeller = async (req, res) => {
             return res.status(404).json({ message: 'Seller not found or unauthorized' });
         }
 
-        // Fetch the updated seller data
         const [rows] = await pool.query(
             `SELECT
                 seller_id, seller_code, name, mobile, aadhaar,
@@ -736,7 +712,6 @@ exports.deleteSeller = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        // Check if seller exists and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -752,7 +727,6 @@ exports.deleteSeller = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
         }
 
-        // Delete all linked data in correct order
         await conn.query(`DELETE FROM bonus_payments WHERE seller_id = ? AND centre_id = ?`, [req.params.id, centreId]);
         await conn.query(`DELETE FROM gavali_bonus_payments WHERE seller_id = ? AND centre_id = ?`, [req.params.id, centreId]);
         await conn.query(`DELETE FROM product_sales WHERE seller_id = ? AND centre_id = ?`, [req.params.id, centreId]);
@@ -790,7 +764,6 @@ exports.getSellerDepositBalance = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Verify seller belongs to the centre and user has access
         let accessQuery, accessParams;
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
@@ -854,7 +827,6 @@ exports.getActiveSellers = async (req, res) => {
 };
 
 // ── POST /api/sellers/import ──────────────────────────────
-// Bulk import sellers from Excel data
 exports.importSellers = async (req, res) => {
     const conn = await pool.getConnection();
     try {
@@ -871,7 +843,6 @@ exports.importSellers = async (req, res) => {
         const operator_id = isAdmin ? null : req.user.id;
         const created_by_admin_id = isAdmin ? req.user.id : null;
 
-        // Get dairy_id for the centre
         const [[centreRow]] = await conn.query(
             `SELECT dairy_id FROM centres WHERE centre_id = ?`,
             [centreId]
@@ -907,16 +878,68 @@ exports.importSellers = async (req, res) => {
                 continue;
             }
 
+            // Clean mobile
+            const mobileClean = String(mobile).replace(/[^\d]/g, "");
+            if (mobileClean.length < 10 || mobileClean.length > 12) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: 'Mobile must be 10-12 digits.' });
+                continue;
+            }
+
             // Check duplicate within centre (seller_code) and global (mobile)
-            const [existing] = await conn.query(
-                `SELECT seller_id FROM sellers
-                 WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
-                [seller_code, centreId, mobile]
-            );
+            let existing;
+            if (seller_code) {
+                [existing] = await conn.query(
+                    `SELECT seller_id FROM sellers
+                     WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
+                    [seller_code, centreId, mobileClean]
+                );
+            } else {
+                [existing] = await conn.query(
+                    `SELECT seller_id FROM sellers WHERE mobile = ?`,
+                    [mobileClean]
+                );
+            }
+
             if (existing.length > 0) {
                 results.skipped++;
                 results.errors.push({ row: i + 1, error: 'Seller code or mobile already exists in your centre.' });
                 continue;
+            }
+
+            // Generate seller_code if not provided
+            let finalSellerCode = seller_code;
+            if (!finalSellerCode || finalSellerCode.trim() === '') {
+                const [codes] = await conn.query(
+                    `SELECT seller_code FROM sellers WHERE centre_id = ? AND seller_code REGEXP '^[0-9]+$'`,
+                    [centreId]
+                );
+                const numCodes = codes.map(c => parseInt(c.seller_code, 10)).filter(n => !isNaN(n));
+                const next = numCodes.length > 0 ? Math.max(...numCodes) + 1 : 1;
+                finalSellerCode = String(next).padStart(3, "0");
+
+                // Check if the generated code conflicts
+                const [codeCheck] = await conn.query(
+                    `SELECT seller_id FROM sellers WHERE seller_code = ? AND centre_id = ?`,
+                    [finalSellerCode, centreId]
+                );
+                if (codeCheck.length > 0) {
+                    // If conflict, find next available
+                    let counter = parseInt(finalSellerCode, 10);
+                    let found = false;
+                    while (!found) {
+                        counter++;
+                        const testCode = String(counter).padStart(3, "0");
+                        const [check] = await conn.query(
+                            `SELECT seller_id FROM sellers WHERE seller_code = ? AND centre_id = ?`,
+                            [testCode, centreId]
+                        );
+                        if (check.length === 0) {
+                            finalSellerCode = testCode;
+                            found = true;
+                        }
+                    }
+                }
             }
 
             // Hash password if provided
@@ -946,14 +969,14 @@ exports.importSellers = async (req, res) => {
                         created_by_admin_id,
                         centreId,
                         dairy_id,
-                        seller_code || null,
+                        finalSellerCode,
                         name,
-                        mobile,
+                        mobileClean,
                         aadhaar || null,
                         pan_number || null,
                         seller_id_code || null,
                         seller_type || 'Utpadak',
-                        milk_type || 'mixed',
+                        milk_type || 'both',
                         jamin || null,
                         bank_account || null,
                         bank_name || null,
@@ -1014,7 +1037,6 @@ exports.getSellerCommission = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
         }
 
-        // Current commission settings for this centre (used for Gavali sellers)
         const [settings] = await pool.query(
             `SELECT id, milk_type, base_fat, base_snf, base_commission,
                     fat_step_cut, snf_step_cut, is_active, updated_at
@@ -1024,7 +1046,6 @@ exports.getSellerCommission = async (req, res) => {
             [centreId]
         );
 
-        // Total commission actually earned/billed so far (from frozen bill snapshots)
         const [[totals]] = await pool.query(
             `SELECT COALESCE(SUM(bme.commission_amount), 0) AS total_commission_earned
              FROM bill_milk_entries bme

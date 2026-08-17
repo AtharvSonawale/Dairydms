@@ -835,7 +835,7 @@ export default function CashAdvance() {
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.downloadPDF')}</span>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex gap-2">
                                 <div className="flex items-center gap-1 flex-wrap">
                                     <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                         {[{ v: "daily", l: t('cashAdvance.day') }, { v: "weekly", l: t('cashAdvance.week') }, { v: "monthly", l: t('cashAdvance.month') }, { v: "custom", l: t('cashAdvance.custom') }].map(({ v, l }) => (

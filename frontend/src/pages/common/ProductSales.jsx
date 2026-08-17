@@ -770,7 +770,6 @@ export default function ProductSales() {
         if (!sellerSearch.trim()) return sorted.slice(0, 5);
         const matched = sorted.filter((s) =>
             s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            String(s.seller_id) === sellerSearch.trim() ||
             (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
         );
         return matched.slice(0, 5);
@@ -1256,7 +1255,7 @@ export default function ProductSales() {
                                             if (exact) { set("seller_id", exact.seller_id); setSellerSearch(exact.name); setShowSellerDrop(false); }
                                         }}
                                         onKeyDown={(e) => {
-                                            if (!showSellerDrop || filteredSellers.length === 0) return;
+                                            if (!dropdownOpen || filteredSellers.length === 0) return;
                                             if (e.key === "ArrowDown") {
                                                 e.preventDefault();
                                                 setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
@@ -1265,14 +1264,22 @@ export default function ProductSales() {
                                                 setHighlightedIdx(i => Math.max(i - 1, 0));
                                             } else if (e.key === "Enter") {
                                                 e.preventDefault();
-                                                const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                                if (sel) {
-                                                    set("seller_id", sel.seller_id);
-                                                    setSellerSearch(sel.name);
-                                                    setShowSellerDrop(false);
+                                                if (highlightedIdx >= 0) {
+                                                    const sel = filteredSellers[highlightedIdx];
+                                                    if (sel) {
+                                                        handleSellerChange(sel.seller_id);
+                                                        setSellerSearch(sel.name);
+                                                        setDropdownOpen(false);
+                                                        focusNextField(e.currentTarget);
+                                                    }
+                                                } else {
+                                                    // Nothing explicitly chosen (via arrow keys or an exact code match) —
+                                                    // never guess a seller. Just close the list and move on.
+                                                    setDropdownOpen(false);
+                                                    focusNextField(e.currentTarget);
                                                 }
                                             } else if (e.key === "Escape") {
-                                                setShowSellerDrop(false);
+                                                setDropdownOpen(false);
                                             }
                                         }}
                                         placeholder={t('productSales.searchPlaceholder')}

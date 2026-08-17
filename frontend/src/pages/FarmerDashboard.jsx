@@ -153,13 +153,13 @@ function ShiftBadge({ shift, t }) {
     );
 }
 
-function MilkTypeBadge({ type }) {
+function MilkTypeBadge({ type, t }) {
     return (
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-sm
             ${type === "cow"
                 ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
                 : "bg-slate-100/80 text-slate-700 border-slate-200/60"}`}>
-            {type === "cow" ? "Cow" : "Buffalo"}
+            {type === "cow" ? t('dashboard.cow') : t('dashboard.buffalo')}
         </span>
     );
 }
@@ -263,7 +263,7 @@ export default function FarmerDashboard() {
             const { data } = await api.get(`/farmer/bill/${bill_no}`);
             setBillDetail(data);
         } catch {
-            showFlash("error", t('dashboard.billLoadFailed', { defaultValue: 'Failed to load bill details' }));
+            showFlash("error", t('farmerDashboard.billLoadFailed'));
             setBillModalOpen(false);
         } finally {
             setBillDetailLoading(false);
@@ -280,11 +280,7 @@ export default function FarmerDashboard() {
         setTimeout(() => setFlash(null), 3500);
     };
 
-    // Expected shape from GET /api/farmer/dashboard?from&to (own-seller-only,
-    // enforced server-side via requireRole('seller') + WHERE seller_id = req.user.id
-    // — NOT a query param, so a farmer can never pass someone else's id):
-    // { milk_entries: [], bills: [], advances: [], deposits: [],
-    //   balances: { advance_balance, deposit_balance } }
+    // Expected shape from GET /api/farmer/dashboard?from&to (own-seller-only)
     const fetchAll = useCallback(async (fromDate, toDate) => {
         try {
             const { data } = await api.get(`/farmer/dashboard?from=${fromDate}&to=${toDate}`);
@@ -297,7 +293,7 @@ export default function FarmerDashboard() {
             setProductSales(data.product_sales || []);
             setBalances(data.balances || { advance_balance: 0, deposit_balance: 0 });
         } catch {
-            showFlash("error", t('dashboard.loadFailed', { defaultValue: 'Failed to load dashboard data' }));
+            showFlash("error", t('farmerDashboard.loadFailed'));
         } finally {
             setLoad({ milk: false, bills: false, advance: false, deposit: false });
         }
@@ -343,13 +339,13 @@ export default function FarmerDashboard() {
                     <div>
                         <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
                             <Home size={16} className="text-gray-400" />
-                            <span>{t('dashboard.myDashboard', { defaultValue: 'My Dashboard' })}</span>
+                            <span>{t('farmerDashboard.myDashboard')}</span>
                             <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
-                                <User size={12} /> {t('status.farmer', { defaultValue: 'Farmer' })}
+                                <User size={12} /> {t('farmerDashboard.farmerLabel')}
                             </span>
                         </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                            {greeting.text}, {user?.name || t('status.farmer', { defaultValue: 'Farmer' })}
+                            {greeting.text}, {user?.name || t('farmerDashboard.farmerLabel')}
                         </h1>
                         <p className="text-xs text-gray-500 mt-0.5">
                             {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
@@ -358,7 +354,7 @@ export default function FarmerDashboard() {
 
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('dashboard.referenceDate')}</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('farmerDashboard.referenceDate')}</span>
                             <input
                                 type="date"
                                 value={selectedDate}
@@ -368,26 +364,26 @@ export default function FarmerDashboard() {
                         </div>
 
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">View</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('farmerDashboard.viewLabel')}</span>
                             <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
                                 <button
                                     onClick={() => setViewMode('cycle')}
                                     className={`px-3.5 py-2 transition-all duration-200 ${viewMode === 'cycle' ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}
                                 >
-                                    {t('dashboard.paymentCycle', { defaultValue: 'Payment Cycle' })}
+                                    {t('farmerDashboard.paymentCycle')}
                                 </button>
                                 <button
                                     onClick={() => setViewMode('period')}
                                     className={`px-3.5 py-2 transition-all duration-200 ${viewMode === 'period' ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}
                                 >
-                                    {t('dashboard.customPeriod', { defaultValue: 'Custom Period' })}
+                                    {t('farmerDashboard.customPeriod')}
                                 </button>
                             </div>
                         </div>
 
                         {viewMode === 'period' && (
                             <div className="flex flex-col gap-0.5">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Period</span>
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('farmerDashboard.periodLabel')}</span>
                                 <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
                                     {['day', 'week', 'month', 'year'].map((p) => (
                                         <button
@@ -415,8 +411,8 @@ export default function FarmerDashboard() {
                             <div>
                                 <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
                                     {viewMode === 'cycle'
-                                        ? t('dashboard.currentPaymentCycle', { defaultValue: 'Current Payment Cycle' })
-                                        : t('dashboard.customPeriodViewing', { defaultValue: 'Viewing Custom Period' })}
+                                        ? t('farmerDashboard.currentPaymentCycle')
+                                        : t('farmerDashboard.customPeriodViewing')}
                                 </p>
                                 <p className="text-sm font-bold text-gray-900 leading-tight">
                                     {viewMode === 'cycle'
@@ -427,8 +423,8 @@ export default function FarmerDashboard() {
                         </div>
                         <span className="text-[10px] font-medium text-emerald-500 bg-white/50 px-3 py-1 rounded-full border border-emerald-200/60 backdrop-blur-sm">
                             {viewMode === 'cycle'
-                                ? t('dashboard.cycleNote', { defaultValue: 'Data below reflects this cycle only' })
-                                : t('dashboard.periodNote', { defaultValue: 'Data below reflects this custom period' })}
+                                ? t('farmerDashboard.cycleNote')
+                                : t('farmerDashboard.periodNote')}
                         </span>
                     </div>
                 </div>
@@ -502,34 +498,34 @@ export default function FarmerDashboard() {
                 {/* ── Earnings + Balances Overview ── */}
                 <div>
                     <p className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <Droplets size={14} /> {t('dashboard.myOverview', { defaultValue: 'My Overview' })}
+                        <Droplets size={14} /> {t('farmerDashboard.myOverview')}
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <StatCard
-                            label={t('dashboard.milkDelivered', { defaultValue: 'Milk Delivered' })}
+                            label={t('farmerDashboard.milkDelivered')}
                             value={totalMilkQty.toFixed(1) + " L"}
                             sub={`${milkEntries.length} ${t('dashboard.entries')}`}
                             icon={<Milk size={16} />}
                             color="amber"
                         />
                         <StatCard
-                            label={t('dashboard.milkEarnings', { defaultValue: 'Milk Earnings' })}
+                            label={t('farmerDashboard.milkEarnings')}
                             value={"₹" + fmt(totalMilkAmt)}
                             sub={viewMode === 'cycle' ? fmtCycleRange(rangeFrom, rangeTo) : formatPeriodLabel(period, rangeFrom, rangeTo)}
                             icon={<Banknote size={16} />}
                             color="emerald"
                         />
                         <StatCard
-                            label={t('dashboard.advanceBalance', { defaultValue: 'Advance Balance' })}
+                            label={t('farmerDashboard.advanceBalance')}
                             value={"₹" + fmt(balances.advance_balance)}
-                            sub={t('dashboard.outstanding', { defaultValue: 'Outstanding with you' })}
+                            sub={t('farmerDashboard.outstanding')}
                             icon={<Wallet size={16} />}
                             color={balances.advance_balance > 0 ? "red" : "slate"}
                         />
                         <StatCard
-                            label={t('dashboard.depositBalance', { defaultValue: 'Deposit Balance' })}
+                            label={t('farmerDashboard.depositBalance')}
                             value={"₹" + fmt(balances.deposit_balance)}
-                            sub={t('dashboard.heldByDairy', { defaultValue: 'Held by dairy' })}
+                            sub={t('farmerDashboard.heldByDairy')}
                             icon={<PiggyBank size={16} />}
                             color="violet"
                         />
@@ -549,7 +545,7 @@ export default function FarmerDashboard() {
                                 <FlaskConical size={15} className="opacity-70 text-indigo-600" />
                             </div>
                             <p className="text-lg font-bold text-gray-900 mt-1">{avgFat.toFixed(2)} / {avgSnf.toFixed(2)}</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">{t('dashboard.acrossAllEntries', { defaultValue: 'Across all your entries this period' })}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{t('farmerDashboard.acrossAllEntries')}</p>
                         </div>
 
                         {[
@@ -577,16 +573,16 @@ export default function FarmerDashboard() {
                     <div className="relative z-10">
                         <SectionHeader
                             icon={<Milk size={16} className="text-white" />}
-                            title={t('dashboard.myMilkEntries', { defaultValue: 'My Milk Entries' })}
+                            title={t('farmerDashboard.myMilkEntries')}
                             sub={`${milkEntries.length} ${t('dashboard.total')} · ${viewMode === 'cycle' ? fmtCycleRange(rangeFrom, rangeTo) : formatPeriodLabel(period, rangeFrom, rangeTo)}`}
                             action={
                                 <Link to="/farmer/milk-entries" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition">
-                                    {t('dashboard.viewAll', { defaultValue: 'View All' })} →
+                                    {t('farmerDashboard.viewAll')} →
                                 </Link>
                             }
                         />
                         {load.milk ? <Spinner /> : pagedMilk.length === 0 ? (
-                            <EmptyState icon={<Milk size={32} />} text={t('dashboard.noMilkEntries')} />
+                            <EmptyState icon={<Milk size={32} />} text={t('farmerDashboard.noMilkEntries')} />
                         ) : (
                             <div className="flex flex-col divide-y divide-gray-100/60">
                                 {pagedMilk.map((e) => (
@@ -599,7 +595,7 @@ export default function FarmerDashboard() {
                                                 <p className="text-xs font-semibold text-gray-800">{fmtDate(e.entry_date)}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                     <ShiftBadge shift={e.shift} t={t} />
-                                                    <MilkTypeBadge type={e.milk_type} />
+                                                    <MilkTypeBadge type={e.milk_type} t={t} />
                                                 </div>
                                             </div>
                                         </div>
@@ -622,16 +618,16 @@ export default function FarmerDashboard() {
                     <div className="relative z-10">
                         <SectionHeader
                             icon={<Receipt size={16} className="text-white" />}
-                            title={t('dashboard.myBills', { defaultValue: 'My Bills' })}
+                            title={t('farmerDashboard.myBills')}
                             sub={`${bills.length} ${t('dashboard.total')}`}
                             action={
                                 <Link to="/farmer/bills" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition">
-                                    {t('dashboard.viewAll', { defaultValue: 'View All' })} →
+                                    {t('farmerDashboard.viewAll')} →
                                 </Link>
                             }
                         />
                         {load.bills ? <Spinner /> : pagedBills.length === 0 ? (
-                            <EmptyState icon={<Receipt size={32} />} text={t('dashboard.noBills', { defaultValue: 'No bills yet for this period' })} />
+                            <EmptyState icon={<Receipt size={32} />} text={t('farmerDashboard.noBills')} />
                         ) : (
                             <div className="flex flex-col divide-y divide-gray-100/60">
                                 {pagedBills.map((b) => (
@@ -670,7 +666,7 @@ export default function FarmerDashboard() {
                                 sub={`${advances.length} ${t('dashboard.transactions')}`}
                             />
                             {load.advance ? <Spinner /> : pagedAdvances.length === 0 ? (
-                                <EmptyState icon={<Wallet size={32} />} text={t('dashboard.noAdvances')} />
+                                <EmptyState icon={<Wallet size={32} />} text={t('farmerDashboard.noAdvances')} />
                             ) : (
                                 <div className="flex flex-col divide-y divide-gray-100/60">
                                     {pagedAdvances.map((a) => (
@@ -693,8 +689,8 @@ export default function FarmerDashboard() {
                             )}
                             <Paginator total={advances.length} page={advPage} setPage={setAdvPage} pageSize={PAGE_SIZE} />
                             <div className="mt-3 pt-3 border-t border-gray-100/60 flex justify-between text-xs text-gray-500">
-                                <span>{t('dashboard.given', { defaultValue: 'Given' })}: <strong className="text-emerald-600">₹{fmt(advGiven)}</strong></span>
-                                <span>{t('dashboard.received', { defaultValue: 'Received' })}: <strong className="text-rose-600">₹{fmt(advReceived)}</strong></span>
+                                <span>{t('farmerDashboard.givenLabel')}: <strong className="text-emerald-600">₹{fmt(advGiven)}</strong></span>
+                                <span>{t('farmerDashboard.receivedLabel')}: <strong className="text-rose-600">₹{fmt(advReceived)}</strong></span>
                             </div>
                         </div>
                     </div>
@@ -704,11 +700,11 @@ export default function FarmerDashboard() {
                         <div className="relative z-10">
                             <SectionHeader
                                 icon={<PiggyBank size={16} className="text-white" />}
-                                title={t('dashboard.deposit', { defaultValue: 'Deposit' })}
+                                title={t('farmerDashboard.depositLabel')}
                                 sub={`${deposits.length} ${t('dashboard.transactions')}`}
                             />
                             {load.deposit ? <Spinner /> : pagedDeposits.length === 0 ? (
-                                <EmptyState icon={<PiggyBank size={32} />} text={t('dashboard.noDeposits', { defaultValue: 'No deposit activity yet' })} />
+                                <EmptyState icon={<PiggyBank size={32} />} text={t('farmerDashboard.noDeposits')} />
                             ) : (
                                 <div className="flex flex-col divide-y divide-gray-100/60">
                                     {pagedDeposits.map((d) => (
@@ -717,7 +713,7 @@ export default function FarmerDashboard() {
                                                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${d.type === "credit" ? "bg-gradient-to-br from-violet-500 to-violet-600 shadow-violet-500/30" : "bg-gradient-to-br from-gray-500 to-gray-600 shadow-gray-500/30"}`}>
                                                     {d.type === "credit" ? <TrendingUp size={14} className="text-white" /> : <TrendingDown size={14} className="text-white" />}
                                                 </div>
-                                                <p className="text-[10px] text-gray-500 truncate">{d.remarks || (d.type === "credit" ? t('dashboard.depositAdded', { defaultValue: 'Deposit added' }) : t('dashboard.depositWithdrawn', { defaultValue: 'Deposit withdrawn' }))}</p>
+                                                <p className="text-[10px] text-gray-500 truncate">{d.remarks || (d.type === "credit" ? t('farmerDashboard.depositAdded') : t('farmerDashboard.depositWithdrawn'))}</p>
                                             </div>
                                             <div className="text-right shrink-0 ml-3">
                                                 <p className={`text-xs font-bold ${d.type === "credit" ? "text-violet-600" : "text-gray-600"}`}>
@@ -731,8 +727,8 @@ export default function FarmerDashboard() {
                             )}
                             <Paginator total={deposits.length} page={depPage} setPage={setDepPage} pageSize={PAGE_SIZE} />
                             <div className="mt-3 pt-3 border-t border-gray-100/60 flex justify-between text-xs text-gray-500">
-                                <span>{t('dashboard.added', { defaultValue: 'Added' })}: <strong className="text-violet-600">₹{fmt(depCredit)}</strong></span>
-                                <span>{t('dashboard.withdrawn', { defaultValue: 'Withdrawn' })}: <strong className="text-gray-600">₹{fmt(depDebit)}</strong></span>
+                                <span>{t('farmerDashboard.addedLabel')}: <strong className="text-violet-600">₹{fmt(depCredit)}</strong></span>
+                                <span>{t('farmerDashboard.withdrawnLabel')}: <strong className="text-gray-600">₹{fmt(depDebit)}</strong></span>
                             </div>
                         </div>
                     </div>
@@ -744,22 +740,22 @@ export default function FarmerDashboard() {
                     <div className="relative z-10">
                         <SectionHeader
                             icon={<FlaskConical size={16} className="text-white" />}
-                            title={t('dashboard.myPremiumRates', { defaultValue: 'My Premium Rates' })}
+                            title={t('farmerDashboard.myPremiumRates')}
                             sub={`${premiumRates.length} ${t('dashboard.total')}`}
                         />
                         {pagedPremium.length === 0 ? (
-                            <EmptyState icon={<FlaskConical size={32} />} text={t('dashboard.noPremiumRates', { defaultValue: 'No premium rates assigned' })} />
+                            <EmptyState icon={<FlaskConical size={32} />} text={t('farmerDashboard.noPremiumRates')} />
                         ) : (
                             <div className="flex flex-col divide-y divide-gray-100/60">
                                 {pagedPremium.map((r) => (
                                     <div key={r.id} className="flex items-center justify-between py-2.5 hover:bg-gray-50/30 -mx-1 px-1 rounded-lg transition">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <MilkTypeBadge type={r.milk_type} />
+                                            <MilkTypeBadge type={r.milk_type} t={t} />
                                             <p className="text-[10px] text-gray-500 truncate">{r.reason || "—"}</p>
                                         </div>
                                         <div className="text-right shrink-0 ml-3">
                                             <p className="text-xs font-bold text-gray-800">₹{fmt(r.rate_per_liter)} /L</p>
-                                            <p className="text-[10px] text-gray-400">{fmtDate(r.effective_from)} – {r.effective_to ? fmtDate(r.effective_to) : t('dashboard.ongoing', { defaultValue: 'Ongoing' })}</p>
+                                            <p className="text-[10px] text-gray-400">{fmtDate(r.effective_from)} – {r.effective_to ? fmtDate(r.effective_to) : t('farmerDashboard.ongoing')}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -775,11 +771,11 @@ export default function FarmerDashboard() {
                     <div className="relative z-10">
                         <SectionHeader
                             icon={<ShoppingBag size={16} className="text-white" />}
-                            title={t('dashboard.myProductPurchases', { defaultValue: 'My Product Purchases' })}
+                            title={t('farmerDashboard.myProductPurchases')}
                             sub={`${productSales.length} ${t('dashboard.total')} · ${viewMode === 'cycle' ? fmtCycleRange(rangeFrom, rangeTo) : formatPeriodLabel(period, rangeFrom, rangeTo)}`}
                         />
                         {pagedProducts.length === 0 ? (
-                            <EmptyState icon={<ShoppingBag size={32} />} text={t('dashboard.noProductPurchases', { defaultValue: 'No product purchases this period' })} />
+                            <EmptyState icon={<ShoppingBag size={32} />} text={t('farmerDashboard.noProductPurchases')} />
                         ) : (
                             <div className="flex flex-col divide-y divide-gray-100/60">
                                 {pagedProducts.map((p) => (
@@ -803,7 +799,7 @@ export default function FarmerDashboard() {
                 {/* ── Footer ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
                     <span>· {t('dashboard.footerPeriod')} <strong className="text-gray-600">{viewMode === 'cycle' ? activeCycle.label : period}</strong> {t('dashboard.footerData')}: {fmtDate(rangeFrom)} – {fmtDate(rangeTo)}</span>
-                    <span>· {t('dashboard.farmerFooter', { defaultValue: 'Showing only your own records' })}</span>
+                    <span>· {t('farmerDashboard.farmerFooter')}</span>
                 </div>
 
             </main>
@@ -823,7 +819,7 @@ export default function FarmerDashboard() {
                                             <span className="text-sm font-mono font-bold text-emerald-700">{billDetail?.payment?.bill_no}</span>
                                             {billDetail?.payment?.paid_at && (
                                                 <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-100/80 text-emerald-700 font-semibold border border-emerald-200/60 backdrop-blur-sm">
-                                                    {t('dashboard.paid', { defaultValue: 'Paid' })}
+                                                    {t('dashboard.paid')}
                                                 </span>
                                             )}
                                         </div>
@@ -847,31 +843,31 @@ export default function FarmerDashboard() {
                             {billDetailLoading ? (
                                 <Spinner />
                             ) : !billDetail ? (
-                                <EmptyState icon={<Receipt size={32} />} text={t('dashboard.billLoadFailed', { defaultValue: 'Failed to load bill details' })} />
+                                <EmptyState icon={<Receipt size={32} />} text={t('farmerDashboard.billLoadFailed')} />
                             ) : (
                                 <div className="flex flex-col gap-5">
                                     {/* Summary cards */}
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                         <StatCard
-                                            label={t('dashboard.milkAmount', { defaultValue: 'Milk Amount' })}
+                                            label={t('farmerDashboard.milkAmount')}
                                             value={`₹${fmt(billDetail.payment.milk_amount)}`}
                                             icon={<Milk size={14} />}
                                             color="emerald"
                                         />
                                         <StatCard
-                                            label={t('dashboard.total', { defaultValue: 'Total' }) + ' ' + t('dashboard.entries')}
+                                            label={t('dashboard.total') + ' ' + t('dashboard.entries')}
                                             value={billDetail.entries.length}
                                             icon={<Receipt size={14} />}
                                             color="blue"
                                         />
                                         <StatCard
-                                            label={t('dashboard.totalQty', { defaultValue: 'Total Qty' })}
+                                            label={t('farmerDashboard.totalQty')}
                                             value={`${billDetail.entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2)} L`}
                                             icon={<FlaskConical size={14} />}
                                             color="amber"
                                         />
                                         <StatCard
-                                            label={t('dashboard.netCashPaid', { defaultValue: 'Net Cash Paid' })}
+                                            label={t('farmerDashboard.netCashPaid')}
                                             value={`₹${fmt(billDetail.payment.cash_paid)}`}
                                             icon={<Banknote size={14} />}
                                             color="violet"
@@ -881,13 +877,13 @@ export default function FarmerDashboard() {
                                     {/* Milk entries table */}
                                     <div>
                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                            <Milk size={12} /> {t('dashboard.milkCollectionEntries', { defaultValue: 'Milk Collection Entries' })} ({billDetail.entries.length})
+                                            <Milk size={12} /> {t('farmerDashboard.milkCollectionEntries')} ({billDetail.entries.length})
                                         </p>
                                         <div className="rounded-xl border border-gray-200/60 overflow-x-auto shadow-sm">
                                             <table className="w-full text-xs min-w-max">
                                                 <thead className="bg-gradient-to-r from-gray-50/50 to-white/50">
                                                     <tr>
-                                                        {[t('bill.date', { defaultValue: 'Date' }), t('bill.shift'), t('dashboard.milkType', { defaultValue: 'Type' }), t('dashboard.qty', { defaultValue: 'Qty (L)' }), t('bill.fat'), t('bill.snf'), t('bill.rate', { defaultValue: 'Rate' }), t('bill.amount')].map(h => (
+                                                        {[t('bill.date'), t('bill.shift'), t('farmerDashboard.milkType'), t('farmerDashboard.qty'), t('bill.fat'), t('bill.snf'), t('bill.rate'), t('bill.amount')].map(h => (
                                                             <th key={h} className="px-3 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200/60 last:border-r-0">{h}</th>
                                                         ))}
                                                     </tr>
@@ -897,7 +893,7 @@ export default function FarmerDashboard() {
                                                         <tr key={i} className="hover:bg-gray-50/30 transition">
                                                             <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap border-r border-gray-200/60">{fmtDate(e.entry_date)}</td>
                                                             <td className="px-3 py-2.5 border-r border-gray-200/60"><ShiftBadge shift={e.shift} t={t} /></td>
-                                                            <td className="px-3 py-2.5 border-r border-gray-200/60"><MilkTypeBadge type={e.milk_type} /></td>
+                                                            <td className="px-3 py-2.5 border-r border-gray-200/60"><MilkTypeBadge type={e.milk_type} t={t} /></td>
                                                             <td className="px-3 py-2.5 font-mono text-blue-600 font-semibold border-r border-gray-200/60">{parseFloat(e.quantity || 0).toFixed(2)}</td>
                                                             <td className="px-3 py-2.5 font-mono text-amber-600 border-r border-gray-200/60">{parseFloat(e.fat || 0).toFixed(2)}</td>
                                                             <td className="px-3 py-2.5 font-mono text-violet-600 border-r border-gray-200/60">{parseFloat(e.snf || 0).toFixed(2)}</td>
@@ -913,16 +909,16 @@ export default function FarmerDashboard() {
                                     {/* Payment breakdown */}
                                     <div>
                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                            <Banknote size={12} /> {t('dashboard.paymentBreakdown', { defaultValue: 'Payment Breakdown' })}
+                                            <Banknote size={12} /> {t('farmerDashboard.paymentBreakdown')}
                                         </p>
                                         <div className="rounded-xl border border-gray-200/60 overflow-hidden shadow-sm">
                                             {[
-                                                { label: t('dashboard.milkAmountPayable', { defaultValue: 'Milk Amount Payable' }), value: billDetail.payment.milk_amount, sign: "+", color: "bg-emerald-50/80 text-emerald-700" },
-                                                { label: t('dashboard.advanceOutstanding', { defaultValue: 'Advance Outstanding' }), value: billDetail.payment.advance_given, sign: "", color: "bg-violet-50/80 text-violet-700", skipIfZero: true },
-                                                { label: t('dashboard.advInstallmentCut', { defaultValue: 'Advance Installment Cut' }), value: billDetail.payment.installment_cut, sign: "−", color: "bg-rose-50/80 text-rose-700", skipIfZero: true },
-                                                { label: t('dashboard.depositDeducted', { defaultValue: 'Deposit Deducted' }), value: billDetail.payment.deposit_amount, sign: "−", color: "bg-blue-50/80 text-blue-700", skipIfZero: true },
-                                                { label: t('dashboard.productSalesDeduction', { defaultValue: 'Product Sales Deduction' }), value: billDetail.payment.product_deduction, sign: "−", color: "bg-amber-50/80 text-amber-700", skipIfZero: true },
-                                                { label: t('dashboard.milkBoughtDeduction', { defaultValue: 'Milk Bought (Walk-in)' }), value: billDetail.payment.walkin_deduction, sign: "−", color: "bg-orange-50/80 text-orange-700", skipIfZero: true },
+                                                { label: t('farmerDashboard.milkAmountPayable'), value: billDetail.payment.milk_amount, sign: "+", color: "bg-emerald-50/80 text-emerald-700" },
+                                                { label: t('farmerDashboard.advanceOutstanding'), value: billDetail.payment.advance_given, sign: "", color: "bg-violet-50/80 text-violet-700", skipIfZero: true },
+                                                { label: t('farmerDashboard.advInstallmentCut'), value: billDetail.payment.installment_cut, sign: "−", color: "bg-rose-50/80 text-rose-700", skipIfZero: true },
+                                                { label: t('farmerDashboard.depositDeducted'), value: billDetail.payment.deposit_amount, sign: "−", color: "bg-blue-50/80 text-blue-700", skipIfZero: true },
+                                                { label: t('farmerDashboard.productSalesDeduction'), value: billDetail.payment.product_deduction, sign: "−", color: "bg-amber-50/80 text-amber-700", skipIfZero: true },
+                                                { label: t('farmerDashboard.milkBoughtDeduction'), value: billDetail.payment.walkin_deduction, sign: "−", color: "bg-orange-50/80 text-orange-700", skipIfZero: true },
                                             ].filter(row => !row.skipIfZero || parseFloat(row.value || 0) > 0).map((row, i) => (
                                                 <div key={i} className={`flex items-center justify-between px-4 py-2.5 border-b border-gray-200/60 last:border-0 ${row.color} backdrop-blur-sm`}>
                                                     <span className="text-xs font-medium">{row.label}</span>
@@ -930,7 +926,7 @@ export default function FarmerDashboard() {
                                                 </div>
                                             ))}
                                             <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-                                                <span className="text-xs font-bold uppercase tracking-wider">{t('dashboard.netCashToHand', { defaultValue: 'Net Cash To Hand' })}</span>
+                                                <span className="text-xs font-bold uppercase tracking-wider">{t('farmerDashboard.netCashToHand')}</span>
                                                 <span className="text-base font-bold font-mono">₹{fmt(billDetail.payment.final_payable ?? billDetail.payment.cash_paid)}</span>
                                             </div>
                                         </div>
@@ -962,7 +958,7 @@ export default function FarmerDashboard() {
                                     {billDetail.productSales?.length > 0 && (
                                         <div>
                                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                <ShoppingBag size={12} /> {t('dashboard.myProductPurchases', { defaultValue: 'Product Purchases' })} ({billDetail.productSales.length})
+                                                <ShoppingBag size={12} /> {t('farmerDashboard.myProductPurchases')} ({billDetail.productSales.length})
                                             </p>
                                             <div className="rounded-xl border border-gray-200/60 overflow-hidden shadow-sm">
                                                 {billDetail.productSales.map((p, i) => (
@@ -979,9 +975,9 @@ export default function FarmerDashboard() {
                                     )}
 
                                     <div className="flex items-center justify-between text-[10px] text-gray-400 pt-2 border-t border-gray-200/60">
-                                        <span>{t('dashboard.billNoLabel', { defaultValue: 'Bill No.' })}: <strong className="text-gray-600 font-mono">{billDetail.payment.bill_no}</strong></span>
+                                        <span>{t('farmerDashboard.billNoLabel')}: <strong className="text-gray-600 font-mono">{billDetail.payment.bill_no}</strong></span>
                                         {billDetail.payment.paid_at && (
-                                            <span>{t('dashboard.paidOn', { defaultValue: 'Paid On' })}: {fmtDate(billDetail.payment.paid_at)}</span>
+                                            <span>{t('farmerDashboard.paidOn')}: {fmtDate(billDetail.payment.paid_at)}</span>
                                         )}
                                     </div>
                                 </div>

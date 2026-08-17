@@ -1497,12 +1497,19 @@ export default function WalkinSales() {
                                                 setHighlightedIdx(i => Math.max(i - 1, 0));
                                             } else if (e.key === "Enter") {
                                                 e.preventDefault();
-                                                const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                                if (sel) {
-                                                    set("seller_id", sel.seller_id);
-                                                    set("buyer_name", sel.name);
-                                                    setSellerSearch(sel.name);
+                                                if (highlightedIdx >= 0) {
+                                                    const sel = filteredSellers[highlightedIdx];
+                                                    if (sel) {
+                                                        handleSellerChange(sel.seller_id);
+                                                        setSellerSearch(sel.name);
+                                                        setDropdownOpen(false);
+                                                        focusNextField(e.currentTarget);
+                                                    }
+                                                } else {
+                                                    // Nothing explicitly chosen (via arrow keys or an exact code match) —
+                                                    // never guess a seller. Just close the list and move on.
                                                     setDropdownOpen(false);
+                                                    focusNextField(e.currentTarget);
                                                 }
                                             } else if (e.key === "Escape") {
                                                 setDropdownOpen(false);

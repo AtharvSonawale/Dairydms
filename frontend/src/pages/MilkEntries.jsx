@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
@@ -66,10 +67,11 @@ function Field({ label, icon, children, ...rest }) {
     );
 }
 
-function TinyInput({ className = "", style = {}, ...props }) {
+const TinyInput = React.forwardRef(function TinyInput({ className = "", style = {}, ...props }, ref) {
     const focusBg = props.readOnly ? "focus:bg-transparent" : "focus:bg-white";
     return (
         <input
+            ref={ref}
             {...props}
             style={{ minWidth: 0, ...style }}
             className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm
@@ -77,7 +79,7 @@ function TinyInput({ className = "", style = {}, ...props }) {
                 placeholder:text-gray-300 ${className}`}
         />
     );
-}
+});
 
 function ShiftToggle({ value, onChange, t }) {
     return (
@@ -98,15 +100,16 @@ function ShiftToggle({ value, onChange, t }) {
     );
 }
 
-function MilkTypeToggle({ value, onChange, t }) {
+function MilkTypeToggle({ value, onChange, t, disabled }) {
     return (
-        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
+        <div className={`flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm ${disabled ? "opacity-50" : ""}`}>
             {[
                 { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
                 { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
             ].map(({ val, label, active }) => (
-                <button key={val} type="button" onClick={() => onChange(val)}
+                <button key={val} type="button" disabled={disabled} onClick={() => onChange(val)}
                     className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
+                        ${disabled ? "cursor-not-allowed" : ""}
                         ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
                     {label}
                 </button>
@@ -234,6 +237,7 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
     const [lines, setLines] = useState([{ _key: Date.now(), product_id: "", quantity: "", rate: "" }]);
     const [productSearch, setProductSearch] = useState({});
     const [showProductDrop, setShowProductDrop] = useState({});
+    const productInputRefs = useRef({});
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -328,6 +332,7 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                                     style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
                                     <div className="relative">
                                         <TinyInput
+                                            ref={(el) => { productInputRefs.current[line._key] = el; }}
                                             value={searchVal}
                                             onChange={(e) => {
                                                 setProductSearch(p => ({ ...p, [line._key]: e.target.value }));
@@ -344,33 +349,36 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
                                             placeholder="Search product…"
                                             className="w-full"
                                         />
-                                        {showProductDrop[line._key] && (
-                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
-                                                {(productSearch[line._key]?.trim()
-                                                    ? products.filter(p => p.product_name.toLowerCase().includes(productSearch[line._key].toLowerCase()))
-                                                    : products
-                                                ).map((p) => (
-                                                    <button key={p.product_id} type="button"
-                                                        onMouseDown={() => {
-                                                            setLine(line._key, "product_id", String(p.product_id));
-                                                            setLine(line._key, "rate", p.mrp_rate ? String(p.mrp_rate) : (p.rate ? String(p.rate) : ""));
-                                                            setProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
-                                                            setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
-                                                        }}
-                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
-                                                        <div>
-                                                            <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
-                                                            <p className="text-[10px] text-gray-400">
-                                                                Stock: {parseFloat(p.current_stock || 0).toFixed(1)} {p.unit}
-                                                            </p>
-                                                        </div>
-                                                        <span className="text-[10px] text-violet-600 font-semibold">
-                                                            ₹{parseFloat(p.mrp_rate || 0).toFixed(2)}
-                                                        </span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <DropdownPortal
+                                            anchorRef={{ current: productInputRefs.current[line._key] }}
+                                            open={!!showProductDrop[line._key]}
+                                            width={288}
+                                        >
+                                            {(productSearch[line._key]?.trim()
+                                                ? products.filter(p => p.product_name.toLowerCase().includes(productSearch[line._key].toLowerCase()))
+                                                : products
+                                            ).map((p) => (
+                                                <button key={p.product_id} type="button"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        setLine(line._key, "product_id", String(p.product_id));
+                                                        setLine(line._key, "rate", p.mrp_rate ? String(p.mrp_rate) : (p.rate ? String(p.rate) : ""));
+                                                        setProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
+                                                        setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
+                                                    }}
+                                                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
+                                                    <div>
+                                                        <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
+                                                        <p className="text-[10px] text-gray-400">
+                                                            Stock: {parseFloat(p.current_stock || 0).toFixed(1)} {p.unit}
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-[10px] text-violet-600 font-semibold">
+                                                        ₹{parseFloat(p.mrp_rate || 0).toFixed(2)}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </DropdownPortal>
                                     </div>
 
                                     <TinyInput
@@ -435,6 +443,7 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
     const [lines, setLines] = useState([{ _key: Date.now(), feed_id: "", quantity: "", rate: "" }]);
     const [feedSearch, setFeedSearch] = useState({});
     const [showFeedDrop, setShowFeedDrop] = useState({});
+    const feedInputRefs = useRef({});
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -529,6 +538,7 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                                     style={{ gridTemplateColumns: "minmax(0, 1fr) 80px 80px 90px 28px" }}>
                                     <div className="relative">
                                         <TinyInput
+                                            ref={(el) => { feedInputRefs.current[line._key] = el; }}
                                             value={searchVal}
                                             onChange={(e) => {
                                                 setFeedSearch(p => ({ ...p, [line._key]: e.target.value }));
@@ -545,33 +555,36 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
                                             placeholder="Search feed…"
                                             className="w-full"
                                         />
-                                        {showFeedDrop[line._key] && (
-                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-52 overflow-y-auto">
-                                                {(feedSearch[line._key]?.trim()
-                                                    ? feeds.filter(f => f.feed_name.toLowerCase().includes(feedSearch[line._key].toLowerCase()))
-                                                    : feeds
-                                                ).map((f) => (
-                                                    <button key={f.feed_id} type="button"
-                                                        onMouseDown={() => {
-                                                            setLine(line._key, "feed_id", String(f.feed_id));
-                                                            setLine(line._key, "rate", f.mrp_rate ? String(f.mrp_rate) : (f.rate ? String(f.rate) : ""));
-                                                            setFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
-                                                            setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
-                                                        }}
-                                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
-                                                        <div>
-                                                            <p className="text-xs font-medium text-gray-800">{f.feed_name}</p>
-                                                            <p className="text-[10px] text-gray-400">
-                                                                Stock: {parseFloat(f.current_stock || 0).toFixed(1)} {f.unit}
-                                                            </p>
-                                                        </div>
-                                                        <span className="text-[10px] text-violet-600 font-semibold">
-                                                            ₹{parseFloat(f.mrp_rate || 0).toFixed(2)}
-                                                        </span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <DropdownPortal
+                                            anchorRef={{ current: feedInputRefs.current[line._key] }}
+                                            open={!!showFeedDrop[line._key]}
+                                            width={288}
+                                        >
+                                            {(feedSearch[line._key]?.trim()
+                                                ? feeds.filter(f => f.feed_name.toLowerCase().includes(feedSearch[line._key].toLowerCase()))
+                                                : feeds
+                                            ).map((f) => (
+                                                <button key={f.feed_id} type="button"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        setLine(line._key, "feed_id", String(f.feed_id));
+                                                        setLine(line._key, "rate", f.mrp_rate ? String(f.mrp_rate) : (f.rate ? String(f.rate) : ""));
+                                                        setFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
+                                                        setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
+                                                    }}
+                                                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
+                                                    <div>
+                                                        <p className="text-xs font-medium text-gray-800">{f.feed_name}</p>
+                                                        <p className="text-[10px] text-gray-400">
+                                                            Stock: {parseFloat(f.current_stock || 0).toFixed(1)} {f.unit}
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-[10px] text-violet-600 font-semibold">
+                                                        ₹{parseFloat(f.mrp_rate || 0).toFixed(2)}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </DropdownPortal>
                                     </div>
 
                                     <TinyInput
@@ -629,6 +642,60 @@ function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess
     );
 }
 
+function DropdownPortal({ anchorRef, open, width, children }) {
+    const [coords, setCoords] = useState(null);
+
+    useEffect(() => {
+        if (!open || !anchorRef.current) { setCoords(null); return; }
+        const update = () => {
+            const rect = anchorRef.current.getBoundingClientRect();
+            setCoords({
+                top: rect.bottom + window.scrollY + 4,
+                left: rect.left + window.scrollX,
+                width: width || rect.width,
+            });
+        };
+        update();
+        window.addEventListener("scroll", update, true);
+        window.addEventListener("resize", update);
+        return () => {
+            window.removeEventListener("scroll", update, true);
+            window.removeEventListener("resize", update);
+        };
+    }, [open, anchorRef, width]);
+
+    if (!open || !coords) return null;
+
+    return createPortal(
+        <div
+            style={{
+                position: "absolute",
+                top: coords.top,
+                left: coords.left,
+                width: coords.width,
+                backgroundColor: "#ffffff",
+                zIndex: 99999,
+            }}
+            className="border border-gray-200 rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto"
+        >
+            {children}
+        </div>,
+        document.body
+    );
+}
+
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function MilkEntryBase({ fixedSellerType }) {
     const { t } = useTranslation();
@@ -646,6 +713,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchName, setSearchName] = useState("");
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const sellerInputRef = useRef(null);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [editingEntry, setEditingEntry] = useState(null);
     const { user } = useAuth();
@@ -664,6 +732,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
     });
     const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null, weight: null });
     const socketRef = useRef(null);
+const lastAppliedWeightRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
+const lastAppliedFatRaw = useRef(null);
 
     const [portSwitchingEnabled, setPortSwitchingEnabled] = useState(true);
     const portSwitchingEnabledRef = useRef(true);
@@ -726,6 +796,12 @@ export default function MilkEntryBase({ fixedSellerType }) {
         });
         socketRef.current = socket;
 
+        // TEMP DIAGNOSTIC — remove once we've identified the cause
+        socket.on("connect", () => console.log("[socket] connected", new Date().toISOString()));
+        socket.on("disconnect", (reason) => console.log("[socket] disconnected:", reason, new Date().toISOString()));
+        socket.io.on("reconnect_attempt", () => console.log("[socket] reconnect attempt", new Date().toISOString()));
+        console.log("[MilkEntryBase] socket effect mounted", new Date().toISOString());
+
         const handleWeightUpdate = (subtypeKey) => (reading) => {
             setWeightBySubtype(prev => ({
                 ...prev,
@@ -738,6 +814,17 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     raw: reading.raw || prev[subtypeKey].raw,
                 },
             }));
+
+            // Skip replayed frames: on a socket reconnect (e.g. Socket.IO's
+            // ~20-25s ping/reconnect cycle), the server re-emits the SAME
+            // cached latestReading to the newly (re)connected socket. Without
+            // this guard, that replay re-fills quantity/machine_qty every
+            // time, clobbering anything the operator typed manually.
+            if (!reading.connected || !reading.raw || reading.raw === lastAppliedWeightRaw.current[subtypeKey]) {
+                return;
+            }
+            lastAppliedWeightRaw.current[subtypeKey] = reading.raw;
+
             const unitPref = weightPortConfigRef.current[subtypeKey]?.default_weight_unit || "ltr";
             const fillValue = unitPref === "kg" ? reading.value : reading.value2;
 
@@ -761,6 +848,16 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
         socket.on("fat:update", (reading) => {
             setIsFatConnected(!!reading.connected);
+
+            // Same replay guard as the weight handler above — a reconnect
+            // (Socket.IO's default ~20-25s ping cycle) re-sends the cached
+            // reading, which was previously re-applying fat/snf/water/protein
+            // and re-triggering the rate lookup every 20-25s.
+            if (!reading.connected || !reading.raw || reading.raw === lastAppliedFatRaw.current) {
+                return;
+            }
+            lastAppliedFatRaw.current = reading.raw;
+
             if (reading.fat !== null && reading.fat !== undefined) {
                 const fatValue = reading.fat.toFixed(2);
                 setMachineFat(fatValue);
@@ -1030,9 +1127,10 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
     const handleSellerChange = (id) => {
         const found = sellers.find((s) => String(s.seller_id) === String(id));
-        const newMilkType = (found?.milk_type && found.milk_type !== "mixed")
-            ? found.milk_type
-            : form.milk_type;
+        const rawType = (found?.milk_type || "").trim().toLowerCase();
+        const newMilkType = (rawType === "cow" || rawType === "buffalo")
+            ? rawType
+            : "cow"; // covers "both" and any unexpected/blank value
         setForm(p => ({
             ...p,
             seller_id: id,
@@ -1163,7 +1261,11 @@ export default function MilkEntryBase({ fixedSellerType }) {
         if (dropdownOpen) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
-        if (saving || !isFormReady()) return;
+        if (saving) return;
+        if (!isFormReady()) {
+            focusNextField(e.target);
+            return;
+        }
         editingEntry ? handleUpdate() : handleSave();
     };
 
@@ -1401,7 +1503,6 @@ export default function MilkEntryBase({ fixedSellerType }) {
         if (!sellerSearch.trim()) return sorted.slice(0, 5);
         const matched = sorted.filter((s) =>
             s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            String(s.seller_id) === sellerSearch.trim() ||
             (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
         );
         return matched.slice(0, 5);
@@ -1572,8 +1673,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                 )}
 
                 {/* ── Entry Form ── */}
-                <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-5 sm:px-6 py-5 z-20">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                <div className="relative isolate rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 px-5 sm:px-6 py-5 z-30">                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
                     <div className="flex items-center justify-between mb-4 relative z-10">
                         <p className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">
                             {editingEntry ? t('milkEntry.editEntry') : t('milkEntry.newEntry')}
@@ -1730,11 +1830,11 @@ export default function MilkEntryBase({ fixedSellerType }) {
                     </div>
 
                     {/* ── Manual entry fields ── */}
-                    <div className="flex items-start gap-3 flex-wrap p-4 rounded-2xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm relative z-10" onKeyDown={handleFormKeyDown}>
-
+                    <div data-entry-form className="flex items-start gap-3 flex-wrap p-4 rounded-2xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm relative z-10" onKeyDown={handleFormKeyDown}>
                         <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />} data-tour="seller-field">
                             <div className="relative" style={{ width: "175px" }}>
                                 <TinyInput
+                                    ref={sellerInputRef}
                                     value={sellerSearch}
                                     onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
                                     onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
@@ -1745,12 +1845,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         setDropdownOpen(true);
                                         if (!val) { set("seller_id", ""); return; }
                                         const trimmed = val.trim();
-                                        const isDigitsOnly = /^\d+$/.test(trimmed);
                                         const exact = sellers.find(
-                                            (s) =>
-                                                String(s.seller_id) === trimmed ||
-                                                (s.seller_code || "").toLowerCase() === trimmed.toLowerCase() ||
-                                                (isDigitsOnly && (s.seller_code || "").toLowerCase() === `s${trimmed}`.toLowerCase())
+                                            (s) => (s.seller_code || "").trim().toLowerCase() === trimmed.toLowerCase()
                                         );
                                         if (exact) {
                                             handleSellerChange(exact.seller_id);
@@ -1768,11 +1864,19 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             setHighlightedIdx(i => Math.max(i - 1, 0));
                                         } else if (e.key === "Enter") {
                                             e.preventDefault();
-                                            const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                            if (sel) {
-                                                handleSellerChange(sel.seller_id);
-                                                setSellerSearch(sel.name);
+                                            if (highlightedIdx >= 0) {
+                                                const sel = filteredSellers[highlightedIdx];
+                                                if (sel) {
+                                                    handleSellerChange(sel.seller_id);
+                                                    setSellerSearch(sel.name);
+                                                    setDropdownOpen(false);
+                                                    focusNextField(e.currentTarget);
+                                                }
+                                            } else {
+                                                // Nothing explicitly chosen (via arrow keys or an exact code match) —
+                                                // never guess a seller. Just close the list and move on.
                                                 setDropdownOpen(false);
+                                                focusNextField(e.currentTarget);
                                             }
                                         } else if (e.key === "Escape") {
                                             setDropdownOpen(false);
@@ -1782,33 +1886,43 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     className="pr-7"
                                     style={{ width: "175px" }}
                                 />
-                                {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white/98 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
-                                        <p className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
-                                            {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('milkEntry.matchesPlural') : t('milkEntry.matches')}` : t('milkEntry.sellersAZ')}
-                                        </p>
-                                        {filteredSellers.map((s, idx) => (
-                                            <button key={s.seller_id} type="button"
-                                                onMouseEnter={() => setHighlightedIdx(idx)}
-                                                onClick={() => {
-                                                    handleSellerChange(s.seller_id);
-                                                    setSellerSearch(s.name);
-                                                    setDropdownOpen(false);
-                                                }}
-                                                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                                                    ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                                                    ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
-                                                    {s.name?.charAt(0)?.toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                    <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                                <DropdownPortal
+                                    anchorRef={sellerInputRef}
+                                    open={dropdownOpen && !form.seller_id && filteredSellers.length > 0}
+                                    width={256}
+                                >
+                                    <p className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
+                                        {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('milkEntry.matchesPlural') : t('milkEntry.matches')}` : t('milkEntry.sellersAZ')}
+                                    </p>
+                                    {filteredSellers.map((s, idx) => (
+                                        <button key={s.seller_id} type="button"
+                                            onMouseEnter={() => setHighlightedIdx(idx)}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                                handleSellerChange(s.seller_id);
+                                                setSellerSearch(s.name);
+                                                setDropdownOpen(false);
+                                            }}
+                                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+    ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
+                                                ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
+                                                {s.name?.charAt(0)?.toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-gray-800 text-xs flex items-center gap-1 truncate">
+                                                    {s.name}
+                                                    {(s.milk_type || "").trim().toLowerCase() === "both" && (
+                                                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold text-[9px] tracking-wide">
+                                                            C&amp;B
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </DropdownPortal>
                                 {selectedSeller && (
                                     <button type="button" onClick={() => { set("seller_id", ""); setSellerSearch(""); setDropdownOpen(false); }}
                                         className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
@@ -1817,8 +1931,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 )}
                             </div>
                             {selectedSeller && (
-                                <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">
-                                    ID: {selectedSeller.seller_id} · {selectedSeller.seller_type || "—"}
+                                <p className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                                    {selectedSeller.seller_code || `ID:${selectedSeller.seller_id}`} · {selectedSeller.seller_type || "—"}
+                                    {(selectedSeller.milk_type || "").trim().toLowerCase() === "both" && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold text-[9px] tracking-wide">
+                                            C&amp;B
+                                        </span>
+                                    )}
                                 </p>
                             )}
                         </Field>
@@ -1830,6 +1949,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                         <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={12} />}>
                             <MilkTypeToggle
                                 value={form.milk_type}
+                                disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
                                 onChange={(v) => {
                                     set("milk_type", v);
                                     if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);

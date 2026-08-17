@@ -525,9 +525,8 @@ export default function CashDeposit() {
     const filteredSellers = (() => {
         const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
         if (!sellerSearch.trim()) return sorted.slice(0, 5);
-        const matched = sorted.filter(s =>
+        const matched = sorted.filter((s) =>
             s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            String(s.seller_id) === sellerSearch.trim() ||
             (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
         );
         return matched.slice(0, 5);

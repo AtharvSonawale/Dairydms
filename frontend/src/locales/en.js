@@ -30,7 +30,7 @@ const en = {
         // ── Anonymous Walk‑in Report ──────────────────────────────
         anonymousReport: {
             title: "Anonymous Walk‑in Sales",
-            subtitle: "All sales without a named buyer or seller",
+            subtitle: "All sales without a named buyer or farmer",
             takeTour: "Take a Tour",
             exportPDF: "Export PDF",
             popupBlocked: "Popup blocked. Please allow popups for this site.",
@@ -99,7 +99,11 @@ const en = {
 
         // ── Admin List ─────────────────────────────────────────
         adminList: {
+            admin: "Admin",
             title: 'Admins',
+            totalAdmins: "Total Admins",
+            active: "Active",
+            inactive: "InActive",
             subtitle: 'Manage admin accounts in your centre',
             takeTour: 'Take a Tour',
             addAdmin: 'Add Admin',
@@ -270,10 +274,10 @@ const en = {
             editing: "Editing",
             edit: "Edit",
             transaction: "transaction",
-            transactions: "transactions",
+            transactions: "Transactions",
             on: "on",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             matching: "matching",
             dateLabel: "Date",
             downloadPDF: "Download PDF",
@@ -375,7 +379,7 @@ const en = {
             for: "for",
             on: "on",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             matching: "matching",
             net: "Net",
             dateLabel: "Date",
@@ -851,7 +855,7 @@ const en = {
             noPurchasesDaily: "No purchases recorded for this date",
             noPurchasesRange: "No purchases found for this range",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             recordedToday: "recorded today",
             stockUpdateNote: "Stock updates automatically after each purchase",
             rateNote: "Rate is per unit as defined in the feed catalogue",
@@ -906,14 +910,14 @@ const en = {
             stats: {
                 todaySales: "Today's Sales",
                 totalRevenue: "Total Revenue",
-                sellersServed: "Sellers Served",
+                sellersServed: "Farmers Served",
             },
             form: {
                 title: "New Sale Entry",
-                seller: "Seller",
-                sellerPlaceholder: "Search seller by name or code",
+                seller: "Farmer",
+                sellerPlaceholder: "Search farmer by name or code",
                 sellerMatches: "{{count}} matches",
-                sellersAZ: "Sellers A–Z",
+                sellersAZ: "Farmers A–Z",
                 sellerId: "ID: {{id}} · {{type}}",
                 addFeed: "Add Feed",
                 grandTotal: "Grand Total:",
@@ -927,7 +931,7 @@ const en = {
                 stockLabel: "Stock: {{amount}} {{unit}}",
                 outOfStock: "⚠ Out of stock",
                 insufficientStock: "Insufficient stock for {{feed}}. Available: {{available}} {{unit}}",
-                selectSeller: "Please select a seller",
+                selectSeller: "Please select a farmer",
                 addAtLeastOneFeed: "Add at least one feed with quantity and rate",
                 saleRecorded: "Sale recorded",
                 saveFailed: "Save failed",
@@ -943,8 +947,9 @@ const en = {
                 outOfStock: "Out of stock",
             },
             table: {
+                salesList: "Sales List",
                 headers: {
-                    seller: "Seller",
+                    seller: "Farmer",
                     feed: "Feed",
                     qty: "Qty",
                     rate: "Rate",
@@ -971,7 +976,7 @@ const en = {
             editModal: {
                 title: "Edit Sale",
                 subtitle: "Editing transaction: {{id}}",
-                seller: "Seller",
+                seller: "Farmer",
                 feed: "Feed",
                 qty: "Qty",
                 rate: "Rate",
@@ -1024,18 +1029,18 @@ const en = {
                 report: "Report",
                 generated: "Generated",
                 sales: "Sales",
-                sellers: "Sellers",
+                sellers: "Farmers",
                 revenue: "Revenue",
-                seller: "Seller",
+                seller: "Farmer",
                 feed: "Feed",
                 qty: "Qty",
                 rate: "Rate",
                 amount: "Amount",
                 dateTime: "Date / Time",
                 grandTotal: "Grand Total",
-                entries: "entries",
-                sellerCount: "seller",
-                sellerCount_plural: "sellers",
+                entries: "Entries",
+                sellerCount: "Farmer",
+                sellerCount_plural: "Farmers",
                 footer: "This is a system‑generated report.",
                 signatory: "Authorised Signatory",
                 period: "{{mode}} Report · {{period}}",
@@ -1109,6 +1114,7 @@ const en = {
         // ── Dashboard ────────────────────────────────────────────────
         // ── Dashboard ────────────────────────────────────────────────
         dashboard: {
+            myDashboard: "My Dashboard",
             startTour: "Start a Tour",
             spent: "Spent",
             today: "Today",
@@ -1134,7 +1140,7 @@ const en = {
             greetEvening: "Good evening",
             morningShift: "Morning Shift",
             eveningShift: "Evening Shift",
-            entries: "entries",
+            entries: "Entries",
             walkinBreakdown: "Walk-in Sales Breakdown",
             cowWalkin: "Cow Walk-in",
             bufWalkin: "Buffalo Walk-in",
@@ -1226,7 +1232,7 @@ const en = {
             admin: "Admin",
             amount: "Amount",
             milkEntries: "Milk Entries",
-            sellersActive: "Active Sellers",
+            sellersActive: "Active Farmers",
             walkinCount: "Walk-in Sales",
             productSalesCount: "Product Sales",
             dispatchCount: "Dispatches",
@@ -1250,9 +1256,9 @@ const en = {
             totalCollection: "Total Collection",
             opening: "Opening",
             milkPayable: "Milk Payable",
-            dueAllSellers: "Due to all sellers",
+            dueAllSellers: "Due to all Farmers",
             avgFatSnf: "Avg Fat / SNF",
-            activeSellers: "Active Sellers",
+            activeSellers: "Active Farmers",
             cow: "Cow",
             buffalo: "Buffalo",
             walkinBreakdown: "Walk-in Breakdown",
@@ -1285,10 +1291,10 @@ const en = {
             netAdvance: "Net Advance",
             netGiven: "Net given",
             netRecovered: "Net recovered",
-            sellerSummary: "Seller Summary",
-            sellers: "sellers",
+            sellerSummary: "Farmer Summary",
+            sellers: "farmers",
             th_no: "#",
-            th_seller: "Seller",
+            th_seller: "Farmer",
             th_code: "Code",
             th_entries: "Entries",
             th_cow: "Cow (L)",
@@ -1348,8 +1354,91 @@ const en = {
             }
         },
 
+        // ── Farmer Dashboard ──────────────────────────────────────────
+        farmerDashboard: {
+            // Top Bar
+            myDashboard: "My Dashboard",
+            farmerLabel: "Farmer",
+            referenceDate: "Reference Date",
+            viewLabel: "View",
+            paymentCycle: "Payment Cycle",
+            customPeriod: "Custom Period",
+            periodLabel: "Period",
+
+            // Cycle/Period indicators
+            currentPaymentCycle: "Current Payment Cycle",
+            customPeriodViewing: "Viewing Custom Period",
+            cycleNote: "Data below reflects this cycle only",
+            periodNote: "Data below reflects this custom period",
+
+            // Overview
+            myOverview: "My Overview",
+            milkDelivered: "Milk Delivered",
+            milkEarnings: "Milk Earnings",
+            advanceBalance: "Advance Balance",
+            outstanding: "Outstanding with you",
+            depositBalance: "Deposit Balance",
+            heldByDairy: "Held by dairy",
+            acrossAllEntries: "Across all your entries this period",
+
+            // My Milk Entries
+            myMilkEntries: "My Milk Entries",
+            viewAll: "View All",
+            noMilkEntries: "No milk entries for this period",
+
+            // My Bills
+            myBills: "My Bills",
+            noBills: "No bills yet for this period",
+
+            // Advance & Deposit
+            noAdvances: "No advance transactions",
+            givenLabel: "Given",
+            receivedLabel: "Received",
+            depositLabel: "Deposit",
+            noDeposits: "No deposit activity yet",
+            depositAdded: "Deposit added",
+            depositWithdrawn: "Deposit withdrawn",
+            addedLabel: "Added",
+            withdrawnLabel: "Withdrawn",
+
+            // Premium Rates
+            myPremiumRates: "My Premium Rates",
+            noPremiumRates: "No premium rates assigned",
+            ongoing: "Ongoing",
+
+            // Product Purchases
+            myProductPurchases: "My Product Purchases",
+            noProductPurchases: "No product purchases this period",
+
+            // Bill Detail Modal
+            billLoadFailed: "Failed to load bill details",
+            loadFailed: "Failed to load dashboard data",
+            milkAmount: "Milk Amount",
+            totalQty: "Total Qty",
+            netCashPaid: "Net Cash Paid",
+            milkCollectionEntries: "Milk Collection Entries",
+            milkType: "Type",
+            qty: "Qty (L)",
+            paymentBreakdown: "Payment Breakdown",
+            milkAmountPayable: "Milk Amount Payable",
+            advanceOutstanding: "Advance Outstanding",
+            advInstallmentCut: "Advance Installment Cut",
+            depositDeducted: "Deposit Deducted",
+            productSalesDeduction: "Product Sales Deduction",
+            milkBoughtDeduction: "Milk Bought (Walk-in)",
+            netCashToHand: "Net Cash To Hand",
+            billNoLabel: "Bill No.",
+            paidOn: "Paid On",
+
+            // Footer
+            farmerFooter: "Showing only your own records",
+        },
+
+        
+
         // ── Expenses ─────────────────────────────────────────────────
         expenses: {
+            entries: "Entries",
             title: "Expenses",
             subtitle: "Track centre expenses — {{date}}",
             anchorDate: "Anchor Date",
@@ -1460,6 +1549,7 @@ const en = {
 
         // ── Farmer Ledger ────────────────────────────────────────────
         farmerLedger: {
+            farmerSummary: "Farmer Summary",
             title: "Farmer Ledger",
             subtitle: "Advance & deposit accounts and last paid bill, per farmer",
             refresh: "Refresh",
@@ -1586,14 +1676,14 @@ const en = {
             pdfSubtitle: "Gavali Bonus Register",
             pdfGenerated: "Generated",
             gavaliSellers: "Gavali farmers",
-            entries: "entries",
+            entries: "Entries",
             no: "No.",
             customerName: "Customer Name",
             milkType: "Milk Type",
             growthPercent: "Growth %",
             grandTotal: "Grand Total",
             from: "from",
-            sellers: "sellers",
+            sellers: "farmers",
             pdfFooter:
                 "This is a computer-generated register. Only Gavali farmers with 1+ year of sales included.",
             pdfSignatory: "Authorised Signatory: ___________________________",
@@ -1636,7 +1726,7 @@ const en = {
             updating: "Updating…",
             entriesOn: "entries on",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             selectSeller: "Please select a Farmer.",
             qtyRequired: "Quantity (litres) is required.",
             fatRequired: "FAT % is required.",
@@ -1752,7 +1842,7 @@ const en = {
             "saveSuccess": "Commission settings saved successfully!",
             "saveError": "Failed to save commission settings.",
             "howItWorks": "How commission works",
-            "howItWorksDesc": "Commission only applies to certain seller types. At the base Fat & SNF, the standard commission is added to the milk rate per litre. For every 0.1 step above or below the base Fat, the Fat Step Cut is added or subtracted. The same applies to SNF with the SNF Step Cut. The resulting commission (never below ₹0) is added to the milk rate before the payable amount is calculated.",
+            "howItWorksDesc": "Commission only applies to certain farmer types. At the base Fat & SNF, the standard commission is added to the milk rate per litre. For every 0.1 step above or below the base Fat, the Fat Step Cut is added or subtracted. The same applies to SNF with the SNF Step Cut. The resulting commission (never below ₹0) is added to the milk rate before the payable amount is calculated.",
             "perLitreAddOn": "Per-litre commission add-on",
             "active": "Active",
             "baseFat": "Base Fat %",
@@ -1819,7 +1909,7 @@ const en = {
             "atBase": "At Base",
             "commissionDetails": "Commission Details",
             "milkType": "Milk Type",
-            "sellerType": "Seller Type",
+            "sellerType": "Farmer Type",
             "gavali": "Gavali",
             "utpadak": "Utpadak",
             "applicable": "Applicable",
@@ -1973,7 +2063,7 @@ const en = {
             mobile: "Mobile Number",
             address: "Address",
             defaultMilkType: "Default Milk Type",
-            mixed: "Mixed",
+            both: "Both",
             cow: "Cow",
             buffalo: "Buffalo",
             pincode: "Pincode",
@@ -2001,13 +2091,19 @@ const en = {
 
         // ── Navigation ───────────────────────────────────────────────
         nav: {
+            favourites: "Favourites",
+            commissionSettings: "Commission Settings",
+            utpadakMilkEntry: "Utpadak Milk Entry",
+            gavaliMilkEntry: "Gavali Milk Entry",
 
+            myProfile: "My Profiles",
+            centres: "Centres",
             productPurchasePayment: "Bill Payments",
             cattlefeedPurchasePayment: "Bill Payments",
             namedBuyerReports: "Named Buyer Reports",
             anonReports: "Anon Buyer Reports",
             portSettings : "Port Settings",
-            sellerReport: "Seller Report",
+            sellerReport: "Farmer Report",
             cattleFeed: "Cattle Feed",
             startTour: "Start a Tour",
             namedBuyers: "Named Buyers",
@@ -2101,6 +2197,7 @@ const en = {
 
         // ── Owner Usage ──────────────────────────────────────────────
         ownerUsage: {
+            actions: "Actions",
             startTour: "Start a Tour",
             pageTitle: "Owner Usage",
             pageSubtitle: "Record personal milk consumption",
@@ -2139,7 +2236,7 @@ const en = {
             colPurpose: "Purpose",
             colTime: "Time",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             on: "on",
             morningUsage: "Morning Usage",
             eveningUsage: "Evening Usage",
@@ -2344,7 +2441,7 @@ const en = {
                 "connectionNoDevice": "No device found on this port. Check the connection.",
                 "testFailed": "Connection test failed with an error.",
                 "selectPort": "Please select a COM port first.",
-                "saveSuccess": "{machineType} settings saved successfully!",
+                "saveSuccess": "{{machineType}} settings saved successfully!",
                 "saveFailed": "Failed to save settings. Please try again.",
                 "resetSuccess": "Settings reset to last saved values.",
                 "portClosed": "Port closed successfully.",
@@ -2411,7 +2508,7 @@ const en = {
             to: "To",
             status: "Status",
             actions: "Actions",
-            entries: "entries",
+            entries: "Entries",
             edit: "Edit",
             off: "Off",
             del: "Del",
@@ -2488,7 +2585,7 @@ const en = {
             on: "on",
             spent: "spent",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             recordedToday: "recorded today",
             stockUpdateNote: "Product stock updates automatically after each purchase",
             rateNote: "Rate is per unit as defined in the product catalogue",
@@ -2844,7 +2941,7 @@ const en = {
             sales: "sales",
             on: "on",
             entry: "entry",
-            entries: "entries",
+            entries: "Entries",
             dateLabel: "Date",
             downloadPDF: "Download PDF",
             day: "Day",
@@ -2957,6 +3054,7 @@ const en = {
         },
 
         adminProfile: {
+            passwordPlaceholder: "",
             backToList: "Back to List",
             joinedLabel: "Joined",
             editTitle: "Edit",
@@ -2972,6 +3070,7 @@ const en = {
 
         // ── Rate Chart ───────────────────────────────────────────────
         rateChart: {
+            rateChart: "Rate Chart",
             startTour: "Start a Tour",
             pageTitle: "Rate Chart",
             pageSubtitle: "FAT × SNF combinations",
@@ -3071,7 +3170,7 @@ const en = {
             from: "From",
             to: "To",
             actions: "Actions",
-            entries: "entries",
+            entries: "Entries",
             prev: "← Prev",
             next: "Next →",
             of: "of",
@@ -3088,7 +3187,7 @@ const en = {
 
             // ── NEW: Tour descriptions ─────────────────────────
             tourDateDesc: "Pick the date to view or add rates for.",
-            tourActionsDesc: "Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific sellers, or add a single rate manually.",
+            tourActionsDesc: "Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific farmers, or add a single rate manually.",
             tourFilterDesc: "Switch between cow and buffalo rate charts.",
             tourTableDesc: "Each row shows the rate for a specific FAT/SNF combination. Edit or delete rates here.",
 
@@ -3182,8 +3281,8 @@ const en = {
         sellerPayments: {
             amt: "Amount",
             // Page Header
-            pageTitle: "Seller Payments",
-            pageSubtitle: "Manage and track seller payments",
+            pageTitle: "Farmer Payments",
+            pageSubtitle: "Manage and track farmer payments",
             startTour: "Take a Tour",
             searchBills: "Search Bills",
             configureCycle: "Configure Cycle",
@@ -3205,7 +3304,7 @@ const en = {
             to: "To",
 
             // Stats
-            totalSellers: "Total Sellers",
+            totalSellers: "Total Farmers",
             milkAmount: "Milk Amount",
             advanceTaken: "Advance Taken",
             infoOnly: "Info Only",
@@ -3225,7 +3324,7 @@ const en = {
             searchPlaceholder: "Search by name or code...",
             all: "All",
             unpaid: "Unpaid",
-            noSellersFound: "No sellers found for this period",
+            noSellersFound: "No farmers found for this period",
 
             // Seller Card Labels
             milk: "Milk",
@@ -3254,7 +3353,7 @@ const en = {
             rateAfterComm: "Rate After Comm.",
             ratePerLtr: "Rate/Ltr",
             amount: "Amount",
-            entries: "entries",
+            entries: "Entries",
             morning: "Morning",
             evening: "Evening",
 
@@ -3280,14 +3379,14 @@ const en = {
             // Bill Registry
             billRegistry: "Bill Registry",
             billRegistryDesc: "Search and manage all payment bills",
-            billSearchPlaceholder: "Search by bill no., seller name, or code...",
+            billSearchPlaceholder: "Search by bill no., farmer name, or code...",
             showAll: "Show All",
             bills: "bills",
             bill: "bill",
             noBillsFound: "No bills found",
             period: "Period",
             billNo: "Bill No.",
-            seller: "Seller",
+            seller: "Farmer",
             deleteBill: "Delete Bill",
             deleteWarning: "This action cannot be undone",
             deleteConfirmMessage: "Are you sure you want to delete bill",
@@ -3295,7 +3394,7 @@ const en = {
             reversalPaymentRecord: "Payment record will be removed",
             reversalAdvanceCut: "Advance cut will be reversed",
             reversalDepositCredit: "Deposit credit will be reversed",
-            reversalSellerStatus: "Seller will be marked as unpaid",
+            reversalSellerStatus: "Farmer will be marked as unpaid",
             deleting: "Deleting...",
             yesDeleteBill: "Yes, Delete Bill",
             printFullPDF: "Print Full PDF",
@@ -3317,8 +3416,8 @@ const en = {
             billNoLabel: "Bill No",
             computerGenerated: "Computer Generated",
             paidOn: "Paid On",
-            sellerName: "Seller Name",
-            sellerCode: "Seller Code",
+            sellerName: "Farmer Name",
+            sellerCode: "Farmer Code",
             totalEntries: "Total Entries",
             status: "Status",
             pending: "Pending",
@@ -3349,20 +3448,20 @@ const en = {
             depositDeducted: "Deposit Deducted",
             balance: "Balance",
             productSalesDeduction: "Product Sales Deduction",
-            milkBoughtBySellerWalkin: "Milk Bought by Seller (Walk-in)",
+            milkBoughtBySellerWalkin: "Milk Bought by Farmer (Walk-in)",
             productSalesDeductions: "Product Sales & Deductions",
             product: "Product",
             qty: "Qty",
             rate: "Rate",
             total: "Total",
-            milkBoughtBySeller: "Milk Bought by Seller",
+            milkBoughtBySeller: "Milk Bought by Farmer",
             computerGeneratedReceipt: "Computer Generated Receipt",
             paymentReceipt: "Payment Receipt",
             generated: "Generated",
             paymentRegister: "Payment Register",
             printRegister: "Print Register",
             authorisedSignatory: "Authorised Signatory",
-            sellerPaymentSummary: "Seller Payment Summary",
+            sellerPaymentSummary: "Farmer Payment Summary",
 
             // Cattle Feed
             cattleFeed: "Cattle Feed",
@@ -3390,7 +3489,7 @@ const en = {
             bulkDownloading: "Downloading…",
             combinedDownloadAll: "Combined PDF",
             combinedDownloading: "Processing…",
-            noPaidSellersToDownload: "No paid sellers to download.",
+            noPaidSellersToDownload: "No paid farmers to download.",
             bulkDownloadSuccess: "Downloaded {count} receipt(s).",
             bulkDownloadError: "Some receipts failed to download.",
 
@@ -3428,7 +3527,7 @@ const en = {
             showList: "Show List",
 
             // Seller Details
-            sellers: "Sellers",
+            sellers: "Farmers",
             entriesCount: "Entries",
             totalQuantity: "Total Quantity",
             advanceBalance: "Advance Balance",
@@ -3471,7 +3570,7 @@ const en = {
             cycleFrom: "Cycle From",
             cycleTo: "Cycle To",
             paymentCycle: "Payment Cycle",
-            sellerDetails: "Seller Details",
+            sellerDetails: "Farmer Details",
             collectionDetails: "Collection Details",
             paymentDetails: "Payment Details",
             billDetails: "Bill Details",
@@ -3601,8 +3700,8 @@ const en = {
         // ── Seller Payments Report (Walk‑in) ────────────────────────
         sellerPaymentsReport: {
             amt: "Amount",
-            title: "Seller Payments Report",
-            subtitle: "Sales, collections, and outstanding balances — sellers only",
+            title: "Farmer Payments Report",
+            subtitle: "Sales, collections, and outstanding balances — farmers only",
             takeTour: "Take a Tour",
             exportPDF: "Export PDF",
             popupBlocked: "Popup blocked. Please allow popups for this site.",
@@ -3611,10 +3710,10 @@ const en = {
             statement: "Statement",
             mode: "Mode",
             noTransactions: "No sales or payments recorded in this period.",
-            noSellers: "No sellers found for this period",
-            searchPlaceholder: "Search sellers by name or mobile",
-            sellerCount: "{{count}} seller",
-            sellerCount_plural: "{{count}} sellers",
+            noSellers: "No farmers found for this period",
+            searchPlaceholder: "Search farmers by name or mobile",
+            sellerCount: "{{count}} farmers",
+            sellerCount_plural: "{{count}} farmers",
             sort: {
                 outstanding: "Sort: Outstanding",
                 salesAmount: "Sort: Sales Amount",
@@ -3626,10 +3725,10 @@ const en = {
                 salesAmount: "Sales Amount",
                 amountCollected: "Amount Collected",
                 totalOutstanding: "Total Outstanding",
-                outstandingSub: "{{count}} of {{total}} sellers",
+                outstandingSub: "{{count}} of {{total}} farmers",
             },
             table: {
-                seller: "Seller",
+                seller: "Farmer",
                 qty: "Qty (L)",
                 salesAmt: "Sales Amt",
                 totalPaid: "Total Paid",
@@ -3646,9 +3745,9 @@ const en = {
                 balance: "Balance",
             },
             pdf: {
-                statementTitle: "Seller Statement",
-                statementHeader: "Seller Statement",
-                sellerType: "Seller",
+                statementTitle: "Farmer Statement",
+                statementHeader: "Farmer Statement",
+                sellerType: "Farmer",
                 period: "Period",
                 generated: "Generated",
                 milkSold: "Milk Sold",
@@ -3662,30 +3761,30 @@ const en = {
                 paid: "Paid",
                 runningBal: "Running Balance",
                 nil: "✓ Nil",
-                consolidatedTitle: "Seller Payments Report",
+                consolidatedTitle: "Farmer Payments Report",
                 report: "Report",
-                sellers: "sellers",
-                seller: "Seller",
+                sellers: "Farmers",
+                seller: "Farmer",
                 totalPaid: "Total Paid",
                 balance: "Balance",
                 lastPaid: "Last Paid",
                 grandTotal: "GRAND TOTAL",
-                footer: "Seller Payments Report · Printed",
+                footer: "Farmer Payments Report · Printed",
                 signatory: "Authorised Signatory",
             },
             tour: {
                 filters: {
                     title: "Report Period",
                     description:
-                        "Choose the period this seller report should cover, and filter by payment mode.",
+                        "Choose the period this farmer report should cover, and filter by payment mode.",
                 },
                 stats: {
-                    title: "Seller Totals",
+                    title: "Farmer Totals",
                     description:
                         "Quick totals for milk collected, amount collected, and outstanding balance across all sellers.",
                 },
                 table: {
-                    title: "Seller Ledger Table",
+                    title: "Farmer Ledger Table",
                     description:
                         "Click the expand icon (or row) to view the full statement with sales and payments.",
                 },
@@ -3694,6 +3793,7 @@ const en = {
 
         // ── Seller Register ──────────────────────────────────────────
         sellerRegister: {
+            rowFieldError: "Row {{row}}: {{fields}} required/invalid.",
             startTour: "Start a Tour",
             pageTitle: "Farmer Register",
             advance: "Advance",
@@ -3702,7 +3802,7 @@ const en = {
             totalSellers: "Total Farmers",
             cowSellers: "Cow Farmers",
             buffaloSellers: "Buffalo Farmers",
-            mixedSellers: "Mixed Farmers",
+            bothSellers: "Cow & Buffalow Farmers",
             loadError: "Failed to load farmers.",
             updateSuccess: "Farmer updated successfully!",
             createSuccess: "Farmer registered successfully!",
@@ -3752,7 +3852,7 @@ const en = {
             off: "Off",
             cow: "Cow",
             buffalo: "Buffalo",
-            mixed: "Mixed",
+            both: "Cow & Buff",
             utpadak: "Utpadak",
             gavali: "Gavali",
             editSeller: "Edit Farmer",
@@ -3760,15 +3860,15 @@ const en = {
             editDesc: "Update farmer details below",
             registerDesc: "Fill in Farmers information to register them",
             saving: "Saving…",
-            updateSeller: "Update Seller",
-            registerSeller: "Register Seller",
+            updateSeller: "Update Farmer",
+            registerSeller: "Register Farmer",
             cancel: "Cancel",
             depositPreview: "Preview:",
             depositPerLitreCollected: "deducted per litre collected",
             depositHint: "e.g. ₹2.00/litre will be deducted from milk payable",
             all: "All",
-            sellers: "sellers",
-            seller: "Seller",
+            sellers: "farmers",
+            seller: "Farmer",
             code: "Code",
             type: "Type",
             milk: "Milk",
@@ -3793,7 +3893,7 @@ const en = {
 
             // Import Modal
             importFarmers: "Import Farmers",
-            importDescription: "Bulk-add sellers from an Excel or CSV file",
+            importDescription: "Bulk-add farmers from an Excel or CSV file",
             dropFileHere: "Drop the file here",
             dragDropPrompt: "Drag & drop your file here",
             browsePrompt: "or click to browse — .xlsx, .xls, or .csv",
@@ -3804,7 +3904,7 @@ const en = {
             downloadTemplate: "Download sample template",
             saveAll: "Save All",
             importComplete: "Import Complete",
-            importResultsAdded: "seller(s) added",
+            importResultsAdded: "farmer(s) added",
             importResultsSkipped: "skipped",
             importResultsDetails: "See the details in the import window for why.",
 
@@ -3817,15 +3917,15 @@ const en = {
             fileReadError: "Could not read the file.",
             noValidRows: "No valid rows to import.",
             panInvalidError: "PAN number must be alphanumeric and up to 12 characters.",
-            sellerIdCodeInvalidError: "Seller ID Code must be numeric and up to 18 digits.",
+            sellerIdCodeInvalidError: "Farmer ID Code must be numeric and up to 18 digits.",
             pincodeInvalidError: "Pincode must be a valid 6-digit number.",
             passwordMinError: "Password must be at least 6 characters.",
 
             // Tour Descriptions
-            tourAddSellerDesc: "Click here to register a new seller.",
-            tourStatsDesc: "See your total sellers, broken down by milk type.",
-            tourFilterDesc: "Filter the seller list by cow, buffalo, or mixed milk type.",
-            tourTableDesc: "Click a seller's name to view their profile, or use Edit/Delete here.",
+            tourAddSellerDesc: "Click here to register a new farmer.",
+            tourStatsDesc: "See your total farmers, broken down by milk type.",
+            tourFilterDesc: "Filter the farmer list by cow, buffalo, or both milk type.",
+            tourTableDesc: "Click a farmer's name to view their profile, or use Edit/Delete here.",
 
             // Additional Labels
             cattleFeedSale: "Cattle Feed Sale",
@@ -3834,6 +3934,8 @@ const en = {
 
         // ── Settings ─────────────────────────────────────────────────
         settings: {
+            fssaiCode: "FSSAI Code",
+            fssaiCodeHint: "",
             dispatchSettings: "Dispatch Settings",
             fatOnlyAutofill: {
                 title: 'Fat-Only Rate Auto-Fill',
@@ -3858,7 +3960,7 @@ const en = {
                 groups: {
                     dashboard: 'Dashboard',
                     milkCollection: 'Milk & Collection',
-                    sellersPayments: 'Sellers & Payments',
+                    sellersPayments: 'Farmers & Payments',
                     products: 'Products',
                     reportsAnalytics: 'Reports & Analytics',
                     rates: 'Rates',
@@ -3871,8 +3973,8 @@ const en = {
                     named_buyers: 'Named Buyers',
                     tank_dispatch: 'Tank Dispatch',
                     owner_usage: 'Owner Usage',
-                    seller_register: 'Seller Register',
-                    seller_payments: 'Seller Payments',
+                    seller_register: 'Farmer Register',
+                    seller_payments: 'Farmer Payments',
                     cash_advance: 'Cash Advance',
                     cash_deposit: 'Cash Deposit',
                     products: 'Products Catalogue',
@@ -3927,12 +4029,16 @@ const en = {
         // ── Seller Profile ─────────────────────────────────────
         sellerProfile: {
             // ── Page & Navigation ─────────────────────────────
-            pageTitle: 'Seller Profile',
-            backToSellers: 'Sellers',
-            editSeller: 'Edit Seller',
+            pageTitle: 'Farmer Profile',
+            backToSellers: 'Farmers',
+            editSeller: 'Edit Farmer',
             deleteSeller: 'Delete',
             sellerCode: 'Code: {{code}}',
             registeredOn: 'Registered {{date}}',
+
+            premiumRates: {
+                title: "Premium Rates",
+            },
 
             // ── Stats ──────────────────────────────────────────
             stats: {
@@ -3956,7 +4062,7 @@ const en = {
                 jamin: 'Jamin (Guarantor)',
                 address: 'Address',
                 registeredOn: 'Registered On',
-                sellerType: 'Seller Type',
+                sellerType: 'Farmer Type',
                 milkType: 'Milk Type',
                 cashAdvance: 'Cash Advance',
                 advanceRecovery: 'Advance Recovery / Cycle',
@@ -4063,20 +4169,20 @@ const en = {
 
             // ── Edit Form ──────────────────────────────────────
             editForm: {
-                title: 'Edit Seller',
-                subtitle: 'Update seller details below',
+                title: 'Edit Farmer',
+                subtitle: 'Update farmer details below',
                 fullName: 'Full Name',
                 fullNamePlaceholder: 'e.g. Ramesh Patil',
-                sellerCode: 'Seller Code',
+                sellerCode: 'Farmer Code',
                 mobile: 'Mobile',
                 mobilePlaceholder: '+91XXXXXXXXXX',
                 aadhaar: 'Aadhaar',
                 aadhaarPlaceholder: 'XXXX XXXX XXXX',
-                sellerType: 'Seller Type',
+                sellerType: 'Farmer Type',
                 milkType: 'Milk Type',
                 milkTypeCow: 'Cow',
                 milkTypeBuffalo: 'Buffalo',
-                milkTypeMixed: 'Mixed',
+                milkTypeCnB: 'Cow & Buff',
                 jamin: 'Jamin (Guarantor)',
                 jaminPlaceholder: 'Name & Surname',
                 bankAccount: 'Bank Account No.',
@@ -4100,21 +4206,22 @@ const en = {
                 paymentTerm: 'Payment Term',
                 paymentTermPostpaid: 'Postpaid',
                 paymentTermPrepaid: 'Prepaid',
-                sellerStatus: 'Seller Status',
+                sellerStatus: 'Farmer Status',
                 enabled: '✓ Enabled',
                 disabled: '✗ Disabled',
                 active: '✓ Active',
                 inactive: '✗ Inactive',
                 cancel: 'Cancel',
-                updateSeller: 'Update Seller',
+                updateSeller: 'Update Farmer',
                 saving: 'Saving…',
                 // Field validations
                 nameRequired: 'Full name must include first and surname.',
                 nameNoNumbers: 'Name must not contain numbers.',
                 mobileInvalid: 'Mobile must be 10–12 digits.',
                 bankMismatch: 'Account numbers do not match.',
-                saveSuccess: 'Seller updated successfully!',
+                saveSuccess: 'Farmer updated successfully!',
                 saveError: 'Failed to save.',
+                passwordSetHint: "",
             },
 
             // ── Filter Bar ─────────────────────────────────────
@@ -4125,6 +4232,14 @@ const en = {
                 month: 'month',
                 year: 'year',
                 custom: 'custom',
+            },
+
+            cattleFeed: {
+                title: "CattleFeeds Purchased"
+            },
+
+            commission: {
+                title: "Commission Paid"
             },
 
             // ── Paginator ──────────────────────────────────────
@@ -4156,26 +4271,34 @@ const en = {
 
             // ── Delete Modal ──────────────────────────────────
             deleteModal: {
-                title: 'Delete Seller?',
-                warning: '<strong>"{{name}}"</strong> will be permanently removed. If this seller has linked milk entries or transactions, they will be <strong>marked as Inactive</strong> instead.',
+                title: 'Delete Farmer?',
+                warning: '<strong>"{{name}}"</strong> will be permanently removed. If this farmer has linked milk entries or transactions, they will be <strong>marked as Inactive</strong> instead.',
                 cancel: 'Cancel',
                 confirm: 'Yes, Delete',
                 deleting: 'Deleting…',
-                softDeleteSuccess: 'Seller has linked records — marked as Inactive instead of deleted.',
-                hardDeleteSuccess: 'Seller deleted successfully.',
+                softDeleteSuccess: 'Farmer has linked records — marked as Inactive instead of deleted.',
+                hardDeleteSuccess: 'Farmer deleted successfully.',
                 deleteError: 'Failed to delete.',
             },
 
             // ── Flash Messages ────────────────────────────────
             flash: {
-                loadError: 'Failed to load seller data.',
-                notFound: 'Seller not found.',
-                updateSuccess: 'Seller updated successfully!',
+                loadError: 'Failed to load farmer data.',
+                notFound: 'SelFarmerler not found.',
+                updateSuccess: 'Farmer updated successfully!',
                 updateError: 'Failed to save.',
-                deleteSuccess: 'Seller deleted successfully.',
-                softDeleteSuccess: 'Seller has linked records — marked as Inactive instead of deleted.',
+                deleteSuccess: 'Farmer deleted successfully.',
+                softDeleteSuccess: 'Farmer has linked records — marked as Inactive instead of deleted.',
                 deleteError: 'Failed to delete.',
             },
+
+            bills: {
+                title: "Paid Milk Bills",
+            },
+
+            bonus: {
+                title: "Paid Bonus",
+            }
         },
 
         // ── Status ───────────────────────────────────────────────────
@@ -4230,6 +4353,10 @@ const en = {
 
         // ── Tank Dispatch ────────────────────────────────────────────
         tankDispatch: {
+            availableStock: "Available Stock",
+            dispatchHistory: "Dispatch History",
+            delete: "Delete",
+            colDelete: "Delete",
             startTour: "Start a Tour",
             pageTitle: "Tank Dispatch",
             pageSubtitle: "Send remaining milk to factory",
@@ -4464,7 +4591,7 @@ const en = {
             pdfSubtitle: "Utpadak Bonus Register",
             pdfGenerated: "Generated",
             utpadakSellers: "Utpadak farmers",
-            entries: "entries",
+            entries: "Entries",
             no: "No.",
             customerName: "Customer Name",
             milkType: "Milk Type",
