@@ -53,9 +53,10 @@ function parseWeightLine(line, kgLabel = 'Kg', ltrLabel = 'Ltr') {
         const value = sign * parseFloat(match[2]);
         const rawUnit = match[3] || null;
 
-        if (rawUnit && rawUnit.toLowerCase() === ltrL) {
+        const rawUnitL = rawUnit ? rawUnit.toLowerCase() : null;
+        if (rawUnit && (ltrL.startsWith(rawUnitL) || rawUnitL.startsWith(ltrL))) {
             ltr = { value, unit: rawUnit };
-        } else if (rawUnit && rawUnit.toLowerCase() === kgL) {
+        } else if (rawUnit && (kgL.startsWith(rawUnitL) || rawUnitL.startsWith(kgL))) {
             kg = { value, unit: rawUnit };
         } else if (!rawUnit && !kg) {
             // No unit sent at all — the high-capacity scale's format

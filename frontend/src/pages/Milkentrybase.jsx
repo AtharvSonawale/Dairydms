@@ -53,11 +53,34 @@ const getEmptyForm = (sellerType) => ({
     machine_qty: "",
 });
 
-const FAT_MIN = 2.5, FAT_MAX = 9.0;
-const SNF_MIN = 6.5, SNF_MAX = 10.5;
+const FAT_LIMITS = {
+    cow: { min: 2.5, max: 5 },
+    buffalo: { min: 2.5, max: 10 },
+};
+const SNF_LIMITS = {
+    cow: { min: 6.5, max: 8.5 },
+    buffalo: { min: 6.5, max: 9.0 },
+};
 
-const isValidFat = (v) => parseFloat(v) >= FAT_MIN && parseFloat(v) <= FAT_MAX;
-const isValidSnf = (v) => parseFloat(v) >= SNF_MIN && parseFloat(v) <= SNF_MAX;
+const isValidFat = (v, milk_type) => {
+    const { min, max } = FAT_LIMITS[milk_type] || FAT_LIMITS.cow;
+    return parseFloat(v) >= min && parseFloat(v) <= max;
+};
+
+// SNF only enforces a floor — values above the type's max are allowed to be
+// entered/saved (they're real readings), but get capped to the max below
+// when used for rate lookup.
+const isValidSnf = (v, milk_type) => {
+    const { min } = SNF_LIMITS[milk_type] || SNF_LIMITS.cow;
+    return parseFloat(v) >= min;
+};
+
+const capSnfForRate = (v, milk_type) => {
+    const { max } = SNF_LIMITS[milk_type] || SNF_LIMITS.cow;
+    const num = parseFloat(v);
+    if (isNaN(num)) return v;
+    return Math.min(num, max).toFixed(2);
+};
 
 // ── theme (per seller type) ─────────────────────────────────────
 const THEME = {
@@ -1034,9 +1057,10 @@ const lastAppliedFatRaw = useRef(null);
 
     const autoRateTimer = useRef(null);
     const fetchAutoRate = (fat, snf, milk_type) => {
-        const snfForLookup = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : snf;
-        if (!fat || !snfForLookup || !milk_type) return;
-        if (!isValidFat(fat) || !isValidSnf(snfForLookup)) return;
+        const snfRaw = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : snf;
+        if (!fat || !snfRaw || !milk_type) return;
+        if (!isValidFat(fat, milk_type) || !isValidSnf(snfRaw, milk_type)) return;
+        const snfForLookup = capSnfForRate(snfRaw, milk_type);
         clearTimeout(autoRateTimer.current);
         autoRateTimer.current = setTimeout(async () => {
             try {
@@ -1108,8 +1132,14 @@ const lastAppliedFatRaw = useRef(null);
         if (!form.fat) { showFlash("error", t('milkEntry.fatRequired')); return; }
         if (!form.snf) { showFlash("error", t('milkEntry.snfRequired')); return; }
         if (!form.rate_applied) { showFlash("error", t('milkEntry.rateRequired')); return; }
-        if (!isValidFat(form.fat)) { showFlash("error", t('milkEntry.fatRange', { min: FAT_MIN, max: FAT_MAX })); return; }
-        if (!isValidSnf(form.snf)) { showFlash("error", t('milkEntry.snfRange', { min: SNF_MIN, max: SNF_MAX })); return; }
+        if (!isValidFat(form.fat, form.milk_type)) {
+            const { min, max } = FAT_LIMITS[form.milk_type] || FAT_LIMITS.cow;
+            showFlash("error", t('milkEntry.fatRange', { min, max })); return;
+        }
+        if (!isValidSnf(form.snf, form.milk_type)) {
+            const { min } = SNF_LIMITS[form.milk_type] || SNF_LIMITS.cow;
+            showFlash("error", t('milkEntry.snfRange', { min, max: '—' })); return;
+        }
         if (saving) return;
 
         setSaving(true);
@@ -1177,8 +1207,14 @@ const lastAppliedFatRaw = useRef(null);
             showFlash("error", t('milkEntry.allFieldsRequired')); return;
         }
         if (saving) return;
-        if (!isValidFat(form.fat)) { showFlash("error", t('milkEntry.fatRange', { min: FAT_MIN, max: FAT_MAX })); return; }
-        if (!isValidSnf(form.snf)) { showFlash("error", t('milkEntry.snfRange', { min: SNF_MIN, max: SNF_MAX })); return; }
+        if (!isValidFat(form.fat, form.milk_type)) {
+            const { min, max } = FAT_LIMITS[form.milk_type] || FAT_LIMITS.cow;
+            showFlash("error", t('milkEntry.fatRange', { min, max })); return;
+        }
+        if (!isValidSnf(form.snf, form.milk_type)) {
+            const { min } = SNF_LIMITS[form.milk_type] || SNF_LIMITS.cow;
+            showFlash("error", t('milkEntry.snfRange', { min, max: '—' })); return;
+        }
         setSaving(true);
         try {
             const computedAmount = (parseFloat(form.quantity) * parseFloat(form.rate_applied)).toFixed(2);
@@ -1215,7 +1251,7 @@ const lastAppliedFatRaw = useRef(null);
 
     const isFormReady = () =>
         form.seller_id && form.quantity && form.fat && form.snf && form.rate_applied &&
-        isValidFat(form.fat) && isValidSnf(form.snf);
+        isValidFat(form.fat, form.milk_type) && isValidSnf(form.snf, form.milk_type);
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;

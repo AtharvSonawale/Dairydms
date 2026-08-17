@@ -6,7 +6,7 @@ import {
     User, AlertTriangle, BadgeCheck, X,
     TrendingUp, ChevronDown, Milk, Trash2, Scale,
     Pencil, ShoppingCart, Package, Plug, PlugZap, Radio,
-    Calendar, Settings, Home
+    Calendar, Settings, Home, RotateCcw
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -49,10 +49,20 @@ const EMPTY_FORM = (fixedSellerType) => ({
     rate_applied: "", machine_qty: "",
 });
 
-const FAT_MIN = 2.5, FAT_MAX = 9.0;
+const FAT_RANGE = {
+    cow: { min: 2.5, max: 9.0 },
+    buffalo: { min: 2.5, max: null }, // null = no upper cap
+};
 const SNF_MIN = 6.5, SNF_MAX = 10.5;
 
-const isValidFat = (v) => parseFloat(v) >= FAT_MIN && parseFloat(v) <= FAT_MAX;
+const isValidFat = (v, milk_type) => {
+    const val = parseFloat(v);
+    if (isNaN(val)) return false;
+    const range = FAT_RANGE[milk_type] || FAT_RANGE.cow;
+    if (val < range.min) return false;
+    if (range.max !== null && val > range.max) return false;
+    return true;
+};
 const isValidSnf = (v) => parseFloat(v) >= SNF_MIN && parseFloat(v) <= SNF_MAX;
 
 // ── sub-components ────────────────────────────────────────────
@@ -701,7 +711,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const { t } = useTranslation();
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [entryToDelete, setEntryToDelete] = useState(null);
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState(() => EMPTY_FORM(fixedSellerType));
     const [entries, setEntries] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
@@ -732,8 +742,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
     });
     const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null, weight: null });
     const socketRef = useRef(null);
-const lastAppliedWeightRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
-const lastAppliedFatRaw = useRef(null);
+    const lastAppliedWeightRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
+    const lastAppliedFatRaw = useRef(null);
 
     const [portSwitchingEnabled, setPortSwitchingEnabled] = useState(true);
     const portSwitchingEnabledRef = useRef(true);
@@ -761,6 +771,16 @@ const lastAppliedFatRaw = useRef(null);
     const [lastFatRaw, setLastFatRaw] = useState("");
     const [fatPortConfig, setFatPortConfig] = useState(null);
     const [lastFatUpdateAt, setLastFatUpdateAt] = useState(null);
+
+    // ── Tare workflow: multi-can weighing for a single farmer ──
+    // Real-world flow: place can+milk on scale -> capture gross -> empty the
+    // can into the storage tank -> place empty can back on scale -> capture
+    // tare -> net = gross - tare gets added to a running total. Repeat per
+    // can until the farmer's full delivery is weighed, then Quantity =
+    // sum of all net weights (still manually overridable).
+    const [canQueue, setCanQueue] = useState([]); // [{ id, gross, tare, net }]
+    const [pendingGross, setPendingGross] = useState(null);
+    const netCanTotal = canQueue.reduce((sum, c) => sum + c.net, 0);
 
     useEffect(() => {
         api.get("/settings/ports")
@@ -1074,7 +1094,7 @@ const lastAppliedFatRaw = useRef(null);
     const fetchAutoRate = (fat, snf, milk_type) => {
         const snfForLookup = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : snf;
         if (!fat || !snfForLookup || !milk_type) return;
-        if (!isValidFat(fat) || !isValidSnf(snfForLookup)) return;
+        if (!isValidFat(fat, milk_type) || !isValidSnf(snfForLookup)) return;
         clearTimeout(autoRateTimer.current);
         autoRateTimer.current = setTimeout(async () => {
             try {
@@ -1126,6 +1146,10 @@ const lastAppliedFatRaw = useRef(null);
     }, [weightPortConfig]);
 
     const handleSellerChange = (id) => {
+        if (String(id) !== String(form.seller_id)) {
+            setCanQueue([]);
+            setPendingGross(null);
+        }
         const found = sellers.find((s) => String(s.seller_id) === String(id));
         const rawType = (found?.milk_type || "").trim().toLowerCase();
         const newMilkType = (rawType === "cow" || rawType === "buffalo")
@@ -1140,13 +1164,70 @@ const lastAppliedFatRaw = useRef(null);
         fetchPremiumRate(id, newMilkType, selectedDate);
     };
 
+    const captureGrossWeight = () => {
+        const grossVal = parseFloat(machineQty2);
+        if (!grossVal || grossVal <= 0) {
+            showFlash("error", "No valid weight reading on the scale to capture.");
+            return;
+        }
+        setPendingGross(grossVal);
+        showFlash("success", `Gross weight captured: ${grossVal.toFixed(3)} L. Empty the can, then capture tare.`);
+    };
+
+    const captureTareWeight = () => {
+        if (pendingGross === null) {
+            showFlash("error", "Capture the full-can (gross) weight first.");
+            return;
+        }
+        const tareVal = parseFloat(machineQty2);
+        if (!tareVal || tareVal <= 0) {
+            showFlash("error", "No valid weight reading on the scale to capture.");
+            return;
+        }
+        if (tareVal >= pendingGross) {
+            showFlash("error", "Empty-can (tare) weight must be less than the full-can (gross) weight.");
+            return;
+        }
+        const net = pendingGross - tareVal;
+        const newCan = { id: Date.now(), gross: pendingGross, tare: tareVal, net };
+        setCanQueue(prev => {
+            const updated = [...prev, newCan];
+            const total = updated.reduce((sum, c) => sum + c.net, 0);
+            set("quantity", total.toFixed(2));
+            return updated;
+        });
+        setPendingGross(null);
+        showFlash("success", `Can recorded: ${net.toFixed(2)} L net.`);
+    };
+
+    const undoLastCan = () => {
+        setCanQueue(prev => {
+            const updated = prev.slice(0, -1);
+            const total = updated.reduce((sum, c) => sum + c.net, 0);
+            set("quantity", total ? total.toFixed(2) : "");
+            return updated;
+        });
+    };
+
+    const clearCanQueue = () => {
+        setCanQueue([]);
+        setPendingGross(null);
+        set("quantity", "");
+    };
+
     const handleSave = async () => {
         if (!form.seller_id) { showFlash("error", t('milkEntry.selectSeller')); return; }
         if (!form.quantity) { showFlash("error", t('milkEntry.qtyRequired')); return; }
         if (!form.fat) { showFlash("error", t('milkEntry.fatRequired')); return; }
         if (!form.snf) { showFlash("error", t('milkEntry.snfRequired')); return; }
         if (!form.rate_applied) { showFlash("error", t('milkEntry.rateRequired')); return; }
-        if (!isValidFat(form.fat)) { showFlash("error", t('milkEntry.fatRange', { min: FAT_MIN, max: FAT_MAX })); return; }
+        if (!isValidFat(form.fat, form.milk_type)) {
+            const range = FAT_RANGE[form.milk_type] || FAT_RANGE.cow;
+            showFlash("error", range.max !== null
+                ? t('milkEntry.fatRange', { min: range.min, max: range.max })
+                : t('milkEntry.fatMin', { min: range.min }));
+            return;
+        }
         if (!isValidSnf(form.snf)) { showFlash("error", t('milkEntry.snfRange', { min: SNF_MIN, max: SNF_MAX })); return; }
         if (saving) return;
 
@@ -1169,7 +1250,7 @@ const lastAppliedFatRaw = useRef(null);
             await fetchEntries(selectedDate, selectedDate);
             await fetchLiveStock(selectedDate);
             showFlash("success", t('milkEntry.savedSuccess'));
-            setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
+            setForm({ ...EMPTY_FORM(fixedSellerType), shift: getShiftByTime() });
             setSellerSearch("");
             setWeightBySubtype(prev => ({
                 ...prev,
@@ -1177,7 +1258,14 @@ const lastAppliedFatRaw = useRef(null);
                 weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
+            setMachineFat("");
+            setMachineSnf("");
             setMachineProtein("");
+            lastAppliedWeightRaw.current = { weight_gavali: null, weight_utpadak: null, weight: null };
+            lastAppliedFatRaw.current = null;
+            setCanQueue([]);
+            setPendingGross(null);
+            sellerInputRef.current?.focus();
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -1216,8 +1304,13 @@ const lastAppliedFatRaw = useRef(null);
             showFlash("error", t('milkEntry.allFieldsRequired')); return;
         }
         if (saving) return;
-        if (!isValidFat(form.fat)) { showFlash("error", t('milkEntry.fatRange', { min: FAT_MIN, max: FAT_MAX })); return; }
-        if (!isValidSnf(form.snf)) { showFlash("error", t('milkEntry.snfRange', { min: SNF_MIN, max: SNF_MAX })); return; }
+        if (!isValidFat(form.fat, form.milk_type)) {
+            const range = FAT_RANGE[form.milk_type] || FAT_RANGE.cow;
+            showFlash("error", range.max !== null
+                ? t('milkEntry.fatRange', { min: range.min, max: range.max })
+                : t('milkEntry.fatMin', { min: range.min }));
+            return;
+        } if (!isValidSnf(form.snf)) { showFlash("error", t('milkEntry.snfRange', { min: SNF_MIN, max: SNF_MAX })); return; }
         setSaving(true);
         try {
             const computedAmount = (parseFloat(form.quantity) * parseFloat(form.rate_applied)).toFixed(2);
@@ -1236,7 +1329,7 @@ const lastAppliedFatRaw = useRef(null);
             showFlash("success", t('milkEntry.updatedSuccess'));
             await fetchEntries(selectedDate, selectedDate);
             setEditingEntry(null);
-            setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
+            setForm({ ...EMPTY_FORM(fixedSellerType), shift: getShiftByTime() });
             setSellerSearch("");
             setWeightBySubtype(prev => ({
                 ...prev,
@@ -1244,7 +1337,14 @@ const lastAppliedFatRaw = useRef(null);
                 weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
+            setMachineFat("");
+            setMachineSnf("");
             setMachineProtein("");
+            lastAppliedWeightRaw.current = { weight_gavali: null, weight_utpadak: null, weight: null };
+            lastAppliedFatRaw.current = null;
+            setCanQueue([]);
+            setPendingGross(null);
+            sellerInputRef.current?.focus();
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -1254,7 +1354,7 @@ const lastAppliedFatRaw = useRef(null);
 
     const isFormReady = () =>
         form.seller_id && form.quantity && form.fat && form.snf && form.rate_applied &&
-        isValidFat(form.fat) && isValidSnf(form.snf);
+        isValidFat(form.fat, form.milk_type) && isValidSnf(form.snf);
 
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
@@ -1271,7 +1371,7 @@ const lastAppliedFatRaw = useRef(null);
 
     const handleCancelEdit = () => {
         setEditingEntry(null);
-        setForm({ ...EMPTY_FORM, shift: getShiftByTime() });
+        setForm({ ...EMPTY_FORM(fixedSellerType), shift: getShiftByTime() });
         setSellerSearch("");
         setWeightBySubtype(prev => ({
             ...prev,
@@ -1279,7 +1379,13 @@ const lastAppliedFatRaw = useRef(null);
             weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
             weight: { ...prev.weight, qty: "", qty2: "" },
         }));
+        setMachineFat("");
+        setMachineSnf("");
         setMachineProtein("");
+        lastAppliedWeightRaw.current = { weight_gavali: null, weight_utpadak: null, weight: null };
+        lastAppliedFatRaw.current = null;
+        setCanQueue([]);
+        setPendingGross(null);
     };
 
     const handleDelete = async (entryId) => {
@@ -1766,6 +1872,70 @@ const lastAppliedFatRaw = useRef(null);
                                     )}
                                 </div>
                             </div>
+
+                            {/* Tare / multi-can weighing workflow */}
+                            <div className="px-4 py-3 border-t border-gray-100/60 bg-white/70">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest">
+                                        Multi-Can Tare
+                                    </span>
+                                    {pendingGross !== null && (
+                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50/80 border border-amber-200/60 px-2 py-0.5 rounded-full">
+                                            Gross: {pendingGross.toFixed(3)} L · empty can, then tare
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                    <button
+                                        type="button"
+                                        onClick={captureGrossWeight}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30 hover:shadow-lg transition whitespace-nowrap"
+                                    >
+                                        <Scale size={11} /> Capture Gross (Full Can)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={captureTareWeight}
+                                        disabled={pendingGross === null}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 hover:shadow-lg transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <Package size={11} /> Capture Tare (Empty Can)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={undoLastCan}
+                                        disabled={canQueue.length === 0}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-white/60 border border-gray-200/60 text-gray-500 hover:bg-gray-50/80 transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <RotateCcw size={11} /> Undo Can
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={clearCanQueue}
+                                        disabled={canQueue.length === 0 && pendingGross === null}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-500 hover:bg-rose-100/80 transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <X size={11} /> Clear
+                                    </button>
+                                </div>
+
+                                {canQueue.length > 0 && (
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex flex-wrap gap-1">
+                                            {canQueue.map((c, idx) => (
+                                                <span key={c.id} className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-2 py-1 rounded-lg">
+                                                    Can {idx + 1}: {c.gross.toFixed(2)}−{c.tare.toFixed(2)}={c.net.toFixed(2)}L
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div className="text-[11px] font-bold text-gray-700 mt-1">
+                                            {canQueue.length} can{canQueue.length !== 1 ? "s" : ""} · Total net:{" "}
+                                            <span className="text-emerald-700">{netCanTotal.toFixed(2)} L</span> → filled into Quantity field
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Fat & SNF instrument */}
@@ -1844,17 +2014,32 @@ const lastAppliedFatRaw = useRef(null);
                                         setHighlightedIdx(-1);
                                         setDropdownOpen(true);
                                         if (!val) { set("seller_id", ""); return; }
-                                        const trimmed = val.trim();
-                                        const exact = sellers.find(
-                                            (s) => (s.seller_code || "").trim().toLowerCase() === trimmed.toLowerCase()
-                                        );
-                                        if (exact) {
-                                            handleSellerChange(exact.seller_id);
-                                            setSellerSearch(exact.name);
-                                            setDropdownOpen(false);
-                                        }
                                     }}
                                     onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            const trimmed = sellerSearch.trim();
+                                            const exact = trimmed && sellers.find(
+                                                (s) => (s.seller_code || "").trim().toLowerCase() === trimmed.toLowerCase()
+                                            );
+                                            if (exact) {
+                                                handleSellerChange(exact.seller_id);
+                                                setSellerSearch(exact.name);
+                                                setDropdownOpen(false);
+                                                focusNextField(e.currentTarget);
+                                            } else if (dropdownOpen && highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                const sel = filteredSellers[highlightedIdx];
+                                                handleSellerChange(sel.seller_id);
+                                                setSellerSearch(sel.name);
+                                                setDropdownOpen(false);
+                                                focusNextField(e.currentTarget);
+                                            } else {
+                                                // Nothing explicitly chosen — never guess a seller.
+                                                setDropdownOpen(false);
+                                                focusNextField(e.currentTarget);
+                                            }
+                                            return;
+                                        }
                                         if (!dropdownOpen || filteredSellers.length === 0) return;
                                         if (e.key === "ArrowDown") {
                                             e.preventDefault();
@@ -1862,22 +2047,6 @@ const lastAppliedFatRaw = useRef(null);
                                         } else if (e.key === "ArrowUp") {
                                             e.preventDefault();
                                             setHighlightedIdx(i => Math.max(i - 1, 0));
-                                        } else if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            if (highlightedIdx >= 0) {
-                                                const sel = filteredSellers[highlightedIdx];
-                                                if (sel) {
-                                                    handleSellerChange(sel.seller_id);
-                                                    setSellerSearch(sel.name);
-                                                    setDropdownOpen(false);
-                                                    focusNextField(e.currentTarget);
-                                                }
-                                            } else {
-                                                // Nothing explicitly chosen (via arrow keys or an exact code match) —
-                                                // never guess a seller. Just close the list and move on.
-                                                setDropdownOpen(false);
-                                                focusNextField(e.currentTarget);
-                                            }
                                         } else if (e.key === "Escape") {
                                             setDropdownOpen(false);
                                         }
