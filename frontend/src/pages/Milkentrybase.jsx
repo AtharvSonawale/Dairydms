@@ -82,6 +82,24 @@ const capSnfForRate = (v, milk_type) => {
     return Math.min(num, max).toFixed(2);
 };
 
+// Formats a seller as "403 - Dhanush Patil" for both the dropdown list
+// and the search input after selection. Falls back to just the name if
+// no code is available.
+const sellerLabel = (seller) =>
+    seller?.seller_code ? `${seller.seller_code} - ${seller.name}` : (seller?.name || "");
+
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
+
 // ── theme (per seller type) ─────────────────────────────────────
 const THEME = {
     Utpadak: {
@@ -779,9 +797,6 @@ const lastAppliedFatRaw = useRef(null);
     const machineUom = activeWeight.uom;
     const machineUom2 = activeWeight.uom2;
     const isMachineConnected = activeWeight.connected;
-    const [canQueue, setCanQueue] = useState([]); // [{ id, gross, tare, net }]
-    const [pendingGross, setPendingGross] = useState(null);
-    const netCanTotal = canQueue.reduce((sum, c) => sum + c.net, 0);
     const [machineFat, setMachineFat] = useState("");
     const [machineSnf, setMachineSnf] = useState("");
     const [machineProtein, setMachineProtein] = useState("");
@@ -913,55 +928,26 @@ const lastAppliedFatRaw = useRef(null);
         }
     };
     
-    const captureGrossWeight = () => {
-        const grossVal = parseFloat(machineQty2);
-        if (!grossVal || grossVal <= 0) {
-            showFlash("error", "No valid weight reading on the scale to capture.");
-            return;
-        }
-        setPendingGross(grossVal);
-        showFlash("success", `Gross weight captured: ${grossVal.toFixed(3)} L. Empty the can, then capture tare.`);
-    };
+    const lastAddedMilkRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
 
-    const captureTareWeight = () => {
-        if (pendingGross === null) {
-            showFlash("error", "Capture the full-can (gross) weight first.");
+    const addMilkFromScale = () => {
+        const val = parseFloat(machineQty2);
+        if (!val || val <= 0) {
+            showFlash("error", "No valid weight reading on the scale to add.");
             return;
         }
-        const tareVal = parseFloat(machineQty2);
-        if (!tareVal || tareVal <= 0) {
-            showFlash("error", "No valid weight reading on the scale to capture.");
+        const currentRaw = activeWeight.raw;
+        if (currentRaw && currentRaw === lastAddedMilkRaw.current[activeWeightKey]) {
+            showFlash("error", "This reading was already added. Place new milk on the scale first.");
             return;
         }
-        if (tareVal >= pendingGross) {
-            showFlash("error", "Empty-can (tare) weight must be less than the full-can (gross) weight.");
-            return;
-        }
-        const net = pendingGross - tareVal;
-        const newCan = { id: Date.now(), gross: pendingGross, tare: tareVal, net };
-        setCanQueue(prev => {
-            const updated = [...prev, newCan];
-            const total = updated.reduce((sum, c) => sum + c.net, 0);
-            set("quantity", total.toFixed(2));
-            return updated;
+        lastAddedMilkRaw.current[activeWeightKey] = currentRaw;
+        const roundedVal = parseFloat(val.toFixed(1));
+        setForm(p => {
+            const current = parseFloat(p.quantity) || 0;
+            return { ...p, quantity: (current + roundedVal).toFixed(1) };
         });
-        setPendingGross(null);
-        showFlash("success", `Can recorded: ${net.toFixed(2)} L net.`);
-    };
-
-    const undoLastCan = () => {
-        setCanQueue(prev => {
-            const updated = prev.slice(0, -1);
-            const total = updated.reduce((sum, c) => sum + c.net, 0);
-            set("quantity", total ? total.toFixed(2) : "");
-            return updated;
-        });
-    };
-
-    const clearCanQueue = () => {
-        setCanQueue([]);
-        setPendingGross(null);
-        set("quantity", "");
+        showFlash("success", `Added ${roundedVal.toFixed(1)} L to Quantity.`);
     };
 
     const connectFatPort = async (silent = false) => {
@@ -1166,10 +1152,6 @@ const lastAppliedFatRaw = useRef(null);
     }, [weightPortConfig]);
 
     const handleSellerChange = (id) => {
-        if (String(id) !== String(form.seller_id)) {
-            setCanQueue([]);
-            setPendingGross(null);
-        }
         const found = sellers.find((s) => String(s.seller_id) === String(id));
         const rawType = (found?.milk_type || "").trim().toLowerCase();
         const newMilkType = (rawType === "cow" || rawType === "buffalo")
@@ -1227,8 +1209,6 @@ const lastAppliedFatRaw = useRef(null);
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
             setMachineProtein("");
-            setCanQueue([]);
-            setPendingGross(null);
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -1241,7 +1221,7 @@ const lastAppliedFatRaw = useRef(null);
 
     const handleEdit = (entry) => {
         setEditingEntry(entry);
-        setSellerSearch(entry.seller_name || "");
+        setSellerSearch(entry.seller_code ? `${entry.seller_code} - ${entry.seller_name}` : (entry.seller_name || ""));
         setForm({
             seller_id: String(entry.seller_id),
             seller_type: sellerType,
@@ -1301,8 +1281,6 @@ const lastAppliedFatRaw = useRef(null);
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
             setMachineProtein("");
-            setCanQueue([]);
-            setPendingGross(null);
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -1338,8 +1316,6 @@ const lastAppliedFatRaw = useRef(null);
             weight: { ...prev.weight, qty: "", qty2: "" },
         }));
         setMachineProtein("");
-        setCanQueue([]);
-        setPendingGross(null);
     };
 
     const handleDelete = async (entryId) => {
@@ -1710,16 +1686,21 @@ const lastAppliedFatRaw = useRef(null);
                         ))}
                 </div>
 
-                {/* ── Flash ── */}
+                {/* ── Flash: fixed top-right sliding toast ── */}
                 {flash && (
-                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-sm
-                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={18} />}
-                        {flash.type === "success" && <BadgeCheck size={18} />}
-                        {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
-                            <X size={16} />
-                        </button>
+                    <div
+                        className={`fixed top-4 right-4 z-[100] w-full max-w-sm transition-transform duration-300 ease-out
+                            ${flashPhase === 'visible' ? 'translate-x-0' : '-translate-x-[130%]'}`}
+                    >
+                        <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-xl
+                            ${flash.type === "success" ? "bg-emerald-50/95 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/95 border border-rose-200/60 text-rose-600"}`}>
+                            {flash.type === "error" && <AlertTriangle size={18} />}
+                            {flash.type === "success" && <BadgeCheck size={18} />}
+                            {flash.msg}
+                            <button onClick={dismissFlash} className="ml-auto opacity-50 hover:opacity-100 transition">
+                                <X size={16} />
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -1771,9 +1752,21 @@ const lastAppliedFatRaw = useRef(null);
                             </div>
 
                             <div className="flex flex-wrap items-end justify-center gap-4 px-4 py-3">
-                                <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="180px" />
-                                <span className="text-emerald-200 text-2xl font-black pb-3">/</span>
-                                <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" width="140px" />
+                                {sellerType === "Utpadak" ? (
+                                    <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="180px" />
+                                ) : sellerType === "Gavali" ? (
+                                    <>
+                                        <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" primary width="180px" />
+                                        <span className="text-emerald-200 text-2xl font-black pb-3">/</span>
+                                        <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" width="140px" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="180px" />
+                                        <span className="text-emerald-200 text-2xl font-black pb-3">/</span>
+                                        <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" width="140px" />
+                                    </>
+                                )}
                             </div>
 
                             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60">
@@ -1811,67 +1804,19 @@ const lastAppliedFatRaw = useRef(null);
                                 </div>
                             </div>
 
-                            {/* Tare / multi-can weighing workflow */}
-                            <div className="px-4 py-3 border-t border-gray-100/60 bg-white/70">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest">
-                                        Multi-Can Tare
+                            {/* Add Milk from scale — accumulates each click into Quantity */}
+                            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100/60 bg-white/70">
+                                <button
+                                    type="button"
+                                    onClick={addMilkFromScale}
+                                    className="flex items-center gap-1.5 text-[12px] font-bold px-3 py-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg transition whitespace-nowrap"
+                                >
+                                    <Milk size={13} /> Add Milk ({machineQty2 || "—"} L)
+                                </button>
+                                {form.quantity && (
+                                    <span className="text-[11px] font-bold text-gray-500">
+                                        Quantity so far: <span className="text-blue-700">{form.quantity} L</span>
                                     </span>
-                                    {pendingGross !== null && (
-                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50/80 border border-amber-200/60 px-2 py-0.5 rounded-full">
-                                            Gross: {pendingGross.toFixed(3)} L · empty can, then tare
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                    <button
-                                        type="button"
-                                        onClick={captureGrossWeight}
-                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30 hover:shadow-lg transition whitespace-nowrap"
-                                    >
-                                        <Scale size={11} /> Capture Gross (Full Can)
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={captureTareWeight}
-                                        disabled={pendingGross === null}
-                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 hover:shadow-lg transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        <Package size={11} /> Capture Tare (Empty Can)
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={undoLastCan}
-                                        disabled={canQueue.length === 0}
-                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-white/60 border border-gray-200/60 text-gray-500 hover:bg-gray-50/80 transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        <RotateCcw size={11} /> Undo Can
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={clearCanQueue}
-                                        disabled={canQueue.length === 0 && pendingGross === null}
-                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-500 hover:bg-rose-100/80 transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        <X size={11} /> Clear
-                                    </button>
-                                </div>
-
-                                {canQueue.length > 0 && (
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex flex-wrap gap-1">
-                                            {canQueue.map((c, idx) => (
-                                                <span key={c.id} className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-2 py-1 rounded-lg">
-                                                    Can {idx + 1}: {c.gross.toFixed(2)}−{c.tare.toFixed(2)}={c.net.toFixed(2)}L
-                                                </span>
-                                            ))}
-                                        </div>
-                                        <div className="text-[11px] font-bold text-gray-700 mt-1">
-                                            {canQueue.length} can{canQueue.length !== 1 ? "s" : ""} · Total net:{" "}
-                                            <span className="text-emerald-700">{netCanTotal.toFixed(2)} L</span> → filled into Quantity field
-                                        </div>
-                                    </div>
                                 )}
                             </div>
                         </div>
@@ -1958,7 +1903,7 @@ const lastAppliedFatRaw = useRef(null);
                                         );
                                         if (exact) {
                                             handleSellerChange(exact.seller_id);
-                                            setSellerSearch(exact.name);
+                                            setSellerSearch(sellerLabel(exact));
                                             setDropdownOpen(false);
                                         }
                                     }}
@@ -1976,7 +1921,7 @@ const lastAppliedFatRaw = useRef(null);
                                                 const sel = filteredSellers[highlightedIdx];
                                                 if (sel) {
                                                     handleSellerChange(sel.seller_id);
-                                                    setSellerSearch(sel.name);
+                                                    setSellerSearch(sellerLabel(sel));
                                                     setDropdownOpen(false);
                                                     focusNextField(e.currentTarget);
                                                 }
@@ -2008,25 +1953,20 @@ const lastAppliedFatRaw = useRef(null);
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => {
                                                 handleSellerChange(s.seller_id);
-                                                setSellerSearch(s.name);
+                                                setSellerSearch(sellerLabel(s));
                                                 setDropdownOpen(false);
                                             }}
                                             className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                         ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                        ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
-                                                {s.name?.charAt(0)?.toUpperCase()}
-                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-medium text-gray-800 text-xs flex items-center gap-1 truncate">
-                                                    {s.name}
+                                                    {sellerLabel(s)}
                                                     {(s.milk_type || "").trim().toLowerCase() === "both" && (
                                                         <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold text-[9px] tracking-wide">
                                                             C&amp;B
                                                         </span>
                                                     )}
                                                 </p>
-                                                <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
                                             </div>
                                         </button>
                                     ))}
@@ -2038,40 +1978,36 @@ const lastAppliedFatRaw = useRef(null);
                                     </button>
                                 )}
                             </div>
-                            {selectedSeller && (
-                                <p className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
-                                    {selectedSeller.seller_code || `ID:${selectedSeller.seller_id}`} · {selectedSeller.seller_type || "—"}
-                                    {(selectedSeller.milk_type || "").trim().toLowerCase() === "both" && (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold text-[9px] tracking-wide">
-                                            C&amp;B
-                                        </span>
-                                    )}
-                                </p>
-                            )}
                         </Field>
 
-                        <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={12} /> : <Moon size={12} />} data-tour="shift-field">
-                            <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
-                        </Field>
+                        <div className="hidden">
+                            <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={12} /> : <Moon size={12} />} data-tour="shift-field">
+                                <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
+                            </Field>
+                        </div>
 
-                        <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={12} />}>
-                            <MilkTypeToggle
-                                value={form.milk_type}
-                                disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
-                                onChange={(v) => {
-                                    set("milk_type", v);
-                                    if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
-                                    else fetchAutoRate(form.fat, form.snf, v);
-                                }}
-                                t={t}
-                            />
-                        </Field>
+                        <div className="hidden">
+                            <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={12} />}>
+                                <MilkTypeToggle
+                                    value={form.milk_type}
+                                    disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
+                                    onChange={(v) => {
+                                        set("milk_type", v);
+                                        if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
+                                        else fetchAutoRate(form.fat, form.snf, v);
+                                    }}
+                                    t={t}
+                                />
+                            </Field>
+                        </div>
 
-                        <Field label={t('milkEntry.sellerTypeLabel')} icon={<User size={12} />}>
-                            <div className={`h-[43px] px-4 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap ${theme.badge} shadow-sm`}>
-                                {sellerType}
-                            </div>
-                        </Field>
+                        <div className="hidden">
+                            <Field label={t('milkEntry.sellerTypeLabel')} icon={<User size={12} />}>
+                                <div className={`h-[43px] px-4 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap ${theme.badge} shadow-sm`}>
+                                    {sellerType}
+                                </div>
+                            </Field>
+                        </div>
 
                         <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={12} />} data-tour="qty-field">
                             <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
@@ -2274,90 +2210,21 @@ const lastAppliedFatRaw = useRef(null);
                                         className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
                                         style={{ gridTemplateColumns: GRID }}>
 
-                                        <TableCell className="text-gray-400 font-mono text-xs justify-center">
-                                            {(currentPage - 1) * pageSize + i + 1}
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs shrink-0 shadow-sm">
-                                                    {(r.seller_name || "?").charAt(0).toUpperCase()}
-                                                </div>
-                                                <span className="text-gray-800 font-medium text-xs truncate">{r.seller_name || `ID:${r.seller_id}`}</span>
-                                            </div>
-                                        </TableCell>
-
                                         <TableCell>
                                             <span className="font-mono text-xs text-gray-500 bg-gray-50/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
                                                 {r.seller_code || "—"}
                                             </span>
                                         </TableCell>
 
-                                        <TableCell>
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-sm
-                                                ${r.shift === "morning"
-                                                    ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
-                                                    : "bg-indigo-50/80 text-indigo-600 border-indigo-200/60"}`}>
-                                                {r.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}
-                                                {r.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
-                                            </span>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-sm
-                                                ${r.milk_type === "cow"
-                                                    ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
-                                                    : "bg-slate-100/80 text-slate-700 border-slate-200/60"}`}>
-                                                {r.milk_type === "cow" ? t('milkEntry.cow') : t('milkEntry.buffalo')}
-                                            </span>
-                                        </TableCell>
-
                                         <TableCell className="text-blue-700 font-mono font-bold text-xs">{r.quantity}</TableCell>
                                         <TableCell className="text-amber-700 font-mono font-bold text-xs">{r.fat}</TableCell>
                                         <TableCell className="text-violet-700 font-mono font-bold text-xs">{r.snf}</TableCell>
-                                        <TableCell className="text-pink-700 font-mono font-bold text-xs">{r.protein}</TableCell>
-
-                                        <TableCell>
-                                            <span className={`font-mono text-xs font-bold ${parseFloat(r.water) > 5 ? "text-rose-500" : "text-emerald-600"}`}>
-                                                {r.water}
-                                                {parseFloat(r.water) > 5 && <AlertTriangle size={10} className="inline ml-1 text-rose-400" />}
-                                            </span>
-                                        </TableCell>
 
                                         {isAdmin && (
                                             <TableCell className="text-gray-700 font-mono text-xs font-bold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
                                         )}
                                         {isAdmin && (
                                             <TableCell className="text-gray-900 font-extrabold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
-                                        )}
-                                        <TableCell className="text-gray-400 font-mono text-xs">{fmtTime(r.entry_time)}</TableCell>
-
-                                        <TableCell>
-                                            {r.is_premium
-                                                ? <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50/80 text-amber-700 border border-amber-200/60 backdrop-blur-sm">{t('milkEntry.premium')}</span>
-                                                : <span className="text-gray-300 text-xs">—</span>}
-                                        </TableCell>
-
-                                        {isAdmin && (
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleEdit(r)}
-                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border backdrop-blur-sm shadow-sm
-                                                            ${editingEntry?.entry_id === r.entry_id
-                                                                ? "bg-amber-100/80 text-amber-700 border-amber-200/60"
-                                                                : "bg-blue-50/80 text-blue-600 border-blue-200/60 hover:bg-blue-100/80"}`}
-                                                    >
-                                                        <Pencil size={12} /> {editingEntry?.entry_id === r.entry_id ? t('milkEntry.editing') : t('milkEntry.edit')}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(r.entry_id)}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border bg-rose-50/80 text-rose-600 border-rose-200/60 hover:bg-rose-100/80 backdrop-blur-sm shadow-sm"
-                                                    >
-                                                        <Trash2 size={12} /> {t('milkEntry.delete')}
-                                                    </button>
-                                                </div>
-                                            </TableCell>
                                         )}
                                     </div>
                                 ))}

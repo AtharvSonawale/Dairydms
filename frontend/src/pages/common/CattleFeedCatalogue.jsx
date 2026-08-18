@@ -21,7 +21,8 @@ const EMPTY_NEW = {
     unit: "",
     supplier_name: "",
     rate: "",
-    mrp_rate: ""
+    mrp_rate: "",
+    current_stock: ""
 };
 
 function Field({ label, icon, children }) {
@@ -376,6 +377,7 @@ export default function CattleFeedCatalogue() {
                 supplier_name: newFeed.supplier_name.trim() || null,
                 rate: parseFloat(newFeed.rate) || null,
                 mrp_rate: parseFloat(newFeed.mrp_rate) || null,
+                current_stock: parseFloat(newFeed.current_stock) || 0,
             });
             await fetchFeeds();
             setNewFeed(EMPTY_NEW);

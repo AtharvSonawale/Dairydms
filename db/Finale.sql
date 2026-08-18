@@ -968,7 +968,6 @@ CREATE TABLE sellers (
    product_sale_enabled tinyint(1) NOT NULL DEFAULT '0',
    cattle_feed_sale_enabled tinyint(1) NOT NULL DEFAULT '0',
    PRIMARY KEY (seller_id),
-   UNIQUE KEY uq_seller_mobile (mobile),
    UNIQUE KEY uq_seller_code_centre (centre_id,seller_code),
    KEY operator_id (operator_id),
    KEY centre_id (centre_id),
@@ -978,7 +977,7 @@ CREATE TABLE sellers (
    CONSTRAINT sellers_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT sellers_ibfk_3 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL,
    CONSTRAINT sellers_ibfk_4 FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=1200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE speed_cattle_feeds (
    id int NOT NULL AUTO_INCREMENT,

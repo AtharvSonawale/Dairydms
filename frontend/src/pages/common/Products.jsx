@@ -21,7 +21,8 @@ const EMPTY_NEW = {
     unit: "",
     supplier_name: "",
     rate: "",
-    mrp_rate: ""
+    mrp_rate: "",
+    current_stock: ""
 };
 
 function Field({ label, icon, children }) {
@@ -367,6 +368,7 @@ export default function Products() {
                 supplier_name: newProduct.supplier_name.trim() || null,
                 rate: parseFloat(newProduct.rate) || null,
                 mrp_rate: parseFloat(newProduct.mrp_rate) || null,
+                current_stock: parseFloat(newProduct.current_stock) || 0,
             });
             await fetchProducts();
             setNewProduct(EMPTY_NEW);

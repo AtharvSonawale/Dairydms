@@ -80,10 +80,31 @@ exports.createFeed = async (req, res) => {
             return res.status(401).json({ error: 'User not authenticated' });
         }
 
-        const { feed_name, unit, supplier_name, rate, mrp_rate } = req.body;
+        const { feed_name, unit, supplier_name, rate, mrp_rate, current_stock, purchase_date } = req.body;
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
+
+        // Resolve which operator this opening-stock purchase should be logged under
+        let effectiveOperatorId = operatorId;
+        if (isAdmin) {
+            const [ops] = await conn.query(
+                `SELECT operator_id FROM operators WHERE centre_id = ? AND is_active = 1 LIMIT 1`,
+                [centreId]
+            );
+            if (ops.length) {
+                effectiveOperatorId = ops[0].operator_id;
+            }
+        } else {
+            const [opCheck] = await conn.query(
+                `SELECT operator_id FROM operators WHERE operator_id = ? AND centre_id = ?`,
+                [operatorId, centreId]
+            );
+            if (!opCheck.length) {
+                await conn.rollback();
+                return res.status(403).json({ error: 'Operator not found in your centre.' });
+            }
+        }
 
         if (!feed_name || !feed_name.trim()) {
             await conn.rollback();
@@ -119,6 +140,38 @@ exports.createFeed = async (req, res) => {
                 parseFloat(mrp_rate) || 0.00
             ]
         );
+
+        const openingQty = parseFloat(current_stock) || 0;
+
+        // If an explicit opening quantity was given, log it as a purchase too
+        if (openingQty > 0) {
+            const openingRate = parseFloat(rate) || 0;
+            const openingMrp = parseFloat(mrp_rate) || 0;
+            const openingTotal = (openingQty * openingRate).toFixed(2);
+            const effectiveDate = purchase_date || new Date().toISOString().split('T')[0];
+
+            await conn.query(
+                `INSERT INTO cattle_feed_purchases
+                    (feed_id, operator_id, centre_id, supplier_name, quantity, rate, mrp_rate, total_amount, purchase_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    result.insertId,
+                    effectiveOperatorId,
+                    centreId,
+                    supplier_name?.trim() || '',
+                    openingQty,
+                    openingRate,
+                    openingMrp,
+                    openingTotal,
+                    effectiveDate
+                ]
+            );
+
+            await conn.query(
+                `UPDATE cattle_feeds SET current_stock = current_stock + ? WHERE feed_id = ? AND centre_id = ?`,
+                [openingQty, result.insertId, centreId]
+            );
+        }
 
         await conn.commit();
 
