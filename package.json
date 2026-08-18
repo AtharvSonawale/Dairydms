@@ -2,5 +2,11 @@
   "dependencies": {
     "mysql2": "^3.22.4",
     "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "start-all": "concurrently -n BACKEND,FRONTEND -c blue,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

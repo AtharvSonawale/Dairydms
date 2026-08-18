@@ -5,7 +5,7 @@ import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
     User, AlertTriangle, BadgeCheck, X,
     TrendingUp, Milk, Trash2, Scale,
-    Pencil, ShoppingCart, Package, Plug, Home
+    Pencil, ShoppingCart, Package, Plug, Home, RotateCcw
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -779,7 +779,9 @@ const lastAppliedFatRaw = useRef(null);
     const machineUom = activeWeight.uom;
     const machineUom2 = activeWeight.uom2;
     const isMachineConnected = activeWeight.connected;
-
+    const [canQueue, setCanQueue] = useState([]); // [{ id, gross, tare, net }]
+    const [pendingGross, setPendingGross] = useState(null);
+    const netCanTotal = canQueue.reduce((sum, c) => sum + c.net, 0);
     const [machineFat, setMachineFat] = useState("");
     const [machineSnf, setMachineSnf] = useState("");
     const [machineProtein, setMachineProtein] = useState("");
@@ -909,6 +911,57 @@ const lastAppliedFatRaw = useRef(null);
         } catch {
             showFlash("error", "Failed to disconnect.");
         }
+    };
+    
+    const captureGrossWeight = () => {
+        const grossVal = parseFloat(machineQty2);
+        if (!grossVal || grossVal <= 0) {
+            showFlash("error", "No valid weight reading on the scale to capture.");
+            return;
+        }
+        setPendingGross(grossVal);
+        showFlash("success", `Gross weight captured: ${grossVal.toFixed(3)} L. Empty the can, then capture tare.`);
+    };
+
+    const captureTareWeight = () => {
+        if (pendingGross === null) {
+            showFlash("error", "Capture the full-can (gross) weight first.");
+            return;
+        }
+        const tareVal = parseFloat(machineQty2);
+        if (!tareVal || tareVal <= 0) {
+            showFlash("error", "No valid weight reading on the scale to capture.");
+            return;
+        }
+        if (tareVal >= pendingGross) {
+            showFlash("error", "Empty-can (tare) weight must be less than the full-can (gross) weight.");
+            return;
+        }
+        const net = pendingGross - tareVal;
+        const newCan = { id: Date.now(), gross: pendingGross, tare: tareVal, net };
+        setCanQueue(prev => {
+            const updated = [...prev, newCan];
+            const total = updated.reduce((sum, c) => sum + c.net, 0);
+            set("quantity", total.toFixed(2));
+            return updated;
+        });
+        setPendingGross(null);
+        showFlash("success", `Can recorded: ${net.toFixed(2)} L net.`);
+    };
+
+    const undoLastCan = () => {
+        setCanQueue(prev => {
+            const updated = prev.slice(0, -1);
+            const total = updated.reduce((sum, c) => sum + c.net, 0);
+            set("quantity", total ? total.toFixed(2) : "");
+            return updated;
+        });
+    };
+
+    const clearCanQueue = () => {
+        setCanQueue([]);
+        setPendingGross(null);
+        set("quantity", "");
     };
 
     const connectFatPort = async (silent = false) => {
@@ -1113,6 +1166,10 @@ const lastAppliedFatRaw = useRef(null);
     }, [weightPortConfig]);
 
     const handleSellerChange = (id) => {
+        if (String(id) !== String(form.seller_id)) {
+            setCanQueue([]);
+            setPendingGross(null);
+        }
         const found = sellers.find((s) => String(s.seller_id) === String(id));
         const rawType = (found?.milk_type || "").trim().toLowerCase();
         const newMilkType = (rawType === "cow" || rawType === "buffalo")
@@ -1170,6 +1227,8 @@ const lastAppliedFatRaw = useRef(null);
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
             setMachineProtein("");
+            setCanQueue([]);
+            setPendingGross(null);
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -1242,6 +1301,8 @@ const lastAppliedFatRaw = useRef(null);
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
             setMachineProtein("");
+            setCanQueue([]);
+            setPendingGross(null);
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -1277,6 +1338,8 @@ const lastAppliedFatRaw = useRef(null);
             weight: { ...prev.weight, qty: "", qty2: "" },
         }));
         setMachineProtein("");
+        setCanQueue([]);
+        setPendingGross(null);
     };
 
     const handleDelete = async (entryId) => {
@@ -1746,6 +1809,70 @@ const lastAppliedFatRaw = useRef(null);
                                         </button>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* Tare / multi-can weighing workflow */}
+                            <div className="px-4 py-3 border-t border-gray-100/60 bg-white/70">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest">
+                                        Multi-Can Tare
+                                    </span>
+                                    {pendingGross !== null && (
+                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50/80 border border-amber-200/60 px-2 py-0.5 rounded-full">
+                                            Gross: {pendingGross.toFixed(3)} L · empty can, then tare
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                    <button
+                                        type="button"
+                                        onClick={captureGrossWeight}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30 hover:shadow-lg transition whitespace-nowrap"
+                                    >
+                                        <Scale size={11} /> Capture Gross (Full Can)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={captureTareWeight}
+                                        disabled={pendingGross === null}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 hover:shadow-lg transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <Package size={11} /> Capture Tare (Empty Can)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={undoLastCan}
+                                        disabled={canQueue.length === 0}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-white/60 border border-gray-200/60 text-gray-500 hover:bg-gray-50/80 transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <RotateCcw size={11} /> Undo Can
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={clearCanQueue}
+                                        disabled={canQueue.length === 0 && pendingGross === null}
+                                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-500 hover:bg-rose-100/80 transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <X size={11} /> Clear
+                                    </button>
+                                </div>
+
+                                {canQueue.length > 0 && (
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex flex-wrap gap-1">
+                                            {canQueue.map((c, idx) => (
+                                                <span key={c.id} className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-2 py-1 rounded-lg">
+                                                    Can {idx + 1}: {c.gross.toFixed(2)}−{c.tare.toFixed(2)}={c.net.toFixed(2)}L
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div className="text-[11px] font-bold text-gray-700 mt-1">
+                                            {canQueue.length} can{canQueue.length !== 1 ? "s" : ""} · Total net:{" "}
+                                            <span className="text-emerald-700">{netCanTotal.toFixed(2)} L</span> → filled into Quantity field
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
