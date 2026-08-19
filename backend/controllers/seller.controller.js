@@ -492,17 +492,60 @@ exports.createSeller = async (req, res) => {
         const dairy_id = centreRow.dairy_id;
         const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
+        // Check for duplicate seller_code only (mobile validation removed)
         const [existing] = await conn.query(
             `SELECT seller_id FROM sellers
-             WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
-            [seller_code, centre_id, mobile]
+             WHERE seller_code = ? AND centre_id = ?`,
+            [seller_code, centre_id]
         );
 
         if (existing.length > 0) {
             await conn.rollback();
             return res.status(409).json({
-                error: 'Seller with this code or mobile already exists in your centre'
+                error: 'Seller with this code already exists in your centre'
             });
+        }
+
+        // Check duplicate bank account (max 2 allowed)
+        if (bank_account) {
+            const [bankAccounts] = await conn.query(
+                `SELECT COUNT(*) as count FROM sellers WHERE bank_account = ? AND centre_id = ?`,
+                [bank_account, centre_id]
+            );
+            if (bankAccounts[0].count >= 2) {
+                await conn.rollback();
+                return res.status(409).json({
+                    error: 'Bank Account number already exists for 2 sellers (max 2 allowed)'
+                });
+            }
+        }
+
+        // Check duplicate PAN (max 2 allowed)
+        if (pan_number) {
+            const [panNumbers] = await conn.query(
+                `SELECT COUNT(*) as count FROM sellers WHERE pan_number = ? AND centre_id = ?`,
+                [pan_number, centre_id]
+            );
+            if (panNumbers[0].count >= 2) {
+                await conn.rollback();
+                return res.status(409).json({
+                    error: 'PAN number already exists for 2 sellers (max 2 allowed)'
+                });
+            }
+        }
+
+        // Check duplicate Aadhaar (max 2 allowed)
+        if (aadhaar) {
+            const [aadhaars] = await conn.query(
+                `SELECT COUNT(*) as count FROM sellers WHERE aadhaar = ? AND centre_id = ?`,
+                [aadhaar, centre_id]
+            );
+            if (aadhaars[0].count >= 2) {
+                await conn.rollback();
+                return res.status(409).json({
+                    error: 'Aadhaar number already exists for 2 sellers (max 2 allowed)'
+                });
+            }
         }
 
         const [result] = await conn.query(
@@ -603,17 +646,60 @@ exports.updateSeller = async (req, res) => {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
         }
 
+        // Check duplicate seller_code only (mobile validation removed)
         const [duplicate] = await pool.query(
             `SELECT seller_id FROM sellers 
-             WHERE ((seller_code = ? AND centre_id = ?) OR mobile = ?)
+             WHERE seller_code = ? AND centre_id = ?
                AND seller_id != ?`,
-            [seller_code, centreId, mobile, req.params.id]
+            [seller_code, centreId, req.params.id]
         );
 
         if (duplicate.length > 0) {
             return res.status(409).json({
-                error: 'Another seller with this code or mobile already exists in your centre'
+                error: 'Another seller with this code already exists in your centre'
             });
+        }
+
+        // Check duplicate bank account (max 2 allowed)
+        if (bank_account) {
+            const [bankAccounts] = await pool.query(
+                `SELECT COUNT(*) as count FROM sellers 
+                 WHERE bank_account = ? AND centre_id = ? AND seller_id != ?`,
+                [bank_account, centreId, req.params.id]
+            );
+            if (bankAccounts[0].count >= 2) {
+                return res.status(409).json({
+                    error: 'Bank Account number already exists for 2 sellers (max 2 allowed)'
+                });
+            }
+        }
+
+        // Check duplicate PAN (max 2 allowed)
+        if (pan_number) {
+            const [panNumbers] = await pool.query(
+                `SELECT COUNT(*) as count FROM sellers 
+                 WHERE pan_number = ? AND centre_id = ? AND seller_id != ?`,
+                [pan_number, centreId, req.params.id]
+            );
+            if (panNumbers[0].count >= 2) {
+                return res.status(409).json({
+                    error: 'PAN number already exists for 2 sellers (max 2 allowed)'
+                });
+            }
+        }
+
+        // Check duplicate Aadhaar (max 2 allowed)
+        if (aadhaar) {
+            const [aadhaars] = await pool.query(
+                `SELECT COUNT(*) as count FROM sellers 
+                 WHERE aadhaar = ? AND centre_id = ? AND seller_id != ?`,
+                [aadhaar, centreId, req.params.id]
+            );
+            if (aadhaars[0].count >= 2) {
+                return res.status(409).json({
+                    error: 'Aadhaar number already exists for 2 sellers (max 2 allowed)'
+                });
+            }
         }
 
         const password_hash = password ? await bcrypt.hash(password, 10) : null;
@@ -886,25 +972,59 @@ exports.importSellers = async (req, res) => {
                 continue;
             }
 
-            // Check duplicate within centre (seller_code) and global (mobile)
+            // Check duplicate seller_code within centre (mobile validation removed)
             let existing;
             if (seller_code) {
                 [existing] = await conn.query(
                     `SELECT seller_id FROM sellers
-                     WHERE (seller_code = ? AND centre_id = ?) OR mobile = ?`,
-                    [seller_code, centreId, mobileClean]
-                );
-            } else {
-                [existing] = await conn.query(
-                    `SELECT seller_id FROM sellers WHERE mobile = ?`,
-                    [mobileClean]
+                     WHERE seller_code = ? AND centre_id = ?`,
+                    [seller_code, centreId]
                 );
             }
 
-            if (existing.length > 0) {
+            if (existing && existing.length > 0) {
                 results.skipped++;
-                results.errors.push({ row: i + 1, error: 'Seller code or mobile already exists in your centre.' });
+                results.errors.push({ row: i + 1, error: 'Seller code already exists in your centre.' });
                 continue;
+            }
+
+            // Check duplicate bank account (max 2 allowed)
+            if (bank_account) {
+                const [bankAccounts] = await conn.query(
+                    `SELECT COUNT(*) as count FROM sellers WHERE bank_account = ? AND centre_id = ?`,
+                    [bank_account, centreId]
+                );
+                if (bankAccounts[0].count >= 2) {
+                    results.skipped++;
+                    results.errors.push({ row: i + 1, error: 'Bank Account number already exists for 2 sellers (max 2 allowed)' });
+                    continue;
+                }
+            }
+
+            // Check duplicate PAN (max 2 allowed)
+            if (pan_number) {
+                const [panNumbers] = await conn.query(
+                    `SELECT COUNT(*) as count FROM sellers WHERE pan_number = ? AND centre_id = ?`,
+                    [pan_number, centreId]
+                );
+                if (panNumbers[0].count >= 2) {
+                    results.skipped++;
+                    results.errors.push({ row: i + 1, error: 'PAN number already exists for 2 sellers (max 2 allowed)' });
+                    continue;
+                }
+            }
+
+            // Check duplicate Aadhaar (max 2 allowed)
+            if (aadhaar) {
+                const [aadhaars] = await conn.query(
+                    `SELECT COUNT(*) as count FROM sellers WHERE aadhaar = ? AND centre_id = ?`,
+                    [aadhaar, centreId]
+                );
+                if (aadhaars[0].count >= 2) {
+                    results.skipped++;
+                    results.errors.push({ row: i + 1, error: 'Aadhaar number already exists for 2 sellers (max 2 allowed)' });
+                    continue;
+                }
             }
 
             // Generate seller_code if not provided
@@ -1010,6 +1130,148 @@ exports.importSellers = async (req, res) => {
     } catch (err) {
         await conn.rollback();
         console.error('importSellers error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    } finally {
+        conn.release();
+    }
+};
+
+// ── POST /api/sellers/bulk-update ─────────────────────────
+exports.updateSellersBulk = async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        const { sellers } = req.body;
+        if (!sellers || !Array.isArray(sellers) || sellers.length === 0) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'No seller data provided.' });
+        }
+
+        const centreId = req.user.centre_id;
+        const results = { updated: 0, skipped: 0, errors: [] };
+
+        for (let i = 0; i < sellers.length; i++) {
+            const row = sellers[i];
+            const {
+                seller_code, name, mobile, aadhaar,
+                pan_number, seller_id_code,
+                seller_type, milk_type, jamin,
+                bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
+                advance_enabled, advance_deduction, product_sale_enabled,
+                deposit_enabled, deposit_per_litre, password,
+                cattle_feed_sale_enabled
+            } = row;
+
+            if (!seller_code) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: 'Seller Code is required to match an existing seller.' });
+                continue;
+            }
+            if (!name || !mobile) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: 'Name and mobile are required.' });
+                continue;
+            }
+
+            const mobileClean = String(mobile).replace(/[^\d]/g, "");
+            if (mobileClean.length < 10 || mobileClean.length > 12) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: 'Mobile must be 10-12 digits.' });
+                continue;
+            }
+
+            const [[existing]] = await conn.query(
+                `SELECT seller_id FROM sellers WHERE seller_code = ? AND centre_id = ?`,
+                [seller_code, centreId]
+            );
+            if (!existing) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: `No seller found with code "${seller_code}" in your centre.` });
+                continue;
+            }
+            const sellerId = existing.seller_id;
+
+            // Duplicate checks (max 2 allowed), excluding the seller being updated
+            if (bank_account) {
+                const [[cnt]] = await conn.query(
+                    `SELECT COUNT(*) as count FROM sellers WHERE bank_account = ? AND centre_id = ? AND seller_id != ?`,
+                    [bank_account, centreId, sellerId]
+                );
+                if (cnt.count >= 2) {
+                    results.skipped++;
+                    results.errors.push({ row: i + 1, error: 'Bank Account number already exists for 2 sellers (max 2 allowed)' });
+                    continue;
+                }
+            }
+            if (pan_number) {
+                const [[cnt]] = await conn.query(
+                    `SELECT COUNT(*) as count FROM sellers WHERE pan_number = ? AND centre_id = ? AND seller_id != ?`,
+                    [pan_number, centreId, sellerId]
+                );
+                if (cnt.count >= 2) {
+                    results.skipped++;
+                    results.errors.push({ row: i + 1, error: 'PAN number already exists for 2 sellers (max 2 allowed)' });
+                    continue;
+                }
+            }
+            if (aadhaar) {
+                const [[cnt]] = await conn.query(
+                    `SELECT COUNT(*) as count FROM sellers WHERE aadhaar = ? AND centre_id = ? AND seller_id != ?`,
+                    [aadhaar, centreId, sellerId]
+                );
+                if (cnt.count >= 2) {
+                    results.skipped++;
+                    results.errors.push({ row: i + 1, error: 'Aadhaar number already exists for 2 sellers (max 2 allowed)' });
+                    continue;
+                }
+            }
+
+            const password_hash = password ? await bcrypt.hash(password, 10) : null;
+
+            try {
+                await conn.query(
+                    `UPDATE sellers SET
+                        name = ?, mobile = ?, aadhaar = ?, pan_number = ?, seller_id_code = ?,
+                        seller_type = ?, milk_type = ?, jamin = ?,
+                        bank_account = ?, bank_name = ?, account_holder_name = ?, branch_name = ?, ifsc_code = ?,
+                        address = ?, pincode = ?,
+                        advance_enabled = ?, advance_deduction = ?, product_sale_enabled = ?,
+                        deposit_enabled = ?, deposit_per_litre = ?, cattle_feed_sale_enabled = ?,
+                        password_hash = COALESCE(?, password_hash),
+                        must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
+                    WHERE seller_id = ? AND centre_id = ?`,
+                    [
+                        name, mobileClean, aadhaar || null, pan_number || null, seller_id_code || null,
+                        seller_type || 'Utpadak', milk_type || 'both', jamin || null,
+                        bank_account || null, bank_name || null, account_holder_name || null, branch_name || null, ifsc_code || null,
+                        address || null, pincode || null,
+                        advance_enabled !== undefined ? advance_enabled : 1,
+                        advance_deduction || null,
+                        product_sale_enabled !== undefined ? product_sale_enabled : 0,
+                        deposit_enabled !== undefined ? deposit_enabled : 0,
+                        deposit_per_litre || null,
+                        cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
+                        password_hash,
+                        password_hash,
+                        sellerId, centreId
+                    ]
+                );
+                results.updated++;
+            } catch (err) {
+                results.skipped++;
+                results.errors.push({ row: i + 1, error: err.message });
+            }
+        }
+
+        await conn.commit();
+        res.status(200).json({
+            message: `Updated ${results.updated} sellers, skipped ${results.skipped}.`,
+            ...results
+        });
+    } catch (err) {
+        await conn.rollback();
+        console.error('updateSellersBulk error:', err);
         res.status(500).json({ error: 'Server error', message: err.message });
     } finally {
         conn.release();

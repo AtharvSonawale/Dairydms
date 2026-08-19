@@ -72,6 +72,7 @@ import CommissionSettings from './pages/admin/CommissionSettings';
 import UtpadakMilkEntry from './pages/UtpadakMilkEntry';
 import GavaliMilkEntry from './pages/GavaliMilkEntry';
 import MyProfile from './pages/admin/MyProfile';
+import AllMilkEntries from './pages/AllMilkEntries';
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -112,6 +113,7 @@ function AppRoutes() {
         <Route path="/admin/admins" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins/:id" element={<ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>} />
         <Route path="/admin/ports" element={<ProtectedRoute role="aadmin"><PortSettings /></ProtectedRoute>} />
+        <Route path="/all-milk-entries" element={<ProtectedRoute role="admin"><AllMilkEntries /></ProtectedRoute>} />
 
         {/* ── Operator ── */}
         <Route path="/operator/dashboard" element={<ProtectedRoute role="operator"><OperatorDashboard /></ProtectedRoute>} />

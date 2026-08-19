@@ -9,7 +9,7 @@ router.get('/active', ctrl.getActiveSellers);        // ← add this
 router.get('/centre', ctrl.listCentreSellers);       // if you have it
 router.get('/operator/:operatorId', ctrl.listSellersByOperator); // if you have it
 router.post('/import', protect, ctrl.importSellers);
-
+router.post('/bulk-update', protect, ctrl.updateSellersBulk);
 
 // ✅ Then parameterised routes (/:id) and their sub‑routes
 router.get('/', ctrl.listSellers);

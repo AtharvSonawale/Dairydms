@@ -13,6 +13,19 @@ import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+// ── focus helper ──────────────────────────────────────────────
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
+
 // ── SectionCard Component (matching Settings page) ────────────────────────────
 function SectionCard({ title, icon, children, ...rest }) {
     return (
@@ -40,7 +53,7 @@ const imgUrl = (url) =>
             : `${import.meta.env.VITE_API_URL || ''}${url}`)
         : null;
 
-const EMPTY_FORM = { seller_id: "" };
+const EMPTY_FORM = { seller_id: "", seller_code: "" };
 const EMPTY_LINE = { feed_id: "", quantity: "", rate: "", mrp_rate: "" };
 
 // ── sub-components ────────────────────────────────────────────
@@ -524,12 +537,13 @@ function SpeedStripInForm({ onTap }) {
 export default function CattleFeedSales() {
     const { t } = useTranslation();
     const { can, loading: permLoading } = usePermission();
-    const [form, setForm] = useState({ seller_id: "" });
+    const [form, setForm] = useState({ seller_id: "", seller_code: "" });
     const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [feeds, setFeeds] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
+    const [sellerCodeInput, setSellerCodeInput] = useState("");
     const [showSellerDrop, setShowSellerDrop] = useState(false);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [lineFeedSearch, setLineFeedSearch] = useState({});
@@ -549,6 +563,7 @@ export default function CattleFeedSales() {
     const [deletingId, setDeletingId] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [speedConfigOpen, setSpeedConfigOpen] = useState(false);
+    const sellerCodeRef = useRef(null);
 
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -741,31 +756,78 @@ export default function CattleFeedSales() {
     useEffect(() => { fetchSellers(); fetchFeeds(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
+    // ── FIXED: Seller filtering - search by name OR code (partial match) ──
     const filteredSellers = (() => {
         const sorted = [...sellers]
             .filter((s) => s.product_sale_enabled == 1)
             .sort((a, b) => a.name.localeCompare(b.name));
-        if (!sellerSearch.trim()) return sorted.slice(0, 5);
+        if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
+        const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
         const matched = sorted.filter((s) =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
+            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (s.seller_code || "").toLowerCase().includes(searchTerm.toLowerCase())
         );
-        return matched.slice(0, 5);
+        return matched.slice(0, 10);
     })();
 
+    // ── FIXED: Handle seller code change - partial match and auto-select ──
+    const handleSellerCodeChange = (code) => {
+        setSellerCodeInput(code);
+        if (!code.trim()) {
+            set("seller_id", "");
+            setSellerSearch("");
+            setShowSellerDrop(false);
+            return;
+        }
+
+        // Find exact match by code
+        const exactMatch = sellers.find(
+            (s) => s.product_sale_enabled == 1 &&
+                (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            set("seller_id", exactMatch.seller_id);
+            setSellerSearch(exactMatch.name);
+            setShowSellerDrop(false);
+        } else {
+            // Show dropdown with partial matches
+            set("seller_id", "");
+            setShowSellerDrop(true);
+        }
+    };
+
+    // ── FIXED: Handle seller search - partial match on name ──
     const handleSellerSearchChange = (val) => {
         setSellerSearch(val);
-        if (!val) { set("seller_id", ""); return; }
-        const exact = sellers.find(
-            (s) =>
-                s.product_sale_enabled == 1 &&
-                (String(s.seller_id) === val.trim() ||
+        setShowSellerDrop(true);
+        setHighlightedIdx(-1);
+        if (!val) {
+            set("seller_id", "");
+            setSellerCodeInput("");
+            return;
+        }
+
+        // Check if the search matches a seller name exactly or code
+        const exactMatch = sellers.find(
+            (s) => s.product_sale_enabled == 1 &&
+                (s.name.toLowerCase() === val.trim().toLowerCase() ||
                     (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
         );
-        if (exact) {
-            set("seller_id", exact.seller_id);
-            setSellerSearch(exact.name);
+        if (exactMatch) {
+            set("seller_id", exactMatch.seller_id);
+            setSellerSearch(exactMatch.name);
+            setSellerCodeInput(exactMatch.seller_code || "");
+            setShowSellerDrop(false);
+        } else {
+            set("seller_id", "");
         }
+    };
+
+    const handleSellerSelect = (seller) => {
+        set("seller_id", seller.seller_id);
+        setSellerSearch(seller.name);
+        setSellerCodeInput(seller.seller_code || "");
+        setShowSellerDrop(false);
     };
 
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
@@ -806,11 +868,13 @@ export default function CattleFeedSales() {
             await fetchSales(selectedDate);
             await fetchFeeds();
             showFlash("success", t('cattleFeedSales.form.saleRecorded'));
-            setForm(EMPTY_FORM);
+            setForm({ seller_id: "", seller_code: "" });
             setLines([{ ...EMPTY_LINE, _key: Date.now() }]);
             setLineFeedSearch({});
             setShowFeedDrop({});
             setSellerSearch("");
+            setSellerCodeInput("");
+            sellerCodeRef.current?.focus();
         } catch (err) {
             const msg = err.response?.data?.error || err.response?.data?.message || t('cattleFeedSales.form.saveFailed');
             showFlash("error", msg);
@@ -830,14 +894,30 @@ export default function CattleFeedSales() {
         return true;
     };
 
+    // ── FIXED: Form keydown handler with Enter navigation ──
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
         if (showSellerDrop) return;
         if (Object.values(showFeedDrop).some(Boolean)) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
-        if (saving || !isFormReady()) return;
-        handleSave();
+
+        // Check if we're on the last field (Save button)
+        const container = e.target.closest('[data-entry-form]');
+        if (!container) return;
+        const focusable = Array.from(
+            container.querySelectorAll('input, button, select, textarea')
+        ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+        const idx = focusable.indexOf(e.target);
+
+        // If we're at the last focusable element or form is ready, save
+        if (idx === focusable.length - 1 || isFormReady()) {
+            if (saving) return;
+            handleSave();
+        } else {
+            // Move to next field
+            focusNextField(e.target);
+        }
     };
 
     const handleDownloadPDF = () => {
@@ -1225,9 +1305,19 @@ export default function CattleFeedSales() {
                         icon={<ShoppingCart size={16} className="text-white" />}
                         data-tour="sales-form"
                     >
-                        <div onKeyDown={handleFormKeyDown}>
-                            {/* Seller row */}
+                        <div data-entry-form onKeyDown={handleFormKeyDown}>
+                            {/* ── FIXED: Seller row with Code and Name fields ── */}
                             <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                                <Field label={t('cattleFeedSales.form.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
+                                    <TinyInput
+                                        ref={sellerCodeRef}
+                                        value={sellerCodeInput}
+                                        onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                        placeholder="SC-001"
+                                        className="text-[13px] font-mono w-24"
+                                    />
+                                </Field>
+
                                 <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
                                     <div className="relative" style={{ width: "220px" }}>
                                         <TinyInput
@@ -1240,22 +1330,9 @@ export default function CattleFeedSales() {
                                                     return prev;
                                                 });
                                             }, 150)}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setSellerSearch(val);
-                                                setHighlightedIdx(-1);
-                                                setShowSellerDrop(true);
-                                                if (!val) { set("seller_id", ""); return; }
-                                                const exact = sellers.find(
-                                                    (s) =>
-                                                        s.product_sale_enabled == 1 &&
-                                                        (String(s.seller_id) === val.trim() ||
-                                                            (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
-                                                );
-                                                if (exact) { set("seller_id", exact.seller_id); setSellerSearch(exact.name); setShowSellerDrop(false); }
-                                            }}
+                                            onChange={(e) => handleSellerSearchChange(e.target.value)}
                                             onKeyDown={(e) => {
-                                                if (!dropdownOpen || filteredSellers.length === 0) return;
+                                                if (!showSellerDrop || filteredSellers.length === 0) return;
                                                 if (e.key === "ArrowDown") {
                                                     e.preventDefault();
                                                     setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
@@ -1264,22 +1341,16 @@ export default function CattleFeedSales() {
                                                     setHighlightedIdx(i => Math.max(i - 1, 0));
                                                 } else if (e.key === "Enter") {
                                                     e.preventDefault();
-                                                    if (highlightedIdx >= 0) {
+                                                    if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
                                                         const sel = filteredSellers[highlightedIdx];
-                                                        if (sel) {
-                                                            handleSellerChange(sel.seller_id);
-                                                            setSellerSearch(sel.name);
-                                                            setDropdownOpen(false);
-                                                            focusNextField(e.currentTarget);
-                                                        }
+                                                        handleSellerSelect(sel);
+                                                        focusNextField(e.currentTarget);
                                                     } else {
-                                                        // Nothing explicitly chosen (via arrow keys or an exact code match) —
-                                                        // never guess a seller. Just close the list and move on.
-                                                        setDropdownOpen(false);
+                                                        setShowSellerDrop(false);
                                                         focusNextField(e.currentTarget);
                                                     }
                                                 } else if (e.key === "Escape") {
-                                                    setDropdownOpen(false);
+                                                    setShowSellerDrop(false);
                                                 }
                                             }}
                                             placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
@@ -1288,18 +1359,16 @@ export default function CattleFeedSales() {
                                         {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
                                             <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
-                                                    {sellerSearch.trim()
+                                                    {sellerSearch.trim() || sellerCodeInput.trim()
                                                         ? t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })
                                                         : t('cattleFeedSales.form.sellersAZ')}
                                                 </p>
                                                 {filteredSellers.map((s, idx) => (
                                                     <button key={s.seller_id} type="button"
                                                         onMouseEnter={() => setHighlightedIdx(idx)}
-                                                        onMouseDown={(e) => {
-                                                            e.preventDefault();
-                                                            set("seller_id", s.seller_id);
-                                                            setSellerSearch(s.name);
-                                                            setShowSellerDrop(false);
+                                                        onClick={() => {
+                                                            handleSellerSelect(s);
+                                                            focusNextField(e.currentTarget);
                                                         }}
                                                         className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                                 ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
@@ -1317,7 +1386,7 @@ export default function CattleFeedSales() {
                                         )}
                                         {form.seller_id && (
                                             <button type="button"
-                                                onClick={() => { set("seller_id", ""); setSellerSearch(""); }}
+                                                onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); }}
                                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
                                                 <X size={12} />
                                             </button>
@@ -1393,6 +1462,7 @@ export default function CattleFeedSales() {
                                                                     setLine(line._key, "mrp_rate", f.mrp_rate ? String(f.mrp_rate) : "");
                                                                     setLineFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                                     setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
+                                                                    focusNextField(e.currentTarget);
                                                                 }}
                                                                 className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                                 <div>
@@ -1425,6 +1495,12 @@ export default function CattleFeedSales() {
                                                 className={`w-full ${lineFeed && parseFloat(line.quantity) > parseFloat(lineFeed.current_stock || 0)
                                                     ? "bg-rose-50/80 border-rose-300 text-rose-700"
                                                     : "bg-blue-50/80 border-blue-200/60 text-blue-700"}`}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        focusNextField(e.target);
+                                                    }
+                                                }}
                                             />
 
                                             <TinyInput
@@ -1432,6 +1508,12 @@ export default function CattleFeedSales() {
                                                 onChange={(e) => setLine(line._key, "rate", e.target.value)}
                                                 placeholder="₹0.00" type="number" step="0.01"
                                                 className="w-full bg-amber-50/80 border-amber-200/60 text-amber-700"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        focusNextField(e.target);
+                                                    }
+                                                }}
                                             />
 
                                             <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm

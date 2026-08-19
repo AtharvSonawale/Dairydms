@@ -3793,6 +3793,9 @@ const en = {
 
         // ── Seller Register ──────────────────────────────────────────
         sellerRegister: {
+            exportFarmers: "Export Farmers",
+            updateFarmers: "Update Farmers",
+            searchPlaceholder: "001 or John Doe",
             rowFieldError: "Row {{row}}: {{fields}} required/invalid.",
             startTour: "Start a Tour",
             pageTitle: "Farmer Register",
@@ -4607,6 +4610,7 @@ const en = {
 
         // ── Walk-in Sale ─────────────────────────────────────────────
         walkinSale: {
+            selectDate: "Select Date",
             delete: "Delete",
             edit: "Edit",
             startTour: "Start a Tour",

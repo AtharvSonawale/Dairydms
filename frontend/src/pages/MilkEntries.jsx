@@ -88,8 +88,7 @@ const FLASH_ANIM_MS = 420;
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children, ...rest }) {
     return (
-        <div className="flex flex-col gap-1 shrink-0" {...rest}>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+        <div className="flex flex-col gap-0.5 shrink-0" {...rest}>            <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                 {icon}{label}
             </span>
             {children}
@@ -104,8 +103,7 @@ const TinyInput = React.forwardRef(function TinyInput({ className = "", style = 
             ref={ref}
             {...props}
             style={{ minWidth: 0, ...style }}
-            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[14px] text-gray-700 shadow-sm
-                focus:outline-none focus:ring-2 focus:ring-gray-900/20 ${focusBg} transition
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-[15px] text-gray-700 shadow-sm                focus:outline-none focus:ring-2 focus:ring-gray-900/20 ${focusBg} transition
                 placeholder:text-gray-300 ${className}`}
         />
     );
@@ -113,17 +111,17 @@ const TinyInput = React.forwardRef(function TinyInput({ className = "", style = 
 
 function ShiftToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-bold shadow-sm">
             {["morning", "evening"].map((s) => (
                 <button key={s} type="button" onClick={() => onChange(s)}
-                    className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-200
+                    title={s === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
+                    className={`flex items-center justify-center px-3 py-2 transition-all duration-200
                         ${value === s
                             ? s === "morning"
                                 ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30"
                                 : "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30"
                             : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
-                    {s === "morning" ? <Sun size={13} /> : <Moon size={13} />}
-                    {s === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
+                    {s === "morning" ? <Sun size={15} /> : <Moon size={15} />}
                 </button>
             ))}
         </div>
@@ -132,7 +130,7 @@ function ShiftToggle({ value, onChange, t }) {
 
 function MilkTypeToggle({ value, onChange, t, disabled }) {
     return (
-        <div className={`flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm ${disabled ? "opacity-50" : ""}`}>
+        <div className={`flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-bold shadow-sm ${disabled ? "opacity-50" : ""}`}>
             {[
                 { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
                 { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
@@ -150,7 +148,7 @@ function MilkTypeToggle({ value, onChange, t, disabled }) {
 
 function SellerTypeToggle({ value, onChange }) {
     return (
-        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-bold shadow-sm">
             {[
                 { val: "Utpadak", active: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30" },
                 { val: "Gavali", active: "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30" },
@@ -167,7 +165,7 @@ function SellerTypeToggle({ value, onChange }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-3 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-3 flex items-center border-r border-gray-100/60 last:border-r-0 text-[15px] ${className}`}>
             {children}
         </div>
     );
@@ -182,8 +180,8 @@ function StatCard({ label, value, icon, color }) {
                 {icon}
             </div>
             <div className="relative z-10 min-w-0">
-                <p className="text-[9.5px] font-semibold uppercase tracking-wider opacity-60 leading-none truncate">{label}</p>
-                <p className="text-base font-bold text-gray-900 leading-tight mt-1 truncate">{value}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider opacity-60 leading-none truncate">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-1 truncate">{value}</p>
             </div>
         </div>
     );
@@ -199,10 +197,10 @@ function FlashToast({ flash, phase, onClose }) {
             style={{ maxWidth: "min(92vw, 420px)" }}
         >
             <div
-                className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold shadow-2xl backdrop-blur-sm border
+                className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl text-base font-semibold shadow-2xl backdrop-blur-sm border
                     ${flash.type === "success" ? "bg-emerald-50/95 border-emerald-200/70 text-emerald-700" : "bg-rose-50/95 border-rose-200/70 text-rose-600"}`}
                 style={{
-                    transform: isVisible ? "translateX(0)" : "translateX(-150%)",
+                    transform: isVisible ? "translateX(0)" : "translateX(150%)",
                     opacity: isVisible ? 1 : 0,
                     transition: `transform ${FLASH_ANIM_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${FLASH_ANIM_MS}ms ease`,
                 }}
@@ -226,14 +224,14 @@ function DigitReadout({ label, value, unit, connected, accent, primary, width })
     }[accent];
 
     const len = (value || "").length;
-    const primarySize = len >= 8 ? "1.5rem" : len >= 7 ? "1.7rem" : len >= 6 ? "2rem" : len >= 5 ? "2.2rem" : "2.5rem";
-    const secondarySize = len >= 7 ? "0.95rem" : len >= 6 ? "1.1rem" : len >= 5 ? "1.2rem" : "1.4rem";
+    const primarySize = len >= 8 ? "1.65rem" : len >= 7 ? "1.85rem" : len >= 6 ? "2.15rem" : len >= 5 ? "2.4rem" : "2.7rem";
+    const secondarySize = len >= 7 ? "1.05rem" : len >= 6 ? "1.2rem" : len >= 5 ? "1.35rem" : "1.55rem";
 
     const opacityClass = connected ? "opacity-100" : "opacity-40";
 
     return (
         <div className="flex flex-col items-center gap-0.5 flex-1" style={width ? { minWidth: width } : undefined}>
-            <span className={`text-[8px] font-bold uppercase tracking-[0.15em] ${accents.label}`}>{label}</span>
+            <span className={`text-[9px] font-bold uppercase tracking-[0.15em] ${accents.label}`}>{label}</span>
             <div className={`w-full rounded-xl border ${accents.box} ${primary ? "px-3 py-1.5" : "px-2 py-1"} flex items-baseline justify-center gap-1 shadow-sm`}
                 style={{ boxShadow: "inset 0 1px 3px rgba(0,0,0,0.08)" }}>
                 <span
@@ -243,7 +241,7 @@ function DigitReadout({ label, value, unit, connected, accent, primary, width })
                     {value && value !== "" ? value : "—.—"}
                 </span>
                 {unit ? (
-                    <span className={`font-mono font-bold uppercase ${primary ? "text-[10px]" : "text-[9px]"} text-gray-600 ${opacityClass}`}>
+                    <span className={`font-mono font-bold uppercase ${primary ? "text-[11px]" : "text-[10px]"} text-gray-600 ${opacityClass}`}>
                         {unit}
                     </span>
                 ) : null}
@@ -254,7 +252,7 @@ function DigitReadout({ label, value, unit, connected, accent, primary, width })
 
 function ConnectionPill({ connected, label }) {
     return (
-        <span className={`inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm shadow-sm
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm shadow-sm
             ${connected ? "bg-emerald-50/80 border-emerald-300/60 text-emerald-700" : "bg-gray-100/80 border-gray-200/60 text-gray-400"}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-gray-400"}`} />
             {connected ? label || "Live" : "Offline"}
@@ -1163,7 +1161,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
             milk_type: newMilkType,
         }));
         setSellerCodeInput(found?.seller_code || "");
-        setSellerSearch(found ? sellerLabel(found) : "");
+        setSellerSearch(found?.name || "");
         fetchPremiumRate(id, newMilkType, selectedDate);
     };
 
@@ -1269,7 +1267,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const handleEdit = (entry) => {
         setEditingEntry(entry);
         const found = sellers.find(s => String(s.seller_id) === String(entry.seller_id));
-        setSellerSearch(entry.seller_code ? `${entry.seller_code} - ${entry.seller_name}` : (entry.seller_name || ""));
+        setSellerSearch(entry.seller_name || "");
         setSellerCodeInput(entry.seller_code || "");
         setForm({
             seller_id: String(entry.seller_id),
@@ -1345,6 +1343,20 @@ export default function MilkEntryBase({ fixedSellerType }) {
         }
     };
 
+    const handleDelete = async (entry) => {
+        if (!window.confirm(`Delete this entry for ${entry.seller_name || entry.seller_code || 'this seller'}?`)) return;
+        try {
+            await api.delete(`/milk-entries/${entry.entry_id}`);
+            showFlash("success", "Entry deleted successfully.");
+            if (editingEntry?.entry_id === entry.entry_id) {
+                handleCancelEdit();
+            }
+            await fetchEntries(selectedDate, selectedDate);
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || "Failed to delete entry.");
+        }
+    };
+
     const isFormReady = () =>
         form.seller_id && form.quantity && form.fat && form.snf && form.rate_applied &&
         isValidFat(form.fat, form.milk_type) && isValidSnf(form.snf);
@@ -1404,11 +1416,11 @@ export default function MilkEntryBase({ fixedSellerType }) {
         t('milkEntry.colQty'),
         t('milkEntry.colFat'),
         t('milkEntry.colSnf'),
-        ...(isAdmin ? [t('milkEntry.colRate'), t('milkEntry.colAmount')] : []),
+        ...(isAdmin ? [t('milkEntry.colRate'), t('milkEntry.colAmount'), 'Actions'] : []),
     ];
     const GRID = isAdmin
-        ? "110px 90px 80px 80px 100px 110px"
-        : "110px 90px 80px 80px";
+        ? "90px 70px 65px 65px 90px 130px 90px"
+        : "90px 70px 65px 65px";
 
     if (permLoading) return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
@@ -1467,22 +1479,21 @@ export default function MilkEntryBase({ fixedSellerType }) {
                 <div className="flex-1 flex gap-4 min-h-0">
 
                     {/* ── LEFT PANEL: Machine Integration & Inputs ── */}
-                    <div className="w-1/2 flex flex-col gap-2 h-full min-h-0">
+                    <div className="w-[75%] flex flex-col gap-2 h-full min-h-0">
 
                         {/* ── Machine sections - compact side by side ── */}
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex gap-3 shrink-0">
                             {/* Weight instrument - compact */}
                             <div className="flex-1 rounded-xl bg-white/90 backdrop-blur-sm border border-emerald-200/60 shadow-lg shadow-emerald-200/30 overflow-hidden">
-                                <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-between px-3 pt-1.5 pb-0.5">                                    <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 rounded-lg bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-center shrink-0">
                                             <Scale size={14} className="text-emerald-600" />
                                         </div>
                                         <div>
-                                            <span className="block text-[9px] font-extrabold text-emerald-700 uppercase tracking-widest leading-none">
+                                            <span className="block text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest leading-none">
                                                 Scale
                                             </span>
-                                            <span className="block text-[8px] text-gray-400 font-semibold">
+                                            <span className="block text-[9px] text-gray-400 font-semibold">
                                                 {activeWeightKey === "weight_gavali" ? "Gavali"
                                                     : activeWeightKey === "weight_utpadak" ? "Utpadak"
                                                         : "Default"}
@@ -1492,13 +1503,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     <ConnectionPill connected={isMachineConnected} />
                                 </div>
 
-                                <div className="flex items-center justify-center gap-2 px-3 py-1">
+                                <div className="flex items-center justify-center gap-2 px-3 py-0.5 min-h-[52px]">
                                     <DigitReadout label="Qty · L" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="100px" />
                                 </div>
 
                                 <div className="flex items-center justify-between gap-1 px-3 py-1 border-t border-gray-100/60 bg-gray-50/60">
                                     <div className="flex items-center gap-1">
-                                        <span className="text-[7px] font-bold text-emerald-600/70 uppercase tracking-wider">Auto</span>
+                                        <span className="text-[8px] font-bold text-emerald-600/70 uppercase tracking-wider">Auto</span>
                                         <button
                                             type="button"
                                             onClick={toggleWeightPortSwitching}
@@ -1513,7 +1524,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             type="button"
                                             onClick={() => connectSerialPort(activeWeightSubtypeParam)}
                                             disabled={isMachineConnected}
-                                            className={`flex items-center gap-0.5 text-[9px] font-bold px-2 py-0.5 rounded-lg transition ${isMachineConnected
+                                            className={`flex items-center gap-0.5 text-[9px] font-bold px-2.5 py-1 rounded-lg transition ${isMachineConnected
                                                 ? "bg-emerald-400 text-emerald-950"
                                                 : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
                                                 }`}
@@ -1524,7 +1535,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             <button
                                                 type="button"
                                                 onClick={() => disconnectMachine(activeWeightSubtypeParam)}
-                                                className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 transition"
+                                                className="text-[9px] font-bold px-2.5 py-1 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 transition"
                                             >
                                                 Off
                                             </button>
@@ -1537,7 +1548,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         type="button"
                                         onClick={addMilkFromScale}
                                         disabled={liveMilkCaptureEnabled}
-                                        className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         <Milk size={11} /> Save ({machineQty2 || "—"}L)
                                     </button>
@@ -1561,16 +1572,15 @@ export default function MilkEntryBase({ fixedSellerType }) {
 
                             {/* Fat & SNF instrument - compact */}
                             <div className="flex-1 rounded-xl bg-white/90 backdrop-blur-sm border border-amber-200/60 shadow-lg shadow-amber-200/30 overflow-hidden">
-                                <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-between px-3 pt-1.5 pb-0.5">                                    <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 rounded-lg bg-amber-50/70 border border-amber-200/60 flex items-center justify-center shrink-0">
                                             <FlaskConical size={14} className="text-amber-600" />
                                         </div>
                                         <div>
-                                            <span className="block text-[9px] font-extrabold text-amber-700 uppercase tracking-widest leading-none">
+                                            <span className="block text-[10px] font-extrabold text-amber-700 uppercase tracking-widest leading-none">
                                                 Analyzer
                                             </span>
-                                            <span className="block text-[8px] text-gray-400 font-semibold">
+                                            <span className="block text-[9px] text-gray-400 font-semibold">
                                                 Fat & SNF
                                             </span>
                                         </div>
@@ -1578,8 +1588,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     <ConnectionPill connected={isFatConnected} />
                                 </div>
 
-                                <div className="flex items-center justify-center gap-1 px-3 py-1">
-                                    <DigitReadout
+                                <div className="flex items-center justify-center gap-1 px-3 py-0.5 min-h-[52px]">                                    <DigitReadout
                                         label="Fat %"
                                         value={fatSavedToForm ? form.fat || machineFat : machineFat}
                                         connected={isFatConnected}
@@ -1600,17 +1609,21 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         value={fatSavedToForm ? form.protein || machineProtein : machineProtein}
                                         connected={isFatConnected}
                                         accent="rose"
-                                        width="70px"
+                                        width="55px"
                                     />
                                 </div>
 
                                 <div className="flex items-center justify-between gap-1 px-3 py-1 border-t border-gray-100/60 bg-gray-50/60">
+                                    <div className="flex items-center gap-1 invisible">
+                                        <span className="text-[7px] font-bold uppercase tracking-wider">Auto</span>
+                                        <span className="w-7 h-3.5" />
+                                    </div>
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
                                             onClick={connectFatPort}
                                             disabled={isFatConnected}
-                                            className={`flex items-center gap-0.5 text-[9px] font-bold px-2 py-0.5 rounded-lg transition ${isFatConnected
+                                            className={`flex items-center gap-0.5 text-[9px] font-bold px-2.5 py-1 rounded-lg transition ${isFatConnected
                                                 ? "bg-amber-400 text-amber-950"
                                                 : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
                                                 }`}
@@ -1621,13 +1634,23 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             <button
                                                 type="button"
                                                 onClick={disconnectFatMachine}
-                                                className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 transition"
+                                                className="text-[9px] font-bold px-2.5 py-1 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 transition"
                                             >
                                                 Off
                                             </button>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                </div>
+
+                                <div className="flex items-center gap-2 px-3 py-1 border-t border-gray-100/60 bg-white/70">
+                                    <button
+                                        type="button"
+                                        onClick={saveFatReadingToForm}
+                                        className="flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 hover:shadow-lg transition"
+                                    >
+                                        <Save size={11} /> Save Reading
+                                    </button>
+                                    <div className="flex items-center gap-1 ml-auto">
                                         <span className="text-[7px] font-bold text-amber-600/70 uppercase tracking-wider">Live</span>
                                         <button
                                             type="button"
@@ -1637,21 +1660,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             <span className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transform transition-transform ${liveFatCaptureEnabled ? "translate-x-3.5" : ""}`} />
                                         </button>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={saveFatReadingToForm}
-                                        className="flex items-center gap-0.5 text-[9px] font-bold px-2 py-0.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 hover:shadow-lg transition"
-                                    >
-                                        <Save size={9} /> Save
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* ── Form fields ── */}
-                        <div className="flex-1 flex flex-col gap-1 overflow-y-auto min-h-0">
-                            <div data-entry-form className="flex items-center gap-2 flex-wrap p-3 rounded-xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm shrink-0" onKeyDown={handleFormKeyDown}>
-                                {/* Seller Code Input - New */}
+                        <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">                            <div data-entry-form className="flex flex-col gap-1.5 p-2 rounded-xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm shrink-0" onKeyDown={handleFormKeyDown}>                                {/* ── Row 1: Seller Code + Seller Name ── */}
+                                <div className="flex items-start gap-1.5 flex-wrap">                                {/* Seller Code Input - New */}
                                 <Field label="Code" icon={<User size={10} />}>
                                     <TinyInput
                                         ref={sellerCodeRef}
@@ -1659,12 +1674,12 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         onChange={(e) => handleSellerCodeChange(e.target.value)}
                                         placeholder="SC-001"
                                         className="text-[13px] font-mono"
-                                        style={{ width: "80px" }}
+                                        style={{ width: "65px" }}
                                     />
                                 </Field>
 
                                 <Field label={t('milkEntry.sellerLabel')} icon={<User size={10} />}>
-                                    <div className="relative" style={{ width: "140px" }}>
+                                    <div className="relative" style={{ width: "220px" }}>
                                         <TinyInput
                                             ref={sellerInputRef}
                                             value={sellerSearch}
@@ -1691,13 +1706,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                                     );
                                                     if (exact) {
                                                         handleSellerChange(exact.seller_id);
-                                                        setSellerSearch(sellerLabel(exact));
+                                                        setSellerSearch(exact.name || "");
                                                         setDropdownOpen(false);
                                                         focusNextField(e.currentTarget);
                                                     } else if (dropdownOpen && highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
                                                         const sel = filteredSellers[highlightedIdx];
                                                         handleSellerChange(sel.seller_id);
-                                                        setSellerSearch(sellerLabel(sel));
+                                                        setSellerSearch(sel.name || "");
                                                         setDropdownOpen(false);
                                                         focusNextField(e.currentTarget);
                                                     } else {
@@ -1718,8 +1733,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                                 }
                                             }}
                                             placeholder={t('milkEntry.searchPlaceholder')}
-                                            className="pr-6 text-[13px]"
-                                            style={{ width: "140px" }}
+                                            className="pr-6 text-[15px]"
+                                            style={{ width: "220px" }}
                                         />
                                         <DropdownPortal
                                             anchorRef={sellerInputRef}
@@ -1735,7 +1750,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                                     onMouseDown={(e) => e.preventDefault()}
                                                     onClick={() => {
                                                         handleSellerChange(s.seller_id);
-                                                        setSellerSearch(sellerLabel(s));
+                                                        setSellerSearch(s.name || "");
                                                         setDropdownOpen(false);
                                                     }}
                                                     className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
@@ -1761,12 +1776,12 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         )}
                                     </div>
                                 </Field>
-
-                                <div className="hidden">
-                                    <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}>
-                                        <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
-                                    </Field>
                                 </div>
+
+                                {/* ── Row 2: Shift, Qty, Fat, SNF ── */}
+                                <div className="flex items-start gap-1.5 flex-wrap">                                <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}>
+                                    <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
+                                </Field>
 
                                 <div className="hidden">
                                     <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={10} />}>
@@ -1792,8 +1807,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                 <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={10} />}>
                                     <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
                                         placeholder="0.0" type="number" step="0.01"
-                                        className="bg-blue-50/30 border-blue-200/60 text-blue-700 font-bold focus:ring-blue-500/50 text-[13px]"
-                                        style={{ width: "70px" }} />
+                                        className="bg-blue-50/30 border-blue-200/60 text-blue-700 font-extrabold focus:ring-blue-500/50 text-[17px]"
+                                        style={{ width: "110px" }} />
                                 </Field>
 
                                 <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={10} />}>
@@ -1805,8 +1820,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             setFatSavedToForm(false);
                                         }}
                                         placeholder="0.0" type="number" step="0.01"
-                                        className="bg-amber-50/30 border-amber-200/60 text-amber-700 font-bold focus:ring-amber-500/50 text-[13px]"
-                                        style={{ width: "65px" }} />
+                                        className="bg-amber-50/30 border-amber-200/60 text-amber-700 font-extrabold focus:ring-amber-500/50 text-[17px]"
+                                        style={{ width: "95px" }} />
                                 </Field>
 
                                 <Field label={t('milkEntry.snfLabel')} icon={<FlaskConical size={10} />}>
@@ -1820,13 +1835,13 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             }}
                                             placeholder="0.0" type="number" step="0.01"
                                             className={
-                                                "font-bold text-[13px] " + (snfBelowThreshold(form.snf, form.milk_type)
+                                                "font-extrabold text-[17px] " + (snfBelowThreshold(form.snf, form.milk_type)
                                                     ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
                                                     : snfAboveThreshold(form.snf, form.milk_type)
                                                         ? "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50"
                                                         : "bg-violet-50/30 border-violet-200/60 text-violet-700 focus:ring-violet-500/50")
                                             }
-                                            style={{ width: "65px" }} />
+                                            style={{ width: "95px" }} />
                                         {snfBelowThreshold(form.snf, form.milk_type) && (
                                             <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
                                                 <AlertTriangle size={6} className="text-white" />
@@ -1838,19 +1853,33 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             </span>
                                         )}
                                     </div>
-                                    {snfBelowThreshold(form.snf, form.milk_type) && (
-                                        <p className="text-[8px] text-rose-500 font-bold mt-0.5">
-                                            Below {SNF_THRESHOLD[form.milk_type]}%
-                                        </p>
-                                    )}
-                                    {snfAboveThreshold(form.snf, form.milk_type) && (
-                                        <p className="text-[8px] text-emerald-600 font-bold mt-0.5">
-                                            ✓
-                                        </p>
-                                    )}
+                                    <p className={`text-[8px] font-bold mt-0.5 h-[11px] leading-[11px] ${
+                                        snfBelowThreshold(form.snf, form.milk_type)
+                                            ? "text-rose-500"
+                                            : snfAboveThreshold(form.snf, form.milk_type)
+                                                ? "text-emerald-600"
+                                                : "invisible"
+                                    }`}>
+                                        {snfBelowThreshold(form.snf, form.milk_type)
+                                            ? `Below ${SNF_THRESHOLD[form.milk_type]}%`
+                                            : snfAboveThreshold(form.snf, form.milk_type)
+                                                ? "✓"
+                                                : "—"}
+                                    </p>
                                 </Field>
 
-                                <Field label="Protein" icon={<FlaskConical size={10} />}>
+                                {isAdmin && (
+                                    <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={10} />}>
+                                        <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
+                                            placeholder="₹0.00" type="number" step="0.01"
+                                            className="bg-gray-100/60 border-gray-300/60 text-gray-900 font-extrabold text-[17px]"
+                                            style={{ width: "120px" }} />
+                                    </Field>
+                                )}
+                                </div>
+
+                                {/* ── Row 3: Protein, Water, Amount ── */}
+                                <div className="flex items-start gap-1.5 flex-wrap">                                <Field label="Protein" icon={<FlaskConical size={10} />}>
                                     <TinyInput
                                         value={form.protein}
                                         onChange={(e) => {
@@ -1876,31 +1905,23 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             </span>
                                         )}
                                     </div>
-                                    {waterRisk(form.water) && (
-                                        <p className="text-[8px] text-rose-500 font-bold mt-0.5">{t('milkEntry.waterRisk')}</p>
-                                    )}
+                                    <p className={`text-[8px] font-bold mt-0.5 h-[11px] leading-[11px] ${waterRisk(form.water) ? "text-rose-500" : "invisible"}`}>
+                                        {waterRisk(form.water) ? t('milkEntry.waterRisk') : "—"}
+                                    </p>
                                 </Field>
-
-                                {isAdmin && (
-                                    <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={10} />}>
-                                        <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
-                                            placeholder="₹0.00" type="number" step="0.01"
-                                            className="bg-gray-100/50 border-gray-200/60 text-gray-800 font-bold text-[13px]"
-                                            style={{ width: "80px" }} />
-                                    </Field>
-                                )}
 
                                 {isAdmin && amount && (
                                     <Field label={t('milkEntry.amountLabel')} icon={<TrendingUp size={10} />}>
-                                        <div className="h-[38px] px-3 flex items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 border border-emerald-700 text-white font-extrabold text-sm whitespace-nowrap shadow-lg shadow-emerald-500/30">
+                                        <div className="h-[38px] px-3 flex items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 border border-emerald-700 text-white font-extrabold text-base whitespace-nowrap shadow-lg shadow-emerald-500/30">
                                             ₹{amount}
                                         </div>
                                     </Field>
                                 )}
+                                </div>
                             </div>
 
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-gray-200/60 shrink-0">
-                                <p className="text-xs text-gray-400">
+                                <p className="text-sm text-gray-400">
                                     {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')} {t('milkEntry.entriesOn')}{" "}
                                     {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                                 </p>
@@ -1921,7 +1942,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             onClick={() => setShowProductModal(true)}
                                             disabled={!form.seller_id}
                                             title={!form.seller_id ? "Select a seller first" : "Record a product sale"}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-500 hover:border-blue-300/60 hover:text-blue-600 hover:bg-blue-50/40 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
+                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-500 hover:border-blue-300/60 hover:text-blue-600 hover:bg-blue-50/40 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
                                         >
                                             <ShoppingCart size={12} /> Product
                                         </button>
@@ -1942,7 +1963,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                         type="button"
                                         onClick={editingEntry ? handleUpdate : handleSave}
                                         disabled={saving}
-                                        className={`flex items-center gap-1.5 px-5 py-2 rounded-lg font-bold text-sm text-white shadow-lg transition-all duration-200
+                                        className={`flex items-center gap-1.5 px-5 py-2 rounded-lg font-bold text-base text-white shadow-lg transition-all duration-200
                                             ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : editingEntry ? "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 active:scale-95" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}
                                     >
                                         <Save size={14} />
@@ -1979,7 +2000,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     <X size={13} />
                                 </button>
                             )}
-                            <span className="ml-auto text-xs text-gray-400 font-medium">
+                            <span className="ml-auto text-sm text-gray-400 font-medium">
                                 {filteredEntries.length} {filteredEntries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
                                 {searchName && ` ${t('milkEntry.matching')} "${searchName}"`}
                             </span>
@@ -1988,7 +2009,7 @@ export default function MilkEntryBase({ fixedSellerType }) {
                         <div className="flex-1 overflow-y-auto min-h-0">
                             <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 sticky top-0 z-10" style={{ gridTemplateColumns: GRID }}>
                                 {COLS.map((label) => (
-                                    <div key={label} className="px-3 py-2 flex items-center text-[10px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
+                                    <div key={label} className="px-3 py-2 flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                         {label}
                                     </div>
                                 ))}
@@ -2023,6 +2044,26 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                             )}
                                             {isAdmin && (
                                                 <TableCell className="text-gray-900 font-extrabold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
+                                            )}
+                                            {isAdmin && (
+                                                <TableCell className="gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleEdit(r)}
+                                                        title="Edit entry"
+                                                        className="p-1.5 rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-600 border border-blue-200/60 transition shadow-sm"
+                                                    >
+                                                        <Pencil size={12} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(r)}
+                                                        title="Delete entry"
+                                                        className="p-1.5 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-600 border border-rose-200/60 transition shadow-sm"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </TableCell>
                                             )}
                                         </div>
                                     ))}

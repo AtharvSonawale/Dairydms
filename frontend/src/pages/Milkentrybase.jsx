@@ -5,7 +5,8 @@ import {
     Droplets, Save, Sun, Moon, FlaskConical, Waves,
     User, AlertTriangle, BadgeCheck, X,
     TrendingUp, Milk, Trash2, Scale,
-    Pencil, ShoppingCart, Package, Plug, Home, RotateCcw
+    Pencil, ShoppingCart, Package, Plug, Home, RotateCcw,
+    ChevronDown, PlugZap, Radio, Calendar, Settings, Download
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -32,6 +33,18 @@ const fmtDate = (d) =>
 
 const waterRisk = (v) => parseFloat(v) > 5;
 
+const roundWeightToOneDecimal = (v) => {
+    const num = parseFloat(v);
+    if (isNaN(num)) return "";
+    const sign = num < 0 ? -1 : 1;
+    const absNum = Math.abs(num);
+    const scaled = Math.round(absNum * 100);
+    const tens = Math.floor(scaled / 10);
+    const remainder = scaled % 10;
+    const roundedTens = remainder > 5 ? tens + 1 : tens;
+    return ((sign * roundedTens) / 10).toFixed(1);
+};
+
 const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
 const FIXED_AUTOFILL_SNF = "8.5";
 const snfBelowThreshold = (v, milk_type) =>
@@ -50,7 +63,6 @@ const getEmptyForm = (sellerType) => ({
     water: "",
     protein: "",
     rate_applied: "",
-    machine_qty: "",
 });
 
 const FAT_LIMITS = {
@@ -67,9 +79,6 @@ const isValidFat = (v, milk_type) => {
     return parseFloat(v) >= min && parseFloat(v) <= max;
 };
 
-// SNF only enforces a floor — values above the type's max are allowed to be
-// entered/saved (they're real readings), but get capped to the max below
-// when used for rate lookup.
 const isValidSnf = (v, milk_type) => {
     const { min } = SNF_LIMITS[milk_type] || SNF_LIMITS.cow;
     return parseFloat(v) >= min;
@@ -82,9 +91,6 @@ const capSnfForRate = (v, milk_type) => {
     return Math.min(num, max).toFixed(2);
 };
 
-// Formats a seller as "403 - Dhanush Patil" for both the dropdown list
-// and the search input after selection. Falls back to just the name if
-// no code is available.
 const sellerLabel = (seller) =>
     seller?.seller_code ? `${seller.seller_code} - ${seller.name}` : (seller?.name || "");
 
@@ -119,8 +125,8 @@ const THEME = {
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children, ...rest }) {
     return (
-        <div className="flex flex-col gap-1.5 shrink-0" {...rest}>
-            <span className="flex items-center gap-1 text-[10.5px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+        <div className="flex flex-col gap-0.5 shrink-0" {...rest}>
+            <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                 {icon}{label}
             </span>
             {children}
@@ -135,26 +141,24 @@ const TinyInput = React.forwardRef(function TinyInput({ className = "", style = 
             ref={ref}
             {...props}
             style={{ minWidth: 0, ...style }}
-            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm
-                focus:outline-none focus:ring-2 focus:ring-gray-900/20 ${focusBg} transition
-                placeholder:text-gray-300 ${className}`}
+            className={`border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 ${focusBg} transition placeholder:text-gray-300 ${className}`}
         />
     );
 });
 
 function ShiftToggle({ value, onChange, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-bold shadow-sm">
             {["morning", "evening"].map((s) => (
                 <button key={s} type="button" onClick={() => onChange(s)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
+                    title={s === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
+                    className={`flex items-center justify-center px-3 py-2 transition-all duration-200
                         ${value === s
                             ? s === "morning"
                                 ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30"
                                 : "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30"
                             : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
-                    {s === "morning" ? <Sun size={13} /> : <Moon size={13} />}
-                    {s === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')}
+                    {s === "morning" ? <Sun size={15} /> : <Moon size={15} />}
                 </button>
             ))}
         </div>
@@ -163,13 +167,13 @@ function ShiftToggle({ value, onChange, t }) {
 
 function MilkTypeToggle({ value, onChange, t, disabled }) {
     return (
-        <div className={`flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm ${disabled ? "opacity-50" : ""}`}>
+        <div className={`flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-bold shadow-sm ${disabled ? "opacity-50" : ""}`}>
             {[
                 { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
                 { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" disabled={disabled} onClick={() => onChange(val)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
+                    className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-200
                         ${disabled ? "cursor-not-allowed" : ""}
                         ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
                     {label}
@@ -181,13 +185,13 @@ function MilkTypeToggle({ value, onChange, t, disabled }) {
 
 function SellerTypeToggle({ value, onChange }) {
     return (
-        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold shadow-sm">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-bold shadow-sm">
             {[
                 { val: "Utpadak", active: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30" },
                 { val: "Gavali", active: "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30" },
             ].map(({ val, active }) => (
                 <button key={val} type="button" onClick={() => onChange(val)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2.5 transition-all duration-200
+                    className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-200
                         ${value === val ? active : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}>
                     {val}
                 </button>
@@ -198,7 +202,7 @@ function SellerTypeToggle({ value, onChange }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-3 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-3 flex items-center border-r border-gray-100/60 last:border-r-0 text-[15px] ${className}`}>
             {children}
         </div>
     );
@@ -212,15 +216,15 @@ function DigitReadout({ label, value, unit, connected, accent, primary, width })
     }[accent];
 
     const len = (value || "").length;
-    const primarySize = len >= 8 ? "1.7rem" : len >= 7 ? "1.95rem" : len >= 6 ? "2.25rem" : len >= 5 ? "2.55rem" : "2.9rem";
-    const secondarySize = len >= 7 ? "1.05rem" : len >= 6 ? "1.2rem" : len >= 5 ? "1.4rem" : "1.65rem";
+    const primarySize = len >= 8 ? "1.65rem" : len >= 7 ? "1.85rem" : len >= 6 ? "2.15rem" : len >= 5 ? "2.4rem" : "2.7rem";
+    const secondarySize = len >= 7 ? "1.05rem" : len >= 6 ? "1.2rem" : len >= 5 ? "1.35rem" : "1.55rem";
 
     const opacityClass = connected ? "opacity-100" : "opacity-40";
 
     return (
-        <div className="flex flex-col items-center gap-1 flex-1" style={width ? { minWidth: width } : undefined}>
-            <span className={`text-[9.5px] font-bold uppercase tracking-[0.15em] ${accents.label}`}>{label}</span>
-            <div className={`w-full rounded-xl border ${accents.box} ${primary ? "px-3 py-2" : "px-2 py-1.5"} flex items-baseline justify-center gap-1 shadow-sm`}
+        <div className="flex flex-col items-center gap-0.5 flex-1" style={width ? { minWidth: width } : undefined}>
+            <span className={`text-[9px] font-bold uppercase tracking-[0.15em] ${accents.label}`}>{label}</span>
+            <div className={`w-full rounded-xl border ${accents.box} ${primary ? "px-3 py-1.5" : "px-2 py-1"} flex items-baseline justify-center gap-1 shadow-sm`}
                 style={{ boxShadow: "inset 0 1px 3px rgba(0,0,0,0.08)" }}>
                 <span
                     className={`font-mono font-bold tabular-nums leading-none whitespace-nowrap text-gray-900 ${opacityClass}`}
@@ -229,7 +233,7 @@ function DigitReadout({ label, value, unit, connected, accent, primary, width })
                     {value && value !== "" ? value : "—.—"}
                 </span>
                 {unit ? (
-                    <span className={`font-mono font-bold uppercase ${primary ? "text-xs sm:text-sm" : "text-[10px]"} text-gray-600 ${opacityClass}`}>
+                    <span className={`font-mono font-bold uppercase ${primary ? "text-[11px]" : "text-[10px]"} text-gray-600 ${opacityClass}`}>
                         {unit}
                     </span>
                 ) : null}
@@ -240,7 +244,7 @@ function DigitReadout({ label, value, unit, connected, accent, primary, width })
 
 function ConnectionPill({ connected, label }) {
     return (
-        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border backdrop-blur-sm shadow-sm
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border backdrop-blur-sm shadow-sm
             ${connected ? "bg-emerald-50/80 border-emerald-300/60 text-emerald-700" : "bg-gray-100/80 border-gray-200/60 text-gray-400"}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-gray-400"}`} />
             {connected ? label || "Live" : "Offline"}
@@ -248,40 +252,16 @@ function ConnectionPill({ connected, label }) {
     );
 }
 
-function SectionHeader({ icon, title, sub, action }) {
-    return (
-        <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
-                    {icon}
-                </div>
-                <div>
-                    <p className="text-sm font-bold text-gray-800 leading-tight">{title}</p>
-                    {sub && <p className="text-xs text-gray-500 leading-tight">{sub}</p>}
-                </div>
-            </div>
-            {action}
-        </div>
-    );
-}
-
-function CompactCard({ children, className = "" }) {
-    return (
-        <div className={`relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 hover:shadow-xl transition-shadow duration-300 p-5 ${className}`}>
-            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
-            {children}
-        </div>
-    );
-}
-
 function StatCard({ label, value, icon, color }) {
     return (
-        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
-            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
-            <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center relative z-10">{icon}</div>
-            <div className="relative z-10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-1">{value}</p>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-3 flex items-center gap-2.5`}>
+            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-white/20 blur-2xl" />
+            <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center relative z-10">
+                {icon}
+            </div>
+            <div className="relative z-10 min-w-0">
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider opacity-60 leading-none truncate">{label}</p>
+                <p className="text-lg font-bold text-gray-900 leading-tight mt-1 truncate">{value}</p>
             </div>
         </div>
     );
@@ -289,7 +269,6 @@ function StatCard({ label, value, icon, color }) {
 
 // ── Quick Sale Modal: Products ──────────────────────────────
 function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess, showFlash }) {
-    const { t } = useTranslation();
     const [products, setProducts] = useState([]);
     const [lines, setLines] = useState([{ _key: Date.now(), product_id: "", quantity: "", rate: "" }]);
     const [productSearch, setProductSearch] = useState({});
@@ -495,13 +474,11 @@ function QuickProductSaleModal({ sellerId, sellerName, saleDate, onClose, onSucc
 
 // ── Quick Sale Modal: Cattle Feed ──────────────────────────────
 function QuickFeedSaleModal({ sellerId, sellerName, saleDate, onClose, onSuccess, showFlash }) {
-    const { t } = useTranslation();
     const [feeds, setFeeds] = useState([]);
     const [lines, setLines] = useState([{ _key: Date.now(), feed_id: "", quantity: "", rate: "" }]);
     const [feedSearch, setFeedSearch] = useState({});
     const [showFeedDrop, setShowFeedDrop] = useState({});
     const feedInputRefs = useRef({});
-    
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -753,16 +730,18 @@ export default function MilkEntryBase({ sellerType }) {
     const [entries, setEntries] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
+    const [sellerCodeInput, setSellerCodeInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [selectedDate, setSelectedDate] = useState(today());
     const [liveStock, setLiveStock] = useState({ cow: 0, buffalo: 0 });
     const [flash, setFlash] = useState(null);
+    const [flashPhase, setFlashPhase] = useState('hidden');
     const [currentPage, setCurrentPage] = useState(1);
     const [searchName, setSearchName] = useState("");
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const sellerInputRef = useRef(null);
-    
+    const sellerCodeRef = useRef(null);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [editingEntry, setEditingEntry] = useState(null);
     const { user } = useAuth();
@@ -781,9 +760,8 @@ export default function MilkEntryBase({ sellerType }) {
     });
     const [weightPortConfig, setWeightPortConfig] = useState({ weight_gavali: null, weight_utpadak: null, weight: null });
     const socketRef = useRef(null);
-const lastAppliedWeightRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
-const lastAppliedFatRaw = useRef(null);
-
+    const lastAppliedWeightRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
+    const lastAppliedFatRaw = useRef(null);
     const weightPortConfigRef = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
 
     // This page is scoped to a single, role-specific seller type — it always
@@ -805,6 +783,19 @@ const lastAppliedFatRaw = useRef(null);
     const [fatPortConfig, setFatPortConfig] = useState(null);
     const [lastFatUpdateAt, setLastFatUpdateAt] = useState(null);
 
+    // Track if fat/snf was saved to form
+    const [fatSavedToForm, setFatSavedToForm] = useState(false);
+    const lastSavedFatRaw = useRef(null);
+
+    // Live capture toggles
+    const [liveMilkCaptureEnabled, setLiveMilkCaptureEnabled] = useState(false);
+    const liveMilkCaptureEnabledRef = useRef(false);
+    useEffect(() => { liveMilkCaptureEnabledRef.current = liveMilkCaptureEnabled; }, [liveMilkCaptureEnabled]);
+
+    const [liveFatCaptureEnabled, setLiveFatCaptureEnabled] = useState(false);
+    const liveFatCaptureEnabledRef = useRef(false);
+    useEffect(() => { liveFatCaptureEnabledRef.current = liveFatCaptureEnabled; }, [liveFatCaptureEnabled]);
+
     useEffect(() => {
         api.get("/settings/ports")
             .then(({ data }) => {
@@ -818,8 +809,6 @@ const lastAppliedFatRaw = useRef(null);
             .catch(() => { });
     }, []);
 
-    
-
     useEffect(() => {
         const resolvedSocketUrl =
             import.meta.env.VITE_SOCKET_URL ||
@@ -830,12 +819,6 @@ const lastAppliedFatRaw = useRef(null);
             transports: ["websocket"],
         });
         socketRef.current = socket;
-
-        // TEMP DIAGNOSTIC — remove once we've identified the cause
-        socket.on("connect", () => console.log("[socket] connected", new Date().toISOString()));
-        socket.on("disconnect", (reason) => console.log("[socket] disconnected:", reason, new Date().toISOString()));
-        socket.io.on("reconnect_attempt", () => console.log("[socket] reconnect attempt", new Date().toISOString()));
-        console.log("[MilkEntryBase] socket effect mounted", new Date().toISOString());
 
         const handleWeightUpdate = (subtypeKey) => (reading) => {
             setWeightBySubtype(prev => ({
@@ -853,12 +836,15 @@ const lastAppliedFatRaw = useRef(null);
             const fillValue = unitPref === "kg" ? reading.value : reading.value2;
 
             if (fillValue !== null && fillValue !== undefined) {
-                setForm(p => {
-                    const expectedKey = sellerType === "Gavali" ? "weight_gavali" : "weight_utpadak";
-                    if (subtypeKey !== expectedKey) return p; // only this seller type's own scale feeds this page
-                    const signedValue = fillValue.toFixed(3);
-                    return { ...p, machine_qty: signedValue, quantity: signedValue };
-                });
+                // If live capture is enabled, update form quantity
+                if (liveMilkCaptureEnabledRef.current) {
+                    const roundedVal = roundWeightToOneDecimal(fillValue);
+                    setForm(p => {
+                        const expectedKey = sellerType === "Gavali" ? "weight_gavali" : "weight_utpadak";
+                        if (subtypeKey !== expectedKey) return p;
+                        return { ...p, quantity: roundedVal };
+                    });
+                }
                 setLastUpdateAt(Date.now());
             }
         };
@@ -870,25 +856,27 @@ const lastAppliedFatRaw = useRef(null);
         socket.on("fat:update", (reading) => {
             setIsFatConnected(!!reading.connected);
 
-            // Same replay guard as the weight handler above — a reconnect
-            // (Socket.IO's default ~20-25s ping cycle) re-sends the cached
-            // reading, which was previously re-applying fat/snf/water/protein
-            // and re-triggering the rate lookup every 20-25s.
             if (!reading.connected || !reading.raw || reading.raw === lastAppliedFatRaw.current) {
                 return;
             }
             lastAppliedFatRaw.current = reading.raw;
 
+            // Always update machine values
             if (reading.fat !== null && reading.fat !== undefined) {
                 const fatValue = reading.fat.toFixed(2);
                 setMachineFat(fatValue);
-                set("fat", fatValue);
-                fetchAutoRate(fatValue, reading.snf !== null && reading.snf !== undefined ? reading.snf.toFixed(2) : form.snf, form.milk_type);
+                // If live capture is enabled, update form
+                if (liveFatCaptureEnabledRef.current) {
+                    set("fat", fatValue);
+                    fetchAutoRate(fatValue, reading.snf !== null && reading.snf !== undefined ? reading.snf.toFixed(2) : form.snf, form.milk_type);
+                }
             }
             if (reading.snf !== null && reading.snf !== undefined) {
                 const snfValue = reading.snf.toFixed(2);
                 setMachineSnf(snfValue);
-                set("snf", snfValue);
+                if (liveFatCaptureEnabledRef.current) {
+                    set("snf", snfValue);
+                }
             }
             if (reading.water !== null && reading.water !== undefined) {
                 set("water", reading.water.toFixed(2));
@@ -896,11 +884,13 @@ const lastAppliedFatRaw = useRef(null);
             if (reading.protein !== null && reading.protein !== undefined) {
                 const proteinValue = reading.protein.toFixed(2);
                 setMachineProtein(proteinValue);
-                set("protein", proteinValue);
+                if (liveFatCaptureEnabledRef.current) {
+                    set("protein", proteinValue);
+                }
             }
             setLastFatRaw(reading.raw || "");
             setLastFatUpdateAt(Date.now());
-        })
+        });
 
         return () => {
             socket.disconnect();
@@ -927,7 +917,7 @@ const lastAppliedFatRaw = useRef(null);
             showFlash("error", "Failed to disconnect.");
         }
     };
-    
+
     const lastAddedMilkRaw = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
 
     const addMilkFromScale = () => {
@@ -942,7 +932,7 @@ const lastAppliedFatRaw = useRef(null);
             return;
         }
         lastAddedMilkRaw.current[activeWeightKey] = currentRaw;
-        const roundedVal = parseFloat(val.toFixed(1));
+        const roundedVal = parseFloat(roundWeightToOneDecimal(val));
         setForm(p => {
             const current = parseFloat(p.quantity) || 0;
             return { ...p, quantity: (current + roundedVal).toFixed(1) };
@@ -969,6 +959,29 @@ const lastAppliedFatRaw = useRef(null);
         }
     };
 
+    const saveFatReadingToForm = () => {
+        if (!machineFat && !machineSnf && !machineProtein) {
+            showFlash("error", "No Fat/SNF reading available to save yet.");
+            return;
+        }
+        if (lastFatRaw && lastFatRaw === lastSavedFatRaw.current) {
+            showFlash("error", "This reading was already saved. Wait for a new reading.");
+            return;
+        }
+        lastSavedFatRaw.current = lastFatRaw;
+        setForm(p => ({
+            ...p,
+            fat: machineFat || p.fat,
+            snf: machineSnf || p.snf,
+            protein: machineProtein || p.protein,
+        }));
+        const fatForRate = machineFat || form.fat;
+        const snfForRate = machineSnf || form.snf;
+        if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_type);
+        setFatSavedToForm(true);
+        showFlash("success", `Saved Fat ${machineFat || "—"}% / SNF ${machineSnf || "—"}% to the form.`);
+    };
+
     const autoConnectFired = useRef(false);
     useEffect(() => {
         if (autoConnectFired.current) return;
@@ -985,44 +998,6 @@ const lastAppliedFatRaw = useRef(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const startMilkEntryTour = () => {
-        const driverObj = driver({
-            showProgress: true,
-            allowClose: true,
-            steps: [
-                {
-                    element: '[data-tour="seller-field"]',
-                    popover: { title: 'Select Seller', description: `Search and pick the ${sellerType} seller for this entry.` },
-                },
-                {
-                    element: '[data-tour="shift-field"]',
-                    popover: { title: 'Shift', description: 'Choose morning or evening shift.' },
-                },
-                {
-                    element: '[data-tour="qty-field"]',
-                    popover: { title: 'Quantity', description: 'Enter the quantity of milk collected, in liters.' },
-                },
-                {
-                    element: '[data-tour="machine-qty-field"]',
-                    popover: { title: 'Machine Quantity', description: 'Auto-reads from the connected weight machine via RS232.' },
-                },
-                {
-                    element: '[data-tour="fat-field"]',
-                    popover: { title: 'Fat %', description: 'Enter the fat percentage — rate auto-fills once valid.' },
-                },
-                {
-                    element: '[data-tour="save-btn"]',
-                    popover: { title: 'Save Entry', description: 'Click here to save the milk entry.' },
-                },
-                {
-                    element: '[data-tour="entries-table"]',
-                    popover: { title: 'Entries Table', description: `All saved ${sellerType} entries for the selected date appear here.` },
-                },
-            ],
-        });
-        driverObj.drive();
-    };
-
     const [rangeMode, setRangeMode] = useState("daily");
     const [fromDate, setFromDate] = useState(today());
     const [toDate, setToDate] = useState(today());
@@ -1035,7 +1010,14 @@ const lastAppliedFatRaw = useRef(null);
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
+        setFlashPhase('visible');
+        setTimeout(() => setFlashPhase('hidden'), 3200);
         setTimeout(() => setFlash(null), 3500);
+    };
+
+    const dismissFlash = () => {
+        setFlashPhase('hidden');
+        setFlash(null);
     };
 
     const amount =
@@ -1156,13 +1138,31 @@ const lastAppliedFatRaw = useRef(null);
         const rawType = (found?.milk_type || "").trim().toLowerCase();
         const newMilkType = (rawType === "cow" || rawType === "buffalo")
             ? rawType
-            : form.milk_type; // covers "both"/mixed/blank
+            : form.milk_type;
         setForm(p => ({
             ...p,
             seller_id: id,
             milk_type: newMilkType,
         }));
+        setSellerCodeInput(found?.seller_code || "");
+        setSellerSearch(found?.name || "");  // ← ADD THIS LINE
         fetchPremiumRate(id, newMilkType, selectedDate);
+    };
+
+    const handleSellerCodeChange = (code) => {
+        setSellerCodeInput(code);
+        if (!code.trim()) {
+            set("seller_id", "");
+            setSellerSearch("");
+            return;
+        }
+        const found = sellers.find(s =>
+            s.seller_code && s.seller_code.toLowerCase() === code.trim().toLowerCase()
+        );
+        if (found) {
+            handleSellerChange(found.seller_id);
+            setSellerSearch(found?.name || "");  // ← CHANGE THIS LINE - only set the name
+        }
     };
 
     const handleSave = async () => {
@@ -1192,23 +1192,30 @@ const lastAppliedFatRaw = useRef(null);
                 quantity: Number(form.quantity),
                 fat: Number(form.fat),
                 snf: Number(form.snf),
+                protein: form.protein !== "" ? Number(form.protein) : null,
                 water: Number(form.water || 0),
                 rate_applied: Number(form.rate_applied),
                 total_amount: Number(amount),
-                machine_qty: form.machine_qty ? Number(form.machine_qty) : null,
             });
             await fetchEntries(selectedDate, selectedDate);
             await fetchLiveStock(selectedDate);
             showFlash("success", t('milkEntry.savedSuccess'));
             setForm({ ...getEmptyForm(sellerType), shift: getShiftByTime() });
             setSellerSearch("");
+            setSellerCodeInput("");
+            setFatSavedToForm(false);
             setWeightBySubtype(prev => ({
                 ...prev,
                 weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
                 weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
+            setMachineFat("");
+            setMachineSnf("");
             setMachineProtein("");
+            lastSavedFatRaw.current = null;
+            lastAddedMilkRaw.current = { weight_gavali: null, weight_utpadak: null, weight: null };
+            sellerCodeRef.current?.focus();
         } catch (err) {
             const msg = err.response?.data?.error ||
                 err.response?.data?.message ||
@@ -1221,7 +1228,9 @@ const lastAppliedFatRaw = useRef(null);
 
     const handleEdit = (entry) => {
         setEditingEntry(entry);
-        setSellerSearch(entry.seller_code ? `${entry.seller_code} - ${entry.seller_name}` : (entry.seller_name || ""));
+        setSellerSearch(entry.seller_name || "");  // ← CHANGE THIS LINE
+        setSellerCodeInput(entry.seller_code || "");
+        setFatSavedToForm(true);
         setForm({
             seller_id: String(entry.seller_id),
             seller_type: sellerType,
@@ -1230,14 +1239,10 @@ const lastAppliedFatRaw = useRef(null);
             quantity: String(entry.quantity),
             fat: String(entry.fat),
             snf: String(entry.snf),
+            protein: String(entry.protein ?? ""),
             water: String(entry.water || ""),
             rate_applied: String(entry.rate_applied),
-            machine_qty: entry.machine_qty ? String(entry.machine_qty) : "",
         });
-        if (entry.machine_qty) {
-            const key = sellerType === "Gavali" ? "weight_gavali" : "weight_utpadak";
-            setWeightBySubtype(prev => ({ ...prev, [key]: { ...prev[key], qty: String(entry.machine_qty) } }));
-        }
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
@@ -1264,23 +1269,30 @@ const lastAppliedFatRaw = useRef(null);
                 quantity: Number(form.quantity),
                 fat: Number(form.fat),
                 snf: Number(form.snf),
+                protein: form.protein !== "" ? Number(form.protein) : null,
                 water: Number(form.water || 0),
                 rate_applied: Number(form.rate_applied),
                 total_amount: Number(computedAmount),
-                machine_qty: form.machine_qty ? Number(form.machine_qty) : null,
             });
             showFlash("success", t('milkEntry.updatedSuccess'));
             await fetchEntries(selectedDate, selectedDate);
             setEditingEntry(null);
             setForm({ ...getEmptyForm(sellerType), shift: getShiftByTime() });
             setSellerSearch("");
+            setSellerCodeInput("");
+            setFatSavedToForm(false);
             setWeightBySubtype(prev => ({
                 ...prev,
                 weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
                 weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
                 weight: { ...prev.weight, qty: "", qty2: "" },
             }));
+            setMachineFat("");
+            setMachineSnf("");
             setMachineProtein("");
+            lastSavedFatRaw.current = null;
+            lastAddedMilkRaw.current = { weight_gavali: null, weight_utpadak: null, weight: null };
+            sellerCodeRef.current?.focus();
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('milkEntry.updateError'));
         } finally {
@@ -1309,13 +1321,19 @@ const lastAppliedFatRaw = useRef(null);
         setEditingEntry(null);
         setForm({ ...getEmptyForm(sellerType), shift: getShiftByTime() });
         setSellerSearch("");
+        setSellerCodeInput("");
+        setFatSavedToForm(false);
         setWeightBySubtype(prev => ({
             ...prev,
             weight_gavali: { ...prev.weight_gavali, qty: "", qty2: "" },
             weight_utpadak: { ...prev.weight_utpadak, qty: "", qty2: "" },
             weight: { ...prev.weight, qty: "", qty2: "" },
         }));
+        setMachineFat("");
+        setMachineSnf("");
         setMachineProtein("");
+        lastSavedFatRaw.current = null;
+        lastAddedMilkRaw.current = { weight_gavali: null, weight_utpadak: null, weight: null };
     };
 
     const handleDelete = async (entryId) => {
@@ -1551,15 +1569,12 @@ const lastAppliedFatRaw = useRef(null);
     const paginatedEntries = filteredEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const COLS = [
-        t('milkEntry.colNo'), t('milkEntry.colSeller'), t('milkEntry.colCode'), t('milkEntry.colShift'), t('milkEntry.colMilk'),
-        t('milkEntry.colQty'), t('milkEntry.colFat'), t('milkEntry.colSnf'), t('milkEntry.colProtein'), t('milkEntry.colWater'),
-        ...(isAdmin ? [t('milkEntry.colRate'), t('milkEntry.colAmount')] : []),
-        t('milkEntry.colTime'), t('milkEntry.colPremium'),
-        ...(isAdmin ? [t('milkEntry.colActions')] : []),
+        t('milkEntry.colCode'), t('milkEntry.colQty'), t('milkEntry.colFat'), t('milkEntry.colSnf'),
+        ...(isAdmin ? [t('milkEntry.colRate'), t('milkEntry.colAmount'), ''] : [])
     ];
     const GRID = isAdmin
-        ? "40px 1.4fr 70px 100px 90px 72px 65px 65px 65px 75px 80px 90px 75px 85px 120px"
-        : "40px 1.4fr 70px 100px 90px 72px 65px 65px 65px 75px 75px 85px";
+        ? "90px 70px 65px 65px 90px 130px 90px"
+        : "90px 70px 65px 65px";
 
     if (permLoading) return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
@@ -1571,766 +1586,674 @@ const lastAppliedFatRaw = useRef(null);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+            {flash && (
+                <div
+                    className={`fixed top-4 right-4 z-[9999] pointer-events-none`}
+                    style={{ maxWidth: "min(92vw, 420px)" }}
+                >
+                    <div
+                        className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl text-base font-semibold shadow-2xl backdrop-blur-sm border
+                        ${flash.type === "success" ? "bg-emerald-50/95 border-emerald-200/70 text-emerald-700" : "bg-rose-50/95 border-rose-200/70 text-rose-600"}`}
+                        style={{
+                            transform: flashPhase === "visible" ? "translateX(0)" : "translateX(150%)",
+                            opacity: flashPhase === "visible" ? 1 : 0,
+                            transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease",
+                        }}
+                    >
+                        {flash.type === "error" && <AlertTriangle size={18} className="shrink-0" />}
+                        {flash.type === "success" && <BadgeCheck size={18} className="shrink-0" />}
+                        <span className="flex-1">{flash.msg}</span>
+                        <button onClick={dismissFlash} className="opacity-50 hover:opacity-100 transition shrink-0">
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
-                {/* ── Top Bar ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
-                    <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <span>{sellerType} {t('milkEntry.pageTitle')}</span>
-                            <span className={`flex items-center gap-1.5 px-3 py-1 rounded-xl ${theme.headerIcon} text-white text-xs font-semibold shadow-md shadow-gray-900/30`}>
-                                <Droplets size={12} /> {sellerType}
+            <main className="h-screen max-w-screen mx-auto px-4 py-3 flex flex-col gap-2">
+
+                {/* ── Stat Cards ── */}
+                <div className={`grid grid-cols-2 sm:grid-cols-3 ${isAdmin ? "lg:grid-cols-6" : "lg:grid-cols-2"} gap-2 shrink-0`}>
+                    <StatCard
+                        label={t('milkEntry.entriesToday', { defaultValue: 'Entries Today' })}
+                        value={entries.length}
+                        icon={<Droplets size={16} className="text-blue-700" />}
+                        color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700"
+                    />
+                    <StatCard
+                        label={t('milkEntry.cowMilk', { defaultValue: 'Cow Milk (L)' })}
+                        value={`${entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L`}
+                        icon={<Milk size={16} className="text-amber-700" />}
+                        color="from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700"
+                    />
+                    <StatCard
+                        label={t('milkEntry.buffaloMilk', { defaultValue: 'Buffalo Milk (L)' })}
+                        value={`${entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L`}
+                        icon={<Milk size={16} className="text-slate-700" />}
+                        color="from-slate-50 to-slate-100/50 border-slate-200/60 text-slate-700"
+                    />
+                    <StatCard
+                        label={t('milkEntry.totalAmount', { defaultValue: 'Total Amount' })}
+                        value={`₹${entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2)}`}
+                        icon={<TrendingUp size={16} className="text-violet-700" />}
+                        color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700"
+                    />
+                    <StatCard
+                        label={t('milkEntry.remainingMorning', { defaultValue: 'Remaining (Morning)' })}
+                        value={`${remainingMorningSellers} ${t('milkEntry.sellers', { defaultValue: 'farmers' })}`}
+                        icon={<Sun size={16} className="text-amber-700" />}
+                        color="from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700"
+                    />
+                    <StatCard
+                        label={t('milkEntry.remainingEvening', { defaultValue: 'Remaining (Evening)' })}
+                        value={`${remainingEveningSellers} ${t('milkEntry.sellers', { defaultValue: 'farmers' })}`}
+                        icon={<Moon size={16} className="text-indigo-700" />}
+                        color="from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700"
+                    />
+                </div>
+
+                <div className="flex-1 flex gap-4 min-h-0">
+
+                    {/* ── LEFT PANEL: Machine Integration & Inputs ── */}
+                    <div className="w-[75%] flex flex-col gap-2 h-full min-h-0">
+
+                        {/* ── Machine sections — role-specific, single scale ── */}
+                        <div className="flex gap-3 shrink-0">
+                            {/* Weight instrument with Live Capture toggle */}
+                            <div className="flex-1 rounded-xl bg-white/90 backdrop-blur-sm border border-emerald-200/60 shadow-lg shadow-emerald-200/30 overflow-hidden">
+                                <div className="flex items-center justify-between px-3 pt-1.5 pb-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-center shrink-0">
+                                            <Scale size={14} className="text-emerald-600" />
+                                        </div>
+                                        <div>
+                                            <span className="block text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest leading-none">
+                                                Scale
+                                            </span>
+                                            <span className="block text-[9px] text-gray-400 font-semibold">
+                                                {sellerType}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <ConnectionPill connected={isMachineConnected} />
+                                </div>
+
+                                <div className="flex items-center justify-center gap-2 px-3 py-0.5 min-h-[52px]">
+                                    {sellerType === "Gavali" ? (
+                                        <>
+                                            <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" primary width="90px" />
+                                            <span className="text-emerald-200 text-lg font-black">/</span>
+                                            <DigitReadout label="Qty · L" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" width="80px" />
+                                        </>
+                                    ) : (
+                                        <DigitReadout label="Qty · L" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="100px" />
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between gap-1 px-3 py-1 border-t border-gray-100/60 bg-gray-50/60">
+                                    <span className="text-[9px] text-gray-500 font-mono truncate">
+                                        {weightPortConfig[activeWeightKey]?.serial_port || "No port"}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => connectSerialPort(activeWeightSubtypeParam)}
+                                            disabled={isMachineConnected}
+                                            className={`flex items-center gap-0.5 text-[9px] font-bold px-2.5 py-1 rounded-lg transition ${isMachineConnected
+                                                ? "bg-emerald-400 text-emerald-950"
+                                                : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
+                                                }`}
+                                        >
+                                            <Plug size={9} /> {isMachineConnected ? "On" : "Connect"}
+                                        </button>
+                                        {isMachineConnected && (
+                                            <button
+                                                type="button"
+                                                onClick={() => disconnectMachine(activeWeightSubtypeParam)}
+                                                className="text-[9px] font-bold px-2.5 py-1 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 transition"
+                                            >
+                                                Off
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 px-3 py-1 border-t border-gray-100/60 bg-white/70">
+                                    <button
+                                        type="button"
+                                        onClick={addMilkFromScale}
+                                        disabled={liveMilkCaptureEnabled}
+                                        className="flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <Milk size={11} /> Save ({machineQty2 || "—"}L)
+                                    </button>
+                                    <div className="flex items-center gap-1 ml-auto">
+                                        <span className="text-[7px] font-bold text-blue-600/70 uppercase tracking-wider">Live</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setLiveMilkCaptureEnabled(v => !v)}
+                                            className={`relative w-7 h-3.5 rounded-full transition-colors shadow-sm ${liveMilkCaptureEnabled ? "bg-blue-500" : "bg-gray-300"}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transform transition-transform ${liveMilkCaptureEnabled ? "translate-x-3.5" : ""}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Fat & SNF instrument with Save Reading and Live Capture */}
+                            <div className="flex-1 rounded-xl bg-white/90 backdrop-blur-sm border border-amber-200/60 shadow-lg shadow-amber-200/30 overflow-hidden">
+                                <div className="flex items-center justify-between px-3 pt-1.5 pb-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-amber-50/70 border border-amber-200/60 flex items-center justify-center shrink-0">
+                                            <FlaskConical size={14} className="text-amber-600" />
+                                        </div>
+                                        <div>
+                                            <span className="block text-[10px] font-extrabold text-amber-700 uppercase tracking-widest leading-none">
+                                                Analyzer
+                                            </span>
+                                            <span className="block text-[9px] text-gray-400 font-semibold">
+                                                Fat & SNF
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <ConnectionPill connected={isFatConnected} />
+                                </div>
+
+                                <div className="flex items-center justify-center gap-1 px-3 py-0.5 min-h-[52px]">
+                                    <DigitReadout
+                                        label="Fat %"
+                                        value={fatSavedToForm ? form.fat || machineFat : machineFat}
+                                        connected={isFatConnected}
+                                        accent="amber"
+                                        primary
+                                        width="75px"
+                                    />
+                                    <DigitReadout
+                                        label="SNF %"
+                                        value={fatSavedToForm ? form.snf || machineSnf : machineSnf}
+                                        connected={isFatConnected}
+                                        accent="amber"
+                                        primary
+                                        width="75px"
+                                    />
+                                    <DigitReadout
+                                        label="Protein %"
+                                        value={fatSavedToForm ? form.protein || machineProtein : machineProtein}
+                                        connected={isFatConnected}
+                                        accent="rose"
+                                        width="70px"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between gap-1 px-3 py-1 border-t border-gray-100/60 bg-gray-50/60">
+                                    <span className="text-[9px] text-gray-500 font-mono truncate">
+                                        {fatPortConfig?.serial_port || "No port"}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={connectFatPort}
+                                            disabled={isFatConnected}
+                                            className={`flex items-center gap-0.5 text-[9px] font-bold px-2.5 py-1 rounded-lg transition ${isFatConnected
+                                                ? "bg-amber-400 text-amber-950"
+                                                : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
+                                                }`}
+                                        >
+                                            <Plug size={9} /> {isFatConnected ? "On" : "Connect"}
+                                        </button>
+                                        {isFatConnected && (
+                                            <button
+                                                type="button"
+                                                onClick={disconnectFatMachine}
+                                                className="text-[9px] font-bold px-2.5 py-1 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 transition"
+                                            >
+                                                Off
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 px-3 py-1 border-t border-gray-100/60 bg-white/70">
+                                    <button
+                                        type="button"
+                                        onClick={saveFatReadingToForm}
+                                        className="flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30 hover:shadow-lg transition"
+                                    >
+                                        <Save size={11} /> Save Reading
+                                    </button>
+                                    <div className="flex items-center gap-1 ml-auto">
+                                        <span className="text-[7px] font-bold text-amber-600/70 uppercase tracking-wider">Live</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setLiveFatCaptureEnabled(v => !v)}
+                                            className={`relative w-7 h-3.5 rounded-full transition-colors shadow-sm ${liveFatCaptureEnabled ? "bg-amber-500" : "bg-gray-300"}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transform transition-transform ${liveFatCaptureEnabled ? "translate-x-3.5" : ""}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Form fields ── */}
+                        <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
+                            <div data-entry-form className="flex flex-col gap-1.5 p-2 rounded-xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm shrink-0" onKeyDown={handleFormKeyDown}>
+
+                                {/* Row 1: Code + Seller */}
+                                <div className="flex items-start gap-1.5 flex-wrap">
+                                    <Field label="Code" icon={<User size={10} />}>
+                                        <TinyInput
+                                            ref={sellerCodeRef}
+                                            value={sellerCodeInput}
+                                            onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                            placeholder="SC-001"
+                                            className="text-[13px] font-mono"
+                                            style={{ width: "65px" }}
+                                        />
+                                    </Field>
+
+                                    <Field label={t('milkEntry.sellerLabel')} icon={<User size={10} />}>
+                                        <div className="relative" style={{ width: "220px" }}>
+                                            <TinyInput
+                                                ref={sellerInputRef}
+                                                value={sellerSearch}
+                                                onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
+                                                onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSellerSearch(val);
+                                                    setHighlightedIdx(-1);
+                                                    setDropdownOpen(true);
+                                                    if (!val) { set("seller_id", ""); setSellerCodeInput(""); return; }
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (!dropdownOpen || filteredSellers.length === 0) return;
+                                                    if (e.key === "ArrowDown") {
+                                                        e.preventDefault();
+                                                        setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
+                                                    } else if (e.key === "ArrowUp") {
+                                                        e.preventDefault();
+                                                        setHighlightedIdx(i => Math.max(i - 1, 0));
+                                                    } else if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                            const sel = filteredSellers[highlightedIdx];
+                                                            handleSellerChange(sel.seller_id);
+                                                            setSellerSearch(sellerLabel(sel));
+                                                            setDropdownOpen(false);
+                                                            focusNextField(e.currentTarget);
+                                                        } else {
+                                                            setDropdownOpen(false);
+                                                            focusNextField(e.currentTarget);
+                                                        }
+                                                    } else if (e.key === "Escape") {
+                                                        setDropdownOpen(false);
+                                                    }
+                                                }}
+                                                placeholder={`${t('milkEntry.searchPlaceholder')} (${sellerType})`}
+                                                className="pr-6 text-[15px]"
+                                                style={{ width: "220px" }}
+                                            />
+                                            <DropdownPortal
+                                                anchorRef={sellerInputRef}
+                                                open={dropdownOpen && !form.seller_id && filteredSellers.length > 0}
+                                                width={200}
+                                            >
+                                                <p className="px-3 py-1 text-[9px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
+                                                    {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('milkEntry.matchesPlural') : t('milkEntry.matches')}` : t('milkEntry.sellersAZ')}
+                                                </p>
+                                                {filteredSellers.map((s, idx) => (
+                                                    <button key={s.seller_id} type="button"
+                                                        onMouseEnter={() => setHighlightedIdx(idx)}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => {
+                                                            handleSellerChange(s.seller_id);
+                                                            setSellerSearch(s.name || "");
+                                                            setDropdownOpen(false);
+                                                        }}
+                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+                                            ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-gray-800 text-xs flex items-center gap-1 truncate">
+                                                                {sellerLabel(s)}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </DropdownPortal>
+                                            {selectedSeller && (
+                                                <button type="button" onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); setDropdownOpen(false); }}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                                                    <X size={10} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </Field>
+                                </div>
+
+                                {/* Row 2: Shift, Qty, Fat, SNF, Rate */}
+                                <div className="flex items-start gap-1.5 flex-wrap">
+                                    <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}>
+                                        <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
+                                    </Field>
+
+                                    <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={10} />}>
+                                        <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
+                                            placeholder="0.0" type="number" step="0.01"
+                                            className="bg-blue-50/30 border-blue-200/60 text-blue-700 font-extrabold focus:ring-blue-500/50 text-[17px]"
+                                            style={{ width: "110px" }} />
+                                    </Field>
+
+                                    <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={10} />}>
+                                        <TinyInput
+                                            value={form.fat}
+                                            onChange={(e) => {
+                                                set("fat", e.target.value);
+                                                setFatSavedToForm(false);
+                                                fetchAutoRate(e.target.value, form.snf, form.milk_type);
+                                            }}
+                                            placeholder="0.0" type="number" step="0.01"
+                                            className="bg-amber-50/30 border-amber-200/60 text-amber-700 font-extrabold focus:ring-amber-500/50 text-[17px]"
+                                            style={{ width: "95px" }} />
+                                    </Field>
+
+                                    <Field label={t('milkEntry.snfLabel')} icon={<FlaskConical size={10} />}>
+                                        <div className="relative">
+                                            <TinyInput
+                                                value={form.snf}
+                                                onChange={(e) => {
+                                                    set("snf", e.target.value);
+                                                    setFatSavedToForm(false);
+                                                    fetchAutoRate(form.fat, e.target.value, form.milk_type);
+                                                }}
+                                                placeholder="0.0" type="number" step="0.01"
+                                                className={
+                                                    "font-extrabold text-[17px] " + (snfBelowThreshold(form.snf, form.milk_type)
+                                                        ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
+                                                        : snfAboveThreshold(form.snf, form.milk_type)
+                                                            ? "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50"
+                                                            : "bg-violet-50/30 border-violet-200/60 text-violet-700 focus:ring-violet-500/50")
+                                                }
+                                                style={{ width: "95px" }} />
+                                            {snfBelowThreshold(form.snf, form.milk_type) && (
+                                                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
+                                                    <AlertTriangle size={6} className="text-white" />
+                                                </span>
+                                            )}
+                                            {snfAboveThreshold(form.snf, form.milk_type) && (
+                                                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
+                                                    <BadgeCheck size={6} className="text-white" />
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className={`text-[8px] font-bold mt-0.5 h-[11px] leading-[11px] ${snfBelowThreshold(form.snf, form.milk_type)
+                                            ? "text-rose-500"
+                                            : snfAboveThreshold(form.snf, form.milk_type)
+                                                ? "text-emerald-600"
+                                                : "invisible"
+                                            }`}>
+                                            {snfBelowThreshold(form.snf, form.milk_type)
+                                                ? `Below ${SNF_THRESHOLD[form.milk_type]}%`
+                                                : snfAboveThreshold(form.snf, form.milk_type)
+                                                    ? "✓"
+                                                    : "—"}
+                                        </p>
+                                    </Field>
+
+                                    {isAdmin && (
+                                        <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={10} />}>
+                                            <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
+                                                placeholder="₹0.00" type="number" step="0.01"
+                                                className="bg-gray-100/60 border-gray-300/60 text-gray-900 font-extrabold text-[17px]"
+                                                style={{ width: "120px" }} />
+                                        </Field>
+                                    )}
+                                </div>
+
+                                {/* Row 3: Protein, Water, Amount */}
+                                <div className="flex items-start gap-1.5 flex-wrap">
+                                    <Field label="Protein" icon={<FlaskConical size={10} />}>
+                                        <TinyInput
+                                            value={form.protein}
+                                            onChange={(e) => {
+                                                set("protein", e.target.value);
+                                                setFatSavedToForm(false);
+                                            }}
+                                            placeholder="0.0" type="number" step="0.01"
+                                            className="bg-pink-50/30 border-pink-200/60 text-pink-700 font-bold focus:ring-pink-500/50 text-[13px]"
+                                            style={{ width: "65px" }} />
+                                    </Field>
+
+                                    <Field label={t('milkEntry.waterLabel')} icon={<Waves size={10} />}>
+                                        <div className="relative">
+                                            <TinyInput value={form.water} onChange={(e) => set("water", e.target.value)}
+                                                placeholder="0.0" type="number" step="0.01"
+                                                className={"font-bold text-[13px] " + (waterRisk(form.water)
+                                                    ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
+                                                    : "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50")}
+                                                style={{ width: "65px" }} />
+                                            {waterRisk(form.water) && (
+                                                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
+                                                    <AlertTriangle size={6} className="text-white" />
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className={`text-[8px] font-bold mt-0.5 h-[11px] leading-[11px] ${waterRisk(form.water) ? "text-rose-500" : "invisible"}`}>
+                                            {waterRisk(form.water) ? t('milkEntry.waterRisk') : "—"}
+                                        </p>
+                                    </Field>
+
+                                    {isAdmin && amount && (
+                                        <Field label={t('milkEntry.amountLabel')} icon={<TrendingUp size={10} />}>
+                                            <div className="h-[38px] px-3 flex items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 border border-emerald-700 text-white font-extrabold text-base whitespace-nowrap shadow-lg shadow-emerald-500/30">
+                                                ₹{amount}
+                                            </div>
+                                        </Field>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-gray-200/60 shrink-0">
+                                <p className="text-sm text-gray-400">
+                                    {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')} {t('milkEntry.entriesOn')}{" "}
+                                    {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                </p>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{t('milkEntry.dateLabel')}</span>
+                                        <input type="date" value={selectedDate}
+                                            onChange={(e) => { setSelectedDate(e.target.value); setFromDate(e.target.value); setToDate(e.target.value); }}
+                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-36" />
+                                    </div>
+
+                                    {can('product_sales', 'C') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowProductModal(true)}
+                                            disabled={!form.seller_id}
+                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-500 hover:border-blue-300/60 hover:text-blue-600 hover:bg-blue-50/40 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
+                                        >
+                                            <ShoppingCart size={12} /> Product
+                                        </button>
+                                    )}
+                                    {can('cattle_feed_sales', 'C') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowFeedModal(true)}
+                                            disabled={!form.seller_id}
+                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-500 hover:border-emerald-300/60 hover:text-emerald-600 hover:bg-emerald-50/40 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
+                                        >
+                                            <Package size={12} /> Feed
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={editingEntry ? handleUpdate : handleSave}
+                                        disabled={saving}
+                                        className={`flex items-center gap-1.5 px-5 py-2 rounded-lg font-bold text-base text-white shadow-lg transition-all duration-200
+                                        ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : editingEntry ? "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 active:scale-95" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}
+                                    >
+                                        <Save size={14} />
+                                        {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {editingEntry && (
+                                <div className="px-4 py-1.5 rounded-xl bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 text-amber-700 text-xs font-semibold shadow-sm shrink-0">
+                                    ✏ {t('milkEntry.editingBanner')} <strong>{editingEntry.seller_name}</strong> · {editingEntry.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')} · {new Date(editingEntry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                    <button onClick={handleCancelEdit} className="ml-4 text-xs text-gray-500 hover:text-gray-700 transition">
+                                        <X size={12} className="inline mr-1" /> {t('milkEntry.cancelEdit')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── RIGHT PANEL: Logs ── */}
+                    <div className="w-1/2 flex flex-col bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden h-full min-h-0">
+
+                        <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 shrink-0">
+                            <input
+                                type="text"
+                                value={searchName}
+                                onChange={e => { setSearchName(e.target.value); setCurrentPage(1); }}
+                                placeholder={t('milkEntry.filterPlaceholder')}
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1 text-xs text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-44"
+                            />
+                            {searchName && (
+                                <button onClick={() => { setSearchName(""); setCurrentPage(1); }}
+                                    className="text-gray-400 hover:text-gray-600 transition">
+                                    <X size={13} />
+                                </button>
+                            )}
+                            <button onClick={handleDownloadPDF} disabled={entries.length === 0}
+                                className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-gray-900 text-white disabled:opacity-40 transition shadow-sm">
+                                PDF
+                            </button>
+                            <span className="text-sm text-gray-400 font-medium">
+                                {filteredEntries.length} {filteredEntries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
                             </span>
                         </div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                            {sellerType} {t('milkEntry.pageTitle')}
-                        </h1>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                            {t('milkEntry.pageSubtitle')} —{" "}
-                            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-                        </p>
-                    </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('milkEntry.dateLabel')}</span>
-                            <input type="date" value={selectedDate}
-                                onChange={(e) => {
-                                    const d = e.target.value;
-                                    setSelectedDate(d);
-                                    setPdfReady(false);
-                                    if (rangeMode === "daily") { setFromDate(d); setToDate(d); }
-                                    else if (rangeMode === "weekly") { const r = getWeekRange(d); setFromDate(r.from); setToDate(r.to); }
-                                    else if (rangeMode === "monthly") { const r = getMonthRange(d); setFromDate(r.from); setToDate(r.to); }
-                                }}
-                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-40" />
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={startMilkEntryTour}
-                            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-xs font-bold hover:bg-gray-50/80 transition shadow-sm"
-                        >
-                            <BadgeCheck size={15} /> {t('milkEntry.startTour') || 'Take a Tour'}
-                        </button>
-
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t('milkEntry.downloadPDF')}</span>
-
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
-                                    {[
-                                        { v: "daily", l: t('milkEntry.day') },
-                                        { v: "weekly", l: t('milkEntry.week') },
-                                        { v: "monthly", l: t('milkEntry.month') },
-                                        { v: "custom", l: t('milkEntry.custom') },
-                                    ].map(({ v, l }) => (
-                                        <button key={v} type="button"
-                                            onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
-                                            {l}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {rangeMode === "custom" && (
-                                    <div className="flex flex-wrap items-center gap-1">
-                                        <input type="date" value={fromDate}
-                                            onChange={e => { const v = e.target.value; setFromDate(v); setPdfReady(false); fetchRangeEntries(v, toDate); }}
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
-                                        <span className="text-gray-400 text-xs">→</span>
-                                        <input type="date" value={toDate}
-                                            onChange={e => { const v = e.target.value; setToDate(v); setPdfReady(false); fetchRangeEntries(fromDate, v); }}
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
-                                    </div>
-                                )}
-
-                                {rangeMode !== "custom" && (
-                                    <span className="text-xs text-gray-500 px-3 py-1.5 bg-white/50 backdrop-blur-sm border border-gray-200/60 rounded-xl whitespace-nowrap hidden sm:inline shadow-sm">
-                                        {fromDate === toDate
-                                            ? new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
-                                            : `${new Date(fromDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(toDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`}
-                                    </span>
-                                )}
-
-                                {loadingRange ? (
-                                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100/80 text-gray-400 text-xs font-bold shadow-sm">
-                                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" /></svg>
-                                        {t('dashboard.loading')}
-                                    </div>
-                                ) : (
-                                    <button onClick={handleDownloadPDF} disabled={rangeMode === "daily" ? entries.length === 0 : !pdfReady}
-                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-bold hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 shadow-lg shadow-gray-900/30 disabled:opacity-50">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                        PDF
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Stats Bar ── */}
-                <div className={`grid grid-cols-2 gap-4 ${isAdmin ? "sm:grid-cols-4 lg:grid-cols-6" : "sm:grid-cols-2"}`}>
-                    {[
-                        { label: rangeMode === "daily" ? t('milkEntry.entriesToday') : t('milkEntry.totalEntries'), value: rangeMode === "daily" ? entries.length : rangeEntries.length, icon: <Droplets size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700", adminOnly: true },
-                        { label: t('milkEntry.cowMilk'), value: entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700", adminOnly: true },
-                        { label: t('milkEntry.buffaloMilk'), value: entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1) + " L", icon: <Milk size={16} />, color: "from-slate-50 to-slate-100/50 border-slate-200/60 text-slate-700", adminOnly: true },
-                        { label: t('milkEntry.totalAmount'), value: "₹" + entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2), icon: <TrendingUp size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700", adminOnly: true },
-                        { label: t('milkEntry.remainingMorning'), value: `${remainingMorningSellers} ${t('milkEntry.sellers')}`, icon: <Sun size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700", adminOnly: false },
-                        { label: t('milkEntry.remainingEvening'), value: `${remainingEveningSellers} ${t('milkEntry.sellers')}`, icon: <Moon size={16} />, color: "from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700", adminOnly: false },
-                    ].filter(card => isAdmin || !card.adminOnly)
-                        .map(({ label, value, icon, color }) => (
-                            <StatCard key={label} label={label} value={value} icon={icon} color={color} />
-                        ))}
-                </div>
-
-                {/* ── Flash: fixed top-right sliding toast ── */}
-                {flash && (
-                    <div
-                        className={`fixed top-4 right-4 z-[100] w-full max-w-sm transition-transform duration-300 ease-out
-                            ${flashPhase === 'visible' ? 'translate-x-0' : '-translate-x-[130%]'}`}
-                    >
-                        <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-xl
-                            ${flash.type === "success" ? "bg-emerald-50/95 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/95 border border-rose-200/60 text-rose-600"}`}>
-                            {flash.type === "error" && <AlertTriangle size={18} />}
-                            {flash.type === "success" && <BadgeCheck size={18} />}
-                            {flash.msg}
-                            <button onClick={dismissFlash} className="ml-auto opacity-50 hover:opacity-100 transition">
-                                <X size={16} />
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── Entry Form ── */}
-                <CompactCard>
-                    <SectionHeader
-                        icon={editingEntry ? <Pencil size={16} className="text-white" /> : <Droplets size={16} className="text-white" />}
-                        title={editingEntry ? t('milkEntry.editEntry') : t('milkEntry.newEntry')}
-                        sub={editingEntry ? `${sellerType} · ${new Date(editingEntry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : sellerType}
-                        action={editingEntry && (
-                            <button onClick={handleCancelEdit}
-                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1 rounded-lg hover:bg-gray-100/80">
-                                <X size={12} /> {t('milkEntry.cancelEdit')}
-                            </button>
-                        )}
-                    />
-
-                    {editingEntry && (
-                        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 text-amber-700 text-xs font-semibold shadow-sm relative z-10">
-                            ✏ {t('milkEntry.editingBanner')} <strong>{editingEntry.seller_name}</strong> · {editingEntry.shift === "morning" ? t('milkEntry.morning') : t('milkEntry.evening')} · {editingEntry.milk_type === "cow" ? t('milkEntry.cow') : t('milkEntry.buffalo')} · {new Date(editingEntry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </div>
-                    )}
-
-                    {/* ── Instrument cluster ── */}
-                    <div className="flex flex-col lg:flex-row gap-3 mb-5 relative z-10">
-
-                        {/* Weight instrument */}
-                        <div
-                            data-tour="machine-qty-field"
-                            className="flex-1 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-emerald-200/60 shadow-lg shadow-emerald-200/30 overflow-hidden"
-                        >
-                            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-center shrink-0">
-                                        <Scale size={17} className="text-emerald-600" />
-                                    </div>
-                                    <div>
-                                        <span className="block text-[11px] font-extrabold text-emerald-700 uppercase tracking-widest leading-none">
-                                            Weight Scale
-                                        </span>
-                                        <span className="block text-[10px] text-gray-400 font-semibold mt-1">
-                                            {activeWeightKey === "weight_gavali" ? "Gavali Scale"
-                                                : activeWeightKey === "weight_utpadak" ? "Utpadak Scale"
-                                                    : "Default Scale"}
-                                        </span>
-                                    </div>
-                                </div>
-                                <ConnectionPill connected={isMachineConnected} />
-                            </div>
-
-                            <div className="flex flex-wrap items-end justify-center gap-4 px-4 py-3">
-                                {sellerType === "Utpadak" ? (
-                                    <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="180px" />
-                                ) : sellerType === "Gavali" ? (
-                                    <>
-                                        <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" primary width="180px" />
-                                        <span className="text-emerald-200 text-2xl font-black pb-3">/</span>
-                                        <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" width="140px" />
-                                    </>
-                                ) : (
-                                    <>
-                                        <DigitReadout label="Qty · Ltr" value={machineQty2} unit={machineUom2} connected={isMachineConnected} accent="emerald" primary width="180px" />
-                                        <span className="text-emerald-200 text-2xl font-black pb-3">/</span>
-                                        <DigitReadout label="Qty · Kg" value={machineQty} unit={machineUom} connected={isMachineConnected} accent="emerald" width="140px" />
-                                    </>
-                                )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[9.5px] font-bold text-emerald-600/70 uppercase tracking-wider">
-                                        {sellerType} Scale
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 font-mono">
-                                        {weightPortConfig[activeWeightKey]?.serial_port
-                                            ? `${weightPortConfig[activeWeightKey].serial_port} · ${weightPortConfig[activeWeightKey].serial_baud_rate} baud`
-                                            : "No port configured"}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => connectSerialPort(activeWeightSubtypeParam)}
-                                        disabled={isMachineConnected}
-                                        className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isMachineConnected
-                                            ? "bg-emerald-400 text-emerald-950"
-                                            : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
-                                            }`}
-                                    >
-                                        <Plug size={11} /> {isMachineConnected ? "Connected" : "Connect"}
-                                    </button>
-                                    {isMachineConnected && (
-                                        <button
-                                            type="button"
-                                            onClick={() => disconnectMachine(activeWeightSubtypeParam)}
-                                            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition whitespace-nowrap"
-                                        >
-                                            Disconnect
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Add Milk from scale — accumulates each click into Quantity */}
-                            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100/60 bg-white/70">
-                                <button
-                                    type="button"
-                                    onClick={addMilkFromScale}
-                                    className="flex items-center gap-1.5 text-[12px] font-bold px-3 py-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg transition whitespace-nowrap"
-                                >
-                                    <Milk size={13} /> Add Milk ({machineQty2 || "—"} L)
-                                </button>
-                                {form.quantity && (
-                                    <span className="text-[11px] font-bold text-gray-500">
-                                        Quantity so far: <span className="text-blue-700">{form.quantity} L</span>
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Fat & SNF instrument */}
-                        <div
-                            data-tour="fat-snf-field"
-                            className="flex-1 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-amber-200/60 shadow-lg shadow-amber-200/30 overflow-hidden"
-                        >
-                            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-amber-50/70 border border-amber-200/60 flex items-center justify-center shrink-0">
-                                        <FlaskConical size={17} className="text-amber-600" />
-                                    </div>
-                                    <div>
-                                        <span className="block text-[11px] font-extrabold text-amber-700 uppercase tracking-widest leading-none">
-                                            Fat & SNF Analyzer
-                                        </span>
-                                        <span className="block text-[10px] text-gray-400 font-semibold mt-1">
-                                            Milko-tester
-                                        </span>
-                                    </div>
-                                </div>
-                                <ConnectionPill connected={isFatConnected} />
-                            </div>
-
-                            <div className="flex flex-wrap items-end justify-center gap-3 px-4 py-3">
-                                <DigitReadout label="Fat %" value={machineFat} connected={isFatConnected} accent="amber" primary width="120px" />
-                                <DigitReadout label="SNF %" value={machineSnf} connected={isFatConnected} accent="amber" primary width="120px" />
-                                <DigitReadout label="Protein %" value={machineProtein} connected={isFatConnected} accent="rose" width="110px" />
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60">
-                                <span className="text-[10px] text-gray-500 font-mono">
-                                    {fatPortConfig?.serial_port
-                                        ? `${fatPortConfig.serial_port} · ${fatPortConfig.serial_baud_rate} baud`
-                                        : "No port configured"}
-                                </span>
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={connectFatPort}
-                                        disabled={isFatConnected}
-                                        className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition whitespace-nowrap ${isFatConnected
-                                            ? "bg-amber-400 text-amber-950"
-                                            : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
-                                            }`}
-                                    >
-                                        <Plug size={11} /> {isFatConnected ? "Connected" : "Connect"}
-                                    </button>
-                                    {isFatConnected && (
-                                        <button
-                                            type="button"
-                                            onClick={disconnectFatMachine}
-                                            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition whitespace-nowrap"
-                                        >
-                                            Disconnect
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* ── Manual entry fields ── */}
-                    <div data-entry-form className="flex items-start gap-3 flex-wrap p-4 rounded-2xl bg-gray-50/70 backdrop-blur-sm border border-gray-100/60 shadow-sm relative z-10" onKeyDown={handleFormKeyDown}>
-                        <Field label={t('milkEntry.sellerLabel')} icon={<User size={12} />} data-tour="seller-field">
-                            <div className="relative" style={{ width: "175px" }}>
-                                <TinyInput
-                                    ref={sellerInputRef}
-                                    value={sellerSearch}
-                                    onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
-                                    onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSellerSearch(val);
-                                        setHighlightedIdx(-1);
-                                        setDropdownOpen(true);
-                                        if (!val) { set("seller_id", ""); return; }
-                                        const trimmed = val.trim();
-                                        const exact = sellers.find(
-                                            (s) => (s.seller_code || "").trim().toLowerCase() === trimmed.toLowerCase()
-                                        );
-                                        if (exact) {
-                                            handleSellerChange(exact.seller_id);
-                                            setSellerSearch(sellerLabel(exact));
-                                            setDropdownOpen(false);
-                                        }
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (!dropdownOpen || filteredSellers.length === 0) return;
-                                        if (e.key === "ArrowDown") {
-                                            e.preventDefault();
-                                            setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
-                                        } else if (e.key === "ArrowUp") {
-                                            e.preventDefault();
-                                            setHighlightedIdx(i => Math.max(i - 1, 0));
-                                        } else if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            if (highlightedIdx >= 0) {
-                                                const sel = filteredSellers[highlightedIdx];
-                                                if (sel) {
-                                                    handleSellerChange(sel.seller_id);
-                                                    setSellerSearch(sellerLabel(sel));
-                                                    setDropdownOpen(false);
-                                                    focusNextField(e.currentTarget);
-                                                }
-                                            } else {
-                                                // Nothing explicitly chosen (via arrow keys or an exact code match) —
-                                                // never guess a seller. Just close the list and move on.
-                                                setDropdownOpen(false);
-                                                focusNextField(e.currentTarget);
-                                            }
-                                        } else if (e.key === "Escape") {
-                                            setDropdownOpen(false);
-                                        }
-                                    }}
-                                    placeholder={`${t('milkEntry.searchPlaceholder')} (${sellerType})`}
-                                    className="pr-7"
-                                    style={{ width: "175px" }}
-                                />
-                                <DropdownPortal
-                                    anchorRef={sellerInputRef}
-                                    open={dropdownOpen && !form.seller_id && filteredSellers.length > 0}
-                                    width={256}
-                                >
-                                    <p className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
-                                        {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('milkEntry.matchesPlural') : t('milkEntry.matches')}` : t('milkEntry.sellersAZ')}
-                                    </p>
-                                    {filteredSellers.map((s, idx) => (
-                                        <button key={s.seller_id} type="button"
-                                            onMouseEnter={() => setHighlightedIdx(idx)}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                                handleSellerChange(s.seller_id);
-                                                setSellerSearch(sellerLabel(s));
-                                                setDropdownOpen(false);
-                                            }}
-                                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                        ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-gray-800 text-xs flex items-center gap-1 truncate">
-                                                    {sellerLabel(s)}
-                                                    {(s.milk_type || "").trim().toLowerCase() === "both" && (
-                                                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold text-[9px] tracking-wide">
-                                                            C&amp;B
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </DropdownPortal>
-                                {selectedSeller && (
-                                    <button type="button" onClick={() => { set("seller_id", ""); setSellerSearch(""); setDropdownOpen(false); }}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                                        <X size={12} />
-                                    </button>
-                                )}
-                            </div>
-                        </Field>
-
-                        <div className="hidden">
-                            <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={12} /> : <Moon size={12} />} data-tour="shift-field">
-                                <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
-                            </Field>
-                        </div>
-
-                        <div className="hidden">
-                            <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={12} />}>
-                                <MilkTypeToggle
-                                    value={form.milk_type}
-                                    disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
-                                    onChange={(v) => {
-                                        set("milk_type", v);
-                                        if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
-                                        else fetchAutoRate(form.fat, form.snf, v);
-                                    }}
-                                    t={t}
-                                />
-                            </Field>
-                        </div>
-
-                        <div className="hidden">
-                            <Field label={t('milkEntry.sellerTypeLabel')} icon={<User size={12} />}>
-                                <div className={`h-[43px] px-4 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap ${theme.badge} shadow-sm`}>
-                                    {sellerType}
-                                </div>
-                            </Field>
-                        </div>
-
-                        <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={12} />} data-tour="qty-field">
-                            <TinyInput value={form.quantity} onChange={(e) => set("quantity", e.target.value)}
-                                placeholder="0.0" type="number" step="0.01"
-                                className="bg-blue-50/30 border-blue-200/60 text-blue-700 font-bold focus:ring-blue-500/50"
-                                style={{ width: "84px" }} />
-                        </Field>
-
-                        <Field label={t('milkEntry.fatLabel')} icon={<FlaskConical size={12} />} data-tour="fat-field">
-                            <TinyInput
-                                value={form.fat}
-                                onChange={(e) => {
-                                    set("fat", e.target.value);
-                                    fetchAutoRate(e.target.value, form.snf, form.milk_type);
-                                }}
-                                placeholder="0.0" type="number" step="0.01"
-                                className="bg-amber-50/30 border-amber-200/60 text-amber-700 font-bold focus:ring-amber-500/50"
-                                style={{ width: "76px" }} />
-                        </Field>
-
-                        <Field label={t('milkEntry.snfLabel')} icon={<FlaskConical size={12} />}>
-                            <div className="relative">
-                                <TinyInput
-                                    value={form.snf}
-                                    onChange={(e) => {
-                                        set("snf", e.target.value);
-                                        fetchAutoRate(form.fat, e.target.value, form.milk_type);
-                                    }}
-                                    placeholder="0.0" type="number" step="0.01"
-                                    className={
-                                        "font-bold " + (snfBelowThreshold(form.snf, form.milk_type)
-                                            ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
-                                            : snfAboveThreshold(form.snf, form.milk_type)
-                                                ? "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50"
-                                                : "bg-violet-50/30 border-violet-200/60 text-violet-700 focus:ring-violet-500/50")
-                                    }
-                                    style={{ width: "76px" }} />
-                                {snfBelowThreshold(form.snf, form.milk_type) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
-                                        <AlertTriangle size={8} className="text-white" />
-                                    </span>
-                                )}
-                                {snfAboveThreshold(form.snf, form.milk_type) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
-                                        <BadgeCheck size={8} className="text-white" />
-                                    </span>
-                                )}
-                            </div>
-                            {snfBelowThreshold(form.snf, form.milk_type) && (
-                                <p className="text-[10px] text-rose-500 font-bold mt-0.5">
-                                    Below {SNF_THRESHOLD[form.milk_type]}% min
-                                </p>
-                            )}
-                            {snfAboveThreshold(form.snf, form.milk_type) && (
-                                <p className="text-[10px] text-emerald-600 font-bold mt-0.5">
-                                    SNF OK ✓
-                                </p>
-                            )}
-                        </Field>
-
-                        <Field label="Protein %" icon={<FlaskConical size={12} />}>
-                            <TinyInput
-                                value={form.protein}
-                                onChange={(e) => set("protein", e.target.value)}
-                                placeholder="0.0" type="number" step="0.01"
-                                className="bg-pink-50/30 border-pink-200/60 text-pink-700 font-bold focus:ring-pink-500/50"
-                                style={{ width: "76px" }} />
-                        </Field>
-
-                        <Field label={t('milkEntry.waterLabel')} icon={<Waves size={12} />}>
-                            <div className="relative">
-                                <TinyInput value={form.water} onChange={(e) => set("water", e.target.value)}
-                                    placeholder="0.0" type="number" step="0.01"
-                                    className={"font-bold " + (waterRisk(form.water)
-                                        ? "bg-rose-50/30 border-rose-300/60 text-rose-600 focus:ring-rose-500/50"
-                                        : "bg-emerald-50/30 border-emerald-200/60 text-emerald-700 focus:ring-emerald-500/50")}
-                                    style={{ width: "76px" }} />
-                                {waterRisk(form.water) && (
-                                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 flex items-center justify-center shadow-sm">
-                                        <AlertTriangle size={8} className="text-white" />
-                                    </span>
-                                )}
-                            </div>
-                            {waterRisk(form.water) && (
-                                <p className="text-[10px] text-rose-500 font-bold mt-0.5">{t('milkEntry.waterRisk')}</p>
-                            )}
-                        </Field>
-
-                        {isAdmin && (
-                            <Field label={t('milkEntry.rateLabel')} icon={<TrendingUp size={12} />}>
-                                <TinyInput value={form.rate_applied} onChange={(e) => set("rate_applied", e.target.value)}
-                                    placeholder="₹0.00" type="number" step="0.01"
-                                    className="bg-gray-100/50 border-gray-200/60 text-gray-800 font-bold"
-                                    style={{ width: "92px" }} />
-                            </Field>
-                        )}
-
-                        {isAdmin && amount && (
-                            <Field label={t('milkEntry.amountLabel')} icon={<TrendingUp size={12} />}>
-                                <div className="h-[43px] px-4 flex items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 border border-emerald-700 text-white font-extrabold text-base whitespace-nowrap shadow-lg shadow-emerald-500/30">
-                                    ₹{amount}
-                                </div>
-                            </Field>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-200/60 relative z-10">
-                        <p className="text-xs text-gray-400">
-                            {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')} {t('milkEntry.entriesOn')}{" "}
-                            {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </p>
-
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {can('product_sales', 'C') && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowProductModal(true)}
-                                    disabled={!form.seller_id}
-                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-blue-200/60 bg-blue-50/80 text-blue-600 hover:bg-blue-100/80 disabled:opacity-40 transition shadow-sm backdrop-blur-sm"
-                                >
-                                    <ShoppingCart size={13} /> Product Sale
-                                </button>
-                            )}
-                            {can('cattle_feed_sales', 'C') && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowFeedModal(true)}
-                                    disabled={!form.seller_id}
-                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-emerald-200/60 bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100/80 disabled:opacity-40 transition shadow-sm backdrop-blur-sm"
-                                >
-                                    <Package size={13} /> Feed Sale
-                                </button>
-                            )}
-
-                            <button
-                                type="button"
-                                data-tour="save-btn"
-                                onClick={editingEntry ? handleUpdate : handleSave}
-                                disabled={saving}
-                                className={`flex items-center gap-2 px-7 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all duration-200
-                                    ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : editingEntry ? "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 active:scale-95" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}
-                            >
-                                <Save size={15} />
-                                {saving ? (editingEntry ? t('milkEntry.updating') : t('milkEntry.saving')) : editingEntry ? t('milkEntry.updateEntry') : t('milkEntry.saveEntry')}
-                            </button>
-                        </div>
-                    </div>
-                </CompactCard>
-
-                {/* ── Entries Table ── */}
-                <CompactCard>
-                    <SectionHeader
-                        icon={<Droplets size={16} className="text-white" />}
-                        title={t('milkEntry.entries')}
-                        sub={`${sellerType} · ${new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
-                    />
-
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 -mx-5 -mt-1 mb-3 rounded-t-2xl">
-                        <input
-                            type="text"
-                            value={searchName}
-                            onChange={e => { setSearchName(e.target.value); setCurrentPage(1); }}
-                            placeholder={t('milkEntry.filterPlaceholder')}
-                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-xs text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-52"
-                        />
-                        {searchName && (
-                            <button onClick={() => { setSearchName(""); setCurrentPage(1); }}
-                                className="text-gray-400 hover:text-gray-600 transition">
-                                <X size={13} />
-                            </button>
-                        )}
-                        <span className="ml-auto text-xs text-gray-400 font-medium">
-                            {filteredEntries.length} {filteredEntries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
-                            {searchName && ` ${t('milkEntry.matching')} "${searchName}"`}
-                        </span>
-                    </div>
-
-                    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" data-tour="entries-table" style={{ gridTemplateColumns: GRID }}>
-                        {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
-                                {label}
-                            </div>
-                        ))}
-                    </div>
-
-                    {loading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
-                        </div>
-                    ) : entries.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
-                            <Droplets size={40} className="text-gray-200" />
-                            <p className="text-sm font-medium">{t('milkEntry.noEntries')}</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <div className="min-w-max">
-                                {[...paginatedEntries].map((r, i) => (
-                                    <div key={r.entry_id || i}
-                                        className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
-                                        style={{ gridTemplateColumns: GRID }}>
-
-                                        <TableCell>
-                                            <span className="font-mono text-xs text-gray-500 bg-gray-50/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-                                                {r.seller_code || "—"}
-                                            </span>
-                                        </TableCell>
-
-                                        <TableCell className="text-blue-700 font-mono font-bold text-xs">{r.quantity}</TableCell>
-                                        <TableCell className="text-amber-700 font-mono font-bold text-xs">{r.fat}</TableCell>
-                                        <TableCell className="text-violet-700 font-mono font-bold text-xs">{r.snf}</TableCell>
-
-                                        {isAdmin && (
-                                            <TableCell className="text-gray-700 font-mono text-xs font-bold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
-                                        )}
-                                        {isAdmin && (
-                                            <TableCell className="text-gray-900 font-extrabold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
-                                        )}
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 sticky top-0 z-10" style={{ gridTemplateColumns: GRID }}>
+                                {COLS.map((label, li) => (
+                                    <div key={label || `col-${li}`} className="px-3 py-2 flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
+                                        {label}
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
-                </CompactCard>
 
-                {/* ── Pagination ── */}
-                {filteredEntries.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-lg shadow-gray-200/50">
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
-                                {t('milkEntry.prev')}
-                            </button>
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                                    .reduce((acc, p, idx, arr) => {
-                                        if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
-                                        acc.push(p);
-                                        return acc;
-                                    }, [])
-                                    .map((p, i) =>
-                                        p === '...'
-                                            ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
-                                            : <button key={p} onClick={() => setCurrentPage(p)}
-                                                className={`w-7 h-7 rounded-lg text-xs font-bold transition border shadow-sm
-                                                    ${currentPage === p ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30' : 'bg-white/50 text-gray-500 border-gray-200/60 hover:border-gray-300/80 hover:bg-gray-50/50'}`}>
-                                                {p}
-                                            </button>
-                                    )}
-                            </div>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages || totalPages === 0}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
-                                {t('milkEntry.next')}
-                            </button>
-                            <span className="text-xs text-gray-400 ml-1">
-                                {filteredEntries.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredEntries.length)}`} {t('milkEntry.of')} {filteredEntries.length}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{t('milkEntry.rowsPerPage')}</span>
-                            <input
-                                type="number" min={1} max={filteredEntries.length || 1}
-                                value={pageSize}
-                                onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
-                                className="w-14 border border-gray-200/60 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition shadow-sm"
-                            />
-                        </div>
-                    </div>
-                )}
+                            {loading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+                                </div>
+                            ) : entries.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-300">
+                                    <Droplets size={32} className="text-gray-200" />
+                                    <p className="text-sm font-medium">{t('milkEntry.noEntries')}</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    {paginatedEntries.map((r, i) => (
+                                        <div key={r.entry_id || i}
+                                            className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors cursor-pointer"
+                                            onClick={() => handleEdit(r)}
+                                            style={{ gridTemplateColumns: GRID }}>
 
-                {/* ── Totals Footer ── */}
-                {entries.length > 0 && (
-                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-x-auto">
-                        <div className="grid bg-gradient-to-r from-gray-50/50 to-white/50 min-w-max rounded-2xl"
-                            style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
-                                {entries.length} {entries.length === 1 ? t('milkEntry.entry') : t('milkEntry.entries')}
-                            </div>
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60">
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] text-amber-600 font-bold">
-                                        {entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
-                                    </span>
-                                    <span className="text-[10px] text-slate-600 font-bold">
-                                        {entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(1)} L
+                                            <TableCell>
+                                                <span className="font-mono text-xs text-gray-700 bg-gray-50/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-bold">
+                                                    {r.seller_code || "—"}
+                                                </span>
+                                            </TableCell>
+
+                                            <TableCell className="text-blue-700 font-mono font-bold text-xs">{r.quantity}</TableCell>
+                                            <TableCell className="text-amber-700 font-mono font-bold text-xs">{r.fat}</TableCell>
+                                            <TableCell className="text-violet-700 font-mono font-bold text-xs">{r.snf}</TableCell>
+
+                                            {isAdmin && (
+                                                <>
+                                                    <TableCell className="text-gray-700 font-mono text-xs font-bold">₹{parseFloat(r.rate_applied || 0).toFixed(2)}</TableCell>
+                                                    <TableCell className="text-gray-900 font-extrabold text-xs">₹{parseFloat(r.total_amount || 0).toFixed(2)}</TableCell>
+                                                    <TableCell className="!px-1 justify-center gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); handleEdit(r); }}
+                                                            title="Edit entry"
+                                                            className="w-6 h-6 shrink-0 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-600 border border-blue-200/60 transition"
+                                                        >
+                                                            <Pencil size={12} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); handleDelete(r.entry_id); }}
+                                                            title="Delete entry"
+                                                            className="w-6 h-6 shrink-0 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 border border-rose-200/60 transition"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    </TableCell>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {filteredEntries.length > 0 && (
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2 border-t border-gray-200/60 bg-white/80 shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-2.5 py-1 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
+                                        {t('milkEntry.prev')}
+                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                            .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                            .reduce((acc, p, idx, arr) => {
+                                                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                                                acc.push(p);
+                                                return acc;
+                                            }, [])
+                                            .map((p, i) =>
+                                                p === '...'
+                                                    ? <span key={`dot-${i}`} className="px-1 text-xs text-gray-400">…</span>
+                                                    : <button key={p} onClick={() => setCurrentPage(p)}
+                                                        className={`w-6 h-6 rounded-lg text-xs font-bold transition border shadow-sm
+                                                        ${currentPage === p ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30' : 'bg-white/50 text-gray-500 border-gray-200/60 hover:border-gray-300/80 hover:bg-gray-50/50'}`}>
+                                                        {p}
+                                                    </button>
+                                            )}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages || totalPages === 0}
+                                        className="px-2.5 py-1 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
+                                        {t('milkEntry.next')}
+                                    </button>
+                                    <span className="text-xs text-gray-400 ml-1">
+                                        {filteredEntries.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredEntries.length)}`} {t('milkEntry.of')} {filteredEntries.length}
                                     </span>
                                 </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-400">{t('milkEntry.rowsPerPage')}</span>
+                                    <input
+                                        type="number" min={1} max={filteredEntries.length || 1}
+                                        value={pageSize}
+                                        onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setCurrentPage(1); }}
+                                        className="w-12 border border-gray-200/60 rounded-lg px-1 py-0.5 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition shadow-sm"
+                                    />
+                                </div>
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            {isAdmin && (
-                                <>
-                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                                    <div className="px-3 py-2.5 text-xs font-extrabold text-gray-900 border-r border-gray-200/60">
-                                        ₹{entries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2)}
-                                    </div>
-                                </>
-                            )}
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className={isAdmin ? "px-3 py-2.5 border-r border-gray-200/60" : "px-3 py-2.5"} />
-                            {isAdmin && <div className="px-3 py-2.5" />}
-                        </div>
+                        )}
                     </div>
-                )}
-
-                {/* ── Footer ── */}
-                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
-                    <span>· {t('milkEntry.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
-                    <span>· {t('milkEntry.footerEntries', { defaultValue: 'Total entries' })}: <strong className="text-gray-600">{entries.length}</strong></span>
-                    <span>· {t('milkEntry.footerSellers', { defaultValue: 'Sellers' })}: <strong className="text-gray-600">{totalSellers}</strong></span>
                 </div>
-
             </main>
 
             {/* ── Delete Confirmation Modal ── */}

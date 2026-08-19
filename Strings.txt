@@ -1,0 +1,12 @@
+Fat Machine String:
+
+LE2.12|A|CH1|F03.90|S08.50|C29.40|P03.10|L04.70|s00.70|W00.00|T33.13
+
+
+Weight Machine String:
+
++0005.460 Ltr
+
+Weight Machine String:
+40.0
+

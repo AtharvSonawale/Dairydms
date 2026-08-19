@@ -624,6 +624,7 @@ CREATE TABLE milk_entries (
    fat decimal(5,2) NOT NULL,
    snf decimal(5,2) NOT NULL,
    water decimal(5,2) DEFAULT '0.00',
+   protein decimal(5,2) DEFAULT NULL,
    rate_applied decimal(8,2) NOT NULL,
    is_premium tinyint(1) DEFAULT '0',
    total_amount decimal(10,2) NOT NULL,
@@ -637,7 +638,7 @@ CREATE TABLE milk_entries (
    CONSTRAINT fk_milk_operator FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE CASCADE ON UPDATE CASCADE,
    CONSTRAINT fk_milk_seller FOREIGN KEY (seller_id) REFERENCES sellers (seller_id) ON DELETE CASCADE ON UPDATE CASCADE,
    CONSTRAINT milk_entries_ibfk_4 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=2571 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=2580 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE operator_permissions (
    id int NOT NULL AUTO_INCREMENT,

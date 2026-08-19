@@ -12,6 +12,19 @@ import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+// ── focus helper ──────────────────────────────────────────────
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
+
 // ── SectionCard Component (matching Settings page) ────────────────────────────
 function SectionCard({ title, icon, children, className = "", ...rest }) {
     return (
@@ -43,6 +56,7 @@ const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", {
 
 const EMPTY_FORM = {
     seller_id: "",
+    seller_code: "",
     type: "given",
     amount: "",
     remarks: "",
@@ -117,6 +131,7 @@ export default function CashAdvance() {
     const [entries, setEntries] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
+    const [sellerCodeInput, setSellerCodeInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [selectedDate, setSelectedDate] = useState(today());
@@ -142,6 +157,7 @@ export default function CashAdvance() {
     const [registerTo, setRegisterTo] = useState(today());
     const [registerData, setRegisterData] = useState(null);
     const [loadingRegister, setLoadingRegister] = useState(false);
+    const sellerCodeRef = useRef(null);
 
     const { user } = useAuth();
     const { can, loading: permLoading } = usePermission();
@@ -632,10 +648,82 @@ export default function CashAdvance() {
         setSearchName("");
     }, [selectedDate]);
 
+    // ── FIXED: Seller filtering - search by name OR code (partial match) ──
+    const filteredSellers = (() => {
+        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
+        if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
+        const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
+        const matched = sorted.filter((s) =>
+            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (s.seller_code || "").toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        return matched.slice(0, 10);
+    })();
+
+    // ── FIXED: Handle seller code change - partial match and auto-select ──
+    const handleSellerCodeChange = (code) => {
+        setSellerCodeInput(code);
+        if (!code.trim()) {
+            set("seller_id", "");
+            setSellerSearch("");
+            setBalance(null);
+            setDropdownOpen(false);
+            return;
+        }
+
+        // Find exact match by code
+        const exactMatch = sellers.find(
+            (s) => (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            set("seller_id", String(exactMatch.seller_id));
+            setSellerSearch(exactMatch.name);
+            setDropdownOpen(false);
+            fetchBalance(exactMatch.seller_id);
+            fetchEntries(selectedDate);
+            if (exactMatch.advance_enabled === 0) set("type", "received");
+        } else {
+            // Show dropdown with partial matches
+            set("seller_id", "");
+            setDropdownOpen(true);
+        }
+    };
+
+    // ── FIXED: Handle seller search - partial match on name ──
+    const handleSellerSearchChange = (val) => {
+        setSellerSearch(val);
+        setDropdownOpen(true);
+        setHighlightedIdx(-1);
+        if (!val) {
+            set("seller_id", "");
+            setSellerCodeInput("");
+            setBalance(null);
+            return;
+        }
+
+        // Check if the search matches a seller name exactly or code
+        const exactMatch = sellers.find(
+            (s) => s.name.toLowerCase() === val.trim().toLowerCase() ||
+                (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            set("seller_id", String(exactMatch.seller_id));
+            setSellerSearch(exactMatch.name);
+            setSellerCodeInput(exactMatch.seller_code || "");
+            setDropdownOpen(false);
+            fetchBalance(exactMatch.seller_id);
+            fetchEntries(selectedDate);
+            if (exactMatch.advance_enabled === 0) set("type", "received");
+        } else {
+            set("seller_id", "");
+        }
+    };
+
     // seller selection
     const handleSellerSelect = (seller) => {
-        setForm(p => ({ ...p, seller_id: String(seller.seller_id) }));
+        set("seller_id", String(seller.seller_id));
         setSellerSearch(seller.name);
+        setSellerCodeInput(seller.seller_code || "");
         setDropdownOpen(false);
         fetchBalance(seller.seller_id);
         fetchEntries(selectedDate);
@@ -643,8 +731,9 @@ export default function CashAdvance() {
     };
 
     const clearSeller = () => {
-        setForm(p => ({ ...p, seller_id: "" }));
+        set("seller_id", "");
         setSellerSearch("");
+        setSellerCodeInput("");
         setBalance(null);
         fetchEntries(selectedDate);
     };
@@ -667,6 +756,7 @@ export default function CashAdvance() {
             await fetchEntries(selectedDate);
             await fetchBalance(form.seller_id);
             setForm(p => ({ ...p, amount: "", remarks: "" }));
+            sellerCodeRef.current?.focus();
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('cashAdvance.saveError'));
         } finally {
@@ -679,8 +769,10 @@ export default function CashAdvance() {
         setEditingEntry(entry);
         const found = sellers.find(s => String(s.seller_id) === String(entry.seller_id));
         setSellerSearch(found?.name || "");
+        setSellerCodeInput(found?.seller_code || "");
         setForm({
             seller_id: String(entry.seller_id),
+            seller_code: found?.seller_code || "",
             type: entry.type,
             amount: String(entry.amount),
             remarks: entry.remarks || "",
@@ -706,7 +798,9 @@ export default function CashAdvance() {
             setEditingEntry(null);
             setForm(EMPTY_FORM);
             setSellerSearch("");
+            setSellerCodeInput("");
             setBalance(null);
+            sellerCodeRef.current?.focus();
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('cashAdvance.updateError'));
         } finally {
@@ -717,19 +811,36 @@ export default function CashAdvance() {
     const isFormReady = () =>
         !!form.seller_id && !!form.amount && parseFloat(form.amount) > 0;
 
+    // ── FIXED: Form keydown handler with Enter navigation ──
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
         if (dropdownOpen) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
-        if (saving || !isFormReady()) return;
-        editingEntry ? handleUpdate() : handleSave();
+
+        // Check if we're on the last field (Save button)
+        const container = e.target.closest('[data-entry-form]');
+        if (!container) return;
+        const focusable = Array.from(
+            container.querySelectorAll('input, button, select, textarea')
+        ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+        const idx = focusable.indexOf(e.target);
+
+        // If we're at the last focusable element or form is ready, save
+        if (idx === focusable.length - 1 || isFormReady()) {
+            if (saving) return;
+            editingEntry ? handleUpdate() : handleSave();
+        } else {
+            // Move to next field
+            focusNextField(e.target);
+        }
     };
 
     const handleCancelEdit = () => {
         setEditingEntry(null);
         setForm(EMPTY_FORM);
         setSellerSearch("");
+        setSellerCodeInput("");
         setBalance(null);
     };
 
@@ -749,17 +860,6 @@ export default function CashAdvance() {
             setDeletingEntryId(null);
         }
     };
-
-    // filtered seller dropdown
-    const filteredSellers = (() => {
-        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
-        if (!sellerSearch.trim()) return sorted.slice(0, 5);
-        return sorted.filter(s =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            String(s.seller_id) === sellerSearch.trim() ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
-        ).slice(0, 5);
-    })();
 
     const selectedSeller = sellers.find(s => String(s.seller_id) === String(form.seller_id));
 
@@ -951,9 +1051,19 @@ export default function CashAdvance() {
                             </div>
                         )}
 
-                        <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
+                        <div className="flex items-start gap-3 flex-wrap" data-entry-form onKeyDown={handleFormKeyDown}>
+                            {/* ── FIXED: Seller Code and Seller Name fields ── */}
+                            <Field label={t('cashAdvance.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
+                                <TinyInput
+                                    ref={sellerCodeRef}
+                                    value={sellerCodeInput}
+                                    onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                    placeholder="SC-001"
+                                    disabled={!!editingEntry}
+                                    className="text-[13px] font-mono w-24"
+                                />
+                            </Field>
 
-                            {/* Seller */}
                             <Field label={t('cashAdvance.seller')} icon={<User size={12} />}>
                                 <div className="relative" style={{ width: "160px" }}>
                                     <TinyInput
@@ -965,7 +1075,7 @@ export default function CashAdvance() {
                                             setSellerSearch(val);
                                             setHighlightedIdx(-1);
                                             setDropdownOpen(true);
-                                            if (!val) { set("seller_id", ""); setBalance(null); return; }
+                                            if (!val) { set("seller_id", ""); setSellerCodeInput(""); setBalance(null); return; }
                                             const exact = sellers.find(s =>
                                                 String(s.seller_id) === val.trim() ||
                                                 (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
@@ -978,8 +1088,14 @@ export default function CashAdvance() {
                                             else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightedIdx(i => Math.max(i - 1, 0)); }
                                             else if (e.key === "Enter") {
                                                 e.preventDefault();
-                                                const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                                if (sel) handleSellerSelect(sel);
+                                                if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                    const sel = filteredSellers[highlightedIdx];
+                                                    handleSellerSelect(sel);
+                                                    focusNextField(e.currentTarget);
+                                                } else {
+                                                    setDropdownOpen(false);
+                                                    focusNextField(e.currentTarget);
+                                                }
                                             } else if (e.key === "Escape") setDropdownOpen(false);
                                         }}
                                         disabled={!!editingEntry}
@@ -990,12 +1106,17 @@ export default function CashAdvance() {
                                     {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
                                         <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                             <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
-                                                {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('cashAdvance.matchesPlural') : t('cashAdvance.matches')}` : t('cashAdvance.sellersAZ')}
+                                                {sellerSearch.trim() || sellerCodeInput.trim()
+                                                    ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('cashAdvance.matchesPlural') : t('cashAdvance.matches')}`
+                                                    : t('cashAdvance.sellersAZ')}
                                             </p>
                                             {filteredSellers.map((s, idx) => (
                                                 <button key={s.seller_id} type="button"
                                                     onMouseEnter={() => setHighlightedIdx(idx)}
-                                                    onClick={() => handleSellerSelect(s)}
+                                                    onClick={() => {
+                                                        handleSellerSelect(s);
+                                                        focusNextField(e.currentTarget);
+                                                    }}
                                                     className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                                                     ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
                                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
@@ -1045,6 +1166,12 @@ export default function CashAdvance() {
                                         ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-800 focus:ring-emerald-300"
                                         : "bg-blue-50/80 border-blue-200/60 text-blue-800 focus:ring-blue-300"}
                                     style={{ width: "120px" }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            focusNextField(e.target);
+                                        }
+                                    }}
                                 />
                             </Field>
 
@@ -1055,6 +1182,12 @@ export default function CashAdvance() {
                                     onChange={(e) => set("remarks", e.target.value)}
                                     placeholder={t('cashAdvance.remarksPlaceholder')}
                                     style={{ width: "200px" }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            focusNextField(e.target);
+                                        }
+                                    }}
                                 />
                             </Field>
                         </div>

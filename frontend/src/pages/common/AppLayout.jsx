@@ -114,6 +114,10 @@ const SHARED_NAV = (isAdmin, t) => {
                 { label: t('nav.gavaliMilkEntry', { defaultValue: 'Gavali Milk Entry' }), icon: <Milk size={14} />, to: '/gavali-milk-entry', pageKey: pk('gavali_milk_entry') },
                 { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage', pageKey: pk('owner_usage') },
                 { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch', pageKey: pk('tank_dispatch') },
+                // ─── All Milk Entries – admin only ────────────────────
+                ...(isAdmin ? [
+                    { label: t('nav.allMilkEntries', { defaultValue: 'All Milk Entries' }), icon: <ClipboardList size={14} />, to: '/all-milk-entries', pageKey: 'admin_all_milk_entries' }
+                ] : []),
             ],
         },
 

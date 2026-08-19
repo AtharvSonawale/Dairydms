@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,7 +8,7 @@ import {
     Trash2, Hash, Building2, X, BadgeCheck, ExternalLink,
     Wallet, Banknote, Milk, Sprout, MapPinned, Lock,
     UploadCloud, FileSpreadsheet, CheckCircle2, XCircle, Download, RotateCcw, Import,
-    Home
+    Home, Search
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -73,13 +73,33 @@ const columnMap = {
     'password': 'password',
 };
 
-// ── Sample farmer used to populate the downloadable import template ──────
-const SAMPLE_FARMER_ROW = [
-    "S001", "Ramesh Kumar Patil", "9876543210", "123456789012", "ABCDE1234F", "100234567890",
-    "Utpadak", "cow", "Patil Wadi, Gat No. 45", "12345678901", "State Bank of India",
-    "Ramesh Kumar Patil", "Pune Main Branch", "SBIN0001234",
-    "At Post Wadgaon, Tal. Haveli, Dist. Pune", "411041",
-    1, 500, 1, 1, 2.5, 0, "farmer@123",
+// ── Sample farmers used to populate the downloadable import template ──────
+const SAMPLE_FARMER_ROWS = [
+    ["001", "Ramesh Kumar Patil", "9876543210", "123456789012", "ABCDE1234F", "100234567890",
+        "Utpadak", "cow", "Patil Wadi, Gat No. 45", "12345678901", "State Bank of India",
+        "Ramesh Kumar Patil", "Pune Main Branch", "SBIN0001234",
+        "At Post Wadgaon, Tal. Haveli, Dist. Pune", "411041",
+        1, 500, 1, 1, 2.5, 0, "farmer@123"],
+    ["002", "Sunita Vitthal Jadhav", "9822345671", "234567890123", "BCDEF2345G", "100234567891",
+        "Gavali", "buffalo", "Jadhav Mala, Gat No. 12", "23456789012", "Bank of Maharashtra",
+        "Sunita Vitthal Jadhav", "Haveli Branch", "MAHB0001122",
+        "At Post Manjari, Tal. Haveli, Dist. Pune", "412307",
+        1, 300, 0, 1, 2, 0, "farmer@456"],
+    ["003", "Ganesh Baburao Shinde", "9765432109", "345678901234", "CDEFG3456H", "100234567892",
+        "Utpadak", "both", "Shinde Vasti, Gat No. 78", "34567890123", "Punjab National Bank",
+        "Ganesh Baburao Shinde", "Shivajinagar Branch", "PUNB0123400",
+        "At Post Wagholi, Tal. Haveli, Dist. Pune", "412207",
+        0, "", 1, 0, "", 1, "farmer@789"],
+    ["004", "Anita Sanjay More", "9988776655", "456789012345", "DEFGH4567I", "100234567893",
+        "Gavali", "cow", "More Wadi, Gat No. 33", "45678901234", "HDFC Bank",
+        "Anita Sanjay More", "Kharadi Branch", "HDFC0001357",
+        "At Post Kharadi, Tal. Haveli, Dist. Pune", "411014",
+        1, 250, 1, 1, 3, 1, "farmer@321"],
+    ["005", "Prakash Dattatray Kale", "9112233445", "567890123456", "EFGHI5678J", "100234567894",
+        "Utpadak", "buffalo", "Kale Nagar, Gat No. 9", "56789012345", "ICICI Bank",
+        "Prakash Dattatray Kale", "Viman Nagar Branch", "ICIC0002468",
+        "At Post Viman Nagar, Tal. Haveli, Dist. Pune", "411014",
+        1, 400, 0, 0, "", 0, "farmer@654"],
 ];
 
 // ── Import parsing helpers ────────────────────────────────────
@@ -190,6 +210,7 @@ export default function SellerRegister() {
     const [flash, setFlash] = useState(null);
     const [showForm, setShowForm] = useState(false);
     const [filter, setFilter] = useState("all");
+    const [searchTerm, setSearchTerm] = useState("");
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasPassword, setHasPassword] = useState(false);
@@ -205,6 +226,44 @@ export default function SellerRegister() {
     const [importResult, setImportResult] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [missingRequiredColumns, setMissingRequiredColumns] = useState(false);
+    const [importMode, setImportMode] = useState('add'); // 'add' | 'update'
+
+    // ── Search Function ──
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1);
+    };
+
+    // ── Clear Search ──
+    const clearSearch = () => {
+        setSearchTerm("");
+        setCurrentPage(1);
+    };
+
+    // ── Filtered sellers with search ──
+    const filteredSellers = useMemo(() => {
+        let result = sellers;
+
+        // Apply milk type filter
+        if (filter !== "all") {
+            result = result.filter((s) => s.milk_type === filter);
+        }
+
+        // Apply search filter (name or seller_code)
+        if (searchTerm.trim() !== "") {
+            const term = searchTerm.trim().toLowerCase();
+            result = result.filter((s) => {
+                const nameMatch = s.name?.toLowerCase().includes(term);
+                const codeMatch = s.seller_code?.toLowerCase().includes(term);
+                return nameMatch || codeMatch;
+            });
+        }
+
+        return result;
+    }, [sellers, filter, searchTerm]);
+
+    const totalPages = Math.ceil(filteredSellers.length / pageSize);
+    const paginated = filteredSellers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const processFile = (file) => {
         if (!file) return;
@@ -246,13 +305,24 @@ export default function SellerRegister() {
                     setParsingFile(false);
                     return;
                 }
+                if (importMode === 'update' && mappedHeaders.indexOf('seller_code') === -1) {
+                    setMissingRequiredColumns(true);
+                    setImportErrors([t('sellerRegister.missingSellerCodeColumn') || 'Required column "Seller Code" not found — it is needed to match existing sellers when updating.']);
+                    setParsingFile(false);
+                    return;
+                }
 
                 const BOOL_FIELDS = ['advance_enabled', 'product_sale_enabled', 'deposit_enabled', 'cattle_feed_sale_enabled'];
                 const DECIMAL_FIELDS = ['advance_deduction', 'deposit_per_litre'];
 
-                // Get existing seller codes and mobiles for duplicate checking
-                const existingCodes = sellers.map(s => s.seller_code);
-                const existingMobiles = sellers.map(s => s.mobile);
+                // Track auto-generated seller codes locally so multiple blank rows
+                // in the same file don't collide with each other — previously they
+                // all received the identical "next" code and were flagged as duplicates.
+                const existingCodeNums = sellers
+                    .map(s => s.seller_code)
+                    .filter(c => /^\d+$/.test(c))
+                    .map(c => parseInt(c, 10));
+                let nextCodeCounter = existingCodeNums.length > 0 ? Math.max(...existingCodeNums) + 1 : 1;
 
                 const rows = json.map((row, idx) => {
                     const obj = {};
@@ -278,14 +348,13 @@ export default function SellerRegister() {
                     });
                     if (!obj.seller_type) obj.seller_type = 'Utpadak';
                     if (!obj.milk_type) obj.milk_type = 'both';
-                    
-                    // Generate seller_code if not provided
-                    if (!obj.seller_code || obj.seller_code.trim() === '') {
-                        const codes = sellers.map(s => s.seller_code).filter(c => /^\d+$/.test(c)).map(c => parseInt(c, 10));
-                        const next = codes.length > 0 ? Math.max(...codes) + 1 : 1;
-                        obj.seller_code = String(next).padStart(3, "0");
+
+                    // Generate seller_code if not provided (never auto-generate when updating existing sellers)
+                    if (importMode === 'add' && (!obj.seller_code || obj.seller_code.trim() === '')) {
+                        obj.seller_code = String(nextCodeCounter).padStart(3, "0");
+                        nextCodeCounter++;
                     }
-                    
+
                     return { ...obj, _rowIndex: idx + 1 };
                 });
 
@@ -302,17 +371,60 @@ export default function SellerRegister() {
                             row.mobile = mobileClean;
                         }
                     }
-                    
-                    // Check for duplicates within the import data itself
+
+                    // In update mode, Seller Code must be present and match an existing seller
+                    const selfSeller = importMode === 'update' ? sellers.find(s => s.seller_code === row.seller_code) : null;
+                    if (importMode === 'update') {
+                        if (!row.seller_code) {
+                            reasons.push('Seller Code (required to match an existing seller)');
+                        } else if (!selfSeller) {
+                            reasons.push('a Seller Code that matches an existing seller');
+                        }
+                    }
+
+                    // Check for duplicate seller codes within the import data itself
                     if (row.seller_code) {
-                        const duplicateInImport = rows.some((r, i) => 
+                        const duplicateInImport = rows.some((r, i) =>
                             i !== row._rowIndex - 1 && r.seller_code === row.seller_code
                         );
                         if (duplicateInImport) {
                             reasons.push('Duplicate Seller Code in import file');
                         }
                     }
-                    
+
+                    // Check for duplicate bank account numbers (allow max 2), excluding the seller being updated
+                    if (row.bank_account) {
+                        const existingBankAccounts = sellers.filter(s => s.bank_account === row.bank_account && (!selfSeller || s.seller_id !== selfSeller.seller_id));
+                        const duplicateInImportBank = rows.filter((r, i) =>
+                            i !== row._rowIndex - 1 && r.bank_account === row.bank_account && r.bank_account
+                        );
+                        if (existingBankAccounts.length + duplicateInImportBank.length >= 2) {
+                            reasons.push('Bank Account number already exists (max 2 allowed)');
+                        }
+                    }
+
+                    // Check for duplicate PAN numbers (allow max 2), excluding the seller being updated
+                    if (row.pan_number) {
+                        const existingPan = sellers.filter(s => s.pan_number === row.pan_number && (!selfSeller || s.seller_id !== selfSeller.seller_id));
+                        const duplicateInImportPan = rows.filter((r, i) =>
+                            i !== row._rowIndex - 1 && r.pan_number === row.pan_number && r.pan_number
+                        );
+                        if (existingPan.length + duplicateInImportPan.length >= 2) {
+                            reasons.push('PAN number already exists (max 2 allowed)');
+                        }
+                    }
+
+                    // Check for duplicate Aadhaar numbers (allow max 2), excluding the seller being updated
+                    if (row.aadhaar) {
+                        const existingAadhaar = sellers.filter(s => s.aadhaar === row.aadhaar && (!selfSeller || s.seller_id !== selfSeller.seller_id));
+                        const duplicateInImportAadhaar = rows.filter((r, i) =>
+                            i !== row._rowIndex - 1 && r.aadhaar === row.aadhaar && r.aadhaar
+                        );
+                        if (existingAadhaar.length + duplicateInImportAadhaar.length >= 2) {
+                            reasons.push('Aadhaar number already exists (max 2 allowed)');
+                        }
+                    }
+
                     row._valid = reasons.length === 0;
                     if (reasons.length > 0) {
                         errors.push(
@@ -352,19 +464,46 @@ export default function SellerRegister() {
             "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
             "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre",
             "Cattle Feed Enabled", "Password"];
-        const ws = XLSX.utils.aoa_to_sheet([headers, SAMPLE_FARMER_ROW]);
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...SAMPLE_FARMER_ROWS]);
         ws['!cols'] = headers.map(() => ({ wch: 20 }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Farmers");
         XLSX.writeFile(wb, "farmer_import_template.xlsx");
     };
 
-    const resetImport = () => { 
-        setImportFile(null); 
-        setImportData([]); 
-        setImportErrors([]); 
+    const resetImport = () => {
+        setImportFile(null);
+        setImportData([]);
+        setImportErrors([]);
         setMissingRequiredColumns(false);
         setImportResult(null);
+    };
+
+    const handleExportData = () => {
+        if (sellers.length === 0) {
+            showFlash("error", t('sellerRegister.noSellersToExport') || 'No sellers to export.');
+            return;
+        }
+        const headers = ["Seller Code", "Name", "Mobile", "Aadhaar", "PAN", "Seller ID Code",
+            "Seller Type", "Milk Type", "Jamin", "Bank Account", "Bank Name", "Account Holder",
+            "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
+            "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre", "Cattle Feed Enabled"];
+        const rows = sellers.map(s => [
+            s.seller_code || "", s.name || "", s.mobile || "", s.aadhaar || "", s.pan_number || "",
+            s.seller_id_code || "", s.seller_type || "Utpadak", s.milk_type || "both", s.jamin || "",
+            s.bank_account || "", s.bank_name || "", s.account_holder_name || "", s.branch_name || "",
+            s.ifsc_code || "", s.address || "", s.pincode || "",
+            s.advance_enabled ? 1 : 0, s.advance_deduction || "",
+            s.product_sale_enabled ? 1 : 0, s.deposit_enabled ? 1 : 0, s.deposit_per_litre || "",
+            s.cattle_feed_sale_enabled ? 1 : 0,
+        ]);
+        // Password intentionally excluded from export for security.
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        ws['!cols'] = headers.map(() => ({ wch: 20 }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Farmers");
+        XLSX.writeFile(wb, `sellers_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        showFlash("success", t('sellerRegister.exportSuccess') || 'Farmer data exported successfully.');
     };
 
     const handleImportSave = async () => {
@@ -378,8 +517,9 @@ export default function SellerRegister() {
 
         setImportLoading(true);
         try {
-            const response = await api.post('/sellers/import', { sellers: validRows });
-            const { added, skipped, errors: importResultErrors } = response.data;
+            const endpoint = importMode === 'update' ? '/sellers/bulk-update' : '/sellers/import';
+            const response = await api.post(endpoint, { sellers: validRows });
+            const { added, updated, skipped, errors: importResultErrors } = response.data;
 
             if (importResultErrors && importResultErrors.length > 0) {
                 setImportErrors(importResultErrors.map(e => `Row ${e.row}: ${e.error}`));
@@ -387,7 +527,7 @@ export default function SellerRegister() {
                 setImportErrors([]);
             }
 
-            setImportResult({ added, skipped });
+            setImportResult({ added: importMode === 'update' ? updated : added, skipped, mode: importMode });
             await fetchSellers();
 
             // Close modal if all were added
@@ -423,6 +563,10 @@ export default function SellerRegister() {
                     popover: { title: t('sellerRegister.all'), description: t('sellerRegister.tourFilterDesc') || 'Filter the seller list by cow, buffalo, or both milk type.' },
                 },
                 {
+                    element: '[data-tour="search-input"]',
+                    popover: { title: 'Search Sellers', description: 'Search for sellers by their name or seller code.' },
+                },
+                {
                     element: '[data-tour="seller-table"]',
                     popover: { title: t('sellerRegister.actions'), description: t('sellerRegister.tourTableDesc') || 'Click a seller\'s name to view their profile, or use Edit/Delete here.' },
                 },
@@ -433,13 +577,13 @@ export default function SellerRegister() {
 
     const fetchSellers = async () => {
         setLoading(true);
-        try { 
-            const { data } = await api.get("/sellers"); 
-            setSellers(data); 
-        } catch (err) { 
-            showFlash("error", t('sellerRegister.loadError') || 'Failed to load sellers.'); 
-        } finally { 
-            setLoading(false); 
+        try {
+            const { data } = await api.get("/sellers");
+            setSellers(data);
+        } catch (err) {
+            showFlash("error", t('sellerRegister.loadError') || 'Failed to load sellers.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -511,6 +655,32 @@ export default function SellerRegister() {
         if (form.address && form.address.length > 200) { showFlash("error", t('sellerRegister.addressMaxError')); return; }
         if (form.pincode && !/^\d{6}$/.test(form.pincode)) { showFlash("error", t('sellerRegister.pincodeInvalidError') || "Pincode must be a valid 6-digit number."); return; }
         if (form.password && form.password.length < 6) { showFlash("error", t('sellerRegister.passwordMinError') || "Password must be at least 6 characters."); return; }
+
+        // Check for duplicates (max 2 allowed)
+        if (form.bank_account) {
+            const existingBankAccounts = sellers.filter(s => s.bank_account === form.bank_account);
+            if (existingBankAccounts.length >= 2) {
+                showFlash("error", "Bank Account number already exists for 2 sellers (max 2 allowed)");
+                return;
+            }
+        }
+
+        if (form.pan_number) {
+            const existingPan = sellers.filter(s => s.pan_number === form.pan_number);
+            if (existingPan.length >= 2) {
+                showFlash("error", "PAN number already exists for 2 sellers (max 2 allowed)");
+                return;
+            }
+        }
+
+        if (form.aadhaar) {
+            const existingAadhaar = sellers.filter(s => s.aadhaar === form.aadhaar);
+            if (existingAadhaar.length >= 2) {
+                showFlash("error", "Aadhaar number already exists for 2 sellers (max 2 allowed)");
+                return;
+            }
+        }
+
         setSaving(true);
         try {
             const payload = { ...form };
@@ -529,10 +699,6 @@ export default function SellerRegister() {
         catch (err) { showFlash("error", err.response?.data?.error || t('sellerRegister.deleteError')); }
         finally { setDeleteId(null); }
     };
-
-    const filtered = filter === "all" ? sellers : sellers.filter((s) => s.milk_type === filter);
-    const totalPages = Math.ceil(filtered.length / pageSize);
-    const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const TABLE_COLS = [
         { label: t('sellerRegister.seller'), icon: <User size={11} /> },
@@ -591,9 +757,17 @@ export default function SellerRegister() {
                             className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
                             <span className="text-base leading-none">+</span> {t('sellerRegister.addSeller')}
                         </button>
-                        <button onClick={() => setShowImportModal(true)}
+                        <button onClick={() => { setImportMode('add'); setShowImportModal(true); }}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                             <Import size={16} /> {t('sellerRegister.importFarmers') || 'Import Farmers'}
+                        </button>
+                        <button onClick={() => { setImportMode('update'); setShowImportModal(true); }}
+                            className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                            <RotateCcw size={16} /> {t('sellerRegister.updateFarmers') || 'Update Farmers'}
+                        </button>
+                        <button onClick={handleExportData}
+                            className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
+                            <Download size={16} /> {t('sellerRegister.exportFarmers') || 'Export Farmer Data'}
                         </button>
                     </div>
                 </div>
@@ -952,17 +1126,43 @@ export default function SellerRegister() {
                     </div>
                 )}
 
-                {/* ── Filter Tabs ── */}
-                <div className="flex items-center gap-2 mb-4" data-tour="filter-tabs">
-                    {["all", "cow", "buffalo", "both"].map((f) => (
-                        <button key={f} onClick={() => handleFilterChange(f)}
-                            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
-                                ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                            {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
-                            {f !== "all" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.milk_type === f).length}</span>}
-                        </button>
-                    ))}
-                    <span className="ml-auto text-xs text-gray-400">{filtered.length} {t('sellerRegister.sellers')}</span>
+                {/* ── Filter Tabs and Search ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4" data-tour="filter-tabs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {["all", "cow", "buffalo", "both"].map((f) => (
+                            <button key={f} onClick={() => handleFilterChange(f)}
+                                className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
+                                    ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
+                                {f !== "all" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.milk_type === f).length}</span>}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* ── Search Input ── */}
+                    <div className="flex items-center gap-2 ml-auto w-full sm:w-auto" data-tour="search-input">
+                        <div className="relative flex-1 sm:w-64">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={handleSearch}
+                                placeholder={t('sellerRegister.searchPlaceholder') || "Search by name or code..."}
+                                className="w-full pl-9 pr-8 py-1.5 rounded-full border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={clearSearch}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                            {filteredSellers.length} {t('sellerRegister.sellers')}
+                        </span>
+                    </div>
                 </div>
 
                 {/* ── Table ── */}
@@ -981,15 +1181,37 @@ export default function SellerRegister() {
                         <div className="flex items-center justify-center py-20">
                             <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
-                    ) : filtered.length === 0 ? (
+                    ) : filteredSellers.length === 0 ? (
                         <div className="text-center py-20">
-                            <div className="flex justify-center mb-3"><Sprout size={40} className="text-gray-200" /></div>
-                            <p className="text-gray-500 text-sm font-medium">{t('sellerRegister.noSellersFound')}</p>
-                            <p className="text-gray-400 text-xs mt-1">{t('sellerRegister.addFirstSeller')}</p>
+                            <div className="flex justify-center mb-3">
+                                {searchTerm.trim() !== "" ? (
+                                    <Search size={40} className="text-gray-300" />
+                                ) : (
+                                    <Sprout size={40} className="text-gray-200" />
+                                )}
+                            </div>
+                            <p className="text-gray-500 text-sm font-medium">
+                                {searchTerm.trim() !== ""
+                                    ? t('sellerRegister.noSearchResults') || `No sellers found matching "${searchTerm}"`
+                                    : t('sellerRegister.noSellersFound')}
+                            </p>
+                            <p className="text-gray-400 text-xs mt-1">
+                                {searchTerm.trim() !== ""
+                                    ? t('sellerRegister.tryDifferentSearch') || "Try a different search term"
+                                    : t('sellerRegister.addFirstSeller')}
+                            </p>
+                            {searchTerm.trim() !== "" && (
+                                <button
+                                    onClick={clearSearch}
+                                    className="mt-3 text-xs text-blue-600 hover:text-blue-800 font-medium transition"
+                                >
+                                    {t('sellerRegister.clearSearch') || "Clear search"}
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <>
-                            {[...paginated].reverse().map((s) => (
+                            {paginated.map((s) => (
                                 <div key={s.seller_id}
                                     className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors group"
                                     style={{ gridTemplateColumns: GRID }}>
@@ -1136,7 +1358,7 @@ export default function SellerRegister() {
                             {t('sellerRegister.next')}
                         </button>
                         <span className="text-xs text-gray-400 ml-1">
-                            {filtered.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filtered.length)}`} {t('sellerRegister.of')} {filtered.length}
+                            {filteredSellers.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredSellers.length)}`} {t('sellerRegister.of')} {filteredSellers.length}
                         </span>
                     </div>
 
@@ -1144,7 +1366,7 @@ export default function SellerRegister() {
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">{t('sellerRegister.rowsPerPage')}</span>
                             <input
-                                type="number" min={1} max={filtered.length || 1}
+                                type="number" min={1} max={filteredSellers.length || 1}
                                 value={pageSize}
                                 onChange={e => {
                                     const v = Math.max(1, parseInt(e.target.value) || 1);
@@ -1203,8 +1425,14 @@ export default function SellerRegister() {
                                     <FileSpreadsheet size={16} className="text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-bold text-gray-800">{t('sellerRegister.importFarmers') || 'Import Farmers'}</h2>
-                                    <p className="text-xs text-gray-500 mt-0.5">{t('sellerRegister.importDescription') || 'Bulk-add sellers from an Excel or CSV file'}</p>
+                                    <h2 className="text-sm font-bold text-gray-800">
+                                        {importMode === 'update' ? (t('sellerRegister.updateFarmers') || 'Update Farmers') : (t('sellerRegister.importFarmers') || 'Import Farmers')}
+                                    </h2>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {importMode === 'update'
+                                            ? (t('sellerRegister.updateDescription') || 'Bulk-update existing sellers — match rows by Seller Code')
+                                            : (t('sellerRegister.importDescription') || 'Bulk-add sellers from an Excel or CSV file')}
+                                    </p>
                                 </div>
                             </div>
                             <button onClick={() => { setShowImportModal(false); resetImport(); }}
@@ -1214,6 +1442,17 @@ export default function SellerRegister() {
                         </div>
 
                         <div className="p-6 overflow-y-auto flex-1">
+                            <div className="flex gap-2 mb-4">
+                                {[{ key: 'add', label: t('sellerRegister.addNew') || 'Add New Sellers' },
+                                  { key: 'update', label: t('sellerRegister.updateExisting') || 'Update Existing Sellers' }].map(({ key, label }) => (
+                                    <button key={key} type="button"
+                                        onClick={() => { setImportMode(key); resetImport(); }}
+                                        className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition shadow-sm
+                                            ${importMode === key ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900" : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:bg-gray-50/50"}`}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                             {!importFile ? (
                                 /* Drag & drop zone */
                                 <label
@@ -1332,7 +1571,9 @@ export default function SellerRegister() {
                                     className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
                                     {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     <Save size={14} />
-                                    {t('sellerRegister.saveAll') || 'Save All'}
+                                    {importMode === 'update'
+                                        ? (importLoading ? (t('sellerRegister.updating') || 'Updating...') : (t('sellerRegister.updateAll') || 'Update All'))
+                                        : (importLoading ? (t('sellerRegister.saving') || 'Saving...') : (t('sellerRegister.saveAll') || 'Save All'))}
                                 </button>
                             </div>
                         </div>
@@ -1355,7 +1596,7 @@ export default function SellerRegister() {
                             </div>
                             <h2 className="text-gray-800 font-bold text-base">{t('sellerRegister.importComplete') || 'Import Complete'}</h2>
                             <p className="text-gray-500 text-sm leading-relaxed">
-                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {t('sellerRegister.importResultsAdded') || 'seller(s) added'}
+                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {importResult.mode === 'update' ? (t('sellerRegister.importResultsUpdated') || 'seller(s) updated') : (t('sellerRegister.importResultsAdded') || 'seller(s) added')}
                                 {importResult.skipped > 0 && (
                                     <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> {t('sellerRegister.importResultsSkipped') || 'skipped'}</>
                                 )}

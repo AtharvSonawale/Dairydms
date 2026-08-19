@@ -94,8 +94,9 @@ exports.createEntry = async (req, res) => {
             fat,
             snf,
             water,
+            protein,
             rate_applied,
-            total_amount,
+            total_amount
         } = req.body;
 
         const centre_id = req.user.centre_id;
@@ -136,17 +137,32 @@ exports.createEntry = async (req, res) => {
             });
         }
 
+        // Check for premium rate
+        const [premiumRows] = await conn.query(
+            `SELECT rate_per_liter FROM premium_rates
+             WHERE seller_id = ? 
+               AND milk_type = ? 
+               AND centre_id = ?
+               AND is_active = 1
+               AND effective_from <= ? 
+               AND (effective_to IS NULL OR effective_to >= ?)
+             LIMIT 1`,
+            [seller_id, milk_type, centre_id, entry_date, entry_date]
+        );
+        const is_premium = premiumRows.length > 0 ? 1 : 0;
+
         // Insert new entry with centre_id and created_by_admin_id
         const [result] = await conn.query(
             `INSERT INTO milk_entries
              (seller_id, operator_id, centre_id, created_by_admin_id, seller_type, 
-              entry_date, shift, milk_type, quantity, fat, snf, water, 
-              rate_applied, total_amount, entry_time)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+              entry_date, shift, milk_type, quantity, fat, snf, water, protein,
+              rate_applied, total_amount, is_premium, entry_time)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
             [
                 seller_id, operator_id, centre_id, created_by_admin_id,
                 seller_type, entry_date, shift, milk_type,
-                quantity, fat, snf, water, rate_applied, total_amount
+                quantity, fat, snf, water, protein || null, rate_applied, total_amount,
+                is_premium
             ]
         );
 
@@ -308,13 +324,72 @@ exports.getCentreSummary = async (req, res) => {
     }
 };
 
+// ── GET /api/milk-entries/stats?date=YYYY-MM-DD ──
+exports.getDailyStats = async (req, res) => {
+    try {
+        const { date } = req.query;
+        const entryDate = date || new Date().toISOString().split('T')[0];
+        const centreId = req.user.centre_id;
+
+        const [rows] = await pool.query(
+            `SELECT 
+                COUNT(*) as total_entries,
+                SUM(quantity) as total_quantity,
+                SUM(total_amount) as total_amount,
+                COUNT(DISTINCT seller_id) as unique_sellers,
+                SUM(CASE WHEN milk_type = 'cow' THEN quantity ELSE 0 END) as cow_quantity,
+                SUM(CASE WHEN milk_type = 'buffalo' THEN quantity ELSE 0 END) as buffalo_quantity,
+                AVG(fat) as avg_fat,
+                AVG(snf) as avg_snf,
+                SUM(CASE WHEN shift = 'morning' THEN quantity ELSE 0 END) as morning_quantity,
+                SUM(CASE WHEN shift = 'evening' THEN quantity ELSE 0 END) as evening_quantity
+            FROM milk_entries
+            WHERE entry_date = ?
+              AND centre_id = ?`,
+            [entryDate, centreId]
+        );
+
+        // Get remaining sellers count
+        const [sellerCount] = await pool.query(
+            `SELECT COUNT(*) as total_sellers FROM sellers WHERE centre_id = ? AND is_active = 1`,
+            [centreId]
+        );
+
+        const [morningCount] = await pool.query(
+            `SELECT COUNT(DISTINCT seller_id) as morning_sellers 
+             FROM milk_entries 
+             WHERE entry_date = ? AND shift = 'morning' AND centre_id = ?`,
+            [entryDate, centreId]
+        );
+
+        const [eveningCount] = await pool.query(
+            `SELECT COUNT(DISTINCT seller_id) as evening_sellers 
+             FROM milk_entries 
+             WHERE entry_date = ? AND shift = 'evening' AND centre_id = ?`,
+            [entryDate, centreId]
+        );
+
+        res.json({
+            ...rows[0],
+            total_sellers: sellerCount[0].total_sellers || 0,
+            morning_sellers: morningCount[0].morning_sellers || 0,
+            evening_sellers: eveningCount[0].evening_sellers || 0,
+            remaining_morning: (sellerCount[0].total_sellers || 0) - (morningCount[0].morning_sellers || 0),
+            remaining_evening: (sellerCount[0].total_sellers || 0) - (eveningCount[0].evening_sellers || 0)
+        });
+    } catch (err) {
+        console.error('getDailyStats error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
 // ── PUT /api/milk-entries/:id ─────────────────────────────────
 exports.updateEntry = async (req, res) => {
     try {
         const { id } = req.params;
         const {
             shift, milk_type, seller_type, quantity, fat, snf,
-            water, rate_applied, total_amount
+            water, protein, rate_applied, total_amount
         } = req.body;
 
         const operatorId = req.user.id;
@@ -364,14 +439,15 @@ exports.updateEntry = async (req, res) => {
         let updateQuery = `
             UPDATE milk_entries SET
                 shift = ?, milk_type = ?, seller_type = ?, quantity = ?, 
-                fat = ?, snf = ?, water = ?, rate_applied = ?, 
+                fat = ?, snf = ?, water = ?, protein = ?, rate_applied = ?, 
                 total_amount = ?, is_premium = ?
             WHERE entry_id = ?
         `;
         let params = [
             shift, milk_type, seller_type,
             parseFloat(quantity), parseFloat(fat), parseFloat(snf),
-            parseFloat(water || 0), parseFloat(rate_applied),
+            parseFloat(water || 0), protein !== undefined && protein !== "" ? parseFloat(protein) : null,
+            parseFloat(rate_applied),
             finalTotal, is_premium, id
         ];
 
@@ -527,8 +603,8 @@ exports.exportEntries = async (req, res) => {
             SELECT 
                 me.entry_id, me.entry_date, me.shift, me.milk_type,
                 s.name AS seller_name, s.seller_code,
-                me.quantity, me.fat, me.snf, me.water, me.rate_applied,
-                me.total_amount, me.is_premium,
+                me.quantity, me.fat, me.snf, me.water, me.protein, me.rate_applied,
+                me.total_amount, me.is_premium, me.machine_qty,
                 COALESCE(o.name, a.name) AS operator_name,
                 me.entry_time
             FROM milk_entries me

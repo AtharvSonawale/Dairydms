@@ -57,6 +57,7 @@ const imgUrl = (url) =>
 
 const EMPTY_FORM = {
     seller_id: "",
+    seller_code: "",
 };
 
 const EMPTY_LINE = {
@@ -65,6 +66,19 @@ const EMPTY_LINE = {
     rate: "",
     mrp_rate: "",
 };
+
+// ── focus helper ──────────────────────────────────────────────
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
 
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
@@ -554,12 +568,15 @@ export default function ProductSales() {
     const { t } = useTranslation();
     const { can, loading: permLoading } = usePermission();
     const [form, setForm] = useState({
-        product_id: '', display_name: '', sort_order: '0', imageBase64: null, preview: null
-    }); const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
+        seller_id: '',
+        seller_code: '',
+    });
+    const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [products, setProducts] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
+    const [sellerCodeInput, setSellerCodeInput] = useState("");
     const [showSellerDrop, setShowSellerDrop] = useState(false);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [lineProductSearch, setLineProductSearch] = useState({});
@@ -580,6 +597,7 @@ export default function ProductSales() {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [speedConfigOpen, setSpeedConfigOpen] = useState(false);
     const sellerAnchorRef = useRef(null);
+    const sellerCodeRef = useRef(null);
     const lineAnchorRefs = useRef({});
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -743,7 +761,6 @@ export default function ProductSales() {
         try {
             const { data } = await api.get("/products");
             setProducts(data);
-            if (data.length > 0) set("product_id", String(data[0].product_id));
         } catch { /* silent */ }
     };
 
@@ -763,31 +780,78 @@ export default function ProductSales() {
     useEffect(() => { fetchSellers(); fetchProducts(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
+    // ── FIXED: Seller filtering - search by name OR code (partial match) ──
     const filteredSellers = (() => {
         const sorted = [...sellers]
             .filter((s) => s.product_sale_enabled == 1)
             .sort((a, b) => a.name.localeCompare(b.name));
-        if (!sellerSearch.trim()) return sorted.slice(0, 5);
+        if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
+        const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
         const matched = sorted.filter((s) =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
+            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (s.seller_code || "").toLowerCase().includes(searchTerm.toLowerCase())
         );
-        return matched.slice(0, 5);
+        return matched.slice(0, 10);
     })();
 
+    // ── FIXED: Handle seller code change - partial match and auto-select ──
+    const handleSellerCodeChange = (code) => {
+        setSellerCodeInput(code);
+        if (!code.trim()) {
+            set("seller_id", "");
+            setSellerSearch("");
+            setShowSellerDrop(false);
+            return;
+        }
+
+        // Find exact match by code
+        const exactMatch = sellers.find(
+            (s) => s.product_sale_enabled == 1 &&
+                (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            set("seller_id", exactMatch.seller_id);
+            setSellerSearch(exactMatch.name);
+            setShowSellerDrop(false);
+        } else {
+            // Show dropdown with partial matches
+            set("seller_id", "");
+            setShowSellerDrop(true);
+        }
+    };
+
+    // ── FIXED: Handle seller search - partial match on name ──
     const handleSellerSearchChange = (val) => {
         setSellerSearch(val);
-        if (!val) { set("seller_id", ""); return; }
-        const exact = sellers.find(
-            (s) =>
-                s.product_sale_enabled == 1 &&
-                (String(s.seller_id) === val.trim() ||
+        setShowSellerDrop(true);
+        setHighlightedIdx(-1);
+        if (!val) {
+            set("seller_id", "");
+            setSellerCodeInput("");
+            return;
+        }
+
+        // Check if the search matches a seller name exactly or code
+        const exactMatch = sellers.find(
+            (s) => s.product_sale_enabled == 1 &&
+                (s.name.toLowerCase() === val.trim().toLowerCase() ||
                     (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
         );
-        if (exact) {
-            set("seller_id", exact.seller_id);
-            setSellerSearch(exact.name);
+        if (exactMatch) {
+            set("seller_id", exactMatch.seller_id);
+            setSellerSearch(exactMatch.name);
+            setSellerCodeInput(exactMatch.seller_code || "");
+            setShowSellerDrop(false);
+        } else {
+            set("seller_id", "");
         }
+    };
+
+    const handleSellerSelect = (seller) => {
+        set("seller_id", seller.seller_id);
+        setSellerSearch(seller.name);
+        setSellerCodeInput(seller.seller_code || "");
+        setShowSellerDrop(false);
     };
 
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
@@ -827,11 +891,13 @@ export default function ProductSales() {
             await fetchSales(selectedDate);
             await fetchProducts();
             showFlash("success", t('productSales.saveSuccess'));
-            setForm(EMPTY_FORM);
+            setForm({ seller_id: "", seller_code: "" });
             setLines([{ ...EMPTY_LINE, _key: Date.now() }]);
             setLineProductSearch({});
             setShowProductDrop({});
             setSellerSearch("");
+            setSellerCodeInput("");
+            sellerCodeRef.current?.focus();
         } catch (err) {
             const msg = err.response?.data?.error || err.response?.data?.message || t('productSales.saveError');
             showFlash("error", msg);
@@ -851,14 +917,30 @@ export default function ProductSales() {
         return true;
     };
 
+    // ── FIXED: Form keydown handler with Enter navigation ──
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
         if (showSellerDrop) return;
         if (Object.values(showProductDrop).some(Boolean)) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
-        if (saving || !isFormReady()) return;
-        handleSave();
+
+        // Check if we're on the last field (Save button)
+        const container = e.target.closest('[data-entry-form]');
+        if (!container) return;
+        const focusable = Array.from(
+            container.querySelectorAll('input, button, select, textarea')
+        ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+        const idx = focusable.indexOf(e.target);
+
+        // If we're at the last focusable element or form is ready, save
+        if (idx === focusable.length - 1 || isFormReady()) {
+            if (saving) return;
+            handleSave();
+        } else {
+            // Move to next field
+            focusNextField(e.target);
+        }
     };
 
     const handleDownloadPDF = () => {
@@ -1227,112 +1309,104 @@ export default function ProductSales() {
                         </p>
 
                         {/* Seller row */}
-                        <div className="flex flex-col gap-3 mb-4 relative z-10">
-    {/* product line inputs live here */}                            <Field label={t('productSales.seller')} icon={<User size={12} />}>
-                                <div className="relative" style={{ width: "220px" }} ref={sellerAnchorRef}>
+                        <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
+                            {/* ── FIXED: Added Seller Code and Seller Name fields ── */}
+                            <div className="flex items-start gap-2">
+                                <Field label={t('productSales.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
                                     <TinyInput
-                                        value={sellerSearch}
-                                        onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
-                                        onBlur={() => setTimeout(() => {
-                                            setShowSellerDrop(false);
-                                            setForm(prev => {
-                                                if (!prev.seller_id) setSellerSearch("");
-                                                return prev;
-                                            });
-                                        }, 150)}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSellerSearch(val);
-                                            setHighlightedIdx(-1);
-                                            setShowSellerDrop(true);
-                                            if (!val) { set("seller_id", ""); return; }
-                                            const exact = sellers.find(
-                                                (s) =>
-                                                    s.product_sale_enabled == 1 &&
-                                                    (String(s.seller_id) === val.trim() ||
-                                                        (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
-                                            );
-                                            if (exact) { set("seller_id", exact.seller_id); setSellerSearch(exact.name); setShowSellerDrop(false); }
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (!dropdownOpen || filteredSellers.length === 0) return;
-                                            if (e.key === "ArrowDown") {
-                                                e.preventDefault();
-                                                setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
-                                            } else if (e.key === "ArrowUp") {
-                                                e.preventDefault();
-                                                setHighlightedIdx(i => Math.max(i - 1, 0));
-                                            } else if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                if (highlightedIdx >= 0) {
-                                                    const sel = filteredSellers[highlightedIdx];
-                                                    if (sel) {
-                                                        handleSellerChange(sel.seller_id);
-                                                        setSellerSearch(sel.name);
-                                                        setDropdownOpen(false);
+                                        ref={sellerCodeRef}
+                                        value={sellerCodeInput}
+                                        onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                        placeholder="SC-001"
+                                        className="text-[13px] font-mono w-24"
+                                    />
+                                </Field>
+
+                                <Field label={t('productSales.seller')} icon={<User size={12} />}>
+                                    <div className="relative" style={{ width: "220px" }} ref={sellerAnchorRef}>
+                                        <TinyInput
+                                            value={sellerSearch}
+                                            onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
+                                            onBlur={() => setTimeout(() => {
+                                                setShowSellerDrop(false);
+                                                setForm(prev => {
+                                                    if (!prev.seller_id) setSellerSearch("");
+                                                    return prev;
+                                                });
+                                            }, 150)}
+                                            onChange={(e) => handleSellerSearchChange(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (!showSellerDrop || filteredSellers.length === 0) return;
+                                                if (e.key === "ArrowDown") {
+                                                    e.preventDefault();
+                                                    setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
+                                                } else if (e.key === "ArrowUp") {
+                                                    e.preventDefault();
+                                                    setHighlightedIdx(i => Math.max(i - 1, 0));
+                                                } else if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                        const sel = filteredSellers[highlightedIdx];
+                                                        handleSellerSelect(sel);
+                                                        focusNextField(e.currentTarget);
+                                                    } else {
+                                                        setShowSellerDrop(false);
                                                         focusNextField(e.currentTarget);
                                                     }
-                                                } else {
-                                                    // Nothing explicitly chosen (via arrow keys or an exact code match) —
-                                                    // never guess a seller. Just close the list and move on.
-                                                    setDropdownOpen(false);
-                                                    focusNextField(e.currentTarget);
+                                                } else if (e.key === "Escape") {
+                                                    setShowSellerDrop(false);
                                                 }
-                                            } else if (e.key === "Escape") {
-                                                setDropdownOpen(false);
-                                            }
-                                        }}
-                                        placeholder={t('productSales.searchPlaceholder')}
-                                        className="pr-7 w-full"
-                                    />
-                                    <DropdownPortal
-                                        anchorRef={sellerAnchorRef}
-                                        open={showSellerDrop && !form.seller_id && filteredSellers.length > 0}
-                                        width={256}
-                                    >
-                                        <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
-                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
-                                                {sellerSearch.trim()
-                                                    ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('productSales.matchesPlural') : t('productSales.matches')}`
-                                                    : t('productSales.sellersAZ')}
-                                            </p>
-                                            {filteredSellers.map((s, idx) => (
-                                                <button key={s.seller_id} type="button"
-                                                    onMouseEnter={() => setHighlightedIdx(idx)}
-                                                    onMouseDown={(e) => {
-                                                        e.preventDefault();
-                                                        set("seller_id", s.seller_id);
-                                                        setSellerSearch(s.name);
-                                                        setShowSellerDrop(false);
-                                                    }}
-                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+                                            }}
+                                            placeholder={t('productSales.searchPlaceholder')}
+                                            className="pr-7 w-full"
+                                        />
+                                        <DropdownPortal
+                                            anchorRef={sellerAnchorRef}
+                                            open={showSellerDrop && !form.seller_id && filteredSellers.length > 0}
+                                            width={256}
+                                        >
+                                            <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
+                                                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
+                                                    {sellerSearch.trim() || sellerCodeInput.trim()
+                                                        ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('productSales.matchesPlural') : t('productSales.matches')}`
+                                                        : t('productSales.sellersAZ')}
+                                                </p>
+                                                {filteredSellers.map((s, idx) => (
+                                                    <button key={s.seller_id} type="button"
+                                                        onMouseEnter={() => setHighlightedIdx(idx)}
+                                                        onClick={() => {
+                                                            handleSellerSelect(s);
+                                                            focusNextField(sellerAnchorRef.current);
+                                                        }}
+                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                             ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
-                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
+                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
                             ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
-                                                        {s.name?.charAt(0)?.toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                        <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </DropdownPortal>
-                                    {form.seller_id && (
-                                        <button type="button"
-                                            onClick={() => { set("seller_id", ""); setSellerSearch(""); }}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-                                {selectedSeller && (
-                                    <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                                        ID: {selectedSeller.seller_id} · {selectedSeller.seller_type || "—"}
-                                    </p>
-                                )}
-                            </Field>
+                                                            {s.name?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-gray-800 text-xs">{s.name}</p>
+                                                            <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </DropdownPortal>
+                                        {form.seller_id && (
+                                            <button type="button"
+                                                onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </Field>
+                            </div>
+                            {selectedSeller && (
+                                <p className="text-[10px] text-emerald-600 font-medium -mt-2">
+                                    ID: {selectedSeller.seller_id} · {selectedSeller.seller_type || "—"}
+                                </p>
+                            )}
                         </div>
 
                         {/* ── Speed product quick-tap strip ─────────────────────── */}
@@ -1403,6 +1477,7 @@ export default function ProductSales() {
                                                                 setLine(line._key, "mrp_rate", p.mrp_rate ? String(p.mrp_rate) : "");
                                                                 setLineProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                                 setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
+                                                                focusNextField(lineAnchorRefs.current[line._key]);
                                                             }}
                                                             className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                             <div>
@@ -1436,6 +1511,12 @@ export default function ProductSales() {
                                             className={`w-full ${lineProduct && parseFloat(line.quantity) > parseFloat(lineProduct.current_stock || 0)
                                                 ? "border-rose-300 bg-rose-50/50 text-rose-700"
                                                 : "border-blue-200/60 bg-blue-50/30 text-blue-700"}`}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    focusNextField(e.target);
+                                                }
+                                            }}
                                         />
 
                                         {/* Rate */}
@@ -1444,6 +1525,12 @@ export default function ProductSales() {
                                             onChange={(e) => setLine(line._key, "rate", e.target.value)}
                                             placeholder="₹0.00" type="number" step="0.01"
                                             className={`w-full ${line.rate ? "bg-amber-50/30 border-amber-200/60 text-amber-700" : "bg-amber-50/30 border-amber-200/60"}`}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    focusNextField(e.target);
+                                                }
+                                            }}
                                         />
 
                                         {/* Line total */}

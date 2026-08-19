@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ShoppingCart, Save, Sun, Moon, Milk, TrendingUp,
@@ -132,6 +132,19 @@ const paymentBadge = (m, t) =>
         m === "upi" ? "bg-blue-50/80 text-blue-700 border-blue-200/60" :
             "bg-orange-50/80 text-orange-700 border-orange-200/60";
 
+// ── focus helper ──────────────────────────────────────────────
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function WalkinSales() {
     const { t } = useTranslation();
@@ -154,6 +167,7 @@ export default function WalkinSales() {
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
+    const [sellerCodeInput, setSellerCodeInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
@@ -172,6 +186,7 @@ export default function WalkinSales() {
     const [pageSize, setPageSize] = useState(5);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchName, setSearchName] = useState("");
+    const sellerCodeRef = useRef(null);
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
     const startWalkinSalesTour = () => {
@@ -252,16 +267,17 @@ export default function WalkinSales() {
         return acc;
     }, {});
 
-    const filteredSellers = sellerSearch
-        ? sellers.filter((s) =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            String(s.seller_id) === sellerSearch.trim() ||
-            (s.seller_code || "").toLowerCase() === sellerSearch.trim().toLowerCase() ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
-        )
-        : [...sellers]
-            .sort((a, b) => (sellerFrequency[b.seller_id] || 0) - (sellerFrequency[a.seller_id] || 0))
-            .slice(0, 5);
+    // ── FIXED: Seller filtering - search by name OR code (partial match) ──
+    const filteredSellers = (() => {
+        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
+        if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
+        const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
+        const matched = sorted.filter((s) =>
+            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (s.seller_code || "").toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        return matched.slice(0, 10);
+    })();
 
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 
@@ -479,7 +495,11 @@ export default function WalkinSales() {
             payment_mode: sale.payment_mode || "cash",
             shift: sale.shift || getShiftByTime(),
         });
-        if (buyerMode === "seller") setSellerSearch(sale.seller_name || "");
+        if (buyerMode === "seller") {
+            // ── FIXED: Set only the seller name, not code + name ──
+            setSellerSearch(sale.seller_name || "");
+            setSellerCodeInput(sale.seller_code || "");
+        }
         if (buyerMode === "named") setNamedBuyerSearch(sale.registered_buyer_name || sale.buyer_name || "");
         setAmountPaid(sale.amount_paid != null ? String(sale.amount_paid) : "");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -555,6 +575,7 @@ export default function WalkinSales() {
         set("seller_id", "");
         set("buyer_id", "");
         setSellerSearch("");
+        setSellerCodeInput("");
         setNamedBuyerSearch("");
         setBuyerBalance(0);
         setAmountPaid("");
@@ -562,6 +583,34 @@ export default function WalkinSales() {
         if (mode === "named") set("buyer_name", "");
     };
 
+    // ── FIXED: Handle seller code change - partial match and auto-select ──
+    const handleSellerCodeChange = (code) => {
+        setSellerCodeInput(code);
+        if (!code.trim()) {
+            set("seller_id", "");
+            setSellerSearch("");
+            setDropdownOpen(false);
+            return;
+        }
+
+        // Find exact match by code
+        const exactMatch = sellers.find(
+            (s) => (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            set("seller_id", exactMatch.seller_id);
+            set("buyer_name", exactMatch.name);
+            setSellerSearch(exactMatch.name);
+            setDropdownOpen(false);
+        } else {
+            // Show dropdown with partial matches
+            set("seller_id", "");
+            set("buyer_name", "");
+            setDropdownOpen(true);
+        }
+    };
+
+    // ── FIXED: Handle seller search - partial match on name ──
     const handleSellerSearchChange = (val) => {
         setSellerSearch(val);
         setDropdownOpen(true);
@@ -569,19 +618,57 @@ export default function WalkinSales() {
         if (!val) {
             set("seller_id", "");
             set("buyer_name", "");
+            setSellerCodeInput("");
             return;
         }
 
-        const exact = sellers.find(
-            (s) =>
-                String(s.seller_id) === val.trim() ||
+        // Check if the search matches a seller name exactly or code
+        const exactMatch = sellers.find(
+            (s) => s.name.toLowerCase() === val.trim().toLowerCase() ||
                 (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
         );
-        if (exact) {
-            set("seller_id", exact.seller_id);
-            set("buyer_name", exact.name);
-            setSellerSearch(exact.name);
+        if (exactMatch) {
+            set("seller_id", exactMatch.seller_id);
+            set("buyer_name", exactMatch.name);
+            setSellerSearch(exactMatch.name);
+            setSellerCodeInput(exactMatch.seller_code || "");
             setDropdownOpen(false);
+        } else {
+            set("seller_id", "");
+            set("buyer_name", "");
+        }
+    };
+
+    const handleSellerSelect = (seller) => {
+        set("seller_id", seller.seller_id);
+        set("buyer_name", seller.name);
+        setSellerSearch(seller.name);
+        setSellerCodeInput(seller.seller_code || "");
+        setDropdownOpen(false);
+    };
+
+    // ── FIXED: Form keydown handler with Enter navigation ──
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (dropdownOpen || namedBuyerDropdownOpen) return;
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+
+        // Check if we're on the last field (Save button)
+        const container = e.target.closest('[data-entry-form]');
+        if (!container) return;
+        const focusable = Array.from(
+            container.querySelectorAll('input, button, select, textarea')
+        ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+        const idx = focusable.indexOf(e.target);
+
+        // If we're at the last focusable element or form is ready, save
+        if (idx === focusable.length - 1 || isFormReady()) {
+            if (saving) return;
+            handleSave();
+        } else {
+            // Move to next field
+            focusNextField(e.target);
         }
     };
 
@@ -671,10 +758,12 @@ export default function WalkinSales() {
             });
             setAmountPaid("");
             setBuyerBalance(0);
+            setSellerSearch("");
+            setSellerCodeInput("");
             if (currentBuyerMode === "anon") {
                 setNamedBuyerSearch("");
-                setSellerSearch("");
             }
+            sellerCodeRef.current?.focus();
         } catch (err) {
             const errorMsg = err.response?.data?.error || err.response?.data?.message || t('walkinSale.saveError');
             showFlash("error", errorMsg);
@@ -692,15 +781,6 @@ export default function WalkinSales() {
             if (parseFloat(form.quantity) > available) return false;
         }
         return true;
-    };
-
-    const handleFormKeyDown = (e) => {
-        if (e.key !== "Enter") return;
-        if (dropdownOpen || namedBuyerDropdownOpen) return;
-        if (e.target.tagName === "TEXTAREA") return;
-        e.preventDefault();
-        if (saving || !isFormReady()) return;
-        handleSave();
     };
 
     const handleRangeModeChange = (mode) => {
@@ -1367,7 +1447,7 @@ export default function WalkinSales() {
                     </div>
 
                     {/* Form Inputs */}
-                    <div className="flex items-start gap-3 flex-wrap" onKeyDown={handleFormKeyDown}>
+                    <div className="flex items-start gap-3 flex-wrap" data-entry-form onKeyDown={handleFormKeyDown}>
                         {/* Anonymous Buyer */}
                         {form.buyer_mode === "anon" && (
                             <Field label={t('walkinSale.buyer')} icon={<User size={12} />}>
@@ -1480,91 +1560,95 @@ export default function WalkinSales() {
 
                         {/* Seller Buyer */}
                         {form.buyer_mode === "seller" && (
-                            <Field label={t('walkinSale.sellerLabel')} icon={<Users size={12} />}>
-                                <div className="relative w-36">
+                            <>
+                                <Field label="Code" icon={<User size={12} />}>
                                     <TinyInput
-                                        value={sellerSearch}
-                                        onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
-                                        onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
-                                        onChange={(e) => handleSellerSearchChange(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (!dropdownOpen || filteredSellers.length === 0) return;
-                                            if (e.key === "ArrowDown") {
-                                                e.preventDefault();
-                                                setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
-                                            } else if (e.key === "ArrowUp") {
-                                                e.preventDefault();
-                                                setHighlightedIdx(i => Math.max(i - 1, 0));
-                                            } else if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                if (highlightedIdx >= 0) {
-                                                    const sel = filteredSellers[highlightedIdx];
-                                                    if (sel) {
-                                                        handleSellerChange(sel.seller_id);
-                                                        setSellerSearch(sel.name);
+                                        ref={sellerCodeRef}
+                                        value={sellerCodeInput}
+                                        onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                        placeholder="SC-001"
+                                        className="text-[13px] font-mono w-20"
+                                    />
+                                </Field>
+
+                                <Field label={t('walkinSale.sellerLabel')} icon={<Users size={12} />}>
+                                    <div className="relative w-44">
+                                        <TinyInput
+                                            value={sellerSearch}
+                                            onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
+                                            onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
+                                            onChange={(e) => handleSellerSearchChange(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (!dropdownOpen || filteredSellers.length === 0) return;
+                                                if (e.key === "ArrowDown") {
+                                                    e.preventDefault();
+                                                    setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
+                                                } else if (e.key === "ArrowUp") {
+                                                    e.preventDefault();
+                                                    setHighlightedIdx(i => Math.max(i - 1, 0));
+                                                } else if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                        const sel = filteredSellers[highlightedIdx];
+                                                        handleSellerSelect(sel);
+                                                        focusNextField(e.currentTarget);
+                                                    } else {
                                                         setDropdownOpen(false);
                                                         focusNextField(e.currentTarget);
                                                     }
-                                                } else {
-                                                    // Nothing explicitly chosen (via arrow keys or an exact code match) —
-                                                    // never guess a seller. Just close the list and move on.
+                                                } else if (e.key === "Escape") {
                                                     setDropdownOpen(false);
-                                                    focusNextField(e.currentTarget);
                                                 }
-                                            } else if (e.key === "Escape") {
-                                                setDropdownOpen(false);
-                                            }
-                                        }}
-                                        placeholder={t('walkinSale.searchPlaceholder')}
-                                        className="w-36 pr-7"
-                                    />
-                                    {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-1 w-56 bg-white/80 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
-                                            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                                                {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('walkinSale.matchesPlural') : t('walkinSale.matches')}` : t('walkinSale.sellersAZ')}
-                                            </p>
-                                            {filteredSellers.map((s, idx) => (
-                                                <button
-                                                    key={s.seller_id}
-                                                    type="button"
-                                                    onMouseEnter={() => setHighlightedIdx(idx)}
-                                                    onClick={() => {
-                                                        set("seller_id", s.seller_id);
-                                                        set("buyer_name", s.name);
-                                                        setSellerSearch(s.name);
-                                                        setDropdownOpen(false);
-                                                    }}
-                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+                                            }}
+                                            placeholder={t('walkinSale.searchPlaceholder')}
+                                            className="w-44 pr-7"
+                                        />
+                                        {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
+                                            <div className="absolute top-full left-0 mt-1 w-56 bg-white/80 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                                    {sellerSearch.trim() || sellerCodeInput.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('walkinSale.matchesPlural') : t('walkinSale.matches')}` : t('walkinSale.sellersAZ')}
+                                                </p>
+                                                {filteredSellers.map((s, idx) => (
+                                                    <button
+                                                        key={s.seller_id}
+                                                        type="button"
+                                                        onMouseEnter={() => setHighlightedIdx(idx)}
+                                                        onClick={() => {
+                                                            handleSellerSelect(s);
+                                                            focusNextField(e.currentTarget);
+                                                        }}
+                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                                                     ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}
-                                                >
-                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
+                                                    >
+                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
                                                     ${highlightedIdx === idx ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
-                                                        {s.name?.charAt(0)?.toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                        <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
+                                                            {s.name?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-gray-800 text-xs">{s.name}</p>
+                                                            <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {form.seller_id && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { set("seller_id", ""); set("buyer_name", ""); setSellerSearch(""); setSellerCodeInput(""); setDropdownOpen(false); }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {selectedSeller && (
+                                        <p className="text-[10px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                                            <Users size={11} /> {selectedSeller.seller_code} · {selectedSeller.seller_type || "—"}
+                                        </p>
                                     )}
-                                    {form.seller_id && (
-                                        <button
-                                            type="button"
-                                            onClick={() => { set("seller_id", ""); set("buyer_name", ""); setSellerSearch(""); setDropdownOpen(false); }}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-                                {selectedSeller && (
-                                    <p className="text-[10px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                                        <Users size={11} /> {selectedSeller.seller_code} · {selectedSeller.seller_type || "—"}
-                                    </p>
-                                )}
-                            </Field>
+                                </Field>
+                            </>
                         )}
 
                         {/* Shift */}
@@ -1747,9 +1831,10 @@ export default function WalkinSales() {
                                         });
                                         setAmountPaid("");
                                         setBuyerBalance(0);
+                                        setSellerSearch("");
+                                        setSellerCodeInput("");
                                         if (currentBuyerMode === "anon") {
                                             setNamedBuyerSearch("");
-                                            setSellerSearch("");
                                         }
                                     }}
                                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-600 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm"
