@@ -918,7 +918,7 @@ const en = {
                 sellerPlaceholder: "Search farmer by name or code",
                 sellerMatches: "{{count}} matches",
                 sellersAZ: "Farmers A–Z",
-                sellerId: "ID: {{id}} · {{type}}",
+                
                 addFeed: "Add Feed",
                 grandTotal: "Grand Total:",
                 recordSale: "Record Sale",
@@ -3793,6 +3793,13 @@ const en = {
 
         // ── Seller Register ──────────────────────────────────────────
         sellerRegister: {
+            updateAll: "Update All",
+            updating: "Updating",
+            importResultsUpdated: "Import Results Updated",
+            addNew: "Add New Farmers",
+            updateExisting: "Update Existing Farmers",
+            updateDescription: "Bulk-add farmers from an Excel or CSV file",
+            exportSuccess: "Successfully exported Farmers Data",
             exportFarmers: "Export Farmers",
             updateFarmers: "Update Farmers",
             searchPlaceholder: "001 or John Doe",

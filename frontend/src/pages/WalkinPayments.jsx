@@ -636,7 +636,7 @@ ${entries.length > 0 ? `
                 * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #111; }
                 table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-                th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+                th, td { border: 0.5px solid #000000; padding: 6px 8px; text-align: left; }
                 th { background: #111; color: #fff; }
                 .header { text-align: center; margin-bottom: 10px; }
                 .summary { display: flex; gap: 12px; margin: 10px 0; flex-wrap: wrap; }

@@ -9,7 +9,8 @@ import {
     TrendingUp, FlaskConical, Pencil, Trash2, Star,
     RefreshCw, ChevronRight, AlertTriangle, BadgeCheck, X,
     UploadCloud, FileSpreadsheet, CheckCircle2, XCircle,
-    Download, RotateCcw, Import, Home, Settings
+    Download, RotateCcw, Import, Home, Settings,
+    LayoutGrid, Maximize2, Minimize2
 } from 'lucide-react';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -157,6 +158,21 @@ export default function RateChart() {
     const [rateParsingFile, setRateParsingFile] = useState(false);
     const [rateImportResult, setRateImportResult] = useState(null);
     const [rateIsDragging, setRateIsDragging] = useState(false);
+
+    // ── Matrix generator (Fat Step / SNF Step) ──
+    const [showMatrixModal, setShowMatrixModal] = useState(false);
+    const [matrixFullscreen, setMatrixFullscreen] = useState(false);
+    const [matrixForm, setMatrixForm] = useState({
+        base_rate: '',
+        fat_min: '', fat_max: '', fat_step: '0.1',
+        snf_min: '', snf_max: '', snf_step: '0.1',
+        mrp_margin: '',
+    });
+    const [fatSlabs, setFatSlabs] = useState([{ id: 1, from_fat: '', increment: '' }]);
+    const [snfSlabs, setSnfSlabs] = useState([{ id: 1, from_snf: '', increment: '' }]);
+    const [matrixPreview, setMatrixPreview] = useState({ fatValues: [], snfValues: [], grid: {}, rows: [] });
+    const [matrixSaving, setMatrixSaving] = useState(false);
+    const [matrixError, setMatrixError] = useState('');
 
     // ── fetch ──
     const fetchRates = useCallback(async () => {
@@ -542,6 +558,147 @@ export default function RateChart() {
         }
     };
 
+    // ── Matrix generator: builds a cumulative delta map for one axis ──
+    // For each value from `min` to `max` (step `step`), records the delta accumulated
+    // so far, then advances it by whichever slab's `from` is the largest value <= v.
+    const buildDeltaMap = (slabs, min, max, step, fromKey) => {
+        const deltaMap = {};
+        if ([min, max, step].some(isNaN) || step <= 0 || max < min) return deltaMap;
+
+        const sorted = slabs
+            .map(s => ({ from: parseFloat(s[fromKey]), inc: parseFloat(s.increment) }))
+            .filter(s => !isNaN(s.from) && !isNaN(s.inc))
+            .sort((a, b) => a.from - b.from);
+
+        const activeIncFor = (v) => {
+            let inc = 0;
+            for (const s of sorted) {
+                if (v >= s.from - 0.0001) inc = s.inc;
+                else break;
+            }
+            return inc;
+        };
+
+        let delta = 0;
+        for (let v = min; v <= max + 0.0001; v = Math.round((v + step) * 100) / 100) {
+            deltaMap[v.toFixed(2)] = Math.round(delta * 100) / 100;
+            delta += activeIncFor(v);
+        }
+        return deltaMap;
+    };
+
+    const buildMatrixPreview = (form = matrixForm, fSlabs = fatSlabs, sSlabs = snfSlabs) => {
+        const base = parseFloat(form.base_rate);
+        const fatMin = parseFloat(form.fat_min), fatMax = parseFloat(form.fat_max), fatStep = parseFloat(form.fat_step) || 0.1;
+        const snfMin = parseFloat(form.snf_min), snfMax = parseFloat(form.snf_max), snfStep = parseFloat(form.snf_step) || 0.1;
+        const mrpMargin = parseFloat(form.mrp_margin) || 0;
+
+        if ([base, fatMin, fatMax, snfMin, snfMax].some(isNaN)) {
+            setMatrixPreview({ fatValues: [], snfValues: [], grid: {}, rows: [] });
+            return;
+        }
+
+        const fatDeltaMap = buildDeltaMap(fSlabs, fatMin, fatMax, fatStep, 'from_fat');
+        const snfDeltaMap = buildDeltaMap(sSlabs, snfMin, snfMax, snfStep, 'from_snf');
+        const fatValues = Object.keys(fatDeltaMap).sort((a, b) => parseFloat(a) - parseFloat(b));
+        const snfValues = Object.keys(snfDeltaMap).sort((a, b) => parseFloat(a) - parseFloat(b));
+
+        const grid = {};
+        const rows = [];
+        fatValues.forEach(fat => {
+            snfValues.forEach(snf => {
+                const rate = Math.round((base + fatDeltaMap[fat] + snfDeltaMap[snf]) * 100) / 100;
+                const mrp = mrpMargin ? Math.round((rate + mrpMargin) * 100) / 100 : null;
+                grid[`${fat}_${snf}`] = { fat, snf, rate, mrp };
+                rows.push({ fat, snf, rate, mrp });
+            });
+        });
+
+        setMatrixPreview({ fatValues, snfValues, grid, rows });
+    };
+
+    const handleMatrixFormChange = (e) => {
+        const updated = { ...matrixForm, [e.target.name]: e.target.value };
+        setMatrixForm(updated);
+        buildMatrixPreview(updated, fatSlabs, snfSlabs);
+    };
+
+    const updateFatSlab = (id, field, value) => {
+        const updated = fatSlabs.map(s => s.id === id ? { ...s, [field]: value } : s);
+        setFatSlabs(updated);
+        buildMatrixPreview(matrixForm, updated, snfSlabs);
+    };
+    const addFatSlab = () => {
+        const updated = [...fatSlabs, { id: Date.now(), from_fat: '', increment: '' }];
+        setFatSlabs(updated);
+        buildMatrixPreview(matrixForm, updated, snfSlabs);
+    };
+    const removeFatSlab = (id) => {
+        const updated = fatSlabs.filter(s => s.id !== id);
+        setFatSlabs(updated);
+        buildMatrixPreview(matrixForm, updated, snfSlabs);
+    };
+
+    const updateSnfSlab = (id, field, value) => {
+        const updated = snfSlabs.map(s => s.id === id ? { ...s, [field]: value } : s);
+        setSnfSlabs(updated);
+        buildMatrixPreview(matrixForm, fatSlabs, updated);
+    };
+    const addSnfSlab = () => {
+        const updated = [...snfSlabs, { id: Date.now(), from_snf: '', increment: '' }];
+        setSnfSlabs(updated);
+        buildMatrixPreview(matrixForm, fatSlabs, updated);
+    };
+    const removeSnfSlab = (id) => {
+        const updated = snfSlabs.filter(s => s.id !== id);
+        setSnfSlabs(updated);
+        buildMatrixPreview(matrixForm, fatSlabs, updated);
+    };
+
+    const openMatrixModal = () => {
+        setMatrixForm({
+            base_rate: '', fat_min: '', fat_max: '', fat_step: '0.1',
+            snf_min: '', snf_max: '', snf_step: '0.1', mrp_margin: '',
+        });
+        setFatSlabs([{ id: 1, from_fat: '', increment: '' }]);
+        setSnfSlabs([{ id: 1, from_snf: '', increment: '' }]);
+        setMatrixPreview({ fatValues: [], snfValues: [], grid: {}, rows: [] });
+        setMatrixError('');
+        setMatrixFullscreen(false);
+        setShowMatrixModal(true);
+    };
+
+    // Saves the generated matrix for BOTH cow and buffalo, for selectedDate,
+    // reusing the existing /rates/generate endpoint (called once per milk type).
+    const handleMatrixGenerateSave = async () => {
+        if (matrixPreview.rows.length === 0) {
+            setMatrixError(t('rateChart.matrixGen.noRates', 'Fill in base rate and ranges to generate a preview.'));
+            return;
+        }
+        setMatrixSaving(true);
+        setMatrixError('');
+        try {
+            const payloadRows = matrixPreview.rows.map(r => ({ fat: r.fat, snf: r.snf, rate: r.rate, mrp: r.mrp }));
+            const results = await Promise.all(
+                ['cow', 'buffalo'].map(mt =>
+                    api.post('/rates/generate', { milk_type: mt, rate_date: selectedDate, rates: payloadRows })
+                )
+            );
+            const totalInserted = results.reduce((sum, r) => sum + (r.data.inserted || 0), 0);
+            const dateStr = new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            showFlash('success', t('rateChart.matrixGen.saveSuccess', {
+                count: totalInserted, date: dateStr,
+                defaultValue: `${totalInserted} rate(s) saved for ${dateStr} across Cow & Buffalo.`,
+            }));
+            setShowMatrixModal(false);
+            fetchRates();
+        } catch (err) {
+            setMatrixError(err.response?.data?.message || t('rateChart.matrixGen.saveError', 'Failed to save rate matrix.'));
+        } finally {
+            setMatrixSaving(false);
+        }
+    };
+
     // ── stats ──
     const activeCount = rates.filter(r => !r.effective_to).length;
     const totalPages = Math.ceil(rates.length / pageSize);
@@ -606,6 +763,11 @@ export default function RateChart() {
                         <button onClick={() => { setShowGenerateModal(true); setGenPreview([]); }}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200">
                             <FlaskConical size={15} /> {t('rateChart.generateRates')}
+                        </button>
+
+                        <button onClick={openMatrixModal}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 text-white shadow-lg shadow-fuchsia-500/30 hover:shadow-xl hover:shadow-fuchsia-500/40 transition-all duration-200">
+                            <LayoutGrid size={15} /> {t('rateChart.matrixGen.button', 'Generate Rate Matrix by Fat Step and SNF Step')}
                         </button>
 
                         <button onClick={() => setShowRateImportModal(true)}
@@ -1175,7 +1337,7 @@ export default function RateChart() {
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                         <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
 
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-violet-50/50 to-white/50">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-violet-50/50 to-white/50 rounded-xl">
                                 <div>
                                     <h2 className="font-semibold text-gray-800 flex items-center gap-2">
                                         <FlaskConical size={15} className="text-violet-500" /> {t('rateChart.generateRateChart')}
@@ -1284,11 +1446,240 @@ export default function RateChart() {
                     </div>
                 )}
 
+                {/* ── Generate Rate Matrix by Fat Step & SNF Step Modal ── */}
+                {showMatrixModal && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className={`bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-2xl flex flex-col transition-all duration-200
+                            ${matrixFullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-6xl max-h-[92vh]'}`}>
+
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-fuchsia-50/50 to-white/50 rounded-xl">
+                                <div>
+                                    <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                                        <LayoutGrid size={15} className="text-fuchsia-500" /> {t('rateChart.matrixGen.title', 'Generate Rate Matrix by Fat Step and SNF Step')}
+                                    </h2>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        {t('rateChart.matrixGen.desc', 'Define a base rate, FAT/SNF ranges, and step slabs. Saved rates apply to both Cow and Buffalo.')}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setMatrixFullscreen(f => !f)}
+                                        className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                        {matrixFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                                    </button>
+                                    <button onClick={() => setShowMatrixModal(false)}
+                                        className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="overflow-y-auto p-6 flex-1 grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+                                {/* LEFT: configuration */}
+                                <div className="flex flex-col gap-5">
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Field label={t('rateChart.matrixGen.baseRate', 'Base Rate')} name="base_rate" type="number" step="0.01"
+                                            value={matrixForm.base_rate} onChange={handleMatrixFormChange} placeholder="e.g. 55.00" required t={t} />
+                                        <Field label={t('rateChart.mrpMargin')} name="mrp_margin" type="number" step="0.01"
+                                            value={matrixForm.mrp_margin} onChange={handleMatrixFormChange} placeholder="e.g. 5.00" t={t} />
+                                    </div>
+
+                                    <div>
+                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('rateChart.fatRange')}</p>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <Field label={t('rateChart.fatMin')} name="fat_min" type="number" step="0.1" value={matrixForm.fat_min} onChange={handleMatrixFormChange} placeholder="e.g. 3.0" t={t} />
+                                            <Field label={t('rateChart.fatMax')} name="fat_max" type="number" step="0.1" value={matrixForm.fat_max} onChange={handleMatrixFormChange} placeholder="e.g. 8.0" t={t} />
+                                            <Field label={t('rateChart.fatStep')} name="fat_step" type="number" step="0.1" value={matrixForm.fat_step} onChange={handleMatrixFormChange} placeholder="0.1" t={t} />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('rateChart.snfRange')}</p>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <Field label={t('rateChart.snfMin')} name="snf_min" type="number" step="0.1" value={matrixForm.snf_min} onChange={handleMatrixFormChange} placeholder="e.g. 7.0" t={t} />
+                                            <Field label={t('rateChart.snfMax')} name="snf_max" type="number" step="0.1" value={matrixForm.snf_max} onChange={handleMatrixFormChange} placeholder="e.g. 9.5" t={t} />
+                                            <Field label={t('rateChart.snfStep')} name="snf_step" type="number" step="0.1" value={matrixForm.snf_step} onChange={handleMatrixFormChange} placeholder="0.1" t={t} />
+                                        </div>
+                                    </div>
+
+                                    {/* FAT slabs */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                                {t('rateChart.matrixGen.fatSlabs', 'FAT Step Increments')}
+                                            </p>
+                                            <button type="button" onClick={addFatSlab}
+                                                className="text-xs font-semibold text-fuchsia-600 hover:underline">
+                                                + {t('rateChart.matrixGen.addSlab', 'Add slab')}
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            {fatSlabs.map((slab) => (
+                                                <div key={slab.id} className="flex items-end gap-2 bg-gray-50/60 border border-gray-200/60 rounded-xl p-2.5 shadow-sm">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                                                            {t('rateChart.matrixGen.fromFat', 'From FAT')}
+                                                        </label>
+                                                        <input type="number" step="0.1" value={slab.from_fat}
+                                                            onChange={e => updateFatSlab(slab.id, 'from_fat', e.target.value)}
+                                                            placeholder="e.g. 6.0"
+                                                            className="w-full border border-gray-200/60 bg-white/60 rounded-lg px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                                                            {t('rateChart.matrixGen.incPerStep', 'Increment / Step')}
+                                                        </label>
+                                                        <input type="number" step="0.01" value={slab.increment}
+                                                            onChange={e => updateFatSlab(slab.id, 'increment', e.target.value)}
+                                                            placeholder="e.g. 0.86"
+                                                            className="w-full border border-gray-200/60 bg-white/60 rounded-lg px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20" />
+                                                    </div>
+                                                    {fatSlabs.length > 1 && (
+                                                        <button type="button" onClick={() => removeFatSlab(slab.id)}
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 border border-rose-200/60 shrink-0 transition">
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* SNF slabs */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                                {t('rateChart.matrixGen.snfSlabs', 'SNF Step Increments')}
+                                            </p>
+                                            <button type="button" onClick={addSnfSlab}
+                                                className="text-xs font-semibold text-fuchsia-600 hover:underline">
+                                                + {t('rateChart.matrixGen.addSlab', 'Add slab')}
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            {snfSlabs.map((slab) => (
+                                                <div key={slab.id} className="flex items-end gap-2 bg-gray-50/60 border border-gray-200/60 rounded-xl p-2.5 shadow-sm">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                                                            {t('rateChart.matrixGen.fromSnf', 'From SNF')}
+                                                        </label>
+                                                        <input type="number" step="0.1" value={slab.from_snf}
+                                                            onChange={e => updateSnfSlab(slab.id, 'from_snf', e.target.value)}
+                                                            placeholder="e.g. 9.0"
+                                                            className="w-full border border-gray-200/60 bg-white/60 rounded-lg px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                                                            {t('rateChart.matrixGen.incPerStep', 'Increment / Step')}
+                                                        </label>
+                                                        <input type="number" step="0.01" value={slab.increment}
+                                                            onChange={e => updateSnfSlab(slab.id, 'increment', e.target.value)}
+                                                            placeholder="e.g. 0.05"
+                                                            className="w-full border border-gray-200/60 bg-white/60 rounded-lg px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20" />
+                                                    </div>
+                                                    {snfSlabs.length > 1 && (
+                                                        <button type="button" onClick={() => removeSnfSlab(slab.id)}
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 border border-rose-200/60 shrink-0 transition">
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {matrixError && (
+                                        <div className="flex items-center gap-2 bg-rose-50/80 backdrop-blur-sm border border-rose-200/60 rounded-xl px-4 py-3 text-sm text-rose-700 shadow-sm">
+                                            <AlertTriangle size={14} /> {matrixError}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* RIGHT: live matrix preview */}
+                                <div className="flex flex-col gap-2 min-h-[300px]">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                            {t('rateChart.preview')} {matrixPreview.rows.length > 0 && `— ${matrixPreview.rows.length} ${t('rateChart.combinations')}`}
+                                        </p>
+                                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-fuchsia-50/80 text-fuchsia-700 border-fuchsia-200/60 backdrop-blur-sm">
+                                            {t('rateChart.cow')} + {t('rateChart.buffalo')} · {new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                        </span>
+                                    </div>
+
+                                    {matrixPreview.fatValues.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center border border-dashed border-gray-200/60 rounded-xl text-center py-16">
+                                            <p className="text-xs text-gray-400">{t('rateChart.fillAllFieldsToPreview')}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-auto flex-1 max-h-[520px] rounded-xl border border-gray-200/60 shadow-sm">
+                                            <table className="border-collapse text-xs w-full">
+                                                <thead>
+                                                    <tr>
+                                                        <th className="sticky top-0 left-0 z-20 bg-gradient-to-br from-gray-900 to-gray-800 text-white font-semibold px-3 py-2 border border-gray-700 whitespace-nowrap shadow-lg">
+                                                            {t('rateChart.fat')} ⁄ {t('rateChart.snf')}
+                                                        </th>
+                                                        {matrixPreview.snfValues.map(snf => (
+                                                            <th key={snf} className="sticky top-0 z-10 bg-white/80 text-gray-500 font-semibold px-3 py-2 border border-gray-200/60 whitespace-nowrap">
+                                                                {snf}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {matrixPreview.fatValues.map(fat => (
+                                                        <tr key={fat}>
+                                                            <td className="sticky left-0 z-10 bg-white/80 text-gray-700 font-semibold px-3 py-1.5 border border-gray-200/60 whitespace-nowrap">
+                                                                {fat}
+                                                            </td>
+                                                            {matrixPreview.snfValues.map(snf => {
+                                                                const cell = matrixPreview.grid[`${fat}_${snf}`];
+                                                                return (
+                                                                    <td key={snf}
+                                                                        title={cell?.mrp ? `MRP ₹${cell.mrp.toFixed(2)}` : undefined}
+                                                                        className="px-3 py-1.5 border border-gray-200/60 text-center whitespace-nowrap font-bold text-gray-900 bg-white/50">
+                                                                        {cell ? cell.rate.toFixed(2) : '—'}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl shrink-0">
+                                <p className="text-xs text-gray-400">
+                                    {matrixPreview.rows.length > 0
+                                        ? `${matrixPreview.rows.length} ${t('rateChart.matrixGen.willBeSavedBoth', 'rate(s) will be saved for BOTH Cow & Buffalo')}`
+                                        : t('rateChart.fillAllFieldsToPreview')}
+                                </p>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => setShowMatrixModal(false)}
+                                        className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition">
+                                        {t('rateChart.cancel')}
+                                    </button>
+                                    <button type="button" onClick={handleMatrixGenerateSave}
+                                        disabled={matrixSaving || matrixPreview.rows.length === 0}
+                                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold
+                                            text-white bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 shadow-lg shadow-fuchsia-500/30 hover:shadow-xl hover:shadow-fuchsia-500/40 transition-all duration-200 disabled:opacity-50">
+                                        {matrixSaving && <RefreshCw size={12} className="animate-spin" />}
+                                        {matrixSaving ? t('rateChart.saving') : t('rateChart.matrixGen.saveButton', 'Save Rate Matrix')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Import Rates Modal ── */}
                 {showRateImportModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 max-w-4xl w-full max-h-[90vh] flex flex-col">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50 rounded-xl">
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center shrink-0 shadow-lg shadow-gray-900/20">
                                         <FileSpreadsheet size={16} className="text-white" />

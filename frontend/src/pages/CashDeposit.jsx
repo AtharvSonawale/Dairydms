@@ -29,11 +29,25 @@ const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", {
 
 const EMPTY_FORM = {
     seller_id: "",
+    seller_code: "",
     type: "credit",
     category: "refund",
     amount: "",
     remarks: "",
 };
+
+// ── focus helper ──────────────────────────────────────────────
+function focusNextField(current) {
+    const container = current?.closest('[data-entry-form]');
+    if (!container) return;
+    const focusable = Array.from(
+        container.querySelectorAll('input, button, select, textarea')
+    ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = focusable.indexOf(current);
+    if (idx > -1 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+    }
+}
 
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
@@ -92,6 +106,7 @@ export default function CashDeposit() {
     const [entries, setEntries] = useState([]);
     const [sellers, setSellers] = useState([]);
     const [sellerSearch, setSellerSearch] = useState("");
+    const [sellerCodeInput, setSellerCodeInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [selectedDate, setSelectedDate] = useState(today());
@@ -119,6 +134,7 @@ export default function CashDeposit() {
     const [deletingEntryId, setDeletingEntryId] = useState(null);
     const [editingEntry, setEditingEntry] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
+    const sellerCodeRef = useRef(null);
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
     const showFlash = (type, msg) => {
@@ -376,10 +392,75 @@ export default function CashDeposit() {
         setSearchName("");
     }, [selectedDate]);
 
+    // ── FIXED: Seller filtering - search by name OR code (partial match) ──
+    const filteredSellers = (() => {
+        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
+        if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
+        const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
+        const matched = sorted.filter((s) =>
+            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (s.seller_code || "").toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        return matched.slice(0, 10);
+    })();
+
+    // ── FIXED: Handle seller code change - partial match and auto-select ──
+    const handleSellerCodeChange = (code) => {
+        setSellerCodeInput(code);
+        if (!code.trim()) {
+            set("seller_id", "");
+            setSellerSearch("");
+            setBalance(null);
+            setSellerDepositRate(null);
+            setMilkSummary(null);
+            setDropdownOpen(false);
+            return;
+        }
+
+        // Find exact match by code
+        const exactMatch = sellers.find(
+            (s) => (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            handleSellerSelect(exactMatch);
+        } else {
+            // Show dropdown with partial matches
+            set("seller_id", "");
+            setDropdownOpen(true);
+        }
+    };
+
+    // ── FIXED: Handle seller search - partial match on name ──
+    const handleSellerSearchChange = (val) => {
+        setSellerSearch(val);
+        setDropdownOpen(true);
+        setHighlightedIdx(-1);
+        if (!val) {
+            set("seller_id", "");
+            setSellerCodeInput("");
+            setBalance(null);
+            setSellerDepositRate(null);
+            setMilkSummary(null);
+            return;
+        }
+
+        // Check if the search matches a seller name exactly or code
+        const exactMatch = sellers.find(
+            (s) => s.name.toLowerCase() === val.trim().toLowerCase() ||
+                (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
+        );
+        if (exactMatch) {
+            handleSellerSelect(exactMatch);
+        } else {
+            set("seller_id", "");
+        }
+    };
+
     // seller selection
     const handleSellerSelect = (seller) => {
-        setForm(p => ({ ...p, seller_id: String(seller.seller_id) }));
+        set("seller_id", String(seller.seller_id));
         setSellerSearch(seller.name);
+        setSellerCodeInput(seller.seller_code || "");
         setDropdownOpen(false);
 
         const depositRate = seller.deposit_enabled && seller.deposit_per_litre !== null && seller.deposit_per_litre !== undefined
@@ -394,8 +475,9 @@ export default function CashDeposit() {
     };
 
     const clearSeller = () => {
-        setForm(p => ({ ...p, seller_id: "" }));
+        set("seller_id", "");
         setSellerSearch("");
+        setSellerCodeInput("");
         setBalance(null);
         setSellerDepositRate(null);
         setMilkSummary(null);
@@ -421,6 +503,7 @@ export default function CashDeposit() {
             await fetchEntries(selectedDate, form.seller_id);
             await fetchBalance(form.seller_id);
             setForm(p => ({ ...p, amount: "", remarks: "" }));
+            sellerCodeRef.current?.focus();
         } catch (err) {
             showFlash("error", err.response?.data?.message || err.response?.data?.error || t('cashDeposit.saveError'));
         } finally {
@@ -432,8 +515,10 @@ export default function CashDeposit() {
         setEditingEntry(entry);
         const found = sellers.find(s => String(s.seller_id) === String(entry.seller_id));
         setSellerSearch(found?.name || "");
+        setSellerCodeInput(found?.seller_code || "");
         setForm({
             seller_id: String(entry.seller_id),
+            seller_code: found?.seller_code || "",
             type: entry.type,
             category: entry.category || "refund",
             amount: String(entry.amount),
@@ -462,7 +547,9 @@ export default function CashDeposit() {
             setEditingEntry(null);
             setForm(EMPTY_FORM);
             setSellerSearch("");
+            setSellerCodeInput("");
             setBalance(null);
+            sellerCodeRef.current?.focus();
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('cashDeposit.updateError') || "Update failed.");
         } finally {
@@ -474,6 +561,7 @@ export default function CashDeposit() {
         setEditingEntry(null);
         setForm(EMPTY_FORM);
         setSellerSearch("");
+        setSellerCodeInput("");
         setBalance(null);
         setSellerDepositRate(null);
         setMilkSummary(null);
@@ -483,14 +571,30 @@ export default function CashDeposit() {
     const isFormReady = () =>
         !!form.seller_id && !!form.amount && parseFloat(form.amount) > 0;
 
+    // ── FIXED: Form keydown handler with Enter navigation ──
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
         if (dropdownOpen) return;
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
-        const isBusy = editingEntry ? editSaving : saving;
-        if (isBusy || !isFormReady()) return;
-        editingEntry ? handleUpdate() : handleSave();
+
+        // Check if we're on the last field (Save button)
+        const container = e.target.closest('[data-entry-form]');
+        if (!container) return;
+        const focusable = Array.from(
+            container.querySelectorAll('input, button, select, textarea')
+        ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+        const idx = focusable.indexOf(e.target);
+
+        // If we're at the last focusable element or form is ready, save
+        if (idx === focusable.length - 1 || isFormReady()) {
+            const isBusy = editingEntry ? editSaving : saving;
+            if (isBusy) return;
+            editingEntry ? handleUpdate() : handleSave();
+        } else {
+            // Move to next field
+            focusNextField(e.target);
+        }
     };
 
     const handleDeleteEntry = async () => {
@@ -520,17 +624,6 @@ export default function CashDeposit() {
             set("remarks", `${t('cashDeposit.autoFillPrefix')}: ${milkSummary.qty.toFixed(2)}L × ₹${sellerDepositRate}/L`);
         }
     };
-
-    // filtered seller dropdown
-    const filteredSellers = (() => {
-        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
-        if (!sellerSearch.trim()) return sorted.slice(0, 5);
-        const matched = sorted.filter((s) =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
-        );
-        return matched.slice(0, 5);
-    })();
 
     const selectedSeller = sellers.find(s => String(s.seller_id) === String(form.seller_id));
 
@@ -709,35 +802,40 @@ export default function CashDeposit() {
                             </div>
                         )}
 
-                        <div className="flex items-start gap-3 flex-wrap relative z-10" onKeyDown={handleFormKeyDown}>
+                        <div className="flex items-start gap-3 flex-wrap relative z-10" data-entry-form onKeyDown={handleFormKeyDown}>
+                            {/* ── FIXED: Seller Code and Seller Name fields ── */}
+                            <Field label={t('cashDeposit.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
+                                <TinyInput
+                                    ref={sellerCodeRef}
+                                    value={sellerCodeInput}
+                                    onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                    placeholder="SC-001"
+                                    disabled={!!editingEntry}
+                                    className="text-[13px] font-mono w-24"
+                                />
+                            </Field>
 
-                            {/* Seller */}
                             <Field label={t('cashDeposit.seller')} icon={<User size={12} />}>
                                 <div className="relative" style={{ width: "160px" }} data-seller-anchor>
                                     <TinyInput
                                         value={sellerSearch}
                                         onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
                                         onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSellerSearch(val);
-                                            setHighlightedIdx(-1);
-                                            setDropdownOpen(true);
-                                            if (!val) { set("seller_id", ""); setBalance(null); setSellerDepositRate(null); setMilkSummary(null); return; }
-                                            const exact = sellers.find(s =>
-                                                String(s.seller_id) === val.trim() ||
-                                                (s.seller_code || "").toLowerCase() === val.trim().toLowerCase()
-                                            );
-                                            if (exact) handleSellerSelect(exact);
-                                        }}
+                                        onChange={(e) => handleSellerSearchChange(e.target.value)}
                                         onKeyDown={(e) => {
                                             if (!dropdownOpen || filteredSellers.length === 0) return;
                                             if (e.key === "ArrowDown") { e.preventDefault(); setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1)); }
                                             else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightedIdx(i => Math.max(i - 1, 0)); }
                                             else if (e.key === "Enter") {
                                                 e.preventDefault();
-                                                const sel = highlightedIdx >= 0 ? filteredSellers[highlightedIdx] : filteredSellers[0];
-                                                if (sel) handleSellerSelect(sel);
+                                                if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                    const sel = filteredSellers[highlightedIdx];
+                                                    handleSellerSelect(sel);
+                                                    focusNextField(e.currentTarget);
+                                                } else {
+                                                    setDropdownOpen(false);
+                                                    focusNextField(e.currentTarget);
+                                                }
                                             } else if (e.key === "Escape") setDropdownOpen(false);
                                         }}
                                         disabled={!!editingEntry}
@@ -755,12 +853,17 @@ export default function CashDeposit() {
                                             className="w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-[999] overflow-hidden"
                                         >
                                             <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
-                                                {sellerSearch.trim() ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('cashDeposit.matchesPlural') : t('cashDeposit.matches')}` : t('cashDeposit.sellersAZ')}
+                                                {sellerSearch.trim() || sellerCodeInput.trim()
+                                                    ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('cashDeposit.matchesPlural') : t('cashDeposit.matches')}`
+                                                    : t('cashDeposit.sellersAZ')}
                                             </p>
                                             {filteredSellers.map((s, idx) => (
                                                 <button key={s.seller_id} type="button"
                                                     onMouseEnter={() => setHighlightedIdx(idx)}
-                                                    onClick={() => handleSellerSelect(s)}
+                                                    onClick={() => {
+                                                        handleSellerSelect(s);
+                                                        focusNextField(e.currentTarget);
+                                                    }}
                                                     className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                                                     ${highlightedIdx === idx ? "bg-gray-100" : "hover:bg-gray-50"}`}>
                                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
@@ -828,6 +931,12 @@ export default function CashDeposit() {
                                         ? "bg-emerald-50/30 border-emerald-200/60 text-emerald-800 focus:ring-emerald-500/50"
                                         : "bg-rose-50/30 border-rose-200/60 text-rose-800 focus:ring-rose-500/50"}
                                     style={{ width: "120px" }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            focusNextField(e.target);
+                                        }
+                                    }}
                                 />
                             </Field>
 
@@ -838,6 +947,12 @@ export default function CashDeposit() {
                                     onChange={(e) => set("remarks", e.target.value)}
                                     placeholder={t('cashDeposit.remarksPlaceholder')}
                                     style={{ width: "200px" }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            focusNextField(e.target);
+                                        }
+                                    }}
                                 />
                             </Field>
                         </div>

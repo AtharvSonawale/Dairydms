@@ -1403,8 +1403,8 @@ export default function ProductSales() {
                                 </Field>
                             </div>
                             {selectedSeller && (
-                                <p className="text-[10px] text-emerald-600 font-medium -mt-2">
-                                    ID: {selectedSeller.seller_id} · {selectedSeller.seller_type || "—"}
+                                <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                                    {selectedSeller.seller_type || "—"}
                                 </p>
                             )}
                         </div>

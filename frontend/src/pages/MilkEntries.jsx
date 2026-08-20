@@ -1037,14 +1037,14 @@ export default function MilkEntryBase({ fixedSellerType }) {
         }
         lastSavedFatRaw.current = lastFatRaw;
         setForm(p => ({
-            ...p,
-            fat: machineFat || p.fat,
-            snf: machineSnf || p.snf,
-            protein: machineProtein || p.protein,
-        }));
-        const fatForRate = machineFat || form.fat;
-        const snfForRate = machineSnf || form.snf;
-        if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_type);
+    ...p,
+    fat: machineFat || p.fat,
+    snf: fatOnlyAutofill ? FIXED_AUTOFILL_SNF : (machineSnf || p.snf),
+    protein: machineProtein || p.protein,
+}));
+const fatForRate = machineFat || form.fat;
+const snfForRate = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : (machineSnf || form.snf);
+if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_type);
         setFatSavedToForm(true);
         showFlash("success", `Saved Fat ${machineFat || "—"}% / SNF ${machineSnf || "—"}% to the form.`);
     };
@@ -1815,8 +1815,14 @@ export default function MilkEntryBase({ fixedSellerType }) {
                                     <TinyInput
                                         value={form.fat}
                                         onChange={(e) => {
-                                            set("fat", e.target.value);
-                                            fetchAutoRate(e.target.value, form.snf, form.milk_type);
+                                            const fatVal = e.target.value;
+                                            set("fat", fatVal);
+                                            if (fatOnlyAutofill) {
+                                                set("snf", FIXED_AUTOFILL_SNF);
+                                                fetchAutoRate(fatVal, FIXED_AUTOFILL_SNF, form.milk_type);
+                                            } else {
+                                                fetchAutoRate(fatVal, form.snf, form.milk_type);
+                                            }
                                             setFatSavedToForm(false);
                                         }}
                                         placeholder="0.0" type="number" step="0.01"

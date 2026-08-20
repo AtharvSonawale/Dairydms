@@ -6,10 +6,9 @@ import {
     BadgeCheck, AlertTriangle, X, Users, Milk,
     CheckCircle2, Clock, Search, Banknote, TrendingUp,
     FileSearch, Hash, FileText, Trash2, Calendar, Download, Package, Percent,
-    Home, Settings
+    Home, Settings, Pencil
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
 
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
@@ -351,6 +350,8 @@ export default function SellerPayments() {
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState({});
     const [paying, setPaying] = useState(null);
+    const [customCutOverrides, setCustomCutOverrides] = useState({});
+    const [editingCutSellerId, setEditingCutSellerId] = useState(null);
     const [flash, setFlash] = useState(null);
     const [search, setSearch] = useState("");
     const [filterPaid, setFilterPaid] = useState("all");
@@ -508,6 +509,11 @@ export default function SellerPayments() {
         fetchPayments();
     }, [fetchPayments, cycleConfigLoaded]);
 
+    useEffect(() => {
+        setCustomCutOverrides({});
+        setEditingCutSellerId(null);
+    }, [customFrom, customTo]);
+
     const generatePreviewBillNo = (sellerId, fromDate, toDate) => {
         const from = new Date(fromDate);
         const to = new Date(toDate || fromDate);
@@ -516,6 +522,30 @@ export default function SellerPayments() {
         const toDay = String(to.getDate()).padStart(2, '0');
         const sellerSuffix = String(sellerId).padStart(4, '0');
         return `${month}${year}${toDay}${sellerSuffix}`;
+    };
+
+    const getEffectiveInstallmentCut = (seller) => {
+        const override = customCutOverrides[seller.seller_id];
+        const advGiven = parseFloat(seller.advance_given || 0);
+        if (override !== undefined && override !== "") {
+            const val = parseFloat(override);
+            if (!isNaN(val)) return Math.max(0, Math.min(val, advGiven));
+        }
+        return parseFloat(seller.installment_cut || 0);
+    };
+
+    const getEffectiveFinalPayable = (seller) => {
+        if (seller.is_paid || seller.bill_no) {
+            return Math.max(0, parseFloat(seller.final_payable || seller.cash_to_pay || 0));
+        }
+        const milkAmt = parseFloat(seller.milk_amount || 0);
+        const depositAmt = parseFloat(seller.deposit_amount || 0);
+        const cut = getEffectiveInstallmentCut(seller);
+        const productDed = parseFloat(seller.product_deduction || 0);
+        const walkinDed = parseFloat(seller.walkin_deduction || 0);
+        const cattleFeedDed = parseFloat(seller.cattle_feed_deduction || 0);
+        const raw = milkAmt - depositAmt - cut - productDed - walkinDed - cattleFeedDed;
+        return Math.max(0, parseFloat(raw.toFixed(2)));
     };
 
     const handleMarkPaid = async (e, sellerId) => {
@@ -527,9 +557,7 @@ export default function SellerPayments() {
         if (!seller) return;
 
         const depositAmount = parseFloat(seller.total_milk_quantity || 0) * parseFloat(seller.deposit_per_litre || 0);
-        const installmentCut = seller.advance_given > 0
-            ? (seller.deduction_amount > 0 ? Math.min(seller.deduction_amount, seller.advance_given) : seller.advance_given)
-            : 0;
+        const installmentCut = getEffectiveInstallmentCut(seller);
 
         const bill_no = generatePreviewBillNo(sellerId, cycle.from, cycle.to);
 
@@ -545,6 +573,12 @@ export default function SellerPayments() {
 
             const confirmedBillNo = paidData?.bill_no || bill_no;
             showFlash("success", t('sellerPayments.paidSuccess', { billNo: confirmedBillNo }));
+            setCustomCutOverrides(prev => {
+                if (!(sellerId in prev)) return prev;
+                const next = { ...prev };
+                delete next[sellerId];
+                return next;
+            });
             await fetchPayments();
         } catch (err) {
             showFlash("error", err.response?.data?.message || t('sellerPayments.paidError'));
@@ -571,116 +605,433 @@ export default function SellerPayments() {
     const toggleExpand = (id) =>
         setExpanded(p => ({ ...p, [id]: !p[id] }));
 
-    // ── PDF Generation Functions ──────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // INDUSTRY-GRADE PDF DESIGN SYSTEM - BLACK & WHITE ONLY
+    // ─────────────────────────────────────────────────────────────
 
-    // Generate PDF from HTML content
-    const generateReceiptPDF = async (htmlContent, fileName) => {
+    const PDF_PAGE = {
+        widthPx: 1123,
+        heightPx: 794,
+        widthMm: 297,
+        heightMm: 210,
+        marginMm: 10,
+        contentWidthMm: 277,
+        contentHeightMm: 190,
+    };
+
+    // Black & White only color scheme
+    const PDF_COLORS = {
+        ink: "#000000",
+        text: "#000000",
+        muted: "#444444",
+        subtle: "#888888",
+        border: "#cccccc",
+        borderDark: "#666666",
+        surface: "#f5f5f5",
+        surfaceAlt: "#e8e8e8",
+        primary: "#000000",
+        primaryDark: "#000000",
+        primaryLight: "#f0f0f0",
+        success: "#000000",
+        successBg: "#f0f0f0",
+        warning: "#000000",
+        warningBg: "#f5f5f5",
+        danger: "#000000",
+        dangerBg: "#f5f5f5",
+        info: "#000000",
+        infoBg: "#f0f0f0",
+        violet: "#000000",
+        violetBg: "#f0f0f0",
+        white: "#ffffff",
+    };
+
+    const pdfEscape = (value) => {
+        if (value === null || value === undefined) return "";
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    };
+
+    const pdfMoney = (value) =>
+        `₹${parseFloat(value || 0).toFixed(2)}`;
+
+    const pdfNumber = (value, decimals = 2) =>
+        parseFloat(value || 0).toFixed(decimals);
+
+    const pdfDate = (value) =>
+        value
+            ? new Date(value).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            })
+            : "—";
+
+    const pdfDateShort = (value) =>
+        value
+            ? new Date(value).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "2-digit",
+            })
+            : "—";
+
+    const pdfWaitForLayout = (ms = 300) =>
+        new Promise(resolve => setTimeout(resolve, ms));
+
+    // ─────────────────────────────────────────────────────────────
+    // Render HTML into a high-resolution canvas
+    // ─────────────────────────────────────────────────────────────
+
+    const renderPdfHtml = async (htmlContent) => {
+        let iframe = null;
+
         try {
-            const container = document.createElement('div');
-            container.innerHTML = htmlContent;
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.width = '1123px';
-            container.style.background = 'white';
-            container.style.padding = '20px';
-            container.style.zIndex = '-9999';
-            container.style.fontSize = '11px';
-            container.style.fontFamily = 'Arial, sans-serif';
-            container.style.color = '#000000';
-            document.body.appendChild(container);
+            iframe = document.createElement("iframe");
 
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            const canvas = await html2canvas(container, {
-                scale: 2.5,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff',
-                width: 1123,
-                height: container.scrollHeight,
-                onclone: (clonedDoc) => {
-                    const allElements = clonedDoc.querySelectorAll('*');
-                    allElements.forEach(el => {
-                        const computedStyle = window.getComputedStyle(el);
-                        const color = computedStyle.color;
-                        if (color !== 'rgb(255, 255, 255)' && color !== 'transparent') {
-                            el.style.color = '#000000';
-                        }
-                    });
-                }
+            Object.assign(iframe.style, {
+                position: "fixed",
+                left: "-100000px",
+                top: "0",
+                width: `${PDF_PAGE.widthPx}px`,
+                height: `${PDF_PAGE.heightPx}px`,
+                border: "0",
+                opacity: "0",
+                pointerEvents: "none",
+                zIndex: "-1",
             });
 
-            document.body.removeChild(container);
+            document.body.appendChild(iframe);
 
-            const pdf = new jsPDF('l', 'mm', 'a4');
-            const imgWidth = 297;
-            const pageHeight = 210;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(
+                    () => reject(new Error("PDF iframe load timeout")),
+                    10000
+                );
 
-            let heightLeft = imgHeight;
-            let position = 0;
+                iframe.onload = () => {
+                    clearTimeout(timeout);
+                    resolve();
+                };
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.98);
-            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+                iframe.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error("Unable to load PDF HTML"));
+                };
 
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+                iframe.srcdoc = htmlContent;
+            });
+
+            await pdfWaitForLayout(400);
+
+            const iframeDoc = iframe.contentDocument;
+
+            if (!iframeDoc?.body) {
+                throw new Error("PDF document body is unavailable");
             }
 
+            if (iframeDoc.fonts?.ready) {
+                await iframeDoc.fonts.ready;
+            }
+
+            const body = iframeDoc.body;
+            const documentElement = iframeDoc.documentElement;
+
+            const width = Math.max(
+                body.scrollWidth,
+                body.offsetWidth,
+                documentElement.scrollWidth,
+                PDF_PAGE.widthPx
+            );
+
+            const height = Math.max(
+                body.scrollHeight,
+                body.offsetHeight,
+                documentElement.scrollHeight
+            );
+
+            iframe.style.width = `${width}px`;
+            iframe.style.height = `${height}px`;
+
+            await pdfWaitForLayout(100);
+
+            const canvas = await html2canvas(body, {
+                scale: 3,
+                useCORS: true,
+                allowTaint: false,
+                logging: false,
+                backgroundColor: PDF_COLORS.white,
+                width,
+                height,
+                windowWidth: width,
+                windowHeight: height,
+                imageTimeout: 15000,
+                onclone: (clonedDocument) => {
+                    clonedDocument.documentElement.style.background =
+                        PDF_COLORS.white;
+                    clonedDocument.body.style.background =
+                        PDF_COLORS.white;
+                },
+            });
+
+            return canvas;
+
+        } finally {
+            if (iframe?.parentNode) {
+                iframe.parentNode.removeChild(iframe);
+            }
+        }
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // Add canvas to PDF pages - ensures content fits on one page
+    // ─────────────────────────────────────────────────────────────
+
+    const addCanvasToPdfPages = (pdf, canvas, options = {}) => {
+        const {
+            marginMm = PDF_PAGE.marginMm,
+            addPageBefore = false,
+        } = options;
+
+        const contentWidthMm =
+            PDF_PAGE.widthMm - marginMm * 2;
+
+        const contentHeightMm =
+            PDF_PAGE.heightMm - marginMm * 2;
+
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        // Calculate scaling to fit width
+        const scaleToFit = contentWidthMm / canvasWidth;
+        const scaledHeight = canvasHeight * scaleToFit;
+
+        // If content fits on one page, add it directly
+        if (scaledHeight <= contentHeightMm) {
+            if (addPageBefore) {
+                pdf.addPage("a4", "landscape");
+            }
+            const imageData = canvas.toDataURL("image/jpeg", 0.98);
+            pdf.addImage(
+                imageData,
+                "JPEG",
+                marginMm,
+                marginMm,
+                contentWidthMm,
+                scaledHeight,
+                undefined,
+                "FAST"
+            );
+            return;
+        }
+
+        // If content is taller than one page, we need to slice
+        const pixelsPerMm = canvasWidth / contentWidthMm;
+        const pageContentHeightPx =
+            Math.floor(contentHeightMm * pixelsPerMm);
+
+        let sourceY = 0;
+        let pageIndex = 0;
+
+        while (sourceY < canvasHeight) {
+            if (pageIndex > 0 || addPageBefore) {
+                pdf.addPage("a4", "landscape");
+            }
+
+            const remainingHeight = canvasHeight - sourceY;
+            const sliceHeightPx = Math.min(
+                pageContentHeightPx,
+                remainingHeight
+            );
+
+            const sliceCanvas = document.createElement("canvas");
+            sliceCanvas.width = canvasWidth;
+            sliceCanvas.height = sliceHeightPx;
+
+            const ctx = sliceCanvas.getContext("2d");
+            if (!ctx) {
+                throw new Error("Unable to create PDF canvas context");
+            }
+
+            ctx.fillStyle = PDF_COLORS.white;
+            ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+
+            ctx.drawImage(
+                canvas,
+                0,
+                sourceY,
+                canvasWidth,
+                sliceHeightPx,
+                0,
+                0,
+                canvasWidth,
+                sliceHeightPx
+            );
+
+            const sliceHeightMm = sliceHeightPx / pixelsPerMm;
+            const imageData = sliceCanvas.toDataURL("image/jpeg", 0.96);
+
+            pdf.addImage(
+                imageData,
+                "JPEG",
+                marginMm,
+                marginMm,
+                contentWidthMm,
+                sliceHeightMm,
+                undefined,
+                "FAST"
+            );
+
+            sourceY += sliceHeightPx;
+            pageIndex++;
+        }
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // Final PDF generator
+    // ─────────────────────────────────────────────────────────────
+
+    const generateReceiptPDF = async (htmlContent, fileName) => {
+        try {
+            const canvas = await renderPdfHtml(htmlContent);
+
+            const pdf = new jsPDF({
+                orientation: "landscape",
+                unit: "mm",
+                format: "a4",
+                compress: true,
+            });
+
+            addCanvasToPdfPages(pdf, canvas);
+
             pdf.save(fileName);
+
             return true;
+
         } catch (error) {
-            console.error('PDF generation error:', error);
+            console.error(
+                "[SellerPayments] PDF generation error:",
+                error
+            );
+
             return false;
         }
     };
 
-    // ── Build Receipt HTML (returns HTML string) ──
+    // ─────────────────────────────────────────────────────────────
+    // Build Receipt HTML - BLACK & WHITE ONLY, FITS ON ONE PAGE
+    // ─────────────────────────────────────────────────────────────
+
     const buildReceiptHtml = async (seller, overrideCycle) => {
         const activeCycle = overrideCycle || cycle;
 
-        let billData;
+        let billData = null;
+
         if (seller.bill_no) {
             try {
-                const { data } = await api.get(`/payments/bill/${seller.bill_no}`);
+                const { data } = await api.get(
+                    `/payments/bill/${seller.bill_no}`
+                );
                 billData = data;
-            } catch {
+            } catch (error) {
+                console.error(
+                    "Failed to load bill:",
+                    seller.bill_no,
+                    error
+                );
                 return null;
             }
         }
 
-        const entries = billData?.entries || seller.entries || [];
-        const productSales = billData?.productSales || [];
-        const walkinSales = billData?.walkinSales || [];
-        const cattleFeedSales = billData?.cattleFeedSales || [];
+        const entries =
+            billData?.entries ||
+            seller.entries ||
+            [];
+
+        const productSales =
+            billData?.productSales ||
+            [];
+
+        const walkinSales =
+            billData?.walkinSales ||
+            [];
+
+        const cattleFeedSales =
+            billData?.cattleFeedSales ||
+            [];
 
         const sellerObj = {
             ...seller,
             entries,
-            product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
-            walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
-            cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
-            installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
-            deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
-            deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
-            commission_amount: billData?.payment?.commission_amount ?? seller.commission_amount,
-            total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
-            advance_given: billData?.depositSnapshot?.[0] != null
-                ? (billData?.payment?.advance_given ?? seller.advance_given)
-                : seller.advance_given,
+            product_deduction:
+                billData?.payment?.product_deduction ??
+                seller.product_deduction,
+            walkin_deduction:
+                billData?.payment?.walkin_deduction ??
+                seller.walkin_deduction,
+            cattle_feed_deduction:
+                billData?.payment?.cattle_feed_deduction ??
+                seller.cattle_feed_deduction,
+            installment_cut:
+                billData?.payment?.installment_cut ??
+                seller.installment_cut,
+            deposit_amount: seller.bill_no
+                ? (
+                    billData?.depositAddedThisCycle ??
+                    billData?.payment?.deposit_amount ??
+                    seller.deposit_amount
+                )
+                : (
+                    billData?.payment?.deposit_amount ??
+                    seller.deposit_amount
+                ),
+            deposit_per_litre:
+                billData?.payment?.deposit_per_litre ??
+                seller.deposit_per_litre,
+            commission_amount:
+                billData?.payment?.commission_amount ??
+                seller.commission_amount,
+            total_milk_quantity:
+                entries.reduce(
+                    (sum, entry) =>
+                        sum + parseFloat(entry.quantity || 0),
+                    0
+                ),
+            advance_given:
+                billData?.depositSnapshot?.[0] != null
+                    ? (
+                        billData?.payment?.advance_given ??
+                        seller.advance_given
+                    )
+                    : seller.advance_given,
             opening_deposit: seller.bill_no
-                ? (billData?.depositSnapshot?.[0]?.deposit_balance_before ?? 0)
-                : (seller.deposit_balance ?? 0),
-            final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
-            cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
+                ? (
+                    billData?.depositSnapshot?.[0]
+                        ?.deposit_balance_before ?? 0
+                )
+                : (
+                    seller.deposit_balance ?? 0
+                ),
+            final_payable:
+                billData?.payment?.final_payable ??
+                billData?.payment?.cash_paid ??
+                seller.final_payable,
+            cash_to_pay:
+                billData?.payment?.cash_paid ??
+                seller.cash_to_pay,
             is_paid: true,
-            paid_at: billData?.payment?.paid_at || seller.paid_at,
-            bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, activeCycle.from, activeCycle.to),
+            paid_at:
+                billData?.payment?.paid_at ??
+                seller.paid_at,
+            bill_no:
+                seller.bill_no ||
+                generatePreviewBillNo(
+                    seller.seller_id,
+                    activeCycle.from,
+                    activeCycle.to
+                ),
         };
 
         const milkAmt = parseFloat(sellerObj.milk_amount || 0);
@@ -691,560 +1042,647 @@ export default function SellerPayments() {
         const cattleFeedDed = parseFloat(sellerObj.cattle_feed_deduction || 0);
         const advGiven = parseFloat(sellerObj.advance_given || 0);
         const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
-        const finalPayable = parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0);
-
+        const finalPayable = Math.max(0, parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0));
         const closingAdvance = Math.max(0, advGiven - installmentCut);
         const closingDeposit = openingDeposit + depositAmt;
 
-        const totalQty = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const cowQty = entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const buffaloQty = entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const avgFat = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.length).toFixed(2) : "0.00";
-        const avgSnf = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.length).toFixed(2) : "0.00";
+        const totalQty = entries.reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
+
+        const cowQty = entries
+            .filter(e => e.milk_type === "cow")
+            .reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
+
+        const buffaloQty = entries
+            .filter(e => e.milk_type === "buffalo")
+            .reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
+
+        const avgFat = entries.length
+            ? (entries.reduce((sum, e) => sum + parseFloat(e.fat || 0), 0) / entries.length).toFixed(2)
+            : "0.00";
+
+        const avgSnf = entries.length
+            ? (entries.reduce((sum, e) => sum + parseFloat(e.snf || 0), 0) / entries.length).toFixed(2)
+            : "0.00";
 
         const morningEntries = entries.filter(e => e.shift === "morning");
         const eveningEntries = entries.filter(e => e.shift === "evening");
-        const allDates = [...new Set(entries.map(e => e.entry_date?.split("T")[0]))].sort();
 
-        const mQty = morningEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const eQty = eveningEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const mAmt = morningEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
-        const eAmt = eveningEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
-        const mFat = morningEntries.length ? morningEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / morningEntries.length : 0;
-        const eFat = eveningEntries.length ? eveningEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / eveningEntries.length : 0;
-        const mSnf = morningEntries.length ? morningEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / morningEntries.length : 0;
-        const eSnf = eveningEntries.length ? eveningEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / eveningEntries.length : 0;
+        const allDates = [
+            ...new Set(
+                entries
+                    .map(e => e.entry_date?.split("T")[0])
+                    .filter(Boolean)
+            ),
+        ].sort();
 
-        const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
-        const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
-
-        const buildRow = (date) => {
-            const m = morningEntries.find(e => e.entry_date?.startsWith(date));
-            const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
-            const rowAmt = parseFloat(m?.total_amount || 0) + parseFloat(ev?.total_amount || 0);
-            const dayStr = new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit" });
-
-            const cell = (e) => e
-                ? `<td style="text-align:center">${parseFloat(e.quantity || 0).toFixed(2)}</td>
-                   <td style="text-align:center">${parseFloat(e.fat || 0).toFixed(1)}</td>
-                   <td style="text-align:center">${parseFloat(e.snf || 0).toFixed(1)}</td>
-                   <td style="text-align:center">${parseFloat(e.base_rate || e.rate_applied || 0).toFixed(2)}</td>
-                   <td style="text-align:center">${parseFloat(e.rate_applied || 0).toFixed(2)}</td>
-                   <td style="text-align:center">${parseFloat(e.total_amount || 0).toFixed(2)}</td>
-                   <td style="text-align:center">${parseFloat(e.rate_applied || 0).toFixed(2)}</td>`
-                : `<td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td>`;
-
-            return `<tr>
-                <td style="font-weight:600;background:#f8f8f8;text-align:center">${dayStr}</td>
-                ${cell(m)}
-                ${cell(ev)}
-                <td style="font-weight:700;background:#f0f4ff;text-align:right">${rowAmt > 0 ? rowAmt.toFixed(2) : "—"}</td>
-              </tr>`;
-        };
-
-        const productSalesTable = productSales.length > 0 ? `
-        <div class="section-title">${t('sellerPayments.productSalesDeductions')}</div>
-        <table style="margin-bottom:10px">
-            <thead>
-                <tr>
-                    <th style="text-align:left">${t('sellerPayments.product')}</th>
-                    <th>${t('sellerPayments.qty')}</th>
-                    <th>${t('sellerPayments.rate')}</th>
-                    <th>${t('sellerPayments.amount')}</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${productSales.map((p, i) => `
-                    <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
-                        <td style="text-align:left">${p.product_name || t('sellerPayments.unknown')}</td>
-                        <td style="text-align:center">${parseFloat(p.quantity || 0).toFixed(2)} ${p.unit || ''}</td>
-                        <td style="text-align:center">Rs.${parseFloat(p.rate || 0).toFixed(2)}</td>
-                        <td style="font-weight:600;text-align:right">${fmtR(p.total_amount)}</td>
-                      </tr>`).join('')}
-                <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
-                    <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
-                    <td style="text-align:right">${fmtR(productDed)}</td>
-                  </tr>
-            </tbody>
-          </table>` : "";
-
-        const cattleFeedTable = cattleFeedSales.length > 0 ? `
-        <div class="section-title">${t('sellerPayments.cattleFeedDeductions')}</div>
-        <table style="margin-bottom:10px">
-            <thead>
-                <tr>
-                    <th style="text-align:left">${t('sellerPayments.feed')}</th>
-                    <th>${t('sellerPayments.qty')}</th>
-                    <th>${t('sellerPayments.rate')}</th>
-                    <th>${t('sellerPayments.amount')}</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${cattleFeedSales.map((f, i) => `
-                    <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
-                        <td style="text-align:left">${f.feed_name || t('sellerPayments.unknown')}</td>
-                        <td style="text-align:center">${parseFloat(f.quantity || 0).toFixed(2)}</td>
-                        <td style="text-align:center">Rs.${parseFloat(f.rate || 0).toFixed(2)}</td>
-                        <td style="font-weight:600;text-align:right">${fmtR(f.total_amount)}</td>
-                      </tr>`).join('')}
-                <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
-                    <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
-                    <td style="text-align:right">${fmtR(cattleFeedDed)}</td>
-                  </tr>
-            </tbody>
-          </table>` : "";
-
-        const walkinTotal = walkinDed > 0 ? `
-        <div style="display:flex;justify-content:space-between;align-items:center;
-                    padding:8px 12px; background:#f0f0f0; border:1px solid #000; 
-                    border-radius:6px; margin-bottom:10px">
-            <span style="font-weight:600; color:#000">${t('sellerPayments.milkBoughtBySeller')}</span>
-            <span style="font-weight:700; font-size:13px; color:#000">${fmtR(walkinDed)}</span>
-        </div>` : "";
+        const mQty = morningEntries.reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
+        const eQty = eveningEntries.reduce((sum, e) => sum + parseFloat(e.quantity || 0), 0);
+        const mAmt = morningEntries.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+        const eAmt = eveningEntries.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+        const mFat = morningEntries.length ? morningEntries.reduce((sum, e) => sum + parseFloat(e.fat || 0), 0) / morningEntries.length : 0;
+        const eFat = eveningEntries.length ? eveningEntries.reduce((sum, e) => sum + parseFloat(e.fat || 0), 0) / eveningEntries.length : 0;
+        const mSnf = morningEntries.length ? morningEntries.reduce((sum, e) => sum + parseFloat(e.snf || 0), 0) / morningEntries.length : 0;
+        const eSnf = eveningEntries.length ? eveningEntries.reduce((sum, e) => sum + parseFloat(e.snf || 0), 0) / eveningEntries.length : 0;
 
         const commissionAmt = parseFloat(sellerObj.commission_amount || 0);
-        const commissionBanner = (sellerObj.seller_type === 'Gavali' && commissionAmt > 0) ? `
-    <div style="display:flex;justify-content:space-between;align-items:center;
-                padding:8px 12px; background:#faf5ff; border:1px solid #e9d5ff; 
-                border-radius:6px; margin-bottom:10px">
-        <span style="font-weight:600; color:#7c3aed">${t('sellerPayments.gavaliCommissionIncluded') || 'Gavali Commission (included in milk rate)'}</span>
-        <span style="font-weight:700; font-size:13px; color:#7c3aed">+ ${fmtR(commissionAmt)}</span>
-    </div>` : "";
+
+        // Build entry rows - limit to 5 entries max for compact layout
+        let entryRows = '';
+        const displayEntries = entries.slice(0, 5);
+        const hasMoreEntries = entries.length > 5;
+
+        displayEntries.forEach((e, i) => {
+            const date = new Date(e.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+            const shift = e.shift === "morning" ? "M" : "E";
+            const type = e.milk_type === "cow" ? "C" : "B";
+            const qty = parseFloat(e.quantity || 0).toFixed(1);
+            const fat = parseFloat(e.fat || 0).toFixed(1);
+            const snf = parseFloat(e.snf || 0).toFixed(1);
+            const rate = parseFloat(e.rate_applied || 0).toFixed(2);
+            const amt = parseFloat(e.total_amount || 0).toFixed(2);
+            const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
+            entryRows += `
+                <tr style="background:${bg}">
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:center">${date}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:center">${shift}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:center">${type}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right;font-weight:600">${qty}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${fat}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${snf}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${rate}</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right;font-weight:600">${amt}</td>
+                </tr>
+            `;
+        });
+
+        if (hasMoreEntries) {
+            entryRows += `
+                <tr style="background:#f0f0f0;font-style:italic;">
+                    <td colspan="7" style="padding:2px 3px;border:1px solid #ccc;font-size:6px;text-align:center;color:#666;">+ ${entries.length - 5} more</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:6px;"></td>
+                </tr>
+            `;
+        }
+
+        // Build product sales rows - limit to 3
+        let productRows = '';
+        if (productSales.length > 0) {
+            productSales.slice(0, 3).forEach((p, i) => {
+                const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
+                productRows += `
+                    <tr style="background:${bg}">
+                        <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:left">${pdfEscape(p.product_name || 'Unknown')}</td>
+                        <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${parseFloat(p.quantity || 0).toFixed(2)}</td>
+                        <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${pdfMoney(p.total_amount)}</td>
+                    </tr>
+                `;
+            });
+            if (productSales.length > 3) {
+                productRows += `
+                    <tr style="background:#f0f0f0;font-style:italic;">
+                        <td colspan="3" style="padding:2px 3px;border:1px solid #ccc;font-size:6px;text-align:center;color:#666;">+ ${productSales.length - 3} more</td>
+                    </tr>
+                `;
+            }
+            // Add total row
+            productRows += `
+                <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #666;">
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">Total</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;"></td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${pdfMoney(productDed)}</td>
+                </tr>
+            `;
+        }
+
+        // Build cattle feed rows - limit to 2
+        let cattleRows = '';
+        if (cattleFeedSales.length > 0) {
+            cattleFeedSales.slice(0, 2).forEach((f, i) => {
+                const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
+                cattleRows += `
+                    <tr style="background:${bg}">
+                        <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:left">${pdfEscape(f.feed_name || 'Unknown')}</td>
+                        <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${parseFloat(f.quantity || 0).toFixed(2)}</td>
+                        <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${pdfMoney(f.total_amount)}</td>
+                    </tr>
+                `;
+            });
+            if (cattleFeedSales.length > 2) {
+                cattleRows += `
+                    <tr style="background:#f0f0f0;font-style:italic;">
+                        <td colspan="3" style="padding:2px 3px;border:1px solid #ccc;font-size:6px;text-align:center;color:#666;">+ ${cattleFeedSales.length - 2} more</td>
+                    </tr>
+                `;
+            }
+            cattleRows += `
+                <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #666;">
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">Total</td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;"></td>
+                    <td style="padding:2px 3px;border:1px solid #ccc;font-size:7px;text-align:right">${pdfMoney(cattleFeedDed)}</td>
+                </tr>
+            `;
+        }
+
+        // Build walk-in banner
+        const walkinBanner = walkinDed > 0 ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;margin:3px 0;border:1px solid #666;background:#f5f5f5;font-size:7px;">
+                <span style="font-weight:600;">${pdfEscape(t("sellerPayments.milkBoughtBySeller"))}</span>
+                <strong style="font-size:8px;">${pdfMoney(walkinDed)}</strong>
+            </div>
+        ` : "";
+
+        const commissionBanner = sellerObj.seller_type === "Gavali" && commissionAmt > 0 ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;margin:3px 0;border:1px solid #666;background:#f0f0f0;font-size:7px;">
+                <span style="font-weight:600;">${pdfEscape(t("sellerPayments.gavaliCommissionIncluded") || "Gavali Commission (included in milk rate)")}</span>
+                <strong style="font-size:8px;">+ ${pdfMoney(commissionAmt)}</strong>
+            </div>
+        ` : "";
+
+        // Format date for period
+        const periodFrom = new Date(activeCycle.from).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const periodTo = new Date(activeCycle.to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
         return `<!DOCTYPE html>
-    <html>
-    <head>
-        <title>${t('sellerPayments.paymentReceipt')} - ${sellerObj.name}</title>
-        <style>
-            * { 
-                -webkit-print-color-adjust: exact !important; 
-                print-color-adjust: exact !important; 
-                color-adjust: exact !important;
-                box-sizing: border-box;
-            }
-            body { 
-                font-family: Arial, sans-serif; 
-                font-size: 11px; 
-                color: #000000 !important;
-                margin: 0; 
-                padding: 16px;
-                background: #ffffff;
-            }
-            h1 { margin: 0; font-size: 16px; color: #000000 !important; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { 
-                border: 1px solid #000000 !important;
-                padding: 4px 6px; 
-                text-align: center; 
-                font-size: 10px;
-                color: #000000 !important;
-            }
-            th { 
-                background: #e0e0e0 !important;
-                color: #000000 !important; 
-                font-weight: 700;
-                white-space: nowrap;
-            }
-            .section-title {
-                font-size: 10px; 
-                font-weight: bold; 
-                text-transform: uppercase;
-                letter-spacing: 0.5px; 
-                color: #000000 !important;
-                margin: 14px 0 4px; 
-                border-bottom: 2px solid #000000 !important; 
-                padding-bottom: 3px;
-            }
-            .info-grid {
-                display: grid; 
-                grid-template-columns: repeat(4,1fr); 
-                gap: 6px 16px;
-                background: #f0f0f0 !important;
-                padding: 10px; 
-                border-radius: 4px; 
-                margin-bottom: 10px;
-                border: 1px solid #000000 !important;
-            }
-            .info-item .lbl { 
-                font-size: 9px; 
-                color: #333333 !important; 
-                text-transform: uppercase; 
-            }
-            .info-item .val { 
-                font-size: 12px; 
-                font-weight: bold; 
-                color: #000000 !important;
-                margin-top: 1px; 
-            }
-            .summary-grid { 
-                display: grid; 
-                grid-template-columns: repeat(4,1fr); 
-                gap: 6px; 
-                margin-bottom: 10px; 
-            }
-            .summary-box { 
-                border: 1px solid #000000 !important; 
-                border-radius: 4px; 
-                padding: 6px 8px;
-                background: #fafafa !important;
-            }
-            .summary-box .lbl { 
-                font-size: 9px; 
-                color: #333333 !important; 
-                text-transform: uppercase; 
-            }
-            .summary-box .val { 
-                font-size: 13px; 
-                font-weight: bold; 
-                color: #000000 !important;
-                margin-top: 2px; 
-            }
-            .summary-box .sub { 
-                font-size: 9px; 
-                color: #555555 !important; 
-                margin-top: 2px; 
-            }
-            .bottom-summary {
-                display: grid; 
-                grid-template-columns: 1fr 1fr 1fr; 
-                gap: 0;
-                border: 1px solid #000000 !important; 
-                border-radius: 6px; 
-                overflow: hidden; 
-                margin-bottom: 10px;
-            }
-            .bs-col { padding: 0; }
-            .bs-col-header {
-                background: #d0d0d0 !important;
-                color: #000000 !important; 
-                font-size: 10px; 
-                font-weight: bold;
-                text-align: center; 
-                padding: 5px 8px; 
-                text-transform: uppercase; 
-                letter-spacing: 0.4px;
-                border-bottom: 1px solid #000000 !important;
-            }
-            .bs-row {
-                display: flex; 
-                justify-content: space-between;
-                padding: 4px 10px; 
-                border-bottom: 1px solid #cccccc !important; 
-                font-size: 10px;
-            }
-            .bs-row:last-child { border-bottom: none; }
-            .bs-row .key { color: #333333 !important; }
-            .bs-row .val { 
-                font-weight: 600; 
-                font-family: monospace;
-                color: #000000 !important;
-            }
-            .bs-col + .bs-col { border-left: 1px solid #000000 !important; }
-            .bs-total-row {
-                display: flex; 
-                justify-content: space-between;
-                padding: 6px 10px; 
-                font-size: 11px; 
-                font-weight: bold;
-                border-top: 2px solid #000000 !important; 
-                background: #e8e8e8 !important;
-            }
-            .bs-total-row span { color: #000000 !important; }
-            .deduction-row {
-                display: flex; 
-                justify-content: space-between;
-                padding: 5px 10px; 
-                border-bottom: 1px solid #cccccc !important; 
-                font-size: 11px;
-            }
-            .deduction-row span { color: #000000 !important; }
-            .net-row {
-                display: flex; 
-                justify-content: space-between; 
-                padding: 10px 12px;
-                background: #333333 !important;
-                color: #ffffff !important;
-                font-size: 13px; 
-                font-weight: bold;
-                border: 1px solid #000000 !important;
-            }
-            .net-row span { color: #ffffff !important; }
-            @media print {
-                body { padding: 8px; }
-                .no-print { display: none; }
-                @page { size: A4 portrait; margin: 8mm; }
-            }
-        </style>
-    </head>
-    <body>
-
-    <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;
-                border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
-        <div>
-            <h1>${appName}</h1>
-            <div style="font-size:10px;color:#333;margin-top:2px;">${t('sellerPayments.milkCollectionReceipt')}</div>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${pdfEscape(t("sellerPayments.paymentReceipt"))} - ${pdfEscape(sellerObj.name)}</title>
+<style>
+@page {
+    size: A4 landscape;
+    margin: 8mm;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+}
+body {
+    width: 100%;
+    font-family: Arial, "Helvetica Neue", "Noto Sans", sans-serif;
+    font-size: 8px;
+    line-height: 1.25;
+    color: #000000;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    text-rendering: geometricPrecision;
+}
+.receipt {
+    width: 100%;
+    max-width: 1123px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 2px 0;
+}
+/* ── HEADER ── */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 4px;
+    margin-bottom: 5px;
+    border-bottom: 2px solid #000000;
+}
+.brand-name {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: #000000;
+}
+.document-title {
+    font-size: 8px;
+    line-height: 1.2;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #444444;
+}
+.header-meta {
+    text-align: right;
+    font-size: 7px;
+    line-height: 1.4;
+    color: #444444;
+}
+.header-meta .cycle {
+    font-size: 9px;
+    font-weight: 700;
+    color: #000000;
+}
+.header-meta .bill {
+    font-family: "Courier New", monospace;
+    font-weight: 700;
+    color: #000000;
+}
+/* ── SELLER INFO GRID ── */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 0.8fr 0.7fr 0.7fr 0.8fr 0.9fr 0.8fr 0.9fr;
+    border: 1px solid #cccccc;
+    background: #f5f5f5;
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+.info-item {
+    padding: 3px 5px;
+    border-right: 1px solid #cccccc;
+}
+.info-item:last-child { border-right: 0; }
+.info-label {
+    font-size: 5.5px;
+    line-height: 1.1;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #666666;
+}
+.info-value {
+    font-size: 8px;
+    line-height: 1.2;
+    font-weight: 600;
+    color: #000000;
+}
+.mono { font-family: "Courier New", monospace; }
+/* ── KPI GRID ── */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-bottom: 5px;
+}
+.kpi {
+    padding: 4px 6px;
+    border: 1px solid #cccccc;
+    background: #ffffff;
+}
+.kpi-label {
+    font-size: 5.5px;
+    line-height: 1.1;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #666666;
+}
+.kpi-value {
+    font-size: 11px;
+    line-height: 1.1;
+    font-weight: 700;
+    color: #000000;
+}
+.kpi-sub {
+    font-size: 5.5px;
+    line-height: 1.1;
+    color: #666666;
+}
+/* ── SECTIONS ── */
+.section { margin-top: 4px; margin-bottom: 4px; }
+.section-heading {
+    display: flex;
+    align-items: center;
+    min-height: 14px;
+    margin-bottom: 2px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #666666;
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #000000;
+}
+/* ── TABLES ── */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-size: 6.5px;
+}
+th, td {
+    border: 1px solid #cccccc;
+    padding: 2px 3px;
+    vertical-align: middle;
+    text-align: center;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+th {
+    background: #e8e8e8;
+    color: #000000;
+    font-size: 5.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+td { color: #000000; font-weight: 500; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
+.num { text-align: center; }
+.money {
+    text-align: right;
+    font-family: "Courier New", monospace;
+    font-variant-numeric: tabular-nums;
+}
+.strong { font-weight: 700; color: #000000; }
+.rate-final { font-weight: 600; color: #000000; }
+.empty { color: #888888; }
+.date-cell { background: #f5f5f5; font-weight: 700; color: #000000; }
+.day-total { background: #f0f0f0; font-weight: 700; color: #000000; }
+.alt-row { background: #fafafa; }
+.total-row td {
+    background: #e8e8e8;
+    border-top: 2px solid #666666;
+    font-weight: 700;
+}
+.milk-table th { color: #000000; }
+.morning-group { background: #e8e8e8 !important; }
+.evening-group { background: #d0d0d0 !important; }
+.day-total-head { background: #cccccc !important; color: #000000 !important; }
+/* ── ACCOUNT SUMMARY ── */
+.account-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid #cccccc;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.account { border-right: 1px solid #cccccc; }
+.account:last-child { border-right: 0; }
+.account-header {
+    padding: 3px 6px;
+    background: #000000;
+    color: #ffffff;
+    text-align: center;
+    font-size: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.account-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    min-height: 17px;
+    padding: 2px 6px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 6.5px;
+}
+.account-row:last-child { border-bottom: 0; }
+.account-label { color: #444444; }
+.account-value {
+    flex-shrink: 0;
+    font-family: "Courier New", monospace;
+    font-weight: 700;
+    color: #000000;
+}
+.account-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 6px;
+    border-top: 2px solid #666666;
+    background: #e8e8e8;
+    font-size: 7px;
+    font-weight: 700;
+}
+/* ── BREAKDOWN ── */
+.breakdown {
+    border: 1px solid #cccccc;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    min-height: 18px;
+    padding: 2px 6px;
+    border-bottom: 1px solid #cccccc;
+    font-size: 6.5px;
+}
+.breakdown-row:last-child { border-bottom: 0; }
+.breakdown-label { color: #000000; }
+.breakdown-detail {
+    margin-left: 3px;
+    color: #666666;
+    font-size: 5.5px;
+}
+.breakdown-value {
+    flex-shrink: 0;
+    font-family: "Courier New", monospace;
+    font-weight: 700;
+}
+.breakdown-positive { background: #f0fdf4; }
+.breakdown-negative { background: #fef2f2; }
+.breakdown-info { background: #eff6ff; }
+.breakdown-warning { background: #fffbeb; }
+.net-payable {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: #000000;
+    color: #ffffff;
+}
+.net-payable .label {
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #ffffff;
+}
+.net-payable .amount {
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffffff;
+}
+/* ── FOOTER ── */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 4px;
+    padding-top: 3px;
+    border-top: 1px solid #cccccc;
+    color: #666666;
+    font-size: 5.5px;
+}
+.footer-right { text-align: right; }
+/* ── PAGE BREAKS ── */
+.section, .kpi, .account, .breakdown {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+tr { break-inside: avoid; page-break-inside: avoid; }
+thead { display: table-header-group; }
+@media print {
+    body { width: 100%; }
+    .receipt { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="receipt">
+    <!-- HEADER -->
+    <header class="header">
+        <div class="brand">
+            <div class="brand-name">${pdfEscape(appName)}</div>
+            <div class="document-title">${pdfEscape(t("sellerPayments.milkCollectionReceipt"))}</div>
         </div>
-        <div style="text-align:right;font-size:10px;color:#333">
-            <div style="font-weight:bold;font-size:12px;color:#000">
-                ${fmtD(activeCycle.from)} – ${fmtD(activeCycle.to)}
-            </div>
-            <div>${t('sellerPayments.billNo')}: <strong style="font-family:monospace;color:#000">${sellerObj.bill_no}</strong></div>
-            <div>${t('sellerPayments.generated')}: ${fmtD(new Date().toISOString())}</div>
+        <div class="header-meta">
+            <div class="cycle">${periodFrom} – ${periodTo}</div>
+            <div>${pdfEscape(t("sellerPayments.billNo"))}: <span class="bill">${pdfEscape(sellerObj.bill_no)}</span></div>
+            <div>${pdfEscape(t("sellerPayments.generated"))}: ${pdfDate(new Date())}</div>
         </div>
-    </div>
+    </header>
 
-    <!-- Seller Info -->
+    <!-- SELLER INFORMATION -->
     <div class="info-grid">
-        <div class="info-item">
-            <div class="lbl">${t('sellerPayments.sellerName')}</div>
-            <div class="val">${sellerObj.name}</div>
-        </div>
-        <div class="info-item">
-            <div class="lbl">${t('sellerPayments.sellerCode')}</div>
-            <div class="val" style="font-family:monospace">${sellerObj.seller_code}</div>
-        </div>
-        <div class="info-item">
-            <div class="lbl">${t('sellerPayments.totalEntries')}</div>
-            <div class="val">${entries.length} ${t('sellerPayments.entries')}</div>
-        </div>
-        <div class="info-item">
-            <div class="lbl">${t('sellerPayments.status')}</div>
-            <div class="val" style="color:#000">
-                ${sellerObj.is_paid ? t('sellerPayments.paid') : t('sellerPayments.pending')}
-                ${sellerObj.paid_at
-                ? `<span style="font-size:9px;font-weight:normal;color:#333;display:block">${t('sellerPayments.on')} ${fmtD(sellerObj.paid_at)}</span>`
-                : ""}
-            </div>
-        </div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.sellerName"))}</div><div class="info-value">${pdfEscape(sellerObj.name || "—")}</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.sellerCode"))}</div><div class="info-value mono">${pdfEscape(sellerObj.seller_code || "—")}</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.status"))}</div><div class="info-value">${pdfEscape(sellerObj.is_paid ? t("sellerPayments.paid") : t("sellerPayments.pending"))}</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.totalEntries"))}</div><div class="info-value">${entries.length}</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.totalQty"))}</div><div class="info-value">${totalQty.toFixed(2)} L</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.morning"))}/${pdfEscape(t("sellerPayments.evening"))}</div><div class="info-value">${mQty.toFixed(1)}/${eQty.toFixed(1)} L</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.cowBuffalo"))}</div><div class="info-value">${cowQty.toFixed(1)}/${buffaloQty.toFixed(1)} L</div></div>
+        <div class="info-item"><div class="info-label">${pdfEscape(t("sellerPayments.avgFat"))}/${pdfEscape(t("sellerPayments.avgSnf"))}</div><div class="info-value">${avgFat}/${avgSnf}</div></div>
     </div>
 
-    <!-- Top Summary Cards -->
-    <div class="summary-grid">
-        <div class="summary-box">
-            <div class="lbl">${t('sellerPayments.totalQty')}</div>
-            <div class="val">${totalQty.toFixed(2)} L</div>
-            <div class="sub">${t('sellerPayments.morning')}: ${mQty.toFixed(2)} L &nbsp;|&nbsp; ${t('sellerPayments.evening')}: ${eQty.toFixed(2)} L</div>
-        </div>
-        <div class="summary-box">
-            <div class="lbl">${t('sellerPayments.cowBuffalo')}</div>
-            <div class="val">${cowQty.toFixed(2)} / ${buffaloQty.toFixed(2)} L</div>
-        </div>
-        <div class="summary-box">
-            <div class="lbl">${t('sellerPayments.avgFat')}</div>
-            <div class="val">${avgFat}%</div>
-            <div class="sub">${t('sellerPayments.morningShort')}: ${mFat.toFixed(1)} &nbsp;|&nbsp; ${t('sellerPayments.eveningShort')}: ${eFat.toFixed(1)}</div>
-        </div>
-        <div class="summary-box">
-            <div class="lbl">${t('sellerPayments.avgSnf')}</div>
-            <div class="val">${avgSnf}</div>
-            <div class="sub">${t('sellerPayments.morningShort')}: ${mSnf.toFixed(1)} &nbsp;|&nbsp; ${t('sellerPayments.eveningShort')}: ${eSnf.toFixed(1)}</div>
-        </div>
+    <!-- KPI SUMMARY -->
+    <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">${pdfEscape(t("sellerPayments.milkAmount"))}</div><div class="kpi-value">${pdfMoney(milkAmt)}</div></div>
+        <div class="kpi"><div class="kpi-label">${pdfEscape(t("sellerPayments.advancePending"))}</div><div class="kpi-value">${pdfMoney(advGiven)}</div><div class="kpi-sub">${pdfEscape(t("sellerPayments.openingBalance"))}</div></div>
+        <div class="kpi"><div class="kpi-label">${pdfEscape(t("sellerPayments.advanceCut"))}</div><div class="kpi-value">− ${pdfMoney(installmentCut)}</div><div class="kpi-sub">${pdfEscape(t("sellerPayments.installment"))}</div></div>
+        <div class="kpi"><div class="kpi-label">${pdfEscape(t("sellerPayments.closingAdvance"))}</div><div class="kpi-value">${pdfMoney(closingAdvance)}</div><div class="kpi-sub">${pdfEscape(t("sellerPayments.remaining"))}</div></div>
     </div>
 
-    <!-- Day-wise Entry Table -->
+    <!-- DAILY MILK BREAKDOWN -->
     ${entries.length > 0 ? `
-    <div class="section-title">${t('sellerPayments.dailyEntryBreakdown')}</div>
-    <table style="margin-bottom:10px">
-        <thead>
-            <tr>
-                <th rowspan="2" style="width:48px">${t('sellerPayments.date')}</th>
-                <th colspan="7" style="background:#d0d0d0">${t('sellerPayments.morningShift')}</th>
-                <th colspan="7" style="background:#c0c0c0">${t('sellerPayments.eveningShift')}</th>
-                <th rowspan="2" style="background:#b0b0b0;width:64px">${t('sellerPayments.dayTotal')}</th>
-              </tr>
-              <tr>
-                <th style="background:#d0d0d0">${t('sellerPayments.qtyL')}</th>
-                <th style="background:#d0d0d0">${t('sellerPayments.fat')}</th>
-                <th style="background:#d0d0d0">${t('sellerPayments.snf')}</th>
-                <th style="background:#d0d0d0">${t('sellerPayments.rateBeforeComm')}</th>
-                <th style="background:#d0d0d0">${t('sellerPayments.rateAfterComm')}</th>
-                <th style="background:#d0d0d0">${t('sellerPayments.amt')}</th>
-                <th style="background:#d0d0d0">${t('sellerPayments.ratePerLtr')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.qtyL')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.fat')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.snf')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.rateBeforeComm')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.rateAfterComm')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.amt')}</th>
-                <th style="background:#c0c0c0">${t('sellerPayments.ratePerLtr')}</th>
-              </tr>
-        </thead>
-        <tbody>
-            ${allDates.map(buildRow).join("")}
-            <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #000">
-                <td style="background:#e8e8e8">${t('sellerPayments.total')}</td>
-                <td style="text-align:center">${mQty.toFixed(2)}</td>
-                <td style="text-align:center">${mFat.toFixed(1)}</td>
-                <td style="text-align:center">${mSnf.toFixed(1)}</td>
-                <td style="text-align:center">—</td>
-                <td style="text-align:center">—</td>
-                <td style="color:#000;text-align:right">${mAmt.toFixed(2)}</td>
-                <td style="text-align:center">${mQty > 0 ? (mAmt / mQty).toFixed(2) : '—'}</td>
-                <td style="text-align:center">${eQty.toFixed(2)}</td>
-                <td style="text-align:center">${eFat.toFixed(1)}</td>
-                <td style="text-align:center">${eSnf.toFixed(1)}</td>
-                <td style="text-align:center">—</td>
-                <td style="text-align:center">—</td>
-                <td style="color:#000;text-align:right">${eAmt.toFixed(2)}</td>
-                <td style="text-align:center">${eQty > 0 ? (eAmt / eQty).toFixed(2) : '—'}</td>
-                <td style="color:#000;background:#d0d0d0;text-align:right">${milkAmt.toFixed(2)}</td>
-              </tr>
-        </tbody>
-    </table>` : ""}
+    <section class="section">
+        <div class="section-heading">${pdfEscape(t("sellerPayments.dailyEntryBreakdown"))}</div>
+        <table class="milk-table">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width:38px">${pdfEscape(t("sellerPayments.date"))}</th>
+                    <th colspan="7" class="morning-group">${pdfEscape(t("sellerPayments.morningShift"))}</th>
+                    <th colspan="7" class="evening-group">${pdfEscape(t("sellerPayments.eveningShift"))}</th>
+                    <th rowspan="2" class="day-total-head" style="width:48px">${pdfEscape(t("sellerPayments.dayTotal"))}</th>
+                </tr>
+                <tr>
+                    ${["qtyL", "fat", "snf", "rateBeforeComm", "rateAfterComm", "amt", "ratePerLtr"].map(key => `<th class="morning-group">${pdfEscape(t(`sellerPayments.${key}`))}</th>`).join("")}
+                    ${["qtyL", "fat", "snf", "rateBeforeComm", "rateAfterComm", "amt", "ratePerLtr"].map(key => `<th class="evening-group">${pdfEscape(t(`sellerPayments.${key}`))}</th>`).join("")}
+                </tr>
+            </thead>
+            <tbody>
+                ${allDates.map(date => {
+            const morning = morningEntries.find(e => e.entry_date?.startsWith(date));
+            const evening = eveningEntries.find(e => e.entry_date?.startsWith(date));
+            const dayAmount = parseFloat(morning?.total_amount || 0) + parseFloat(evening?.total_amount || 0);
+            const milkCell = (entry) => {
+                if (!entry) return `<td class="num empty">—</td><td class="num empty">—</td><td class="num empty">—</td><td class="money empty">—</td><td class="money empty">—</td><td class="money empty">—</td><td class="num empty">—</td>`;
+                const qty = parseFloat(entry.quantity || 0);
+                const fat = parseFloat(entry.fat || 0);
+                const snf = parseFloat(entry.snf || 0);
+                const baseRate = parseFloat(entry.base_rate || entry.rate_applied || 0);
+                const finalRate = parseFloat(entry.rate_applied || 0);
+                const amount = parseFloat(entry.total_amount || 0);
+                return `<td class="num">${qty.toFixed(2)}</td><td class="num">${fat.toFixed(1)}</td><td class="num">${snf.toFixed(1)}</td><td class="money">${baseRate.toFixed(2)}</td><td class="money rate-final">${finalRate.toFixed(2)}</td><td class="money strong">${amount.toFixed(2)}</td><td class="num">${qty > 0 ? (amount / qty).toFixed(2) : "—"}</td>`;
+            };
+            return `<tr><td class="date-cell">${pdfDateShort(date)}</td>${milkCell(morning)}${milkCell(evening)}<td class="money day-total">${dayAmount > 0 ? dayAmount.toFixed(2) : "—"}</td></tr>`;
+        }).join("")}
+                <tr class="total-row">
+                    <td>${pdfEscape(t("sellerPayments.total"))}</td>
+                    <td>${mQty.toFixed(2)}</td><td>${mFat.toFixed(1)}</td><td>${mSnf.toFixed(1)}</td><td>—</td><td>—</td><td class="money">${mAmt.toFixed(2)}</td><td>${mQty > 0 ? (mAmt / mQty).toFixed(2) : "—"}</td>
+                    <td>${eQty.toFixed(2)}</td><td>${eFat.toFixed(1)}</td><td>${eSnf.toFixed(1)}</td><td>—</td><td>—</td><td class="money">${eAmt.toFixed(2)}</td><td>${eQty > 0 ? (eAmt / eQty).toFixed(2) : "—"}</td>
+                    <td class="money" style="background:#f0f0f0;font-weight:700;">${milkAmt.toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>` : ""}
 
-    ${productSalesTable}
-    ${cattleFeedTable}
-    ${walkinTotal}
+    ${productRows ? `
+    <section class="section">
+        <div class="section-heading">${pdfEscape(t("sellerPayments.productSalesDeductions"))}</div>
+        <table style="font-size:6.5px;">
+            <thead><tr><th style="text-align:left;width:60%">${pdfEscape(t("sellerPayments.product"))}</th><th style="width:20%">${pdfEscape(t("sellerPayments.qty"))}</th><th style="text-align:right;width:20%">${pdfEscape(t("sellerPayments.amount"))}</th></tr></thead>
+            <tbody>${productRows}</tbody>
+        </table>
+    </section>` : ""}
+
+    ${cattleRows ? `
+    <section class="section">
+        <div class="section-heading">${pdfEscape(t("sellerPayments.cattleFeedDeductions"))}</div>
+        <table style="font-size:6.5px;">
+            <thead><tr><th style="text-align:left;width:60%">${pdfEscape(t("sellerPayments.feed"))}</th><th style="width:20%">${pdfEscape(t("sellerPayments.qty"))}</th><th style="text-align:right;width:20%">${pdfEscape(t("sellerPayments.amount"))}</th></tr></thead>
+            <tbody>${cattleRows}</tbody>
+        </table>
+    </section>` : ""}
+
+    ${walkinBanner}
     ${commissionBanner}
 
-    <div class="section-title">${t('sellerPayments.accountSummary')}</div>
-    <div class="bottom-summary">
-
-        <!-- Column 1: Advance Account -->
-        <div class="bs-col">
-            <div class="bs-col-header">${t('sellerPayments.advanceAccount')}</div>
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.openingBalance')}</span>
-                <span class="val">${fmtR(advGiven)}</span>
+    <!-- ACCOUNT SUMMARY -->
+    <section class="section">
+        <div class="section-heading">${pdfEscape(t("sellerPayments.accountSummary"))}</div>
+        <div class="account-grid">
+            <!-- ADVANCE -->
+            <div class="account">
+                <div class="account-header">${pdfEscape(t("sellerPayments.advanceAccount"))}</div>
+                <div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.openingBalance"))}</span><span class="account-value">${pdfMoney(advGiven)}</span></div>
+                <div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.givenThisCycle"))}</span><span class="account-value">${pdfMoney(0)}</span></div>
+                <div class="account-row" style="background:#fef2f2;"><span class="account-label">${pdfEscape(t("sellerPayments.installmentCut"))}</span><span class="account-value" style="color:#000000;">− ${pdfMoney(installmentCut)}</span></div>
+                <div class="account-total"><span>${pdfEscape(t("sellerPayments.closingBalance"))}</span><span>${pdfMoney(closingAdvance)}</span></div>
             </div>
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.givenThisCycle')}</span>
-                <span class="val">Rs.0.00</span>
+            <!-- DEPOSIT -->
+            <div class="account">
+                <div class="account-header">${pdfEscape(t("sellerPayments.depositAccount"))}</div>
+                <div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.openingBalance"))}</span><span class="account-value">${pdfMoney(openingDeposit)}</span></div>
+                <div class="account-row" style="background:#eff6ff;"><span class="account-label">${pdfEscape(t("sellerPayments.addedThisCycle"))}</span><span class="account-value">+ ${pdfMoney(depositAmt)}</span></div>
+                <div class="account-row"><span class="account-label">${totalQty.toFixed(2)} L × ${pdfMoney(sellerObj.deposit_per_litre)}/L</span><span style="font-size:5.5px;color:#666666;">${pdfEscape(t("sellerPayments.formula"))}</span></div>
+                <div class="account-total"><span>${pdfEscape(t("sellerPayments.closingBalance"))}</span><span>${pdfMoney(closingDeposit)}</span></div>
             </div>
-            <div class="bs-row" style="background:#f5f5f5">
-                <span class="key">${t('sellerPayments.installmentCut')}</span>
-                <span class="val">− ${fmtR(installmentCut)}</span>
-            </div>
-            <div class="bs-total-row">
-                <span>${t('sellerPayments.closingBalance')}</span>
-                <span>${fmtR(closingAdvance)}</span>
-            </div>
-        </div>
-
-        <!-- Column 2: Deposit Account -->
-        <div class="bs-col">
-            <div class="bs-col-header">${t('sellerPayments.depositAccount')}</div>
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.openingBalance')}</span>
-                <span class="val">${fmtR(openingDeposit)}</span>
-            </div>
-            <div class="bs-row" style="background:#f0f0f0">
-                <span class="key">${t('sellerPayments.addedThisCycle')}</span>
-                <span class="val">+ ${fmtR(depositAmt)}</span>
-            </div>
-            <div class="bs-row">
-                <span class="key">${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L</span>
-                <span class="val" style="font-size:9px;color:#666">${t('sellerPayments.formula')}</span>
-            </div>
-            <div class="bs-total-row">
-                <span>${t('sellerPayments.closingBalance')}</span>
-                <span>${fmtR(closingDeposit)}</span>
+            <!-- PAYMENT -->
+            <div class="account">
+                <div class="account-header">${pdfEscape(t("sellerPayments.paymentSummary"))}</div>
+                <div class="account-row" style="background:#f0fdf4;"><span class="account-label">${pdfEscape(t("sellerPayments.milkAmount"))}</span><span class="account-value">+ ${pdfMoney(milkAmt)}</span></div>
+                ${depositAmt > 0 ? `<div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.depositCut"))}</span><span class="account-value">− ${pdfMoney(depositAmt)}</span></div>` : ""}
+                ${installmentCut > 0 ? `<div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.advInstallment"))}</span><span class="account-value">− ${pdfMoney(installmentCut)}</span></div>` : ""}
+                ${productDed > 0 ? `<div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.products"))}</span><span class="account-value">− ${pdfMoney(productDed)}</span></div>` : ""}
+                ${cattleFeedDed > 0 ? `<div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.cattleFeed"))}</span><span class="account-value">− ${pdfMoney(cattleFeedDed)}</span></div>` : ""}
+                ${walkinDed > 0 ? `<div class="account-row"><span class="account-label">${pdfEscape(t("sellerPayments.milkBought"))}</span><span class="account-value">− ${pdfMoney(walkinDed)}</span></div>` : ""}
+                <div class="account-total" style="background:#000000;color:#ffffff;"><span style="color:#ffffff;">${pdfEscape(t("sellerPayments.netCashToHand"))}</span><span style="color:#ffffff;font-family:'Courier New',monospace;">${pdfMoney(finalPayable)}</span></div>
             </div>
         </div>
+    </section>
 
-        <!-- Column 3: Payment Summary -->
-        <div class="bs-col">
-            <div class="bs-col-header">${t('sellerPayments.paymentSummary')}</div>
-            <div class="bs-row" style="background:#f0fdf4">
-                <span class="key">${t('sellerPayments.milkAmount')}</span>
-                <span class="val">+ ${fmtR(milkAmt)}</span>
-            </div>
-            ${depositAmt > 0 ? `
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.depositCut')}</span>
-                <span class="val">− ${fmtR(depositAmt)}</span>
-            </div>` : ""}
-            ${installmentCut > 0 ? `
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.advInstallment')}</span>
-                <span class="val">− ${fmtR(installmentCut)}</span>
-            </div>` : ""}
-            ${productDed > 0 ? `
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.products')}</span>
-                <span class="val">− ${fmtR(productDed)}</span>
-            </div>` : ""}
-            ${cattleFeedDed > 0 ? `
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.cattleFeed')}</span>
-                <span class="val">− ${fmtR(cattleFeedDed)}</span>
-            </div>` : ""}
-            ${walkinDed > 0 ? `
-            <div class="bs-row">
-                <span class="key">${t('sellerPayments.milkBought')}</span>
-                <span class="val">− ${fmtR(walkinDed)}</span>
-            </div>` : ""}
-            <div class="bs-total-row" style="background:#333;color:#fff">
-                <span style="color:#fff;font-weight:bold">${t('sellerPayments.netCashToHand')}</span>
-                <span style="color:#fff;font-family:monospace;font-size:12px">${fmtR(finalPayable)}</span>
-            </div>
+    <!-- DETAILED BREAKDOWN -->
+    <section class="section">
+        <div class="section-heading">${pdfEscape(t("sellerPayments.detailedBreakdown"))}</div>
+        <div class="breakdown">
+            <div class="breakdown-row breakdown-positive"><span class="breakdown-label">${pdfEscape(t("sellerPayments.milkAmountPayable"))}</span><span class="breakdown-value">+ ${pdfMoney(milkAmt)}</span></div>
+            ${advGiven > 0 ? `<div class="breakdown-row breakdown-info"><span class="breakdown-label">${pdfEscape(t("sellerPayments.openingAdvanceBalance"))}</span><span class="breakdown-value">${pdfMoney(advGiven)}</span></div>` : ""}
+            ${installmentCut > 0 ? `<div class="breakdown-row breakdown-negative"><span class="breakdown-label">${pdfEscape(t("sellerPayments.advanceInstallmentCut"))} <span class="breakdown-detail">(${pdfMoney(advGiven)} → ${pdfMoney(closingAdvance)} ${pdfEscape(t("sellerPayments.remaining"))})</span></span><span class="breakdown-value">− ${pdfMoney(installmentCut)}</span></div>` : ""}
+            ${depositAmt > 0 ? `<div class="breakdown-row breakdown-info"><span class="breakdown-label">${pdfEscape(t("sellerPayments.depositDeducted"))} <span class="breakdown-detail">(${totalQty.toFixed(2)}L × ${pdfMoney(sellerObj.deposit_per_litre)}/L · ${pdfEscape(t("sellerPayments.balance"))}: ${pdfMoney(openingDeposit)} → ${pdfMoney(closingDeposit)})</span></span><span class="breakdown-value">− ${pdfMoney(depositAmt)}</span></div>` : ""}
+            ${productDed > 0 ? `<div class="breakdown-row breakdown-warning"><span class="breakdown-label">${pdfEscape(t("sellerPayments.productSalesDeduction"))}</span><span class="breakdown-value">− ${pdfMoney(productDed)}</span></div>` : ""}
+            ${cattleFeedDed > 0 ? `<div class="breakdown-row breakdown-positive"><span class="breakdown-label">${pdfEscape(t("sellerPayments.cattleFeedDeduction"))}</span><span class="breakdown-value">− ${pdfMoney(cattleFeedDed)}</span></div>` : ""}
+            ${walkinDed > 0 ? `<div class="breakdown-row breakdown-warning"><span class="breakdown-label">${pdfEscape(t("sellerPayments.milkBoughtBySellerWalkin"))}</span><span class="breakdown-value">− ${pdfMoney(walkinDed)}</span></div>` : ""}
+            <div class="net-payable"><span class="label">${pdfEscape(t("sellerPayments.netCashToHand"))}</span><span class="amount">${pdfMoney(finalPayable)}</span></div>
         </div>
+    </section>
 
-    </div>
-
-    <div class="section-title">${t('sellerPayments.detailedBreakdown')}</div>
-    <div style="border:1px solid #000;border-radius:6px;overflow:hidden;margin-bottom:10px">
-        <div class="deduction-row" style="background:#f0fdf4">
-            <span>${t('sellerPayments.milkAmountPayable')}</span>
-            <span style="font-weight:700;font-family:monospace;">+ ${fmtR(milkAmt)}</span>
-        </div>
-        ${advGiven > 0 ? `
-        <div class="deduction-row" style="background:#faf5ff">
-            <span>${t('sellerPayments.openingAdvanceBalance')}</span>
-            <span style="font-family:monospace">${fmtR(advGiven)}</span>
-        </div>` : ""}
-        ${installmentCut > 0 ? `
-        <div class="deduction-row" style="background:#fff5f5">
-            <span>${t('sellerPayments.advanceInstallmentCut')} &nbsp;
-                <span style="font-size:9px;color:#666">(${fmtR(advGiven)} → ${fmtR(closingAdvance)} ${t('sellerPayments.remaining')})</span>
-            </span>
-            <span style="font-family:monospace;font-weight:600">− ${fmtR(installmentCut)}</span>
-        </div>` : ""}
-        ${depositAmt > 0 ? `
-        <div class="deduction-row" style="background:#eff6ff">
-            <span>${t('sellerPayments.depositDeducted')} &nbsp;
-                <span style="font-size:9px;color:#666">
-                    (${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L
-                    · ${t('sellerPayments.balance')}: ${fmtR(openingDeposit)} → ${fmtR(closingDeposit)})
-                </span>
-            </span>
-            <span style="font-family:monospace;font-weight:600">− ${fmtR(depositAmt)}</span>
-        </div>` : ""}
-        ${productDed > 0 ? `
-        <div class="deduction-row" style="background:#fffbeb">
-            <span>${t('sellerPayments.productSalesDeduction')}</span>
-            <span style="font-family:monospace;font-weight:600">− ${fmtR(productDed)}</span>
-        </div>` : ""}
-        ${cattleFeedDed > 0 ? `
-        <div class="deduction-row" style="background:#ecfdf5">
-            <span>${t('sellerPayments.cattleFeedDeduction')}</span>
-            <span style="font-family:monospace;font-weight:600;color:#065f46">− ${fmtR(cattleFeedDed)}</span>
-        </div>` : ""}
-        ${walkinDed > 0 ? `
-        <div class="deduction-row" style="background:#fff7ed">
-            <span>${t('sellerPayments.milkBoughtBySellerWalkin')}</span>
-            <span style="font-family:monospace;font-weight:600">− ${fmtR(walkinDed)}</span>
-        </div>` : ""}
-        <div class="net-row">
-            <span>${t('sellerPayments.netCashToHand')}</span>
-            <span style="font-family:monospace">${fmtR(finalPayable)}</span>
-        </div>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;font-size:9px;color:#666;
-                border-top:1px solid #eee;padding-top:8px;margin-top:4px">
-        <span>${t('sellerPayments.computerGenerated')} · ${appName}</span>
-        ${sellerObj.is_paid && sellerObj.paid_at
-                ? `<span>${t('sellerPayments.paidOn')}: ${fmtD(sellerObj.paid_at)}</span>`
-                : ""}
-    </div>
-
-    </body>
-    </html>`;
+    <!-- FOOTER -->
+    <footer class="footer">
+        <span>${pdfEscape(t("sellerPayments.computerGenerated"))} · ${pdfEscape(appName)}</span>
+        <span class="footer-right">${sellerObj.is_paid && sellerObj.paid_at ? `${pdfEscape(t("sellerPayments.paidOn"))}: ${pdfDate(sellerObj.paid_at)}` : ""}</span>
+    </footer>
+</div>
+</body>
+</html>`;
     };
 
-    // ── Downloads one receipt as PDF ──
     const downloadReceiptPDF = async (seller) => {
         try {
             const html = await buildReceiptHtml(seller);
@@ -1269,536 +1707,659 @@ export default function SellerPayments() {
         }
     };
 
-    // print receipt (Bill PDF)
     const printReceipt = async (e, seller, overrideCycle) => {
-        e.stopPropagation();
-        const activeCycle = overrideCycle || cycle;
+        e?.stopPropagation?.();
 
-        let billData;
-        if (seller.bill_no) {
-            try {
-                const { data } = await api.get(`/payments/bill/${seller.bill_no}`);
-                billData = data;
-            } catch (err) {
-                showFlash("error", t('sellerPayments.printLoadError'));
-                return;
-            }
-        }
+        try {
+            const activeCycle = overrideCycle || cycle;
 
-        const entries = billData?.entries || seller.entries || [];
-        const productSales = billData?.productSales || [];
-        const walkinSales = billData?.walkinSales || [];
-        const cattleFeedSales = billData?.cattleFeedSales || [];
+            let billData = null;
 
-        const sellerObj = {
-            ...seller,
-            entries,
-            product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
-            walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
-            cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
-            installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
-            deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
-            deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
-            commission_amount: billData?.payment?.commission_amount ?? seller.commission_amount,
-            total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
-            advance_given: billData?.depositSnapshot?.[0] != null
-                ? (billData?.payment?.advance_given ?? seller.advance_given)
-                : seller.advance_given,
-            opening_deposit: seller.bill_no
-                ? (billData?.depositSnapshot?.[0]?.deposit_balance_before ?? 0)
-                : (seller.deposit_balance ?? 0),
-            final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
-            cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
-            is_paid: true,
-            paid_at: billData?.payment?.paid_at || seller.paid_at,
-            bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, activeCycle.from, activeCycle.to),
-        };
-
-        const milkAmt = parseFloat(sellerObj.milk_amount || 0);
-        const depositAmt = parseFloat(sellerObj.deposit_amount || 0);
-        const installmentCut = parseFloat(sellerObj.installment_cut || 0);
-        const productDed = parseFloat(sellerObj.product_deduction || 0);
-        const walkinDed = parseFloat(sellerObj.walkin_deduction || 0);
-        const cattleFeedDed = parseFloat(sellerObj.cattle_feed_deduction || 0);
-        const advGiven = parseFloat(sellerObj.advance_given || 0);
-        const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
-        const finalPayable = parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0);
-
-        const closingAdvance = Math.max(0, advGiven - installmentCut);
-        const closingDeposit = openingDeposit + depositAmt;
-
-        const totalQty = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const cowQty = entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const buffaloQty = entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const avgFat = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.length).toFixed(2) : "0.00";
-        const avgSnf = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.length).toFixed(2) : "0.00";
-
-        const morningEntries = entries.filter(e => e.shift === "morning");
-        const eveningEntries = entries.filter(e => e.shift === "evening");
-        const allDates = [...new Set(entries.map(e => e.entry_date?.split("T")[0]))].sort();
-
-        const mQty = morningEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const eQty = eveningEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const mAmt = morningEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
-        const eAmt = eveningEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
-        const mFat = morningEntries.length ? morningEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / morningEntries.length : 0;
-        const eFat = eveningEntries.length ? eveningEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / eveningEntries.length : 0;
-        const mSnf = morningEntries.length ? morningEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / morningEntries.length : 0;
-        const eSnf = eveningEntries.length ? eveningEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / eveningEntries.length : 0;
-
-        const fmtR = (n) => `Rs.${parseFloat(n || 0).toFixed(2)}`;
-        const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
-
-        const buildRow = (date) => {
-            const m = morningEntries.find(e => e.entry_date?.startsWith(date));
-            const ev = eveningEntries.find(e => e.entry_date?.startsWith(date));
-            const rowAmt = parseFloat(m?.total_amount || 0) + parseFloat(ev?.total_amount || 0);
-            const dayStr = new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit" });
-
-            const cell = (e) => {
-                if (!e) {
-                    return `
-                    <td style="text-align:center">—</td>
-                    <td style="text-align:center">—</td>
-                    <td style="text-align:center">—</td>
-                    <td style="text-align:center">—</td>
-                    <td style="text-align:center">—</td>
-                    <td style="font-weight:600;text-align:right">—</td>
-                    <td style="text-align:center">—</td>
-                `;
+            if (seller.bill_no) {
+                try {
+                    const { data } = await api.get(
+                        `/payments/bill/${seller.bill_no}`
+                    );
+                    billData = data;
+                } catch (error) {
+                    console.error("Failed to load bill for printing:", error);
+                    showFlash("error", t("sellerPayments.printLoadError"));
+                    return;
                 }
-                const qty = parseFloat(e.quantity || 0);
-                const fat = parseFloat(e.fat || 0);
-                const snf = parseFloat(e.snf || 0);
-                const baseRate = parseFloat(e.base_rate || e.rate_applied || 0);
-                const finalRate = parseFloat(e.rate_applied || 0);
-                const amount = parseFloat(e.total_amount || 0);
-                const ratePerLtr = qty > 0 ? (amount / qty).toFixed(2) : '—';
+            }
 
-                return `
-                <td style="text-align:center">${qty.toFixed(2)}</td>
-                <td style="text-align:center">${fat.toFixed(1)}</td>
-                <td style="text-align:center">${snf.toFixed(1)}</td>
-                <td style="text-align:center">${baseRate.toFixed(2)}</td>
-                <td style="text-align:center">${finalRate.toFixed(2)}</td>
-                <td style="font-weight:600;text-align:right">${amount.toFixed(2)}</td>
-                <td style="text-align:center">${ratePerLtr}</td>
-            `;
+            const entries = billData?.entries || seller.entries || [];
+
+            const sellerForPrint = {
+                ...seller,
+                entries,
+                product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
+                walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+                cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
+                installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
+                deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
+                deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+                commission_amount: billData?.payment?.commission_amount ?? seller.commission_amount,
+                advance_given: billData?.payment?.advance_given ?? seller.advance_given,
+                opening_deposit: billData?.depositSnapshot?.[0]?.deposit_balance_before ?? seller.deposit_balance ?? 0,
+                final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
+                cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
+                is_paid: true,
+                paid_at: billData?.payment?.paid_at ?? seller.paid_at,
+                bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, activeCycle.from, activeCycle.to),
             };
 
-            return `<tr>
-            <td style="font-weight:600;background:#f8f8f8;text-align:center">${dayStr}</td>
-            ${cell(m)}
-            ${cell(ev)}
-            <td style="font-weight:700;background:#f0f4ff;text-align:right">${rowAmt > 0 ? rowAmt.toFixed(2) : "—"}</td>
-          </tr>`;
-        };
+            const htmlContent = await buildReceiptHtml(sellerForPrint, activeCycle);
 
-        const productSalesTable = productSales.length > 0 ? `
-    <div class="section-title">${t('sellerPayments.productSalesDeductions')}</div>
-    <table style="margin-bottom:10px">
-        <thead>
-            <tr>
-                <th style="text-align:left">${t('sellerPayments.product')}</th>
-                <th>${t('sellerPayments.qty')}</th>
-                <th>${t('sellerPayments.rate')}</th>
-                <th>${t('sellerPayments.amount')}</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${productSales.map((p, i) => `
-                <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
-                    <td style="text-align:left">${p.product_name || t('sellerPayments.unknown')}</td>
-                    <td style="text-align:center">${parseFloat(p.quantity || 0).toFixed(2)} ${p.unit || ''}</td>
-                    <td style="text-align:center">Rs.${parseFloat(p.rate || 0).toFixed(2)}</td>
-                    <td style="font-weight:600;text-align:right">${fmtR(p.total_amount)}</td>
-                  </tr>`).join('')}
-            <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #111">
-                <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
-                <td style="text-align:right">${fmtR(productDed)}</td>
-              </tr>
-        </tbody>
-      </table>` : "";
+            if (!htmlContent) {
+                showFlash("error", t("sellerPayments.pdfGenerationError"));
+                return;
+            }
 
-        const cattleFeedTable = cattleFeedSales.length > 0 ? `
-    <div class="section-title">${t('sellerPayments.cattleFeedDeductions')}</div>
-    <table style="margin-bottom:10px">
-        <thead>
-            <tr>
-                <th style="text-align:left">${t('sellerPayments.feed')}</th>
-                <th>${t('sellerPayments.qty')}</th>
-                <th>${t('sellerPayments.rate')}</th>
-                <th>${t('sellerPayments.amount')}</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${cattleFeedSales.map((f, i) => `
-                <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
-                    <td style="text-align:left">${f.feed_name || t('sellerPayments.unknown')}</td>
-                    <td style="text-align:center">${parseFloat(f.quantity || 0).toFixed(2)}</td>
-                    <td style="text-align:center">Rs.${parseFloat(f.rate || 0).toFixed(2)}</td>
-                    <td style="font-weight:600;text-align:right">${fmtR(f.total_amount)}</td>
-                  </tr>`).join('')}
-            <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #111">
-                <td style="text-align:left" colspan="3">${t('sellerPayments.total')}</td>
-                <td style="text-align:right">${fmtR(cattleFeedDed)}</td>
-              </tr>
-        </tbody>
-      </table>` : "";
+            const printWindow = window.open("", "_blank", "width=1200,height=900");
+            if (!printWindow) {
+                showFlash("error", t("sellerPayments.popupBlocked"));
+                return;
+            }
 
-        const walkinTotal = walkinDed > 0 ? `
-    <div style="display:flex;justify-content:space-between;align-items:center;
-                padding:8px 12px; background:#fff7ed; border:1px solid #fed7aa;
-                border-radius:6px; margin-bottom:10px">
-        <span style="font-weight:600; color:#9a3412">${t('sellerPayments.milkBoughtBySeller')}</span>
-        <span style="font-weight:700; font-size:13px; color:#ea580c">${fmtR(walkinDed)}</span>
-    </div>` : "";
+            printWindow.document.open();
+            const printableHtml = htmlContent.replace(
+                "</body>",
+                `<script>
+                    window.addEventListener("load", function() {
+                        setTimeout(function() {
+                            window.focus();
+                            window.print();
+                        }, 350);
+                    });
+                <\/script>
+                </body>`
+            );
+            printWindow.document.write(printableHtml);
+            printWindow.document.close();
 
-        const commissionAmt = parseFloat(sellerObj.commission_amount || 0);
-        const commissionBanner = (sellerObj.seller_type === 'Gavali' && commissionAmt > 0) ? `
-<div style="display:flex;justify-content:space-between;align-items:center;
-            padding:8px 12px; background:#faf5ff; border:1px solid #e9d5ff;
-            border-radius:6px; margin-bottom:10px">
-    <span style="font-weight:600; color:#7c3aed">${t('sellerPayments.gavaliCommissionIncluded') || 'Gavali Commission (included in milk rate)'}</span>
-    <span style="font-weight:700; font-size:13px; color:#7c3aed">+ ${fmtR(commissionAmt)}</span>
-</div>` : "";
-
-        const win = window.open("", "_blank", "width=1200,height=800");
-        if (!win) {
-            showFlash("error", t('sellerPayments.popupBlocked'));
-            return;
+        } catch (error) {
+            console.error("[SellerPayments] Print error:", error);
+            showFlash("error", t("sellerPayments.pdfGenerationError"));
         }
-
-        const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-    <title>${t('sellerPayments.paymentReceipt')} - ${sellerObj.name}</title>
-    <style>
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; margin: 0; padding: 16px; }
-        h1  { margin: 0; font-size: 16px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-size: 10px; }
-        th { background: #111; color: #fff; font-weight: 600; white-space: nowrap; }
-        .section-title {
-            font-size: 10px; font-weight: bold; text-transform: uppercase;
-            letter-spacing: 0.5px; color: #555;
-            margin: 14px 0 4px; border-bottom: 1px solid #ddd; padding-bottom: 3px;
-        }
-        .info-grid {
-            display: grid; grid-template-columns: repeat(4,1fr); gap: 6px 16px;
-            background: #f8f8f8; padding: 10px; border-radius: 4px; margin-bottom: 10px;
-        }
-        .info-item .lbl { font-size: 9px; color: #888; text-transform: uppercase; }
-        .info-item .val { font-size: 12px; font-weight: bold; margin-top: 1px; }
-        .summary-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 10px; }
-        .summary-box { border: 1px solid #ddd; border-radius: 4px; padding: 6px 8px; }
-        .summary-box .lbl { font-size: 9px; color: #888; text-transform: uppercase; }
-        .summary-box .val { font-size: 13px; font-weight: bold; margin-top: 2px; }
-        .summary-box .sub { font-size: 9px; color: #888; margin-top: 2px; }
-        .bottom-summary {
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
-            border: 1px solid #ccc; border-radius: 6px; overflow: hidden; margin-bottom: 10px;
-        }
-        .bs-col { padding: 0; }
-        .bs-col-header {
-            background: #111; color: #fff; font-size: 10px; font-weight: bold;
-            text-align: center; padding: 5px 8px; text-transform: uppercase; letter-spacing: 0.4px;
-        }
-        .bs-row {
-            display: flex; justify-content: space-between;
-            padding: 4px 10px; border-bottom: 1px solid #f0f0f0; font-size: 10px;
-        }
-        .bs-row:last-child { border-bottom: none; }
-        .bs-row .key { color: #555; }
-        .bs-row .val { font-weight: 600; font-family: monospace; }
-        .bs-col + .bs-col { border-left: 1px solid #ccc; }
-        .bs-total-row {
-            display: flex; justify-content: space-between;
-            padding: 6px 10px; font-size: 11px; font-weight: bold;
-            border-top: 2px solid #ccc; background: #f8f8f8;
-        }
-        .deduction-row {
-            display: flex; justify-content: space-between;
-            padding: 5px 10px; border-bottom: 1px solid #f0f0f0; font-size: 11px;
-        }
-        .net-row {
-            display: flex; justify-content: space-between; padding: 10px 12px;
-            background: #111; color: #fff; font-size: 13px; font-weight: bold;
-        }
-        @media print {
-            body { padding: 8px; }
-            .no-print { display: none; }
-            @page { size: A4 landscape; margin: 10mm; }
-        }
-    </style>
-</head>
-<body>
-
-<!-- Header -->
-<div style="display:flex;justify-content:space-between;align-items:flex-start;
-            border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px">
-    <div>
-        <h1>${appName}</h1>
-        <div style="font-size:10px;color:#555;margin-top:2px;">${t('sellerPayments.milkCollectionReceipt')}</div>
-    </div>
-    <div style="text-align:right;font-size:10px;color:#555">
-        <div style="font-weight:bold;font-size:12px;color:#111">
-            ${fmtD(activeCycle.from)} – ${fmtD(activeCycle.to)}
-        </div>
-        <div>${t('sellerPayments.billNo')}: <strong style="font-family:monospace;color:#111">${sellerObj.bill_no}</strong></div>
-        <div>${t('sellerPayments.generated')}: ${fmtD(new Date().toISOString())}</div>
-    </div>
-</div>
-
-<!-- Seller Info -->
-<div class="info-grid">
-    <div class="info-item">
-        <div class="lbl">${t('sellerPayments.sellerName')}</div>
-        <div class="val">${sellerObj.name}</div>
-    </div>
-    <div class="info-item">
-        <div class="lbl">${t('sellerPayments.sellerCode')}</div>
-        <div class="val" style="font-family:monospace">${sellerObj.seller_code}</div>
-    </div>
-    <div class="info-item">
-        <div class="lbl">${t('sellerPayments.totalEntries')}</div>
-        <div class="val">${entries.length} ${t('sellerPayments.entries')}</div>
-    </div>
-    <div class="info-item">
-        <div class="lbl">${t('sellerPayments.status')}</div>
-        <div class="val" style="color:${sellerObj.is_paid ? '#16a34a' : '#d97706'}">
-            ${sellerObj.is_paid ? t('sellerPayments.paid') : t('sellerPayments.pending')}
-            ${sellerObj.paid_at
-                ? `<span style="font-size:9px;font-weight:normal;color:#555;display:block">${t('sellerPayments.on')} ${fmtD(sellerObj.paid_at)}</span>`
-                : ""}
-        </div>
-    </div>
-</div>
-
-<!-- Top Summary Cards -->
-<div class="summary-grid">
-    <div class="summary-box">
-        <div class="lbl">${t('sellerPayments.totalQty')}</div>
-        <div class="val">${totalQty.toFixed(2)} L</div>
-        <div class="sub">${t('sellerPayments.morning')}: ${mQty.toFixed(2)} L &nbsp;|&nbsp; ${t('sellerPayments.evening')}: ${eQty.toFixed(2)} L</div>
-    </div>
-    <div class="summary-box">
-        <div class="lbl">${t('sellerPayments.cowBuffalo')}</div>
-        <div class="val">${cowQty.toFixed(2)} / ${buffaloQty.toFixed(2)} L</div>
-    </div>
-    <div class="summary-box">
-        <div class="lbl">${t('sellerPayments.avgFat')}</div>
-        <div class="val">${avgFat}%</div>
-        <div class="sub">${t('sellerPayments.morningShort')}: ${mFat.toFixed(1)} &nbsp;|&nbsp; ${t('sellerPayments.eveningShort')}: ${eFat.toFixed(1)}</div>
-    </div>
-    <div class="summary-box">
-        <div class="lbl">${t('sellerPayments.avgSnf')}</div>
-        <div class="val">${avgSnf}</div>
-        <div class="sub">${t('sellerPayments.morningShort')}: ${mSnf.toFixed(1)} &nbsp;|&nbsp; ${t('sellerPayments.eveningShort')}: ${eSnf.toFixed(1)}</div>
-    </div>
-</div>
-
-<!-- Day-wise Entry Table -->
-${entries.length > 0 ? `
-<div class="section-title">${t('sellerPayments.dailyEntryBreakdown')}</div>
-<table style="margin-bottom:10px">
-    <thead>
-        <tr>
-            <th rowspan="2" style="width:48px">${t('sellerPayments.date')}</th>
-            <th colspan="7" style="background:#1d4ed8">${t('sellerPayments.morningShift')}</th>
-            <th colspan="7" style="background:#4338ca">${t('sellerPayments.eveningShift')}</th>
-            <th rowspan="2" style="background:#1e3a5f;width:64px">${t('sellerPayments.dayTotal')}</th>
-          </tr>
-          <tr>
-            <th style="background:#1d4ed8">${t('sellerPayments.qtyL')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.fat')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.snf')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.rateBeforeComm')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.rateAfterComm')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.amt')}</th>
-            <th style="background:#1d4ed8">${t('sellerPayments.ratePerLtr')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.qtyL')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.fat')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.snf')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.rateBeforeComm')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.rateAfterComm')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.amt')}</th>
-            <th style="background:#4338ca">${t('sellerPayments.ratePerLtr')}</th>
-          </tr>
-    </thead>
-    <tbody>
-        ${allDates.map(buildRow).join("")}
-        <tr style="background:#f0f0f0;font-weight:bold;border-top:2px solid #111">
-            <td style="background:#f0f0f0">${t('sellerPayments.total')}</td>
-            <td style="text-align:center">${mQty.toFixed(2)}</td>
-            <td style="text-align:center">${mFat.toFixed(1)}</td>
-            <td style="text-align:center">${mSnf.toFixed(1)}</td>
-            <td style="text-align:center">—</td>
-            <td style="text-align:center">—</td>
-            <td style="color:#000;text-align:right">${mAmt.toFixed(2)}</td>
-            <td style="text-align:center">${mQty > 0 ? (mAmt / mQty).toFixed(2) : '—'}</td>
-            <td style="text-align:center">${eQty.toFixed(2)}</td>
-            <td style="text-align:center">${eFat.toFixed(1)}</td>
-            <td style="text-align:center">${eSnf.toFixed(1)}</td>
-            <td style="text-align:center">—</td>
-            <td style="text-align:center">—</td>
-            <td style="color:#000;text-align:right">${eAmt.toFixed(2)}</td>
-            <td style="text-align:center">${eQty > 0 ? (eAmt / eQty).toFixed(2) : '—'}</td>
-            <td style="color:#111;background:#e0e7ff;text-align:right">${milkAmt.toFixed(2)}</td>
-          </tr>
-    </tbody>
-</table>` : ""}
-
-${productSalesTable}
-${cattleFeedTable}
-${walkinTotal}
-${commissionBanner}
-
-<div class="section-title">${t('sellerPayments.accountSummary')}</div>
-<div class="bottom-summary">
-    <div class="bs-col">
-        <div class="bs-col-header" style="background:#7c3aed">${t('sellerPayments.advanceAccount')}</div>
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.openingBalance')}</span>
-            <span class="val" style="color:#7c3aed">${fmtR(advGiven)}</span>
-        </div>
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.givenThisCycle')}</span>
-            <span class="val">Rs.0.00</span>
-        </div>
-        <div class="bs-row" style="background:#fff5f5">
-            <span class="key">${t('sellerPayments.installmentCut')}</span>
-            <span class="val" style="color:#dc2626">− ${fmtR(installmentCut)}</span>
-        </div>
-        <div class="bs-total-row" style="background:#f5f3ff">
-            <span style="color:#7c3aed;font-weight:bold">${t('sellerPayments.closingBalance')}</span>
-            <span style="color:#7c3aed;font-family:monospace">${fmtR(closingAdvance)}</span>
-        </div>
-    </div>
-    <div class="bs-col">
-        <div class="bs-col-header" style="background:#1d4ed8">${t('sellerPayments.depositAccount')}</div>
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.openingBalance')}</span>
-            <span class="val" style="color:#1d4ed8">${fmtR(openingDeposit)}</span>
-        </div>
-        <div class="bs-row" style="background:#eff6ff">
-            <span class="key">${t('sellerPayments.addedThisCycle')}</span>
-            <span class="val" style="color:#15803d">+ ${fmtR(depositAmt)}</span>
-        </div>
-        <div class="bs-row">
-            <span class="key">${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L</span>
-            <span class="val" style="font-size:9px;color:#888">${t('sellerPayments.formula')}</span>
-        </div>
-        <div class="bs-total-row" style="background:#eff6ff">
-            <span style="color:#1d4ed8;font-weight:bold">${t('sellerPayments.closingBalance')}</span>
-            <span style="color:#1d4ed8;font-family:monospace">${fmtR(closingDeposit)}</span>
-        </div>
-    </div>
-    <div class="bs-col">
-        <div class="bs-col-header" style="background:#15803d">${t('sellerPayments.paymentSummary')}</div>
-        <div class="bs-row" style="background:#f0fdf4">
-            <span class="key">${t('sellerPayments.milkAmount')}</span>
-            <span class="val" style="color:#15803d">+ ${fmtR(milkAmt)}</span>
-        </div>
-        ${depositAmt > 0 ? `
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.depositCut')}</span>
-            <span class="val" style="color:#dc2626">− ${fmtR(depositAmt)}</span>
-        </div>` : ""}
-        ${installmentCut > 0 ? `
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.advInstallment')}</span>
-            <span class="val" style="color:#dc2626">− ${fmtR(installmentCut)}</span>
-        </div>` : ""}
-        ${productDed > 0 ? `
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.products')}</span>
-            <span class="val" style="color:#d97706">− ${fmtR(productDed)}</span>
-        </div>` : ""}
-        ${cattleFeedDed > 0 ? `
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.cattleFeed')}</span>
-            <span class="val" style="color:#065f46">− ${fmtR(cattleFeedDed)}</span>
-        </div>` : ""}
-        ${walkinDed > 0 ? `
-        <div class="bs-row">
-            <span class="key">${t('sellerPayments.milkBought')}</span>
-            <span class="val" style="color:#ea580c">− ${fmtR(walkinDed)}</span>
-        </div>` : ""}
-        <div class="bs-total-row" style="background:#111;color:#fff">
-            <span style="font-weight:bold">${t('sellerPayments.netCashToHand')}</span>
-            <span style="font-family:monospace;font-size:12px">${fmtR(finalPayable)}</span>
-        </div>
-    </div>
-</div>
-
-<div class="section-title">${t('sellerPayments.detailedBreakdown')}</div>
-<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:10px">
-    <div class="deduction-row" style="background:#f0fdf4">
-        <span>${t('sellerPayments.milkAmountPayable')}</span>
-        <span style="font-weight:700;font-family:monospace;color:#15803d">+ ${fmtR(milkAmt)}</span>
-    </div>
-    ${advGiven > 0 ? `
-    <div class="deduction-row" style="color:#7c3aed;background:#faf5ff">
-        <span>${t('sellerPayments.openingAdvanceBalance')}</span>
-        <span style="font-family:monospace">${fmtR(advGiven)}</span>
-    </div>` : ""}
-    ${installmentCut > 0 ? `
-    <div class="deduction-row" style="color:#dc2626;background:#fff5ff">
-        <span>${t('sellerPayments.advanceInstallmentCut')} &;
-            <span style="font-size:9px;color:#aaa">(${fmtR(advGiven)} → ${fmtR(closingAdvance)} ${t('sellerPayments.remaining')})</span>
-        </span>
-        <span style="font-family:monospace;font-weight:600">− ${fmtR(installmentCut)}</span>
-    </div>` : ""}
-    ${depositAmt > 0 ? `
-    <div class="deduction-row" style="color:#1d4ed8;background:#eff6ff">
-        <span>${t('sellerPayments.depositDeducted')} &;
-            <span style="font-size:9px;color:#aaa">
-                (${parseFloat(sellerObj.total_milk_quantity || 0).toFixed(2)}L × Rs.${sellerObj.deposit_per_litre}/L
-                · ${t('sellerPayments.balance')}: ${fmtR(openingDeposit)} → ${fmtR(closingDeposit)})
-            </span>
-        </span>
-        <span style="font-family:monospace;font-weight:600">− ${fmtR(depositAmt)}</span>
-    </div>` : ""}
-    ${productDed > 0 ? `
-    <div class="deduction-row" style="color:#d97706;background:#fffbeb">
-        <span>${t('sellerPayments.productSalesDeduction')}</span>
-        <span style="font-family:monospace;font-weight:600">− ${fmtR(productDed)}</span>
-    </div>` : ""}
-    ${cattleFeedDed > 0 ? `
-    <div class="deduction-row" style="color:#065f46;background:#ecfdf5">
-        <span>${t('sellerPayments.cattleFeedDeduction')}</span>
-        <span style="font-family:monospace;font-weight:600">− ${fmtR(cattleFeedDed)}</span>
-    </div>` : ""}
-    ${walkinDed > 0 ? `
-    <div class="deduction-row" style="color:#ea580c;background:#fff7ed">
-        <span>${t('sellerPayments.milkBoughtBySellerWalkin')}</span>
-        <span style="font-family:monospace;font-weight:600">− ${fmtR(walkinDed)}</span>
-    </div>` : ""}
-    <div class="net-row">
-        <span>${t('sellerPayments.netCashToHand')}</span>
-        <span style="font-family:monospace">${fmtR(finalPayable)}</span>
-    </div>
-</div>
-
-<div style="display:flex;justify-content:space-between;font-size:9px;color:#aaa;
-            border-top:1px solid #eee;padding-top:8px;margin-top:4px">
-    <span>${t('sellerPayments.computerGenerated')} · ${appName}</span>
-    ${sellerObj.is_paid && sellerObj.paid_at
-                ? `<span>${t('sellerPayments.paidOn')}: ${fmtD(sellerObj.paid_at)}</span>`
-                : ""}
-</div>
-
-<script>window.onload = function() { window.print(); };</script>
-</body>
-</html>`;
-
-        win.document.write(htmlContent);
-        win.document.close();
     };
 
-    // Bulk download PDFs
+    // ── UPDATED: Combined PDF Generation with Black & White style ──
+    const generateCombinedPDF = async (sellers) => {
+        try {
+            let successCount = 0;
+            let failCount = 0;
+
+            const container = document.createElement('div');
+            container.style.cssText = `
+                position: fixed;
+                left: -9999px;
+                top: 0;
+                width: 1123px;
+                background: white;
+                padding: 8px 15px;
+                font-family: Arial, sans-serif;
+                font-size: 7px;
+                color: #000;
+                z-index: -9999;
+            `;
+            document.body.appendChild(container);
+
+            let combinedHtml = `
+                <style>
+                    * { 
+                        -webkit-print-color-adjust: exact !important; 
+                        print-color-adjust: exact !important; 
+                        box-sizing: border-box;
+                    }
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        font-size: 6.5px; 
+                        color: #000;
+                        margin: 0;
+                        padding: 0;
+                        background: #fff;
+                    }
+                    .receipt-page {
+                        page-break-after: always;
+                        padding: 3px 0;
+                        margin-bottom: 2px;
+                    }
+                    .receipt-page:last-child {
+                        page-break-after: avoid;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 1.5px solid #000;
+                        padding-bottom: 2px;
+                        margin-bottom: 3px;
+                    }
+                    .header-left { 
+                        font-size: 8px;
+                        font-weight: bold;
+                        line-height: 1.1;
+                        color: #000;
+                    }
+                    .header-left .sub {
+                        font-size: 5.5px;
+                        font-weight: normal;
+                        color: #444;
+                    }
+                    .header-right {
+                        text-align: right;
+                        font-size: 5.5px;
+                        color: #444;
+                        line-height: 1.2;
+                    }
+                    .header-right .bold {
+                        font-weight: bold;
+                        font-size: 7px;
+                        color: #000;
+                    }
+                    .compact-info {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+                        gap: 2px 4px;
+                        background: #f5f5f5;
+                        padding: 2px 4px;
+                        margin-bottom: 3px;
+                        border: 0.5px solid #000;
+                    }
+                    .compact-info .item .lbl {
+                        font-size: 4.5px;
+                        color: #666;
+                        text-transform: uppercase;
+                        letter-spacing: 0.2px;
+                    }
+                    .compact-info .item .val {
+                        font-size: 6px;
+                        font-weight: bold;
+                        margin-top: 0;
+                        line-height: 1.1;
+                        color: #000;
+                    }
+                    .summary-compact {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 2px;
+                        margin-bottom: 3px;
+                    }
+                    .summary-box-compact {
+                        border: 0.5px solid #000;
+                        padding: 2px 4px;
+                        background: #fafafa;
+                    }
+                    .summary-box-compact .lbl {
+                        font-size: 4.5px;
+                        color: #666;
+                        text-transform: uppercase;
+                    }
+                    .summary-box-compact .val {
+                        font-size: 6.5px;
+                        font-weight: bold;
+                        margin-top: 0;
+                        line-height: 1.1;
+                        color: #000;
+                    }
+                    .summary-box-compact .sub {
+                        font-size: 4.5px;
+                        color: #888;
+                        margin-top: 0;
+                    }
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin-bottom: 2px;
+                        font-size: 5.5px;
+                    }
+                    th, td {
+                        border: 1px solid #ccc;
+                        padding: 1.5px 2px;
+                        text-align: center;
+                        color: #000;
+                    }
+                    th {
+                        background: #e8e8e8;
+                        font-weight: bold;
+                        font-size: 4.5px;
+                        text-transform: uppercase;
+                        padding: 1.5px 2px;
+                        color: #000;
+                    }
+                    .section-title-compact {
+                        font-size: 5.5px;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        letter-spacing: 0.3px;
+                        color: #444;
+                        margin: 2px 0 1.5px;
+                        border-bottom: 1px solid #ddd;
+                        padding-bottom: 1px;
+                    }
+                    .bottom-summary-compact {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr 1fr;
+                        border: 1px solid #ccc;
+                        overflow: hidden;
+                        margin-bottom: 2px;
+                    }
+                    .bs-col-compact { padding: 0; }
+                    .bs-col-header-compact {
+                        background: #000;
+                        color: #fff;
+                        font-size: 4.5px;
+                        font-weight: bold;
+                        text-align: center;
+                        padding: 1.5px 4px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.2px;
+                    }
+                    .bs-row-compact {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 1.5px 4px;
+                        border-bottom: 1px solid #eee;
+                        font-size: 5.5px;
+                        color: #000;
+                    }
+                    .bs-row-compact:last-child { border-bottom: none; }
+                    .bs-row-compact .key { color: #444; }
+                    .bs-row-compact .val { font-weight: 600; font-family: monospace; color: #000; }
+                    .bs-col-compact + .bs-col-compact { border-left: 1px solid #ccc; }
+                    .bs-total-row-compact {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 2px 4px;
+                        font-size: 5.5px;
+                        font-weight: bold;
+                        border-top: 2px solid #666;
+                        background: #e8e8e8;
+                        color: #000;
+                    }
+                    .net-row-compact {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 3px 5px;
+                        background: #000;
+                        color: #fff;
+                        font-size: 7px;
+                        font-weight: bold;
+                    }
+                    .net-row-compact span { color: #fff !important; }
+                    .footer-compact {
+                        display: flex;
+                        justify-content: space-between;
+                        font-size: 4.5px;
+                        color: #888;
+                        padding-top: 2px;
+                        border-top: 1px solid #eee;
+                        margin-top: 2px;
+                    }
+                    .banner-compact {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 2px 4px;
+                        margin-bottom: 2px;
+                        font-size: 5.5px;
+                        border: 1px solid #666;
+                        background: #f5f5f5;
+                    }
+                    .banner-compact .label { font-weight: 600; color: #000; }
+                    .banner-compact .amount { font-weight: 700; color: #000; }
+                </style>
+            `;
+
+            for (const seller of sellers) {
+                try {
+                    let billData = null;
+                    if (seller.bill_no) {
+                        try {
+                            const { data } = await api.get(`/payments/bill/${seller.bill_no}`);
+                            billData = data;
+                        } catch (e) {
+                            console.error('Error fetching bill data:', e);
+                        }
+                    }
+
+                    const entries = billData?.entries || seller.entries || [];
+                    const productSales = billData?.productSales || [];
+                    const cattleFeedSales = billData?.cattleFeedSales || [];
+
+                    const sellerObj = {
+                        ...seller,
+                        entries,
+                        bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
+                        milk_amount: billData?.payment?.milk_amount ?? seller.milk_amount,
+                        product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
+                        walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+                        cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
+                        installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
+                        deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
+                        deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+                        commission_amount: billData?.payment?.commission_amount ?? seller.commission_amount,
+                        advance_given: billData?.payment?.advance_given ?? seller.advance_given,
+                        opening_deposit: billData?.depositSnapshot?.[0]?.deposit_balance_before ?? seller.deposit_balance ?? 0,
+                        final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
+                        cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
+                        is_paid: true,
+                        paid_at: billData?.payment?.paid_at || seller.paid_at,
+                        total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
+                    };
+
+                    const milkAmt = parseFloat(sellerObj.milk_amount || 0);
+                    const depositAmt = parseFloat(sellerObj.deposit_amount || 0);
+                    const installmentCut = parseFloat(sellerObj.installment_cut || 0);
+                    const productDed = parseFloat(sellerObj.product_deduction || 0);
+                    const walkinDed = parseFloat(sellerObj.walkin_deduction || 0);
+                    const cattleFeedDed = parseFloat(sellerObj.cattle_feed_deduction || 0);
+                    const advGiven = parseFloat(sellerObj.advance_given || 0);
+                    const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
+                    const finalPayable = Math.max(0, parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0));
+                    const totalQty = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+                    const commissionAmt = parseFloat(sellerObj.commission_amount || 0);
+
+                    const fmtR = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
+                    const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+
+                    // Build entry rows - limit to 5
+                    let entryRows = '';
+                    const displayEntries = entries.slice(0, 5);
+                    const hasMoreEntries = entries.length > 5;
+
+                    displayEntries.forEach((e, i) => {
+                        const date = new Date(e.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+                        const shift = e.shift === "morning" ? "M" : "E";
+                        const type = e.milk_type === "cow" ? "C" : "B";
+                        const qty = parseFloat(e.quantity || 0).toFixed(1);
+                        const fat = parseFloat(e.fat || 0).toFixed(1);
+                        const snf = parseFloat(e.snf || 0).toFixed(1);
+                        const rate = parseFloat(e.rate_applied || 0).toFixed(2);
+                        const amt = parseFloat(e.total_amount || 0).toFixed(2);
+                        const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
+                        entryRows += `
+                            <tr style="background:${bg}">
+                                <td style="font-size:5px">${date}</td>
+                                <td style="font-size:5px">${shift}</td>
+                                <td style="font-size:5px">${type}</td>
+                                <td style="font-size:5px;font-weight:600">${qty}</td>
+                                <td style="font-size:5px">${fat}</td>
+                                <td style="font-size:5px">${snf}</td>
+                                <td style="font-size:5px">${rate}</td>
+                                <td style="font-size:5px;font-weight:600;text-align:right">${amt}</td>
+                            </tr>
+                        `;
+                    });
+
+                    if (hasMoreEntries) {
+                        entryRows += `
+                            <tr style="background:#f0f0f0;font-style:italic;">
+                                <td colspan="7" style="text-align:center;color:#888;font-size:4.5px;">+ ${entries.length - 5} more</td>
+                                <td></td>
+                            </tr>
+                        `;
+                    }
+
+                    // Build product sales rows - limit to 2
+                    let productRows = '';
+                    if (productSales.length > 0) {
+                        productSales.slice(0, 2).forEach((p, i) => {
+                            const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
+                            productRows += `
+                                <tr style="background:${bg}">
+                                    <td style="text-align:left;font-size:5px">${pdfEscape(p.product_name || 'Unknown')}</td>
+                                    <td style="font-size:5px">${parseFloat(p.quantity || 0).toFixed(2)}</td>
+                                    <td style="font-size:5px;text-align:right">${fmtR(p.total_amount)}</td>
+                                </tr>
+                            `;
+                        });
+                        if (productSales.length > 2) {
+                            productRows += `
+                                <tr style="background:#f0f0f0;font-style:italic;">
+                                    <td colspan="3" style="text-align:center;color:#888;font-size:4.5px;">+ ${productSales.length - 2} more</td>
+                                </tr>
+                            `;
+                        }
+                        productRows += `
+                            <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #666;">
+                                <td style="font-size:5px;text-align:right">Total</td>
+                                <td style="font-size:5px;"></td>
+                                <td style="font-size:5px;text-align:right">${fmtR(productDed)}</td>
+                            </tr>
+                        `;
+                    }
+
+                    // Build cattle feed rows - limit to 2
+                    let cattleRows = '';
+                    if (cattleFeedSales.length > 0) {
+                        cattleFeedSales.slice(0, 2).forEach((f, i) => {
+                            const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
+                            cattleRows += `
+                                <tr style="background:${bg}">
+                                    <td style="text-align:left;font-size:5px">${pdfEscape(f.feed_name || 'Unknown')}</td>
+                                    <td style="font-size:5px">${parseFloat(f.quantity || 0).toFixed(2)}</td>
+                                    <td style="font-size:5px;text-align:right">${fmtR(f.total_amount)}</td>
+                                </tr>
+                            `;
+                        });
+                        if (cattleFeedSales.length > 2) {
+                            cattleRows += `
+                                <tr style="background:#f0f0f0;font-style:italic;">
+                                    <td colspan="3" style="text-align:center;color:#888;font-size:4.5px;">+ ${cattleFeedSales.length - 2} more</td>
+                                </tr>
+                            `;
+                        }
+                        cattleRows += `
+                            <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #666;">
+                                <td style="font-size:5px;text-align:right">Total</td>
+                                <td style="font-size:5px;"></td>
+                                <td style="font-size:5px;text-align:right">${fmtR(cattleFeedDed)}</td>
+                            </tr>
+                        `;
+                    }
+
+                    const totalCowQty = entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+                    const totalBuffQty = entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+                    const avgFat = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.length).toFixed(1) : '0.0';
+                    const avgSnf = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.length).toFixed(1) : '0.0';
+
+                    const receiptHtml = `
+                        <div class="receipt-page">
+                            <!-- Header -->
+                            <div class="header">
+                                <div class="header-left">
+                                    ${appName}
+                                    <div class="sub">${t('sellerPayments.milkCollectionReceipt')}</div>
+                                </div>
+                                <div class="header-right">
+                                    <div class="bold">${fmtD(cycle.from)} – ${fmtD(cycle.to)}</div>
+                                    <div>${t('sellerPayments.billNo')}: <strong style="color:#000">${sellerObj.bill_no}</strong></div>
+                                    <div>${t('sellerPayments.generated')}: ${fmtD(new Date())}</div>
+                                </div>
+                            </div>
+
+                            <!-- Compact Info Row -->
+                            <div class="compact-info">
+                                <div class="item"><div class="lbl">${t('sellerPayments.sellerName')}</div><div class="val">${sellerObj.name}</div></div>
+                                <div class="item"><div class="lbl">${t('sellerPayments.sellerCode')}</div><div class="val" style="font-family:monospace">${sellerObj.seller_code}</div></div>
+                                <div class="item"><div class="lbl">${t('sellerPayments.totalQty')}</div><div class="val">${totalQty.toFixed(1)}L</div></div>
+                                <div class="item"><div class="lbl">${t('sellerPayments.cowBuffalo')}</div><div class="val">${totalCowQty.toFixed(1)}/${totalBuffQty.toFixed(1)}L</div></div>
+                                <div class="item"><div class="lbl">${t('sellerPayments.avgFat')}</div><div class="val">${avgFat}%</div></div>
+                                <div class="item"><div class="lbl">${t('sellerPayments.avgSnf')}</div><div class="val">${avgSnf}</div></div>
+                            </div>
+
+                            <!-- Entries Table -->
+                            ${entries.length > 0 ? `
+                                <div class="section-title-compact">${t('sellerPayments.dailyEntryBreakdown')}</div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style="width:32px">${t('sellerPayments.date')}</th>
+                                            <th style="width:15px">${t('sellerPayments.shift')}</th>
+                                            <th style="width:15px">${t('sellerPayments.type')}</th>
+                                            <th style="width:20px">${t('sellerPayments.qtyL')}</th>
+                                            <th style="width:15px">${t('sellerPayments.fat')}</th>
+                                            <th style="width:15px">${t('sellerPayments.snf')}</th>
+                                            <th style="width:22px">${t('sellerPayments.rate')}</th>
+                                            <th style="width:28px">${t('sellerPayments.amount')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${entryRows}
+                                        <tr style="background:#e8e8e8;font-weight:bold;border-top:2px solid #666;">
+                                            <td colspan="3" style="text-align:right;font-size:5px">${t('sellerPayments.total')}</td>
+                                            <td style="font-weight:700;font-size:5px">${totalQty.toFixed(1)}</td>
+                                            <td></td><td></td><td></td>
+                                            <td style="text-align:right;font-weight:700;font-size:5px">${fmtR(milkAmt)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            ` : ''}
+
+                            <!-- Product Sales -->
+                            ${productRows ? `
+                                <div class="section-title-compact">${t('sellerPayments.productSalesDeductions')}</div>
+                                <table style="margin-bottom:1px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:left;font-size:4.5px;width:60%">${t('sellerPayments.product')}</th>
+                                            <th style="font-size:4.5px;width:20%">${t('sellerPayments.qty')}</th>
+                                            <th style="text-align:right;font-size:4.5px;width:20%">${t('sellerPayments.amount')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${productRows}</tbody>
+                                </table>
+                            ` : ''}
+
+                            <!-- Cattle Feed -->
+                            ${cattleRows ? `
+                                <div class="section-title-compact">${t('sellerPayments.cattleFeedDeductions')}</div>
+                                <table style="margin-bottom:1px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:left;font-size:4.5px;width:60%">${t('sellerPayments.feed')}</th>
+                                            <th style="font-size:4.5px;width:20%">${t('sellerPayments.qty')}</th>
+                                            <th style="text-align:right;font-size:4.5px;width:20%">${t('sellerPayments.amount')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${cattleRows}</tbody>
+                                </table>
+                            ` : ''}
+
+                            <!-- Walk-in Banner -->
+                            ${walkinDed > 0 ? `
+                                <div class="banner-compact">
+                                    <span class="label">${t('sellerPayments.milkBoughtBySeller')}</span>
+                                    <span class="amount">${fmtR(walkinDed)}</span>
+                                </div>
+                            ` : ''}
+
+                            <!-- Commission Banner -->
+                            ${commissionAmt > 0 ? `
+                                <div class="banner-compact" style="background:#f0f0f0;">
+                                    <span class="label">${t('sellerPayments.gavaliCommissionIncluded') || 'Gavali Commission'}</span>
+                                    <span class="amount">+ ${fmtR(commissionAmt)}</span>
+                                </div>
+                            ` : ''}
+
+                            <!-- Account Summary -->
+                            <div class="section-title-compact">${t('sellerPayments.accountSummary')}</div>
+                            <div class="bottom-summary-compact">
+                                <div class="bs-col-compact">
+                                    <div class="bs-col-header-compact">${t('sellerPayments.advanceAccount')}</div>
+                                    <div class="bs-row-compact"><span class="key">${t('sellerPayments.openingBalance')}</span><span class="val">${fmtR(advGiven)}</span></div>
+                                    <div class="bs-row-compact" style="background:#f5f5f5;"><span class="key">${t('sellerPayments.installmentCut')}</span><span class="val">− ${fmtR(installmentCut)}</span></div>
+                                    <div class="bs-total-row-compact"><span>${t('sellerPayments.closingBalance')}</span><span>${fmtR(Math.max(0, advGiven - installmentCut))}</span></div>
+                                </div>
+                                <div class="bs-col-compact">
+                                    <div class="bs-col-header-compact">${t('sellerPayments.depositAccount')}</div>
+                                    <div class="bs-row-compact"><span class="key">${t('sellerPayments.openingBalance')}</span><span class="val">${fmtR(openingDeposit)}</span></div>
+                                    <div class="bs-row-compact" style="background:#f0f0f0;"><span class="key">${t('sellerPayments.addedThisCycle')}</span><span class="val">+ ${fmtR(depositAmt)}</span></div>
+                                    <div class="bs-total-row-compact"><span>${t('sellerPayments.closingBalance')}</span><span>${fmtR(openingDeposit + depositAmt)}</span></div>
+                                </div>
+                                <div class="bs-col-compact">
+                                    <div class="bs-col-header-compact">${t('sellerPayments.paymentSummary')}</div>
+                                    <div class="bs-row-compact" style="background:#f0f0f0;"><span class="key">${t('sellerPayments.milkAmount')}</span><span class="val">+ ${fmtR(milkAmt)}</span></div>
+                                    ${depositAmt > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.depositCut')}</span><span class="val">− ${fmtR(depositAmt)}</span></div>` : ''}
+                                    ${installmentCut > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.advInstallment')}</span><span class="val">− ${fmtR(installmentCut)}</span></div>` : ''}
+                                    ${productDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.products')}</span><span class="val">− ${fmtR(productDed)}</span></div>` : ''}
+                                    ${cattleFeedDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.cattleFeed')}</span><span class="val">− ${fmtR(cattleFeedDed)}</span></div>` : ''}
+                                    ${walkinDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.milkBought')}</span><span class="val">− ${fmtR(walkinDed)}</span></div>` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Net Payable -->
+                            <div class="net-row-compact">
+                                <span>${t('sellerPayments.netCashToHand')}</span>
+                                <span style="font-family:monospace;font-size:8px;">${fmtR(finalPayable)}</span>
+                            </div>
+
+                            <!-- Footer -->
+                            <div class="footer-compact">
+                                <span>${t('sellerPayments.computerGenerated')} · ${appName}</span>
+                                ${sellerObj.paid_at ? `<span>${t('sellerPayments.paidOn')}: ${fmtD(sellerObj.paid_at)}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    combinedHtml += receiptHtml;
+                    successCount++;
+
+                } catch (err) {
+                    console.error('Error processing seller:', err);
+                    failCount++;
+                }
+            }
+
+            container.innerHTML = combinedHtml;
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const canvas = await html2canvas(container, {
+                scale: 2.5,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                width: 1123,
+                height: container.scrollHeight,
+            });
+
+            document.body.removeChild(container);
+
+            const imgWidth = 297;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            const pageHeight = 210;
+            const pdf = new jsPDF('l', 'mm', 'a4');
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 5) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            const fromDate = cycle.from ? new Date(cycle.from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
+            const toDate = cycle.to ? new Date(cycle.to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
+            const fileName = `Combined_Receipts_${fromDate}_to_${toDate}.pdf`;
+            pdf.save(fileName);
+
+            return { successCount, failCount };
+
+        } catch (error) {
+            console.error('Combined PDF generation error:', error);
+            return { successCount: 0, failCount: 1 };
+        }
+    };
+
     const [bulkDownloading, setBulkDownloading] = useState(false);
 
     const handleBulkDownloadPDFs = async () => {
@@ -1963,7 +2524,6 @@ ${commissionBanner}
         setDeletingBill(null);
     };
 
-    // Print Register
     const printRegister = () => {
         const fmtR = (n) => parseFloat(n || 0).toFixed(2);
         const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "-";
@@ -1987,89 +2547,68 @@ ${commissionBanner}
             const depositClosing = depositOpening + depositAmt;
             const pendTotal = productDed + walkinDed + cattleFeedDed;
 
-            const bg = i % 2 === 0 ? "#ffffff" : "#f9fafb";
-            const subBg = i % 2 === 0 ? "#f3f4f6" : "#eef0f3";
+            const bg = i % 2 === 0 ? "#ffffff" : "#f5f5f5";
+            const subBg = i % 2 === 0 ? "#f0f0f0" : "#e8e8e8";
 
             const mainRow = `
-<tr style="background:${bg};border-top:2px solid #9ca3af">
-    <td style="padding:5px 7px;border:1px solid #d1d5db;font-family:monospace;font-size:10px;
-               color:#374151;font-weight:700;vertical-align:top;white-space:nowrap">
+<tr style="background:${bg};border-top:2px solid #666">
+    <td style="padding:4px 6px;border:1px solid #ccc;font-family:monospace;font-size:8px;color:#000;font-weight:700;vertical-align:top;white-space:nowrap">
         ${s.seller_code || "—"}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;font-weight:700;font-size:11px;
-               vertical-align:top;white-space:nowrap">
+    <td style="padding:4px 6px;border:1px solid #ccc;font-weight:700;font-size:9px;vertical-align:top;white-space:nowrap;color:#000">
         ${s.name}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;text-align:right;
-               font-family:monospace;vertical-align:top">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-family:monospace;vertical-align:top;color:#000">
         ${totalQty.toFixed(1)}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;text-align:right;
-               font-family:monospace;color:#15803d;font-weight:600;vertical-align:top">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-family:monospace;font-weight:600;vertical-align:top;color:#000">
         ${fmtR(milkAmt)}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;text-align:right;
-               font-family:monospace;vertical-align:top">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-family:monospace;vertical-align:top;color:#000">
         ${advGiven > 0 ? fmtR(advGiven) : ""}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;text-align:right;
-               font-family:monospace;text-decoration:underline;vertical-align:top">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-family:monospace;text-decoration:underline;vertical-align:top;color:#000">
         ${installmentCut > 0 ? fmtR(installmentCut) : ""}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;text-align:right;
-               font-family:monospace;vertical-align:top">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-family:monospace;vertical-align:top;color:#000">
         ${advGiven > 0 ? fmtR(advClosing) : ""}
     </td>
-    <td style="padding:5px 7px;border:1px solid #d1d5db;text-align:right;
-               font-family:monospace;font-weight:700;font-size:11px;vertical-align:top;
-               color:${finalPayable > 0 ? "#15803d" : "#374151"}">
+    <td style="padding:4px 6px;border:1px solid #ccc;text-align:right;font-family:monospace;font-weight:700;font-size:9px;vertical-align:top;color:#000">
         ${fmtR(finalPayable)}
     </td>
 </tr>`;
 
             const advRow = `
 <tr style="background:${subBg}">
-    <td style="padding:1px 7px 1px 10px;border-left:1px solid #d1d5db;border-right:none;
-               font-size:9px;color:#6b7280;text-align:right;font-style:italic;white-space:nowrap">
+    <td style="padding:1px 6px 1px 8px;border-left:1px solid #ccc;border-right:none;font-size:7px;color:#444;text-align:right;font-style:italic;white-space:nowrap">
         Advance:
     </td>
-    <td style="padding:1px 7px;border-right:1px solid #d1d5db;font-size:9px;
-               font-family:monospace;color:#7c3aed">
-        ${advGiven > 0
-                    ? `<span style="margin-right:10px">${fmtR(advGiven)}</span><span style="margin-right:10px">${fmtR(installmentCut)}</span><span>${fmtR(advClosing)}</span>`
-                    : `<span style="color:#d1d5db">—</span>`}
+    <td style="padding:1px 6px;border-right:1px solid #ccc;font-size:7px;font-family:monospace;color:#000">
+        ${advGiven > 0 ? `<span style="margin-right:8px">${fmtR(advGiven)}</span><span style="margin-right:8px">${fmtR(installmentCut)}</span><span>${fmtR(advClosing)}</span>` : `<span style="color:#ccc">—</span>`}
     </td>
-    <td colspan="6" style="border-right:1px solid #d1d5db;border-bottom:none"></td>
+    <td colspan="6" style="border-right:1px solid #ccc;border-bottom:none"></td>
 </tr>`;
 
             const pendRow = `
 <tr style="background:${subBg}">
-    <td style="padding:1px 7px 1px 10px;border-left:1px solid #d1d5db;border-right:none;
-               font-size:9px;color:#6b7280;text-align:right;font-style:italic;white-space:nowrap">
+    <td style="padding:1px 6px 1px 8px;border-left:1px solid #ccc;border-right:none;font-size:7px;color:#444;text-align:right;font-style:italic;white-space:nowrap">
         Bought:
     </td>
-    <td style="padding:1px 7px;border-right:1px solid #d1d5db;font-size:9px;
-               font-family:monospace;">
-        ${pendTotal > 0
-                    ? `<span style="color:#d97706">${productDed > 0 ? `${fmtR(productDed)} ` : ""}</span><span style="color:#ea580c">${walkinDed > 0 ? `${fmtR(walkinDed)} ` : ""}</span><span style="color:#065f46">${cattleFeedDed > 0 ? fmtR(cattleFeedDed) : ""}</span><span style="font-weight:600;color:#000"> = ${fmtR(pendTotal)}</span>`
-                    : `<span style="color:#d1d5db">—</span>`}
+    <td style="padding:1px 6px;border-right:1px solid #ccc;font-size:7px;font-family:monospace;color:#000">
+        ${pendTotal > 0 ? `<span style="color:#000">${productDed > 0 ? `${fmtR(productDed)} ` : ""}${walkinDed > 0 ? `${fmtR(walkinDed)} ` : ""}${cattleFeedDed > 0 ? fmtR(cattleFeedDed) : ""}</span><span style="font-weight:600;color:#000"> = ${fmtR(pendTotal)}</span>` : `<span style="color:#ccc">—</span>`}
     </td>
-    <td colspan="6" style="border-right:1px solid #d1d5db;border-bottom:none"></td>
+    <td colspan="6" style="border-right:1px solid #ccc;border-bottom:none"></td>
 </tr>`;
 
             const depRow = `
-<tr style="background:${subBg};border-bottom:1px solid #d1d5db">
-    <td style="padding:1px 7px 3px 10px;border-left:1px solid #d1d5db;border-right:none;
-               font-size:9px;color:#6b7280;text-align:right;font-style:italic;white-space:nowrap">
+<tr style="background:${subBg};border-bottom:1px solid #ccc">
+    <td style="padding:1px 6px 3px 8px;border-left:1px solid #ccc;border-right:none;font-size:7px;color:#444;text-align:right;font-style:italic;white-space:nowrap">
         Deposit:
     </td>
-    <td style="padding:1px 7px 3px;border-right:1px solid #d1d5db;font-size:9px;
-               font-family:monospace;color:#2563eb">
-        ${depositAmt > 0 || depositOpening > 0
-                    ? `<span style="margin-right:10px">${fmtR(depositOpening)}</span><span style="margin-right:10px">${fmtR(depositAmt)}</span><span>${fmtR(depositClosing)}</span>`
-                    : `<span style="color:#d1d5db">—</span>`}
+    <td style="padding:1px 6px 3px;border-right:1px solid #ccc;font-size:7px;font-family:monospace;color:#000">
+        ${depositAmt > 0 || depositOpening > 0 ? `<span style="margin-right:8px">${fmtR(depositOpening)}</span><span style="margin-right:8px">${fmtR(depositAmt)}</span><span>${fmtR(depositClosing)}</span>` : `<span style="color:#ccc">—</span>`}
     </td>
-    <td colspan="6" style="border-right:1px solid #d1d5db"></td>
+    <td colspan="6" style="border-right:1px solid #ccc;border-bottom:none"></td>
 </tr>`;
 
             return mainRow + advRow + pendRow + depRow;
@@ -2092,18 +2631,17 @@ ${commissionBanner}
     <title>${t('sellerPayments.paymentRegister')} - ${fmtD(cycle.from)} to ${fmtD(cycle.to)}</title>
     <style>
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 9px; color: #000; margin: 0; padding: 0; }
         table { border-collapse: collapse; width: 100%; }
-        @media print { @page { size: A4 portrait; margin: 8mm; } body { font-size: 10px; } }
-        @media screen { body { max-width: 900px; margin: 0 auto; padding: 16px; } }
+        @media print { @page { size: A4 portrait; margin: 8mm; } body { font-size: 8px; } }
+        @media screen { body { max-width: 800px; margin: 0 auto; padding: 12px; } }
     </style>
 </head>
 <body>
 
-<!-- Header -->
-<div style="text-align:center;margin-bottom:10px">
-    <div style="font-size:16px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase">${appName}</div>
-    <div style="font-size:11px;color:#374151;margin-top:2px">
+<div style="text-align:center;margin-bottom:8px">
+    <div style="font-size:14px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:#000">${appName}</div>
+    <div style="font-size:9px;color:#444;margin-top:2px">
         Payment Register For The Period From :
         ${new Date(cycle.from + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}
         &nbsp; To &nbsp;
@@ -2111,63 +2649,53 @@ ${commissionBanner}
     </div>
 </div>
 
-<div style="font-size:11px;font-weight:700;color:#111;margin-bottom:4px;padding:3px 6px;
-            border-top:1px solid #111;border-bottom:1px solid #111;background:#f3f4f6">
+<div style="font-size:9px;font-weight:700;color:#000;margin-bottom:3px;padding:2px 5px;border-top:1px solid #000;border-bottom:1px solid #000;background:#f0f0f0">
     ${appName}
 </div>
 
-<table style="border:1px solid #9ca3af">
+<table style="border:1px solid #666">
     <thead>
-        <tr style="background:#ffffff;border-bottom:2px solid #111">
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:left;font-size:10px;
-                       white-space:nowrap;min-width:36px">Seller Code</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:left;font-size:10px;
-                       white-space:nowrap;min-width:140px">Name</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:right;font-size:10px;
-                       white-space:nowrap">Qty</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:right;font-size:10px;
-                       white-space:nowrap">Amt.</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:right;font-size:10px;
-                       white-space:nowrap">Advance</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:right;font-size:10px;
-                       white-space:nowrap">Adv. Cr</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:right;font-size:10px;
-                       white-space:nowrap">Adv. Bal.</th>
-            <th style="padding:5px 7px;border:1px solid #9ca3af;text-align:right;font-size:10px;
-                       white-space:nowrap">Net Payable</th>
+        <tr style="background:#ffffff;border-bottom:2px solid #000">
+            <th style="padding:4px 6px;border:1px solid #666;text-align:left;font-size:8px;white-space:nowrap;min-width:32px;color:#000">Seller Code</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:left;font-size:8px;white-space:nowrap;min-width:120px;color:#000">Name</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:right;font-size:8px;white-space:nowrap;color:#000">Qty</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:right;font-size:8px;white-space:nowrap;color:#000">Amt.</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:right;font-size:8px;white-space:nowrap;color:#000">Advance</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:right;font-size:8px;white-space:nowrap;color:#000">Adv. Cr</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:right;font-size:8px;white-space:nowrap;color:#000">Adv. Bal.</th>
+            <th style="padding:4px 6px;border:1px solid #666;text-align:right;font-size:8px;white-space:nowrap;color:#000">Net Payable</th>
         </tr>
     </thead>
     <tbody>
         ${sellerRows}
         <!-- Grand Total -->
-        <tr style="background:#111;color:#fff;font-weight:bold;border-top:2px solid #111">
-            <td colspan="2" style="padding:6px 8px;border:1px solid #374151;font-size:10px">
+        <tr style="background:#000;color:#fff;font-weight:bold;border-top:2px solid #000">
+            <td colspan="2" style="padding:5px 7px;border:1px solid #333;font-size:8px;color:#fff">
                 Total &nbsp;(${activePrintSellers.length} sellers)
             </td>
-            <td style="padding:6px 8px;border:1px solid #374151;text-align:right;font-family:monospace">
+            <td style="padding:5px 7px;border:1px solid #333;text-align:right;font-family:monospace;color:#fff">
                 ${grandQty.toFixed(1)}
             </td>
-            <td style="padding:6px 8px;border:1px solid #374151;text-align:right;font-family:monospace;color:#6ee7b7">
+            <td style="padding:5px 7px;border:1px solid #333;text-align:right;font-family:monospace;color:#fff">
                 ${grandMilk.toFixed(2)}
             </td>
-            <td style="padding:6px 8px;border:1px solid #374151;text-align:right;font-family:monospace;color:#c4b5fd">
+            <td style="padding:5px 7px;border:1px solid #333;text-align:right;font-family:monospace;color:#fff">
                 ${grandAdv.toFixed(2)}
             </td>
-            <td style="padding:6px 8px;border:1px solid #374151;text-align:right;font-family:monospace;color:#fca5a5">
+            <td style="padding:5px 7px;border:1px solid #333;text-align:right;font-family:monospace;color:#fff">
                 ${grandInstallment > 0 ? grandInstallment.toFixed(2) : "—"}
             </td>
-            <td style="padding:6px 8px;border:1px solid #374151;text-align:right;font-family:monospace;color:#e9d5ff">
+            <td style="padding:5px 7px;border:1px solid #333;text-align:right;font-family:monospace;color:#fff">
                 ${grandAdvBalance.toFixed(2)}
             </td>
-            <td style="padding:6px 8px;border:1px solid #374151;text-align:right;font-family:monospace;
-                       font-size:12px;color:#6ee7b7">
+            <td style="padding:5px 7px;border:1px solid #333;text-align:right;font-family:monospace;font-size:10px;color:#fff">
                 ${grandFinal.toFixed(2)}
             </td>
         </tr>
     </tbody>
 </table>
 
-<div style="display:flex;justify-content:space-between;margin-top:28px;font-size:9px;color:#9ca3af">
+<div style="display:flex;justify-content:space-between;margin-top:20px;font-size:7px;color:#888">
     <span>${t('sellerPayments.computerGenerated')} · ${new Date().toLocaleDateString("en-IN")}</span>
     <span>${t('sellerPayments.authorisedSignatory')}: ___________________________</span>
 </div>
@@ -2180,7 +2708,6 @@ ${commissionBanner}
         win.document.close();
     };
 
-    // filtered list
     const filtered = sellers.filter(s => {
         const hasEntries = parseFloat(s.milk_amount || 0) > 0;
         if (!hasEntries) return false;
@@ -2200,15 +2727,13 @@ ${commissionBanner}
         currentPage * pageSize
     );
 
-    // totals
     const activeSellers = sellers.filter(s => parseFloat(s.milk_amount || 0) > 0);
     const totalMilk = activeSellers.reduce((a, s) => a + parseFloat(s.milk_amount || 0), 0);
     const totalAdvance = activeSellers.reduce((a, s) => a + parseFloat(s.advance_given || 0), 0);
     const totalDeduction = activeSellers.reduce((a, s) => a + parseFloat(s.deduction_amount || 0), 0);
     const totalProductDeduction = activeSellers.reduce((a, s) => a + parseFloat(s.product_deduction || 0), 0);
     const totalCattleFeedDeduction = activeSellers.reduce((a, s) => a + parseFloat(s.cattle_feed_deduction || 0), 0);
-    const totalFinal = activeSellers.reduce((a, s) =>
-        a + parseFloat(s.final_payable || s.cash_to_pay || 0), 0);
+    const totalFinal = activeSellers.reduce((a, s) => a + getEffectiveFinalPayable(s), 0);
     const paidCount = activeSellers.filter(s => !!(s.is_paid || s.bill_no)).length;
 
     if (permLoading) return (
@@ -2262,26 +2787,25 @@ ${commissionBanner}
 
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
-                {/* Header - Updated with glass-morphism */}
+                {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div className="flex items-center gap-3 shrink-0">
-                                            
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                                                    <Home size={16} className="text-gray-400" />
-                                                    <span>{t('sellerPayments.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
-                                                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
-                                                        <Settings size={12} /> {t('status.admin')}
-                                                    </span>
-                                                </div>
-                                                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
-                                                    {t('sellerPayments.pageTitle')}
-                                                </h1>
-                                                <p className="text-xs text-gray-500 mt-0.5">
-                                                    {t('rateChart.pageSubtitle')} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-                                                </p>
-                                            </div>
-                                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                                <Home size={16} className="text-gray-400" />
+                                <span>{t('sellerPayments.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
+                                <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
+                                    <Settings size={12} /> {t('status.admin')}
+                                </span>
+                            </div>
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
+                                {t('sellerPayments.pageTitle')}
+                            </h1>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {t('rateChart.pageSubtitle')} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </p>
+                        </div>
+                    </div>
 
                     <div className="flex items-center gap-2 flex-wrap" data-tour="header-actions">
                         <button onClick={startSellerPaymentsTour}
@@ -2378,10 +2902,9 @@ ${commissionBanner}
                     </div>
                 </div>
 
-                {/* Date Range - Updated with glass-morphism */}
+                {/* Date Range */}
                 <div className="flex flex-col gap-3 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4" data-tour="date-range">
 
-                    {/* Mode toggle */}
                     <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
                             <button type="button" onClick={() => handleCycleModeToggle(false)}
@@ -2409,7 +2932,6 @@ ${commissionBanner}
                         )}
                     </div>
 
-                    {/* Date inputs */}
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('sellerPayments.from')}</span>
@@ -2434,13 +2956,12 @@ ${commissionBanner}
                     </div>
                 </div>
 
-                {/* Print-only header */}
                 <div className="hidden print:block mb-2">
                     <h2 className="text-xl font-bold">{t('sellerPayments.sellerPaymentSummary')}</h2>
                     <p className="text-sm text-gray-500">{fmtDate(cycle.from)} to {fmtDate(cycle.to)}</p>
                 </div>
 
-                {/* Stats - Updated with glass-morphism */}
+                {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4" data-tour="payment-stats">
                     <StatCard label={t('sellerPayments.totalSellers')} value={activeSellers.length}
                         icon={<Users size={14} />}
@@ -2462,7 +2983,7 @@ ${commissionBanner}
                         color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" />
                 </div>
 
-                {/* Progress bar - Updated with glass-morphism */}
+                {/* Progress bar */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 flex items-center gap-4 no-print">
                     <div className="flex flex-col gap-1 flex-1">
                         <div className="flex justify-between text-xs font-medium text-gray-500 mb-1">
@@ -2480,7 +3001,7 @@ ${commissionBanner}
                     </div>
                 </div>
 
-                {/* Flash - Updated with glass-morphism */}
+                {/* Flash */}
                 {flash && (
                     <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
                         ${flash.type === "success"
@@ -2496,7 +3017,7 @@ ${commissionBanner}
                     </div>
                 )}
 
-                {/* Search + Filter - Updated with glass-morphism */}
+                {/* Search + Filter */}
                 <div className="flex items-center gap-2 no-print">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
@@ -2519,7 +3040,7 @@ ${commissionBanner}
                     </div>
                 </div>
 
-                {/* ── Seller Cards ── */}
+                {/* Seller Cards */}
                 <div className="flex flex-col gap-3" data-tour="seller-list">
                     {loading ? (
                         <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
@@ -2531,21 +3052,24 @@ ${commissionBanner}
                             <p className="text-sm">{t('sellerPayments.noSellersFound')}</p>
                         </div>
                     ) : paginatedSellers.map(seller => {
-                        // ── SAFETY: ensure entries is always an array ──
                         const entries = seller.entries || [];
                         const isOpen = expanded[seller.seller_id];
                         const milkAmt = parseFloat(seller.milk_amount || 0);
                         const advGiven = parseFloat(seller.advance_given || 0);
-                        const finalPayable = parseFloat(seller.final_payable || seller.cash_to_pay || 0);
                         const isPaid = !!(seller.is_paid || seller.bill_no);
+                        const effectiveInstallmentCut = isPaid
+                            ? parseFloat(seller.installment_cut || 0)
+                            : getEffectiveInstallmentCut(seller);
+                        const hasCutOverride = !isPaid &&
+                            customCutOverrides[seller.seller_id] !== undefined &&
+                            customCutOverrides[seller.seller_id] !== "";
+                        const finalPayable = getEffectiveFinalPayable(seller);
                         const cattleFeedDed = parseFloat(seller.cattle_feed_deduction || 0);
-
                         return (
                             <div key={seller.seller_id}
                                 className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all shadow-lg shadow-gray-200/50 hover:shadow-xl print-break
                                     ${isPaid ? "border-emerald-200/60" : "border-gray-200/60"}`}>
 
-                                {/* Row */}
                                 <div className="flex items-center gap-3 px-5 py-4 cursor-pointer"
                                     onClick={() => toggleExpand(seller.seller_id)}>
 
@@ -2574,7 +3098,6 @@ ${commissionBanner}
                                         <p className="text-[11px] text-gray-400 font-mono mt-0.5">{seller.seller_code}</p>
                                     </div>
 
-                                    {/* Desktop amounts */}
                                     <div className="hidden sm:flex items-center gap-6 text-right mr-4">
                                         <div>
                                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">{t('sellerPayments.milk')}</p>
@@ -2592,10 +3115,13 @@ ${commissionBanner}
                                                 <p className="text-sm font-semibold text-violet-500">{fmt(advGiven)}</p>
                                             </div>
                                         )}
-                                        {parseFloat(seller.installment_cut || 0) > 0 && (
+                                        {effectiveInstallmentCut > 0 && (
                                             <div>
-                                                <p className="text-[10px] text-rose-400 uppercase tracking-wider">{t('sellerPayments.advInstCut')}</p>
-                                                <p className="text-sm font-semibold text-rose-500">− {fmt(seller.installment_cut)}</p>
+                                                <p className="text-[10px] text-rose-400 uppercase tracking-wider">
+                                                    {t('sellerPayments.advInstCut')}
+                                                    {hasCutOverride && <span className="ml-1 text-violet-500">· custom</span>}
+                                                </p>
+                                                <p className="text-sm font-semibold text-rose-500">− {fmt(effectiveInstallmentCut)}</p>
                                             </div>
                                         )}
                                         {parseFloat(seller.deposit_amount || 0) > 0 && (
@@ -2677,25 +3203,22 @@ ${commissionBanner}
                                     </div>
                                 </div>
 
-                                {/* Mobile amounts */}
                                 <div className="flex sm:hidden items-center justify-between px-5 pb-3 gap-3 text-xs flex-wrap">
                                     <span className="text-gray-400">{t('sellerPayments.milk')}: <strong className="text-gray-700">{fmt(milkAmt)}</strong></span>
                                     {seller.seller_type === 'Gavali' && parseFloat(seller.commission_amount || 0) > 0 && (
                                         <span className="text-fuchsia-500">{t('sellerPayments.commission') || 'Commission'}: +{fmt(seller.commission_amount)}</span>
                                     )}
                                     {advGiven > 0 && <span className="text-violet-500">{t('sellerPayments.adv')}: {fmt(advGiven)}</span>}
-                                    {parseFloat(seller.installment_cut || 0) > 0 && <span className="text-rose-500">{t('sellerPayments.advInstCut')}: −{fmt(seller.installment_cut)}</span>}
+                                    {effectiveInstallmentCut > 0 && <span className="text-rose-500">{t('sellerPayments.advInstCut')}: −{fmt(effectiveInstallmentCut)}{hasCutOverride ? " (custom)" : ""}</span>}
                                     {parseFloat(seller.deposit_amount || 0) > 0 && <span className="text-blue-500">{t('sellerPayments.dep')}: −{fmt(seller.deposit_amount)}</span>}
                                     {cattleFeedDed > 0 && <span className="text-emerald-500">{t('sellerPayments.cattleFeed')}: −{fmt(cattleFeedDed)}</span>}
                                     {parseFloat(seller.walkin_deduction || 0) > 0 && <span className="text-rose-500">{t('sellerPayments.bought')}: −{fmt(seller.walkin_deduction)}</span>}
                                     <span className="font-bold text-gray-900">{t('sellerPayments.cash')}: {fmt(finalPayable)}</span>
                                 </div>
 
-                                {/* ── Expanded breakdown ── */}
                                 {isOpen && (
                                     <div className="border-t border-gray-100/60 px-5 py-4 flex flex-col gap-4">
 
-                                        {/* Day-wise entries table */}
                                         {entries.length > 0 && (
                                             <div>
                                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
@@ -2719,7 +3242,7 @@ ${commissionBanner}
                                                                 <div className="px-3 py-2">
                                                                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full
                                                                         ${e.shift === "morning" ? "bg-yellow-50 text-yellow-700" : "bg-indigo-50 text-indigo-600"}`}>
-                                                                        {e.shift === "morning" ? "☀" : "🌙"} {e.shift === "morning" ? t('sellerPayments.morning') : t('sellerPayments.evening')}
+                                                                        {e.shift === "morning" ? t('sellerPayments.morning') : t('sellerPayments.evening')}
                                                                     </span>
                                                                 </div>
                                                                 <div className="px-3 py-2 text-xs text-blue-600 font-mono font-semibold">{e.quantity}</div>
@@ -2744,7 +3267,6 @@ ${commissionBanner}
                                             </div>
                                         )}
 
-                                        {/* Walk-in deduction info */}
                                         {parseFloat(seller.walkin_deduction || 0) > 0 && (
                                             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50/80 border border-rose-200/60">
                                                 <Banknote size={15} className="text-rose-400 shrink-0" />
@@ -2755,7 +3277,6 @@ ${commissionBanner}
                                             </div>
                                         )}
 
-                                        {/* Cattle feed deduction info */}
                                         {cattleFeedDed > 0 && (
                                             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50/80 border border-emerald-200/60">
                                                 <Package size={15} className="text-emerald-400 shrink-0" />
@@ -2766,7 +3287,6 @@ ${commissionBanner}
                                             </div>
                                         )}
 
-                                        {/* Final summary */}
                                         <div className="text-xs text-gray-500 space-y-1">
                                             <p>{t('sellerPayments.milkPayable')}:
                                                 <strong className="text-gray-800 ml-1">{fmt(milkAmt)}</strong>
@@ -2790,11 +3310,50 @@ ${commissionBanner}
                                                     )}
                                                 </div>
                                             )}
-                                            {parseFloat(seller.installment_cut || 0) > 0 && (
+                                            {effectiveInstallmentCut > 0 && (
                                                 <p>{t('sellerPayments.advInstallmentCut')}:
-                                                    <strong className="text-rose-500 ml-1">− {fmt(seller.installment_cut)}</strong>
+                                                    <strong className="text-rose-500 ml-1">− {fmt(effectiveInstallmentCut)}</strong>
                                                     <span className="text-gray-400 ml-1 font-normal text-[10px]">({t('sellerPayments.reducesAdvancePending')})</span>
+                                                    {hasCutOverride && <span className="text-violet-500 ml-1 font-normal text-[10px]">· custom for this cycle</span>}
                                                 </p>
+                                            )}
+                                            {!isPaid && advGiven > 0 && can('seller_payments', 'W') && (
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    {editingCutSellerId === seller.seller_id ? (
+                                                        <>
+                                                            <span className="text-[10px] text-gray-400">Cut ₹</span>
+                                                            <input
+                                                                type="number" min={0} max={advGiven} step="0.01" autoFocus
+                                                                value={customCutOverrides[seller.seller_id] ?? ""}
+                                                                onChange={(e) => setCustomCutOverrides(prev => ({ ...prev, [seller.seller_id]: e.target.value }))}
+                                                                placeholder={parseFloat(seller.installment_cut || 0).toFixed(2)}
+                                                                className="w-24 px-2 py-1 text-xs border border-violet-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                                            />
+                                                            <button onClick={() => setEditingCutSellerId(null)}
+                                                                className="text-[10px] font-semibold text-emerald-600 hover:text-emerald-700">
+                                                                Done
+                                                            </button>
+                                                            {hasCutOverride && (
+                                                                <button onClick={() => {
+                                                                    setCustomCutOverrides(prev => {
+                                                                        const next = { ...prev };
+                                                                        delete next[seller.seller_id];
+                                                                        return next;
+                                                                    });
+                                                                    setEditingCutSellerId(null);
+                                                                }} className="text-[10px] font-semibold text-gray-400 hover:text-gray-600">
+                                                                    Reset to auto
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <button onClick={() => setEditingCutSellerId(seller.seller_id)}
+                                                            className="flex items-center gap-1 text-[10px] font-semibold text-violet-500 hover:text-violet-700">
+                                                            <Pencil size={9} />
+                                                            {hasCutOverride ? "Edit custom cut" : "Customize cut for this cycle"}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             )}
                                             {parseFloat(seller.deposit_amount || 0) > 0 && (
                                                 <p>{t('sellerPayments.depositDeducted')}:
@@ -2843,7 +3402,7 @@ ${commissionBanner}
                     })}
                 </div>
 
-                {/* Pagination - Updated with glass-morphism */}
+                {/* Pagination */}
                 {filtered.length > 0 && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-gray-100/60 bg-gray-50/60 backdrop-blur-sm rounded-b-2xl bg-white/80 shadow-lg shadow-gray-200/50">
                         <div className="flex items-center gap-2">
@@ -2893,7 +3452,7 @@ ${commissionBanner}
                     </div>
                 )}
 
-                {/* Grand total footer - Updated with glass-morphism */}
+                {/* Grand total footer */}
                 {filtered.length > 0 && (
                     <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-6 py-4 flex items-center justify-between">
                         <div className="flex items-center gap-6 text-sm">
@@ -2927,7 +3486,7 @@ ${commissionBanner}
 
             </main>
 
-            {/* Bill Search Modal - Updated with glass-morphism */}
+            {/* Bill Search Modal */}
             {billSearchOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-100/60 w-full max-w-6xl h-[90vh] flex flex-col">
@@ -2980,7 +3539,6 @@ ${commissionBanner}
 
                         <div className="flex flex-1 min-h-0 overflow-hidden relative">
 
-                            {/* Left: Bills List */}
                             <div
                                 className={`flex flex-col overflow-hidden border-r border-gray-100/60 transition-all duration-300
                                     ${!billListExpanded && billDetail ? "w-0 overflow-hidden" : billDetail ? "w-2/5" : "w-full"}`}
@@ -3063,7 +3621,6 @@ ${commissionBanner}
                                 </div>
                             </div>
 
-                            {/* Right: Bill Detail Pane - Updated with glass-morphism */}
                             {billDetail && (
                                 <div className="flex-1 overflow-y-auto flex flex-col relative bg-white/95">
                                     <button
@@ -3109,13 +3666,12 @@ ${commissionBanner}
 
                                             <div className="px-6 py-4 flex flex-col gap-5">
 
-                                                {/* Summary Cards - Updated with glass-morphism */}
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                     {[
                                                         { label: t('sellerPayments.milkAmount'), value: `₹${parseFloat(billDetail.payment.milk_amount || 0).toFixed(2)}`, color: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" },
                                                         { label: t('sellerPayments.totalEntries'), value: `${billDetail.entries.length} ${t('sellerPayments.entries')}`, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
                                                         { label: t('sellerPayments.totalQty'), value: `${billDetail.entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2)} L`, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" },
-                                                        { label: t('sellerPayments.netCashPaid'), value: `₹${parseFloat(billDetail.payment.cash_paid || 0).toFixed(2)}`, color: "from-gray-900 to-gray-800 border-gray-800/60 text-white" },
+                                                        { label: t('sellerPayments.netCashPaid'), value: `₹${Math.max(0, parseFloat(billDetail.payment.cash_paid || 0)).toFixed(2)}`, color: "from-gray-900 to-gray-800 border-gray-800/60 text-white" },
                                                     ].map(({ label, value, color }) => (
                                                         <div key={label} className={`relative overflow-hidden rounded-xl border bg-gradient-to-br ${color} shadow-sm px-4 py-3`}>
                                                             <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">{label}</p>
@@ -3125,7 +3681,6 @@ ${commissionBanner}
                                                     ))}
                                                 </div>
 
-                                                {/* Milk Entries Table */}
                                                 <div>
                                                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
                                                         {t('sellerPayments.milkCollectionEntries')} ({billDetail.entries.length})
@@ -3182,7 +3737,6 @@ ${commissionBanner}
                                                     </div>
                                                 </div>
 
-                                                {/* Deductions Table */}
                                                 <div>
                                                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sellerPayments.paymentBreakdown')}</p>
                                                     <div className="rounded-xl border border-gray-100/60 overflow-hidden">
@@ -3256,13 +3810,12 @@ ${commissionBanner}
                                                         <div className="flex items-center justify-between px-4 py-4 bg-gray-900 text-white shadow-lg shadow-gray-900/20">
                                                             <span className="text-sm font-bold uppercase tracking-wider">{t('sellerPayments.netCashToHand')}</span>
                                                             <span className="text-lg font-bold font-mono">
-                                                                ₹{parseFloat(billDetail.payment.final_payable || billDetail.payment.cash_paid || 0).toFixed(2)}
+                                                                ₹{Math.max(0, parseFloat(billDetail.payment.final_payable || billDetail.payment.cash_paid || 0)).toFixed(2)}
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Advances */}
                                                 {billDetail.advances?.length > 0 && (
                                                     <div>
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -3288,7 +3841,6 @@ ${commissionBanner}
                                                     </div>
                                                 )}
 
-                                                {/* Product Sales */}
                                                 {billDetail.productSales?.length > 0 && (
                                                     <div>
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -3314,7 +3866,6 @@ ${commissionBanner}
                                                     </div>
                                                 )}
 
-                                                {/* Cattle Feed Sales */}
                                                 {billDetail.cattleFeedSales?.length > 0 && (
                                                     <div>
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -3340,7 +3891,6 @@ ${commissionBanner}
                                                     </div>
                                                 )}
 
-                                                {/* Walk-in Sales */}
                                                 {billDetail.walkinSales?.length > 0 && (
                                                     <div>
                                                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -3379,7 +3929,7 @@ ${commissionBanner}
                 </div>
             )}
 
-            {/* Delete Confirm Modal - Updated with glass-morphism */}
+            {/* Delete Confirm Modal */}
             {deleteConfirmOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">

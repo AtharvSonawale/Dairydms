@@ -959,7 +959,6 @@ export default function CattleFeedSales() {
                         ${(txn.seller_name || "?").charAt(0).toUpperCase()}
                     </span>
                     <div>
-                        <div>${txn.seller_name || `ID:${txn.seller_id}`}</div>
                         <div style="font-size:8px;color:#555;font-family:monospace">${txn.seller_code || "—"}</div>
                     </div>
                 </div>
@@ -1392,11 +1391,6 @@ export default function CattleFeedSales() {
                                             </button>
                                         )}
                                     </div>
-                                    {selectedSeller && (
-                                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                                            {t('cattleFeedSales.form.sellerId', { id: selectedSeller.seller_id, type: selectedSeller.seller_type || "—" })}
-                                        </p>
-                                    )}
                                 </Field>
                             </div>
 
