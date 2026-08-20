@@ -3279,6 +3279,10 @@ const en = {
 
         // ── Seller Payments (Main) ──────────────────────────────────
         sellerPayments: {
+            advancePending: "Advance Pending",
+            installment: "Installment",
+            advanceCut: "Advance Cut",
+            closingAdvance: "Closing Advance",
             amt: "Amount",
             // Page Header
             pageTitle: "Farmer Payments",
