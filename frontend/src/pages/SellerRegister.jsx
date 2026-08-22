@@ -8,7 +8,7 @@ import {
     Trash2, Hash, Building2, X, BadgeCheck, ExternalLink,
     Wallet, Banknote, Milk, Sprout, MapPinned, Lock,
     UploadCloud, FileSpreadsheet, CheckCircle2, XCircle, Download, RotateCcw, Import,
-    Home, Search
+    Home, Search, ArrowUp, ArrowDown, ArrowUpDown
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -75,27 +75,27 @@ const columnMap = {
 
 // ── Sample farmers used to populate the downloadable import template ──────
 const SAMPLE_FARMER_ROWS = [
-    ["001", "Ramesh Kumar Patil", "9876543210", "123456789012", "ABCDE1234F", "100234567890",
+    ["1", "Ramesh Kumar Patil", "9876543210", "123456789012", "ABCDE1234F", "100234567890",
         "Utpadak", "cow", "Patil Wadi, Gat No. 45", "12345678901", "State Bank of India",
         "Ramesh Kumar Patil", "Pune Main Branch", "SBIN0001234",
         "At Post Wadgaon, Tal. Haveli, Dist. Pune", "411041",
         1, 500, 1, 1, 2.5, 0, "farmer@123"],
-    ["002", "Sunita Vitthal Jadhav", "9822345671", "234567890123", "BCDEF2345G", "100234567891",
+    ["2", "Sunita Vitthal Jadhav", "9822345671", "234567890123", "BCDEF2345G", "100234567891",
         "Gavali", "buffalo", "Jadhav Mala, Gat No. 12", "23456789012", "Bank of Maharashtra",
         "Sunita Vitthal Jadhav", "Haveli Branch", "MAHB0001122",
         "At Post Manjari, Tal. Haveli, Dist. Pune", "412307",
         1, 300, 0, 1, 2, 0, "farmer@456"],
-    ["003", "Ganesh Baburao Shinde", "9765432109", "345678901234", "CDEFG3456H", "100234567892",
+    ["3", "Ganesh Baburao Shinde", "9765432109", "345678901234", "CDEFG3456H", "100234567892",
         "Utpadak", "both", "Shinde Vasti, Gat No. 78", "34567890123", "Punjab National Bank",
         "Ganesh Baburao Shinde", "Shivajinagar Branch", "PUNB0123400",
         "At Post Wagholi, Tal. Haveli, Dist. Pune", "412207",
         0, "", 1, 0, "", 1, "farmer@789"],
-    ["004", "Anita Sanjay More", "9988776655", "456789012345", "DEFGH4567I", "100234567893",
+    ["4", "Anita Sanjay More", "9988776655", "456789012345", "DEFGH4567I", "100234567893",
         "Gavali", "cow", "More Wadi, Gat No. 33", "45678901234", "HDFC Bank",
         "Anita Sanjay More", "Kharadi Branch", "HDFC0001357",
         "At Post Kharadi, Tal. Haveli, Dist. Pune", "411014",
         1, 250, 1, 1, 3, 1, "farmer@321"],
-    ["005", "Prakash Dattatray Kale", "9112233445", "567890123456", "EFGHI5678J", "100234567894",
+    ["5", "Prakash Dattatray Kale", "9112233445", "567890123456", "EFGHI5678J", "100234567894",
         "Utpadak", "buffalo", "Kale Nagar, Gat No. 9", "56789012345", "ICICI Bank",
         "Prakash Dattatray Kale", "Viman Nagar Branch", "ICIC0002468",
         "At Post Viman Nagar, Tal. Haveli, Dist. Pune", "411014",
@@ -189,7 +189,7 @@ const Field = ({ label, name, type = "text", value, onChange, placeholder, requi
 // ── TableCell ─────────────────────────────────────────────────
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-3 flex items-center text-slate-600 border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-3 py-3 flex items-center min-w-0 overflow-hidden text-slate-600 border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );
@@ -214,6 +214,27 @@ export default function SellerRegister() {
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasPassword, setHasPassword] = useState(false);
+    const [codeSortDirection, setCodeSortDirection] = useState('asc'); // null | 'asc' | 'desc'
+
+    // Cycles: none -> ascending -> descending -> none
+    const toggleCodeSort = () => {
+        setCodeSortDirection((prev) => (prev === null ? 'asc' : prev === 'asc' ? 'desc' : null));
+        setCurrentPage(1);
+    };
+
+    // Numeric-aware compare: numeric codes sort by value, non-numeric codes
+    // fall back to a string comparison and are placed after numeric ones.
+    const compareSellerCodes = (a, b) => {
+        const aCode = a.seller_code || "";
+        const bCode = b.seller_code || "";
+        const aNum = /^\d+$/.test(aCode) ? parseInt(aCode, 10) : null;
+        const bNum = /^\d+$/.test(bCode) ? parseInt(bCode, 10) : null;
+
+        if (aNum !== null && bNum !== null) return aNum - bNum;
+        if (aNum !== null) return -1;
+        if (bNum !== null) return 1;
+        return aCode.localeCompare(bCode);
+    };
     const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 3500); };
     const handleFilterChange = (f) => { setFilter(f); setCurrentPage(1); };
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -260,8 +281,15 @@ export default function SellerRegister() {
             });
         }
 
+        // Apply seller code sort
+        if (codeSortDirection) {
+            result = [...result].sort((a, b) =>
+                codeSortDirection === 'asc' ? compareSellerCodes(a, b) : compareSellerCodes(b, a)
+            );
+        }
+
         return result;
-    }, [sellers, filter, searchTerm]);
+    }, [sellers, filter, searchTerm, codeSortDirection]);
 
     const totalPages = Math.ceil(filteredSellers.length / pageSize);
     const paginated = filteredSellers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -350,9 +378,15 @@ export default function SellerRegister() {
                     if (!obj.seller_type) obj.seller_type = 'Utpadak';
                     if (!obj.milk_type) obj.milk_type = 'both';
 
+                    // Strip leading zeros from a user-provided seller code (e.g. "01" -> "1"),
+                    // but leave a lone "0" untouched.
+                    if (obj.seller_code && /^0+[0-9]+$/.test(String(obj.seller_code).trim())) {
+                        obj.seller_code = String(obj.seller_code).trim().replace(/^0+/, '');
+                    }
+
                     // Generate seller_code if not provided (never auto-generate when updating existing sellers)
                     if (importMode === 'add' && (!obj.seller_code || obj.seller_code.trim() === '')) {
-                        obj.seller_code = String(nextCodeCounter).padStart(3, "0");
+                        obj.seller_code = String(nextCodeCounter);
                         nextCodeCounter++;
                     }
 
@@ -684,7 +718,7 @@ export default function SellerRegister() {
 
     const TABLE_COLS = [
         { label: t('sellerRegister.seller'), icon: <User size={11} /> },
-        { label: t('sellerRegister.code'), icon: <Hash size={11} /> },
+        { label: t('sellerRegister.code'), icon: <Hash size={11} />, sortKey: 'seller_code' },
         { label: t('sellerRegister.mobile'), icon: <Phone size={11} /> },
         { label: t('sellerRegister.aadhaar'), icon: <CreditCard size={11} /> },
         { label: 'PAN', icon: <CreditCard size={11} /> },
@@ -706,7 +740,7 @@ export default function SellerRegister() {
         { label: t('sellerRegister.actions'), icon: <Settings size={11} /> },
     ];
 
-    const GRID = "180px 60px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 85px 100px";
+    const GRID = "210px 100px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 85px 100px";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
@@ -1144,11 +1178,21 @@ export default function SellerRegister() {
 
                 {/* ── Table ── */}
                 <div className="w-full overflow-x-auto rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur-sm" data-tour="seller-table">
-                    <div className="min-w-[1600px]">
+                    <div className="min-w-[1670px]">
                         <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
-                            {TABLE_COLS.map(({ label, icon }) => (
+                            {TABLE_COLS.map(({ label, icon, sortKey }) => (
                                 <div key={label} className="px-3 py-3 flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
-                                    {icon}{label}
+                                    {sortKey === 'seller_code' ? (
+                                        <button type="button" onClick={toggleCodeSort}
+                                            className="flex items-center gap-1.5 hover:text-gray-800 transition">
+                                            {icon}{label}
+                                            {codeSortDirection === 'asc' ? <ArrowUp size={11} />
+                                                : codeSortDirection === 'desc' ? <ArrowDown size={11} />
+                                                : <ArrowUpDown size={11} className="opacity-40" />}
+                                        </button>
+                                    ) : (
+                                        <>{icon}{label}</>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -1195,11 +1239,8 @@ export default function SellerRegister() {
 
                                     {/* Name — link to profile */}
                                     <TableCell>
-                                        <Link to={`/seller/${s.seller_id}`} className="flex items-center gap-2 group/link">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 font-semibold text-xs shrink-0 group-hover/link:bg-gradient-to-br group-hover/link:from-gray-900 group-hover/link:to-gray-700 group-hover/link:text-white transition shadow-sm">
-                                                {s.name?.charAt(0)?.toUpperCase()}
-                                            </div>
-                                            <span className="text-gray-800 font-medium truncate group-hover/link:text-gray-900 group-hover/link:underline underline-offset-2 transition">
+                                        <Link to={`/seller/${s.seller_id}`} className="flex items-center gap-2 min-w-0 overflow-hidden group/link">
+                                            <span className="min-w-0 text-gray-800 font-medium truncate group-hover/link:text-gray-900 group-hover/link:underline underline-offset-2 transition">
                                                 {s.name}
                                             </span>
                                             <ExternalLink size={10} className="text-gray-300 group-hover/link:text-gray-500 shrink-0 transition" />

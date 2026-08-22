@@ -913,6 +913,7 @@ const en = {
                 sellersServed: "Farmers Served",
             },
             form: {
+                sellerCode: "Farmer Code",
                 title: "New Sale Entry",
                 seller: "Farmer",
                 sellerPlaceholder: "Search farmer by name or code",
@@ -3997,12 +3998,11 @@ const en = {
             fatOnlyAutofill: {
                 title: 'Fat-Only Rate Auto-Fill',
                 description:
-                    'When enabled, the milk entry rate auto-fill looks up the rate using only the entered <strong>FAT %</strong>, always paired with a fixed <strong>SNF of 8.5</strong> — regardless of the SNF the fat machine actually reads. Use this if your centre prices strictly off a standard SNF slab.',
+                    'When enabled, the milk entry rate auto-fill looks up the rate using only the entered <strong>FAT %</strong>, always paired with a fixed SNF — <strong>8.5</strong> for Cow and <strong>9.0</strong> for Buffalo — regardless of the SNF the fat machine actually reads. Use this if your centre prices strictly off a standard SNF slab.',
                 hint: 'When off (default), the auto-fill uses the actual measured FAT and SNF together.',
                 activeNotification:
-                    'Active — rate lookups in Milk Entry will use FAT + fixed SNF 8.5, not the measured SNF.',
+                    'Active — rate lookups in Milk Entry will use FAT + fixed SNF (8.5 Cow / 9.0 Buffalo), not the measured SNF.',
             },
-
             // ── Tour descriptions ──
             tour: {
                 appIdentity: 'Set your app name and upload a logo — this appears across the whole app.',

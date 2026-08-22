@@ -925,16 +925,22 @@ exports.importSellers = async (req, res) => {
             // will still fail at INSERT time and land in results.errors via the catch block below.
             const mobileClean = mobile ? String(mobile).replace(/[^\d]/g, "") : "";
 
+            // Strip any leading zeros from a supplied seller code (e.g. "01" -> "1"),
+            // but leave a lone "0" untouched.
+            let finalSellerCode = seller_code ? String(seller_code).trim() : '';
+            if (finalSellerCode && /^0+[0-9]+$/.test(finalSellerCode)) {
+                finalSellerCode = finalSellerCode.replace(/^0+/, '');
+            }
+
             // Generate seller_code if not provided
-            let finalSellerCode = seller_code;
-            if (!finalSellerCode || finalSellerCode.trim() === '') {
+            if (!finalSellerCode) {
                 const [codes] = await conn.query(
                     `SELECT seller_code FROM sellers WHERE centre_id = ? AND seller_code REGEXP '^[0-9]+$'`,
                     [centreId]
                 );
                 const numCodes = codes.map(c => parseInt(c.seller_code, 10)).filter(n => !isNaN(n));
                 const next = numCodes.length > 0 ? Math.max(...numCodes) + 1 : 1;
-                finalSellerCode = String(next).padStart(3, "0");
+                finalSellerCode = String(next);
 
                 // Check if the generated code conflicts
                 const [codeCheck] = await conn.query(
@@ -947,7 +953,7 @@ exports.importSellers = async (req, res) => {
                     let found = false;
                     while (!found) {
                         counter++;
-                        const testCode = String(counter).padStart(3, "0");
+                        const testCode = String(counter);
                         const [check] = await conn.query(
                             `SELECT seller_id FROM sellers WHERE seller_code = ? AND centre_id = ?`,
                             [testCode, centreId]

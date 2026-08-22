@@ -610,6 +610,36 @@ CREATE TABLE global_settings (
    CONSTRAINT global_settings_ibfk_1 FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id) ON DELETE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=919 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE milk_entries (
+   entry_id int NOT NULL AUTO_INCREMENT,
+   seller_id int NOT NULL,
+   operator_id int DEFAULT NULL,
+   centre_id int NOT NULL,
+   created_by_admin_id int DEFAULT NULL,
+   seller_type enum('Utpadak','Gavali') NOT NULL DEFAULT 'Utpadak',
+   entry_date date NOT NULL,
+   shift enum('morning','evening') NOT NULL,
+   milk_type enum('cow','buffalo','mixed') NOT NULL,
+   quantity decimal(8,2) NOT NULL,
+   fat decimal(5,2) NOT NULL,
+   snf decimal(5,2) NOT NULL,
+   water decimal(5,2) DEFAULT '0.00',
+   protein decimal(5,2) DEFAULT NULL,
+   rate_applied decimal(8,2) NOT NULL,
+   is_premium tinyint(1) DEFAULT '0',
+   total_amount decimal(10,2) NOT NULL,
+   entry_time datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (entry_id),
+   KEY fk_milk_operator_idx (operator_id),
+   KEY fk_milk_seller_idx (seller_id),
+   KEY created_by_admin_id (created_by_admin_id),
+   KEY centre_id (centre_id),
+   CONSTRAINT fk_milk_admin FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE ON UPDATE CASCADE,
+   CONSTRAINT fk_milk_operator FOREIGN KEY (operator_id) REFERENCES operators (operator_id) ON DELETE CASCADE ON UPDATE CASCADE,
+   CONSTRAINT fk_milk_seller FOREIGN KEY (seller_id) REFERENCES sellers (seller_id) ON DELETE CASCADE ON UPDATE CASCADE,
+   CONSTRAINT milk_entries_ibfk_4 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
+ ) ENGINE=InnoDB AUTO_INCREMENT=2631 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE mixed_milk_rates (
    rate_id int NOT NULL AUTO_INCREMENT,
    centre_id int DEFAULT NULL,
@@ -622,7 +652,8 @@ CREATE TABLE mixed_milk_rates (
    created_at datetime DEFAULT CURRENT_TIMESTAMP,
    PRIMARY KEY (rate_id),
    UNIQUE KEY uq_cow_centre_fat_snf_date (centre_id,fat,snf,effective_from),
-   KEY idx_centre_id (centre_id)
+   KEY idx_centre_id (centre_id),
+   CONSTRAINT mixed_milk_rates_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=452 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE operator_permissions (

@@ -484,7 +484,11 @@ export default function AllMilkEntries() {
 
     // Filter and paginate entries
     const filteredEntries = searchName.trim()
-        ? entries.filter(e => (e.seller_name || "").toLowerCase().includes(searchName.toLowerCase()))
+        ? entries.filter(e => {
+            const term = searchName.toLowerCase();
+            return (e.seller_name || "").toLowerCase().includes(term) ||
+                   (e.seller_code || "").toLowerCase().includes(term);
+        })
         : entries;
 
     const totalPages = Math.ceil(filteredEntries.length / pageSize);

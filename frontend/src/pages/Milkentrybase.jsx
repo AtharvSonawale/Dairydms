@@ -45,8 +45,9 @@ const roundWeightToOneDecimal = (v) => {
     return ((sign * roundedTens) / 10).toFixed(1);
 };
 
-const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8, mixed: 8.2 };
-const FIXED_AUTOFILL_SNF = "8.5";
+const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
+const FIXED_AUTOFILL_SNF = { cow: "8.5", buffalo: "9.0" };
+const getFixedAutofillSnf = (milk_type) => FIXED_AUTOFILL_SNF[milk_type] || FIXED_AUTOFILL_SNF.cow;
 const snfBelowThreshold = (v, milk_type) =>
     v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) < (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
 const snfAboveThreshold = (v, milk_type) =>
@@ -171,7 +172,6 @@ function MilkTypeToggle({ value, onChange, t, disabled }) {
             {[
                 { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
                 { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
-                { val: "mixed", label: t('milkEntry.mixed', { defaultValue: 'Mixed' }), active: "bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" disabled={disabled} onClick={() => onChange(val)}
                     className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-200
@@ -752,7 +752,33 @@ export default function MilkEntryBase({ sellerType }) {
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
     const [showProductModal, setShowProductModal] = useState(false);
-    const [showFeedModal, setShowFeedModal] = useState(false);
+const [showFeedModal, setShowFeedModal] = useState(false);
+
+// Independent seller selection for Quick Sale — deliberately decoupled from
+// the milk entry form's seller_id so a product/feed sale can be recorded
+// even when the milk entry form is empty or belongs to a different seller.
+const [quickSaleSellerCode, setQuickSaleSellerCode] = useState("");
+const [quickSaleSellerId, setQuickSaleSellerId] = useState("");
+const [quickSaleSellerName, setQuickSaleSellerName] = useState("");
+
+const handleQuickSaleSellerCodeChange = (code) => {
+    setQuickSaleSellerCode(code);
+    if (!code.trim()) {
+        setQuickSaleSellerId("");
+        setQuickSaleSellerName("");
+        return;
+    }
+    const found = sellers.find(
+        (s) => s.seller_code && s.seller_code.toLowerCase() === code.trim().toLowerCase()
+    );
+    if (found) {
+        setQuickSaleSellerId(found.seller_id);
+        setQuickSaleSellerName(found.name);
+    } else {
+        setQuickSaleSellerId("");
+        setQuickSaleSellerName("");
+    }
+};
 
     const [weightBySubtype, setWeightBySubtype] = useState({
         weight_gavali: { qty: "", qty2: "", uom: "", uom2: "", connected: false, raw: "" },
@@ -869,7 +895,11 @@ export default function MilkEntryBase({ sellerType }) {
                 // If live capture is enabled, update form
                 if (liveFatCaptureEnabledRef.current) {
                     set("fat", fatValue);
-                    fetchAutoRate(fatValue, reading.snf !== null && reading.snf !== undefined ? reading.snf.toFixed(2) : form.snf, form.milk_type);
+                    const liveSnf = fatOnlyAutofill
+                        ? getFixedAutofillSnf(form.milk_type)
+                        : (reading.snf !== null && reading.snf !== undefined ? reading.snf.toFixed(2) : form.snf);
+                    if (fatOnlyAutofill) set("snf", liveSnf);
+                    fetchAutoRate(fatValue, liveSnf, form.milk_type);
                 }
             }
             if (reading.snf !== null && reading.snf !== undefined) {
@@ -900,15 +930,19 @@ export default function MilkEntryBase({ sellerType }) {
     }, []);
 
     const connectSerialPort = async (subtype, silent = false) => {
-        const label = subtype === "gavali" ? "Gavali" : subtype === "utpadak" ? "Utpadak" : "Default";
-        if (!silent) showFlash("success", `Connecting to ${label} weight machine…`);
-        try {
-            const { data } = await api.post(`/settings/ports/weight/${subtype}/connect`);
+    const label = subtype === "gavali" ? "Gavali" : subtype === "utpadak" ? "Utpadak" : "Default";
+    if (!silent) showFlash("success", `Connecting to ${label} weight machine…`);
+    try {
+        const { data } = await api.post(`/settings/ports/weight/${subtype}/connect`);
+        if (!silent || data.success) {
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
-        } catch (err) {
+        }
+    } catch (err) {
+        if (!silent) {
             showFlash("error", err.response?.data?.message || "Failed to connect to weight machine.");
         }
-    };
+    }
+};
 
     const disconnectMachine = async (subtype) => {
         try {
@@ -942,14 +976,18 @@ export default function MilkEntryBase({ sellerType }) {
     };
 
     const connectFatPort = async (silent = false) => {
-        if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
-        try {
-            const { data } = await api.post("/settings/ports/fat/connect");
+    if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
+    try {
+        const { data } = await api.post("/settings/ports/fat/connect");
+        if (!silent || data.success) {
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
-        } catch (err) {
+        }
+    } catch (err) {
+        if (!silent) {
             showFlash("error", err.response?.data?.message || "Failed to connect to Fat & SNF machine.");
         }
-    };
+    }
+};
 
     const disconnectFatMachine = async () => {
         try {
@@ -973,11 +1011,11 @@ export default function MilkEntryBase({ sellerType }) {
         setForm(p => ({
     ...p,
     fat: machineFat || p.fat,
-    snf: fatOnlyAutofill ? FIXED_AUTOFILL_SNF : (machineSnf || p.snf),
+    snf: fatOnlyAutofill ? getFixedAutofillSnf(p.milk_type) : (machineSnf || p.snf),
     protein: machineProtein || p.protein,
 }));
 const fatForRate = machineFat || form.fat;
-const snfForRate = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : (machineSnf || form.snf);
+const snfForRate = fatOnlyAutofill ? getFixedAutofillSnf(form.milk_type) : (machineSnf || form.snf);
 if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_type);
         setFatSavedToForm(true);
         showFlash("success", `Saved Fat ${machineFat || "—"}% / SNF ${machineSnf || "—"}% to the form.`);
@@ -1079,7 +1117,7 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
 
     const autoRateTimer = useRef(null);
     const fetchAutoRate = (fat, snf, milk_type) => {
-        const snfRaw = fatOnlyAutofill ? FIXED_AUTOFILL_SNF : snf;
+        const snfRaw = fatOnlyAutofill ? getFixedAutofillSnf(milk_type) : snf;
         if (!fat || !snfRaw || !milk_type) return;
         if (!isValidFat(fat, milk_type) || !isValidSnf(snfRaw, milk_type)) return;
         const snfForLookup = capSnfForRate(snfRaw, milk_type);
@@ -1564,7 +1602,11 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 
     const filteredEntries = searchName.trim()
-        ? entries.filter(e => (e.seller_name || "").toLowerCase().includes(searchName.toLowerCase()))
+        ? entries.filter(e => {
+            const term = searchName.toLowerCase();
+            return (e.seller_name || "").toLowerCase().includes(term) ||
+                   (e.seller_code || "").toLowerCase().includes(term);
+        })
         : entries;
     const totalPages = Math.ceil(filteredEntries.length / pageSize);
     const paginatedEntries = filteredEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -1614,7 +1656,7 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
             <main className="h-screen max-w-screen mx-auto px-4 py-3 flex flex-col gap-2">
 
                 {/* ── Stat Cards ── */}
-                <div className={`grid grid-cols-2 sm:grid-cols-3 ${isAdmin ? "lg:grid-cols-6" : "lg:grid-cols-2"} gap-2 shrink-0`}>
+                <div className="grid grid-cols-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
                     <StatCard
                         label={t('milkEntry.entriesToday', { defaultValue: 'Entries Today' })}
                         value={entries.length}
@@ -1932,10 +1974,24 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                     </Field>
                                 </div>
 
-                                {/* Row 2: Shift, Qty, Fat, SNF, Rate */}
+                                {/* Row 2: Shift, Milk Type, Qty, Fat, SNF, Rate */}
                                 <div className="flex items-start gap-1.5 flex-wrap">
                                     <Field label={t('milkEntry.shiftLabel')} icon={form.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}>
                                         <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
+                                    </Field>
+
+                                    <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={10} />}>
+                                        <MilkTypeToggle
+                                            value={form.milk_type}
+                                            disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
+                                            onChange={(v) => {
+                                                set("milk_type", v);
+                                                setFatSavedToForm(false);
+                                                if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
+                                                else fetchAutoRate(form.fat, form.snf, v);
+                                            }}
+                                            t={t}
+                                        />
                                     </Field>
 
                                     <Field label={t('milkEntry.qtyLabel')} icon={<Droplets size={10} />}>
@@ -1952,8 +2008,9 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                                 const fatVal = e.target.value;
                                                 set("fat", fatVal);
                                                 if (fatOnlyAutofill) {
-                                                    set("snf", FIXED_AUTOFILL_SNF);
-                                                    fetchAutoRate(fatVal, FIXED_AUTOFILL_SNF, form.milk_type);
+                                                    const snfFixed = getFixedAutofillSnf(form.milk_type);
+                                                    set("snf", snfFixed);
+                                                    fetchAutoRate(fatVal, snfFixed, form.milk_type);
                                                 } else {
                                                     fetchAutoRate(fatVal, form.snf, form.milk_type);
                                                 }
@@ -2074,11 +2131,34 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                             className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-36" />
                                     </div>
 
+                                    {(can('product_sales', 'C') || can('cattle_feed_sales', 'C')) && (
+                                        <div className="relative">
+                                            <TinyInput
+                                                value={quickSaleSellerCode}
+                                                onChange={(e) => handleQuickSaleSellerCodeChange(e.target.value)}
+                                                placeholder="Sale code"
+                                                title={quickSaleSellerName ? `Quick Sale seller: ${quickSaleSellerName}` : "Enter seller code for Product/Feed sale"}
+                                                className={`text-[11px] font-mono pr-6 ${quickSaleSellerId ? "border-emerald-300/60 bg-emerald-50/30" : ""}`}
+                                                style={{ width: "100px" }}
+                                            />
+                                            {quickSaleSellerCode && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleQuickSaleSellerCodeChange("")}
+                                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition"
+                                                    title="Clear"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     {can('product_sales', 'C') && (
                                         <button
                                             type="button"
                                             onClick={() => setShowProductModal(true)}
-                                            disabled={!form.seller_id}
+                                            disabled={!quickSaleSellerId}
+                                            title={!quickSaleSellerId ? "Enter a seller code above first" : "Record a product sale"}
                                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-500 hover:border-blue-300/60 hover:text-blue-600 hover:bg-blue-50/40 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
                                         >
                                             <ShoppingCart size={12} /> Product
@@ -2088,7 +2168,8 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                         <button
                                             type="button"
                                             onClick={() => setShowFeedModal(true)}
-                                            disabled={!form.seller_id}
+                                            disabled={!quickSaleSellerId}
+                                            title={!quickSaleSellerId ? "Enter a seller code above first" : "Record a feed sale"}
                                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-500 hover:border-emerald-300/60 hover:text-emerald-600 hover:bg-emerald-50/40 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
                                         >
                                             <Package size={12} /> Feed
@@ -2343,25 +2424,25 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
 
             {/* ── Quick Sale Modals ── */}
             {showProductModal && (
-                <QuickProductSaleModal
-                    sellerId={form.seller_id}
-                    sellerName={selectedSeller?.name || ""}
-                    saleDate={selectedDate}
-                    onClose={() => setShowProductModal(false)}
-                    onSuccess={() => { }}
-                    showFlash={showFlash}
-                />
-            )}
-            {showFeedModal && (
-                <QuickFeedSaleModal
-                    sellerId={form.seller_id}
-                    sellerName={selectedSeller?.name || ""}
-                    saleDate={selectedDate}
-                    onClose={() => setShowFeedModal(false)}
-                    onSuccess={() => { }}
-                    showFlash={showFlash}
-                />
-            )}
+    <QuickProductSaleModal
+        sellerId={quickSaleSellerId}
+        sellerName={quickSaleSellerName}
+        saleDate={selectedDate}
+        onClose={() => setShowProductModal(false)}
+        onSuccess={() => { }}
+        showFlash={showFlash}
+    />
+)}
+{showFeedModal && (
+    <QuickFeedSaleModal
+        sellerId={quickSaleSellerId}
+        sellerName={quickSaleSellerName}
+        saleDate={selectedDate}
+        onClose={() => setShowFeedModal(false)}
+        onSuccess={() => { }}
+        showFlash={showFlash}
+    />
+)}
         </div>
     );
 }
