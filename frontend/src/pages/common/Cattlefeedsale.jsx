@@ -1,3 +1,4 @@
+// CattleFeedSales.jsx
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -12,6 +13,8 @@ import { usePermission } from '../../context/PermissionContext';
 import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { printSalesPDF } from '../../components/CattleFeedSalesPDF';
+import { printReceipt } from '../../components/CattleFeedReceipt';
 
 // ── focus helper ──────────────────────────────────────────────
 function focusNextField(current) {
@@ -759,7 +762,7 @@ export default function CattleFeedSales() {
     // ── FIXED: Seller filtering - search by name OR code (partial match) ──
     const filteredSellers = (() => {
         const sorted = [...sellers]
-            .filter((s) => s.cattle_feed_sale_enabled == 1)  // Changed from product_sale_enabled
+            .filter((s) => s.cattle_feed_sale_enabled == 1)
             .sort((a, b) => a.name.localeCompare(b.name));
         if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
         const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
@@ -782,7 +785,7 @@ export default function CattleFeedSales() {
 
         // Find exact match by code
         const exactMatch = sellers.find(
-            (s) => s.cattle_feed_sale_enabled == 1 &&  // Changed from product_sale_enabled
+            (s) => s.cattle_feed_sale_enabled == 1 &&
                 (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
         );
         if (exactMatch) {
@@ -809,7 +812,7 @@ export default function CattleFeedSales() {
 
         // Check if the search matches a seller name exactly or code
         const exactMatch = sellers.find(
-            (s) => s.product_sale_enabled == 1 &&
+            (s) => s.cattle_feed_sale_enabled == 1 &&
                 (s.name.toLowerCase() === val.trim().toLowerCase() ||
                     (s.seller_code || "").toLowerCase() === val.trim().toLowerCase())
         );
@@ -924,6 +927,7 @@ export default function CattleFeedSales() {
         const baseData = rangeMode === "daily" ? sales : (pdfReady ? rangeEntries : sales);
         printSalesPDF(baseData, rangeMode, fromDate, toDate, t);
     };
+
     const handlePrintReceipt = (txn) => {
         printReceipt(txn, t);
     };
