@@ -98,13 +98,6 @@ export default function MyProfile() {
                 {/* Top bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <span>{t('myProfile.pageTitle', { defaultValue: 'My Profile' })}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
-                                <Settings size={12} /> {t('status.admin')}
-                            </span>
-                        </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {t('myProfile.title', { defaultValue: 'Administrator Profile' })}
                         </h1>
@@ -140,56 +133,6 @@ export default function MyProfile() {
                         </button>
                     </div>
                 )}
-
-                {/* Profile Header Card */}
-                <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 p-6 flex items-center gap-5">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 relative z-10
-                        ${admin.is_active
-                            ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
-                            : 'bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-lg shadow-gray-400/30'}`}>
-                        {admin.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0 relative z-10">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                            <h1 className="text-xl font-bold text-gray-900 truncate">{admin.name}</h1>
-                            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200/60 backdrop-blur-sm">
-                                {t('myProfile.youBadge', { defaultValue: 'You' })}
-                            </span>
-                            <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border backdrop-blur-sm
-                                ${admin.is_active
-                                    ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200/60'
-                                    : 'bg-gray-100/80 text-gray-500 border-gray-200/60'}`}>
-                                {admin.is_active ? t('status.active') : t('status.inactive')}
-                            </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500">
-                            <span className="flex items-center gap-1.5"><Mail size={14} className="text-gray-400" /> {admin.email}</span>
-                            {admin.mobile && <span className="flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> {admin.mobile}</span>}
-                            <span className="flex items-center gap-1.5"><Building2 size={14} className="text-gray-400" /> {admin.centre_name}</span>
-                            <span className="flex items-center gap-1.5">
-                                <Calendar size={14} className="text-gray-400" />
-                                {t('adminProfile.joinedLabel')} {new Date(admin.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Role info card */}
-                <div className="relative overflow-hidden rounded-2xl border border-indigo-200/60 bg-gradient-to-br from-indigo-50 to-indigo-100/50 shadow-lg shadow-indigo-200/30 p-5 flex items-center gap-4">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-indigo-400/10 blur-3xl" />
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0 relative z-10">
-                        <ShieldCheck size={20} className="text-white" />
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-sm font-bold text-gray-800">
-                            {t('myProfile.roleTitle', { defaultValue: 'Administrator Account' })}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                            {t('myProfile.roleDesc', { defaultValue: 'You have full administrative access to this centre.' })}
-                        </p>
-                    </div>
-                </div>
 
                 {/* Edit form */}
                 <form onSubmit={handleSave} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-6 flex flex-col gap-5">

@@ -45,7 +45,7 @@ const roundWeightToOneDecimal = (v) => {
     return ((sign * roundedTens) / 10).toFixed(1);
 };
 
-const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
+const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8, mixed: 8.2 };
 const FIXED_AUTOFILL_SNF = "8.5";
 const snfBelowThreshold = (v, milk_type) =>
     v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) < (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
@@ -171,6 +171,7 @@ function MilkTypeToggle({ value, onChange, t, disabled }) {
             {[
                 { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
                 { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
+                { val: "mixed", label: t('milkEntry.mixed', { defaultValue: 'Mixed' }), active: "bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" disabled={disabled} onClick={() => onChange(val)}
                     className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-200

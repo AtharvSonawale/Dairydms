@@ -337,13 +337,7 @@ export default function FarmerDashboard() {
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <span>{t('farmerDashboard.myDashboard')}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
-                                <User size={12} /> {t('farmerDashboard.farmerLabel')}
-                            </span>
-                        </div>
+                    
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {greeting.text}, {user?.name || t('farmerDashboard.farmerLabel')}
                         </h1>

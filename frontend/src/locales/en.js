@@ -918,7 +918,7 @@ const en = {
                 sellerPlaceholder: "Search farmer by name or code",
                 sellerMatches: "{{count}} matches",
                 sellersAZ: "Farmers A–Z",
-                
+
                 addFeed: "Add Feed",
                 grandTotal: "Grand Total:",
                 recordSale: "Record Sale",
@@ -1434,7 +1434,7 @@ const en = {
             farmerFooter: "Showing only your own records",
         },
 
-        
+
 
         // ── Expenses ─────────────────────────────────────────────────
         expenses: {
@@ -2102,7 +2102,7 @@ const en = {
             cattlefeedPurchasePayment: "Bill Payments",
             namedBuyerReports: "Named Buyer Reports",
             anonReports: "Anon Buyer Reports",
-            portSettings : "Port Settings",
+            portSettings: "Port Settings",
             sellerReport: "Farmer Report",
             cattleFeed: "Cattle Feed",
             startTour: "Start a Tour",
@@ -3070,6 +3070,20 @@ const en = {
 
         // ── Rate Chart ───────────────────────────────────────────────
         rateChart: {
+            exportButton: "Export",
+            export: {
+                title: "Export Rate Chart",
+                subtitle: "Choose export format",
+                excel: "Excel",
+                excelDesc: "3 sheets - Cow, Buffalo, Mixed",
+                pdf: "PDF",
+                pdfDesc: "Separate pages per milk type",
+                generating: "Generating...",
+                excelSuccess: "Excel file exported successfully.",
+                excelError: "Failed to export Excel: {{message}}",
+                pdfSuccess: "PDF exported successfully.",
+                pdfError: "Failed to export PDF: {{message}}"
+            },
             rateChart: "Rate Chart",
             startTour: "Start a Tour",
             pageTitle: "Rate Chart",
@@ -3090,6 +3104,7 @@ const en = {
             effectiveTo: "Effective To (optional)",
             cow: "Cow",
             buffalo: "Buffalo",
+            mixed: "Mixed",
             edit: "Edit",
             del: "Del",
             active: "Active",
@@ -3104,9 +3119,11 @@ const en = {
             updateSuccess: "Rate updated successfully",
             addSuccess: "Rate added successfully",
             saveError: "Failed to save rate",
+            deleteConfirmTitle: "Delete this rate?",
             deleteConfirm: "Delete this rate entry? This cannot be undone.",
             deleteSuccess: "Rate deleted",
             deleteError: "Failed to delete",
+            deleteAllConfirmTitle: "Delete all rates?",
             deleteAllConfirm: "Delete ALL {{filter}} rates for {{date}}? This cannot be undone.",
             deleteAllSuccess: "All {{filter}} rates for {{date}} deleted.",
             carryRatesForward: "Carry Rates Forward",
@@ -3188,7 +3205,7 @@ const en = {
             // ── NEW: Tour descriptions ─────────────────────────
             tourDateDesc: "Pick the date to view or add rates for.",
             tourActionsDesc: "Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific farmers, or add a single rate manually.",
-            tourFilterDesc: "Switch between cow and buffalo rate charts.",
+            tourFilterDesc: "Switch between cow, buffalo, and mixed rate charts.",
             tourTableDesc: "Each row shows the rate for a specific FAT/SNF combination. Edit or delete rates here.",
 
             // ── NEW: Import modal ──────────────────────────────
@@ -3196,6 +3213,9 @@ const en = {
                 button: "Import Rates",
                 title: "Import Rates",
                 subtitle: "Bulk-add rate chart entries from an Excel or CSV file",
+                addMode: "Add New Rates",
+                updateMode: "Update Existing Rates",
+                updateAll: "Update Rates",
                 dragDrop: "Drag & drop your file here",
                 dropHere: "Drop the file here",
                 browseOr: "or click to browse — .xlsx, .xls, or .csv",
@@ -3213,6 +3233,8 @@ const en = {
                 complete: "Import Complete",
                 resultAdded: '<span class="font-semibold text-emerald-600">{{count}}</span> rate added',
                 resultAdded_plural: '<span class="font-semibold text-emerald-600">{{count}}</span> rates added',
+                resultUpdated: '<span class="font-semibold text-blue-600">{{count}}</span> rate updated',
+                resultUpdated_plural: '<span class="font-semibold text-blue-600">{{count}}</span> rates updated',
                 resultSkipped: '<span class="font-semibold text-amber-600">{{count}}</span> skipped',
                 ok: "OK",
 
@@ -3237,6 +3259,24 @@ const en = {
                     effectiveTo: "Effective To",
                 },
                 templateSheetName: "Rates",
+            },
+
+            matrixGen: {
+                button: "Generate Rate Matrix by Fat Step and SNF Step",
+                title: "Generate Rate Matrix by Fat Step and SNF Step",
+                desc: "Define a base rate, FAT/SNF ranges, and step slabs. Saved rates apply to both Cow and Buffalo.",
+                baseRate: "Base Rate",
+                fatSlabs: "FAT Step Increments",
+                snfSlabs: "SNF Step Increments",
+                addSlab: "Add slab",
+                fromFat: "From FAT",
+                fromSnf: "From SNF",
+                incPerStep: "Increment / Step",
+                noRates: "Fill in base rate and ranges to generate a preview.",
+                saveSuccess: "{{count}} rate(s) saved for {{date}} ({{milkType}}).",
+                willBeSaved: "rate(s) will be saved for {{milkType}} only",
+                saveError: "Failed to save rate matrix.",
+                saveButton: "Save Rate Matrix"
             },
         },
 
@@ -3797,6 +3837,9 @@ const en = {
 
         // ── Seller Register ──────────────────────────────────────────
         sellerRegister: {
+            noSearchResults: "No Search Results",
+            tryDifferentSearch: "Try a different search term",
+            clearSearch: "Clear search",
             updateAll: "Update All",
             updating: "Updating",
             importResultsUpdated: "Import Results Updated",
@@ -4052,6 +4095,7 @@ const en = {
 
             premiumRates: {
                 title: "Premium Rates",
+                noRates: "No Rates",
             },
 
             // ── Stats ──────────────────────────────────────────
@@ -4085,15 +4129,22 @@ const en = {
                 productSale: 'Product Sale',
                 productSaleRate: 'Product Sale Rate',
                 cattleFeedSale: 'Cattle Feed Sale',
-                paymentTerm: 'Payment Term',
+                panNumber: "",
+                sellerIdCode: "",
+                pincode: ""
             },
 
             // ── Bank Details Section ──────────────────────────
             bankDetails: {
                 title: 'Bank Details',
+                branchName: "",
+                accountHolder: "",
                 accountNumber: 'Account Number',
                 bankName: 'Bank Name',
                 ifscCode: 'IFSC Code',
+            },
+
+            editForm: {
             },
 
             // ── Milk Entries Section ──────────────────────────
@@ -4183,6 +4234,18 @@ const en = {
 
             // ── Edit Form ──────────────────────────────────────
             editForm: {
+                sellerIdCode: "",
+                panNumber: "",
+                panNumber: "",
+                pincode: "",
+                branchName: "",
+                accountHolder: "",
+                pincodePlaceholder: "",
+                branchNamePlaceholder: "",
+                sellerIdCodePlaceholder: "",
+                accountHolderPlaceholder: "",
+                password: "Password",
+                passwordNotSetHint: "",
                 title: 'Edit Farmer',
                 subtitle: 'Update farmer details below',
                 fullName: 'Full Name',
@@ -4217,9 +4280,6 @@ const en = {
                 depositRatePlaceholder: 'e.g. 2.00',
                 productSale: 'Product Sale',
                 cattleFeedSale: 'Cattle Feed Sale',
-                paymentTerm: 'Payment Term',
-                paymentTermPostpaid: 'Postpaid',
-                paymentTermPrepaid: 'Prepaid',
                 sellerStatus: 'Farmer Status',
                 enabled: '✓ Enabled',
                 disabled: '✗ Disabled',
@@ -4279,8 +4339,6 @@ const en = {
                 disabled: 'Disabled',
                 active: 'Active',
                 inactive: 'Inactive',
-                postpaid: 'Postpaid',
-                prepaid: 'Prepaid',
             },
 
             // ── Delete Modal ──────────────────────────────────
@@ -4298,7 +4356,7 @@ const en = {
             // ── Flash Messages ────────────────────────────────
             flash: {
                 loadError: 'Failed to load farmer data.',
-                notFound: 'SelFarmerler not found.',
+                notFound: 'Farmer not found.',
                 updateSuccess: 'Farmer updated successfully!',
                 updateError: 'Failed to save.',
                 deleteSuccess: 'Farmer deleted successfully.',

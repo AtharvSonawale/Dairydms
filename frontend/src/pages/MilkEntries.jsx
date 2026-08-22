@@ -48,7 +48,7 @@ const roundWeightToOneDecimal = (v) => {
     return ((sign * roundedTens) / 10).toFixed(1);
 };
 
-const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8 };
+const SNF_THRESHOLD = { cow: 8.2, buffalo: 8.8, mixed: 8.2 };
 const FIXED_AUTOFILL_SNF = "8.5";
 const snfBelowThreshold = (v, milk_type) =>
     v !== "" && !isNaN(parseFloat(v)) && parseFloat(v) < (SNF_THRESHOLD[milk_type] ?? SNF_THRESHOLD.cow);
@@ -68,6 +68,7 @@ const EMPTY_FORM = (fixedSellerType) => ({
 const FAT_RANGE = {
     cow: { min: 2.5, max: 9.0 },
     buffalo: { min: 2.5, max: null },
+    mixed: { min: 2.5, max: null },
 };
 const SNF_MIN = 6.5, SNF_MAX = 10.5;
 
@@ -134,6 +135,7 @@ function MilkTypeToggle({ value, onChange, t, disabled }) {
             {[
                 { val: "cow", label: t('milkEntry.cow'), active: "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30" },
                 { val: "buffalo", label: t('milkEntry.buffalo'), active: "bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-lg shadow-slate-700/30" },
+                { val: "mixed", label: t('milkEntry.mixed', { defaultValue: 'Mixed' }), active: "bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30" },
             ].map(({ val, label, active }) => (
                 <button key={val} type="button" disabled={disabled} onClick={() => onChange(val)}
                     className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-200
@@ -1783,20 +1785,18 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                     <ShiftToggle value={form.shift} onChange={(v) => set("shift", v)} t={t} />
                                 </Field>
 
-                                <div className="hidden">
-                                    <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={10} />}>
-                                        <MilkTypeToggle
-                                            value={form.milk_type}
-                                            disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
-                                            onChange={(v) => {
-                                                set("milk_type", v);
-                                                if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
-                                                else fetchAutoRate(form.fat, form.snf, v);
-                                            }}
-                                            t={t}
-                                        />
-                                    </Field>
-                                </div>
+                                <Field label={t('milkEntry.milkTypeLabel')} icon={<Milk size={10} />}>
+                                    <MilkTypeToggle
+                                        value={form.milk_type}
+                                        disabled={!!(selectedSeller?.milk_type && selectedSeller.milk_type.trim().toLowerCase() !== "both")}
+                                        onChange={(v) => {
+                                            set("milk_type", v);
+                                            if (form.seller_id) fetchPremiumRate(form.seller_id, v, selectedDate);
+                                            else fetchAutoRate(form.fat, form.snf, v);
+                                        }}
+                                        t={t}
+                                    />
+                                </Field>
 
                                 <div className="hidden">
                                     <Field label={t('milkEntry.sellerTypeLabel')} icon={<User size={10} />}>

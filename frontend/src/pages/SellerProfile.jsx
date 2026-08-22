@@ -69,18 +69,19 @@ const sellerTypeBadge = (t) =>
         ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
         : "bg-orange-50/80 text-orange-700 border-orange-200/60";
 
-const MILK_TYPES = ["cow", "buffalo", "mixed"];
+const MILK_TYPES = ["cow", "buffalo", "both"];
 const SELLER_TYPES = ["Utpadak", "Gavali"];
 
 const EMPTY_FORM = {
     seller_code: "", name: "", mobile: "", aadhaar: "",
-    seller_type: "Utpadak", milk_type: "mixed", jamin: "",
-    bank_account: "", bank_name: "", ifsc_code: "", address: "",
+    pan_number: "", seller_id_code: "",
+    seller_type: "Utpadak", milk_type: "both", jamin: "",
+    bank_account: "", bank_name: "", account_holder_name: "", branch_name: "",
+    ifsc_code: "", address: "", pincode: "",
     advance_enabled: 1, advance_deduction: "", deposit_enabled: 0,
     deposit_per_litre: "", bank_account_confirm: "",
     product_sale_enabled: 0, product_sale_rate: "",
     cattle_feed_sale_enabled: 0,
-    payment_term: "postpaid",
     is_active: 1,
     password: "",
 };
@@ -396,14 +397,19 @@ export default function SellerProfile() {
             name: seller.name || "",
             mobile: seller.mobile || "",
             aadhaar: seller.aadhaar || "",
+            pan_number: seller.pan_number || "",
+            seller_id_code: seller.seller_id_code || "",
             seller_type: seller.seller_type || "Utpadak",
-            milk_type: seller.milk_type || "mixed",
+            milk_type: seller.milk_type || "both",
             jamin: seller.jamin || "",
             bank_account: seller.bank_account || "",
             bank_account_confirm: seller.bank_account || "",
             bank_name: seller.bank_name || "",
+            account_holder_name: seller.account_holder_name || "",
+            branch_name: seller.branch_name || "",
             ifsc_code: seller.ifsc_code || "",
             address: seller.address || "",
+            pincode: seller.pincode || "",
             advance_enabled: seller.advance_enabled ?? 1,
             advance_deduction: seller.advance_deduction || "",
             deposit_enabled: seller.deposit_enabled ?? 0,
@@ -411,7 +417,6 @@ export default function SellerProfile() {
             product_sale_enabled: seller.product_sale_enabled ?? 0,
             product_sale_rate: seller.product_sale_rate || "",
             cattle_feed_sale_enabled: seller.cattle_feed_sale_enabled ?? 0,
-            payment_term: seller.payment_term || "postpaid",
             is_active: seller.is_active ?? 1,
             password: "",
         });
@@ -420,13 +425,48 @@ export default function SellerProfile() {
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    // Enter key moves focus to the next visible input in the edit form.
+    // Pressing Enter on the last input submits the form (same as clicking "Update Farmer").
+    const handleEditFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (e.target.tagName !== "INPUT") return; // let buttons behave normally
+        e.preventDefault();
+
+        const form = e.currentTarget;
+        const focusable = Array.from(
+            form.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
+        ).filter(el => el.offsetParent !== null); // skip hidden radio inputs etc.
+
+        const idx = focusable.indexOf(e.target);
+        if (idx > -1 && idx < focusable.length - 1) {
+            focusable[idx + 1].focus();
+        } else if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+        } else {
+            handleSave(e);
+        }
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         const nameParts = editForm.name.trim().split(/\s+/);
+        if (!editForm.seller_code || !editForm.seller_code.trim()) { showFlash("error", t('sellerProfile.editForm.sellerCodeRequired') || "Seller code is required."); return; }
         if (!editForm.name || nameParts.length < 2) { showFlash("error", t('sellerProfile.editForm.nameRequired')); return; }
         if (/\d/.test(editForm.name)) { showFlash("error", t('sellerProfile.editForm.nameNoNumbers')); return; }
         const mobileClean = editForm.mobile.replace(/^\+/, "");
         if (!/^\d{10,12}$/.test(mobileClean)) { showFlash("error", t('sellerProfile.editForm.mobileInvalid')); return; }
+        if (editForm.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(editForm.pan_number)) {
+            showFlash("error", t('sellerProfile.editForm.panInvalid') || "PAN number must be alphanumeric and up to 12 characters.");
+            return;
+        }
+        if (editForm.seller_id_code && !/^\d{1,18}$/.test(editForm.seller_id_code)) {
+            showFlash("error", t('sellerProfile.editForm.sellerIdCodeInvalid') || "Seller ID Code must be numeric and up to 18 digits.");
+            return;
+        }
+        if (editForm.pincode && !/^\d{6}$/.test(editForm.pincode)) {
+            showFlash("error", t('sellerProfile.editForm.pincodeInvalid') || "Pincode must be a valid 6-digit number.");
+            return;
+        }
         if (editForm.bank_account && editForm.bank_account !== editForm.bank_account_confirm) {
             showFlash("error", t('sellerProfile.editForm.bankMismatch')); return;
         }
@@ -545,18 +585,16 @@ export default function SellerProfile() {
 
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
-                    <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <Link to="/operator/sellerregister" className="hover:text-gray-800 transition">
-                                {t('sellerProfile.backToSellers')}
-                            </Link>
-                            <ChevronRight size={12} className="text-gray-300" />
-                            <span className="font-medium">{seller?.name}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 text-white text-xs font-semibold shadow-md shadow-gray-700/30">
-                                <User size={12} /> {t('status.seller', { defaultValue: 'Seller' })}
-                            </span>
-                        </div>
+                    <div className="flex items-center gap-3">
+                        {/* Back Button */}
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="w-10 h-10 rounded-xl bg-gray-50/80 border border-gray-200/60 flex items-center justify-center text-gray-600 hover:bg-gray-100/80 hover:border-gray-300/80 transition-all duration-200 shadow-sm hover:shadow-md shrink-0"
+                            aria-label="Go back"
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-gray-900/20 shrink-0">
                                 {seller?.name?.charAt(0)?.toUpperCase()}
@@ -625,7 +663,7 @@ export default function SellerProfile() {
                                 <X size={15} />
                             </button>
                         </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-5 relative z-10">
+                        <form onSubmit={handleSave} onKeyDown={handleEditFormKeyDown} className="p-6 space-y-5 relative z-10">
                             {/* Row 1 */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                                 <Field label={t('sellerProfile.editForm.fullName')} required>
@@ -634,15 +672,32 @@ export default function SellerProfile() {
                                         placeholder={t('sellerProfile.editForm.fullNamePlaceholder')} required maxLength={60}
                                         className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
-                                <Field label={t('sellerProfile.editForm.sellerCode')}>
-                                    <input value={editForm.seller_code} readOnly
-                                        className="border border-gray-200/60 bg-gray-100/50 rounded-xl px-4 py-2.5 text-sm text-gray-500 font-mono cursor-not-allowed w-full backdrop-blur-sm" />
+                                <Field label={t('sellerProfile.editForm.sellerCode')} required>
+                                    <input value={editForm.seller_code}
+                                        onChange={e => setEditForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
+                                        placeholder={t('sellerProfile.editForm.sellerCodePlaceholder') || 'Seller Code'} maxLength={20}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerProfile.editForm.mobile')} required>
                                     <input value={editForm.mobile}
                                         onChange={e => setEditForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))}
                                         placeholder={t('sellerProfile.editForm.mobilePlaceholder')} type="tel" required maxLength={13}
                                         className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                            </div>
+                            {/* Row 1b — PAN & Seller ID Code */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <Field label={t('sellerProfile.editForm.panNumber') || "PAN Number"}>
+                                    <input value={editForm.pan_number}
+                                        onChange={e => setEditForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
+                                        placeholder={t('sellerProfile.editForm.panPlaceholder') || "e.g. ABCDE1234F"} maxLength={12}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                                <Field label={t('sellerProfile.editForm.sellerIdCode') || "Seller ID Code"}>
+                                    <input value={editForm.seller_id_code}
+                                        onChange={e => setEditForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
+                                        placeholder={t('sellerProfile.editForm.sellerIdCodePlaceholder') || "Up to 18 digits"} maxLength={18} inputMode="numeric"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                             </div>
                             {/* Row 2 */}
@@ -701,6 +756,12 @@ export default function SellerProfile() {
                                     {editForm.bank_account_confirm && editForm.bank_account !== editForm.bank_account_confirm &&
                                         <p className="text-xs text-rose-500 font-medium mt-1">{t('sellerProfile.editForm.bankMismatch')}</p>}
                                 </Field>
+                                <Field label={t('sellerProfile.editForm.accountHolder') || "Account Holder Name"}>
+                                    <input value={editForm.account_holder_name}
+                                        onChange={e => setEditForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                        placeholder={t('sellerProfile.editForm.accountHolderPlaceholder') || "As per bank passbook"} maxLength={100}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                                 <Field label={t('sellerProfile.editForm.bankName')}>
@@ -730,6 +791,21 @@ export default function SellerProfile() {
                                     <p className={`text-[10px] mt-1 font-medium ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
                                         {hasPassword ? (t('sellerProfile.editForm.passwordSetHint') || "Password is set. Enter a new one to change it.") : (t('sellerProfile.editForm.passwordNotSetHint') || "No password set yet for this seller.")}
                                     </p>
+                                </Field>
+                            </div>
+                            {/* Row 3b — Branch & Pincode */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <Field label={t('sellerProfile.editForm.branchName') || "Branch Name"}>
+                                    <input value={editForm.branch_name}
+                                        onChange={e => setEditForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
+                                        placeholder={t('sellerProfile.editForm.branchNamePlaceholder') || "e.g. Pune Main Branch"} maxLength={100}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                                <Field label={t('sellerProfile.editForm.pincode') || "Pincode"}>
+                                    <input value={editForm.pincode}
+                                        onChange={e => setEditForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                                        placeholder={t('sellerProfile.editForm.pincodePlaceholder') || "e.g. 411001"} maxLength={6} inputMode="numeric"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                             </div>
                             {/* Address */}
@@ -817,21 +893,6 @@ export default function SellerProfile() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.paymentTerm')}>
-                                    <div className="flex gap-2">
-                                        {["postpaid", "prepaid"].map(term => (
-                                            <label key={term} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.payment_term === term
-                                                    ? term === "postpaid" ? "bg-blue-50/80 border-blue-400 text-blue-800" : "bg-amber-50/80 border-amber-400 text-amber-800"
-                                                    : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.payment_term === term}
-                                                    onChange={() => setEditForm(p => ({ ...p, payment_term: term }))} className="hidden" />
-                                                {term === "postpaid" ? t('sellerProfile.editForm.paymentTermPostpaid') : t('sellerProfile.editForm.paymentTermPrepaid')}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-
                                 <Field label={t('sellerProfile.editForm.sellerStatus')}>
                                     <div className="flex gap-2">
                                         {[{ label: t('sellerProfile.editForm.active'), val: 1 }, { label: t('sellerProfile.editForm.inactive'), val: 0 }].map(({ label, val }) => (
@@ -902,8 +963,11 @@ export default function SellerProfile() {
                     <Section title={t('sellerProfile.personalInfo.title')} icon={<User size={16} className="text-white" />}>
                         <InfoRow icon={<Phone size={13} />} label={t('sellerProfile.personalInfo.mobile')} value={seller.mobile} mono />
                         <InfoRow icon={<CreditCard size={13} />} label={t('sellerProfile.personalInfo.aadhaar')} value={seller.aadhaar} mono />
+                        <InfoRow icon={<CreditCard size={13} />} label={t('sellerProfile.personalInfo.panNumber') || "PAN Number"} value={seller.pan_number} mono />
+                        <InfoRow icon={<Hash size={13} />} label={t('sellerProfile.personalInfo.sellerIdCode') || "Seller ID Code"} value={seller.seller_id_code} mono />
                         <InfoRow icon={<User size={13} />} label={t('sellerProfile.personalInfo.jamin')} value={seller.jamin} />
                         <InfoRow icon={<MapPin size={13} />} label={t('sellerProfile.personalInfo.address')} value={seller.address} />
+                        <InfoRow icon={<MapPin size={13} />} label={t('sellerProfile.personalInfo.pincode') || "Pincode"} value={seller.pincode} mono />
                         <InfoRow icon={<Calendar size={13} />} label={t('sellerProfile.personalInfo.registeredOn')} value={fmtDateTime(seller.created_at)} />
                         <InfoRow icon={<User size={13} />} label={t('sellerProfile.personalInfo.sellerType')} badge={
                             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm ${sellerTypeBadge(seller.seller_type)}`}>
@@ -957,18 +1021,14 @@ export default function SellerProfile() {
                                 {seller.cattle_feed_sale_enabled ? t('sellerProfile.status.enabled') : t('sellerProfile.status.disabled')}
                             </span>
                         } />
-                        <InfoRow icon={<CreditCard size={13} />} label={t('sellerProfile.personalInfo.paymentTerm')} badge={
-                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm
-                                ${seller.payment_term === 'prepaid' ? "bg-amber-50/80 text-amber-700 border-amber-200/60" : "bg-blue-50/80 text-blue-700 border-blue-200/60"}`}>
-                                {seller.payment_term === 'prepaid' ? t('sellerProfile.status.prepaid') : t('sellerProfile.status.postpaid')}
-                            </span>
-                        } />
                     </Section>
 
                     {/* Bank Info */}
                     <Section title={t('sellerProfile.bankDetails.title')} icon={<Landmark size={16} className="text-white" />}>
                         <InfoRow icon={<Hash size={13} />} label={t('sellerProfile.bankDetails.accountNumber')} value={seller.bank_account} mono />
+                        <InfoRow icon={<User size={13} />} label={t('sellerProfile.bankDetails.accountHolder') || "Account Holder"} value={seller.account_holder_name} />
                         <InfoRow icon={<Building2 size={13} />} label={t('sellerProfile.bankDetails.bankName')} value={seller.bank_name} />
+                        <InfoRow icon={<Building2 size={13} />} label={t('sellerProfile.bankDetails.branchName') || "Branch Name"} value={seller.branch_name} />
                         <InfoRow icon={<BadgeCheck size={13} />} label={t('sellerProfile.bankDetails.ifscCode')} value={seller.ifsc_code} mono />
                     </Section>
                 </div>

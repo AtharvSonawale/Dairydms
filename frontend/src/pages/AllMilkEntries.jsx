@@ -5,7 +5,8 @@ import {
     User, AlertTriangle, BadgeCheck, X,
     TrendingUp, Milk, Trash2, Scale,
     Pencil, Calendar, Download, ChevronDown,
-    Filter, Search, RefreshCw, ChevronLeft, ChevronRight
+    Filter, Search, RefreshCw, ChevronLeft, ChevronRight,
+    Home
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -26,8 +27,16 @@ const waterRisk = (v) => parseFloat(v) > 5;
 
 // ── Stat Card ────────────────────────────────────────────────
 function StatCard({ label, value, icon, color }) {
+    const colorMap = {
+        blue: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700",
+        amber: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700",
+        slate: "from-slate-50 to-slate-100/50 border-slate-200/60 text-slate-700",
+        violet: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700",
+        emerald: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700",
+    };
+
     return (
-        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-3 flex items-center gap-2.5`}>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${colorMap[color] || colorMap.blue} shadow-sm p-3 flex items-center gap-2.5`}>
             <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-white/20 blur-2xl" />
             <div className="shrink-0 w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center relative z-10">
                 {icon}
@@ -147,7 +156,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                             <select
                                 value={form.shift}
                                 onChange={(e) => set("shift", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             >
                                 <option value="morning">Morning</option>
                                 <option value="evening">Evening</option>
@@ -161,7 +170,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                             <select
                                 value={form.milk_type}
                                 onChange={(e) => set("milk_type", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             >
                                 <option value="cow">Cow</option>
                                 <option value="buffalo">Buffalo</option>
@@ -177,7 +186,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.quantity}
                                 onChange={(e) => set("quantity", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
 
@@ -190,7 +199,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.fat}
                                 onChange={(e) => set("fat", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
 
@@ -203,7 +212,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.snf}
                                 onChange={(e) => set("snf", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
 
@@ -216,7 +225,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.protein}
                                 onChange={(e) => set("protein", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
 
@@ -229,7 +238,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.water}
                                 onChange={(e) => set("water", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
 
@@ -242,7 +251,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.rate_applied}
                                 onChange={(e) => set("rate_applied", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
 
@@ -255,7 +264,7 @@ function EditEntryModal({ entry, isOpen, onClose, onSave, showFlash }) {
                                 step="0.01"
                                 value={form.total_amount}
                                 onChange={(e) => set("total_amount", e.target.value)}
-                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
+                                className="w-full border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2.5 text-[15px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition"
                             />
                         </div>
                     </div>
@@ -300,11 +309,11 @@ function DeleteConfirmModal({ entry, isOpen, onClose, onConfirm, showFlash }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-rose-50/50 to-white/50 rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
-                            <Trash2 size={18} className="text-rose-600" />
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shadow-lg shadow-rose-500/30 shrink-0">
+                            <Trash2 size={18} className="text-white" />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">Confirm Deletion</h2>
@@ -321,7 +330,7 @@ function DeleteConfirmModal({ entry, isOpen, onClose, onConfirm, showFlash }) {
                         Are you sure you want to delete this milk entry?
                     </p>
                     {entry && (
-                        <div className="mt-4 p-3 bg-gray-50 rounded-xl">
+                        <div className="mt-4 p-3 bg-gray-50/80 rounded-xl border border-gray-200/60">
                             <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div>
                                     <p className="text-gray-400">Seller</p>
@@ -344,13 +353,13 @@ function DeleteConfirmModal({ entry, isOpen, onClose, onConfirm, showFlash }) {
                     )}
                 </div>
 
-                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200/60">
                     <button onClick={onClose}
-                        className="px-4 py-2.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">
+                        className="px-4 py-2.5 rounded-xl text-xs font-bold border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
                         Cancel
                     </button>
                     <button onClick={handleDelete} disabled={deleting}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold text-white transition ${deleting ? "bg-gray-400" : "bg-rose-600 hover:bg-rose-700"}`}>
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg transition-all duration-200 ${deleting ? "bg-gray-300 shadow-gray-300/30" : "bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40"}`}>
                         {deleting ? "Deleting…" : "Delete Entry"}
                     </button>
                 </div>
@@ -545,17 +554,16 @@ export default function AllMilkEntries() {
 
             <main className="h-screen max-w-screen mx-auto px-4 py-3 flex flex-col gap-2">
                 {/* ── Header ── */}
-                <div className="flex items-center justify-between shrink-0">
+                <div className="flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-3">
                     <div>
-                        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                            <Droplets size={22} className="text-blue-600" />
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             All Milk Entries
                         </h1>
-                        <p className="text-xs text-gray-400">{appName} · Manage all entries</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{appName} · Manage all entries</p>
                     </div>
                     <button
                         onClick={() => fetchEntries(fromDate, toDate)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-gray-900 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl transition"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"
                     >
                         <RefreshCw size={13} /> Refresh
                     </button>
@@ -567,31 +575,31 @@ export default function AllMilkEntries() {
                         label="Total Entries"
                         value={totalEntries}
                         icon={<Droplets size={16} className="text-blue-700" />}
-                        color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700"
+                        color="blue"
                     />
                     <StatCard
                         label="Cow Milk (L)"
                         value={totalCow.toFixed(1)}
                         icon={<Milk size={16} className="text-amber-700" />}
-                        color="from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700"
+                        color="amber"
                     />
                     <StatCard
                         label="Buffalo Milk (L)"
                         value={totalBuffalo.toFixed(1)}
                         icon={<Milk size={16} className="text-slate-700" />}
-                        color="from-slate-50 to-slate-100/50 border-slate-200/60 text-slate-700"
+                        color="slate"
                     />
                     <StatCard
                         label="Total Amount"
                         value={`₹${totalAmount.toFixed(2)}`}
                         icon={<TrendingUp size={16} className="text-violet-700" />}
-                        color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700"
+                        color="violet"
                     />
                     <StatCard
                         label="Unique Sellers"
                         value={uniqueSellers}
                         icon={<User size={16} className="text-emerald-700" />}
-                        color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700"
+                        color="emerald"
                     />
                 </div>
 
@@ -668,128 +676,128 @@ export default function AllMilkEntries() {
                 <div className="flex-1 flex flex-col bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden min-h-0">
                     <div className="flex-1 overflow-auto min-h-0">
                         <div style={{ minWidth: TABLE_MIN_WIDTH }}>
-                        <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 sticky top-0 z-10" style={{ gridTemplateColumns: GRID }}>
-                            {COLS.map((col, li) => (
-                                <div
-                                    key={col.label || `col-${li}`}
-                                    className={`px-3 py-2 flex items-center text-[10px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0 ${col.align === "right" ? "justify-end" :
+                            <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 sticky top-0 z-10" style={{ gridTemplateColumns: GRID }}>
+                                {COLS.map((col, li) => (
+                                    <div
+                                        key={col.label || `col-${li}`}
+                                        className={`px-3 py-2.5 flex items-center text-[10px] font-bold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0 ${col.align === "right" ? "justify-end" :
                                             col.align === "center" ? "justify-center" : "justify-start"
-                                        }`}
-                                >
-                                    {col.label}
-                                </div>
-                            ))}
-                        </div>
+                                            }`}
+                                    >
+                                        {col.label}
+                                    </div>
+                                ))}
+                            </div>
 
-                        {loading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
-                            </div>
-                        ) : entries.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
-                                <Droplets size={48} className="text-gray-200" />
-                                <p className="text-sm font-medium">No entries found for this period.</p>
-                            </div>
-                        ) : (
-                            <div>
-                                {paginatedEntries.map((r, i) => {
-                                    const globalIndex = (currentPage - 1) * pageSize + i + 1;
-                                    const isWaterRisk = waterRisk(r.water);
-                                    return (
-                                        <div
-                                            key={r.entry_id || i}
-                                            className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
-                                            style={{ gridTemplateColumns: GRID }}
-                                        >
-                                            <TableCell align="center" className="text-gray-400 text-xs font-mono">
-                                                {globalIndex}
-                                            </TableCell>
-                                            <TableCell align="left" className="font-medium text-gray-800 text-sm">
-                                                <span className="truncate block max-w-[200px]" title={r.seller_name || `ID:${r.seller_id}`}>
-                                                    {r.seller_name || `ID:${r.seller_id}`}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <span className="font-mono text-xs text-gray-700 bg-gray-50/80 border border-gray-200/60 px-2 py-0.5 rounded-md backdrop-blur-sm font-bold whitespace-nowrap">
-                                                    {r.seller_code || "—"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell align="center" className="text-gray-500 text-xs">
-                                                {fmtDate(r.entry_date)}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${r.shift === "morning" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"
-                                                    }`}>
-                                                    {r.shift === "morning" ? "Morning" : "Evening"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${r.milk_type === "cow" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700"
-                                                    }`}>
-                                                    {r.milk_type === "cow" ? "Cow" : "Buffalo"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell align="right" className="text-blue-700 font-mono font-bold text-sm">
-                                                {parseFloat(r.quantity || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell align="right" className="text-amber-700 font-mono font-bold text-sm">
-                                                {parseFloat(r.fat || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell align="right" className="text-violet-700 font-mono font-bold text-sm">
-                                                {parseFloat(r.snf || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell align="right" className="text-pink-600 font-mono text-sm">
-                                                {parseFloat(r.protein || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell align="right" className={`font-mono text-sm ${isWaterRisk ? "text-rose-600 font-bold" : "text-emerald-600"}`}>
-                                                {parseFloat(r.water || 0).toFixed(2)}
-                                                {isWaterRisk && <span className="ml-1 text-rose-500">⚠</span>}
-                                            </TableCell>
-                                            <TableCell align="right" className="text-gray-700 font-mono text-sm">
-                                                ₹{parseFloat(r.rate_applied || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell align="right" className="text-gray-900 font-extrabold text-sm">
-                                                ₹{parseFloat(r.total_amount || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell align="center" className="text-gray-400 text-xs">
-                                                {fmtTime(r.entry_time)}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    {isAdmin && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleEdit(r)}
-                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 border border-blue-200/60 transition"
-                                                                title="Edit"
-                                                            >
-                                                                <Pencil size={13} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDelete(r)}
-                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 border border-rose-200/60 transition"
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 size={13} />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {!isAdmin && (
-                                                        <span className="text-[9px] text-gray-400">Read-only</span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+                            {loading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+                                </div>
+                            ) : entries.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                                    <Droplets size={48} className="text-gray-200" />
+                                    <p className="text-sm font-medium">No entries found for this period.</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    {paginatedEntries.map((r, i) => {
+                                        const globalIndex = (currentPage - 1) * pageSize + i + 1;
+                                        const isWaterRisk = waterRisk(r.water);
+                                        return (
+                                            <div
+                                                key={r.entry_id || i}
+                                                className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
+                                                style={{ gridTemplateColumns: GRID }}
+                                            >
+                                                <TableCell align="center" className="text-gray-400 text-xs font-mono">
+                                                    {globalIndex}
+                                                </TableCell>
+                                                <TableCell align="left" className="font-medium text-gray-800 text-sm">
+                                                    <span className="truncate block max-w-[200px]" title={r.seller_name || `ID:${r.seller_id}`}>
+                                                        {r.seller_name || `ID:${r.seller_id}`}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <span className="font-mono text-xs text-gray-700 bg-gray-50/80 border border-gray-200/60 px-2 py-0.5 rounded-md backdrop-blur-sm font-bold whitespace-nowrap">
+                                                        {r.seller_code || "—"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell align="center" className="text-gray-500 text-xs">
+                                                    {fmtDate(r.entry_date)}
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm whitespace-nowrap ${r.shift === "morning" ? "bg-amber-50/80 text-amber-700 border-amber-200/60" : "bg-indigo-50/80 text-indigo-600 border-indigo-200/60"
+                                                        }`}>
+                                                        {r.shift === "morning" ? "Morning" : "Evening"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm whitespace-nowrap ${r.milk_type === "cow" ? "bg-amber-50/80 text-amber-700 border-amber-200/60" : "bg-slate-100/80 text-slate-700 border-slate-200/60"
+                                                        }`}>
+                                                        {r.milk_type === "cow" ? "Cow" : "Buffalo"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell align="right" className="text-blue-700 font-mono font-bold text-sm">
+                                                    {parseFloat(r.quantity || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell align="right" className="text-amber-700 font-mono font-bold text-sm">
+                                                    {parseFloat(r.fat || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell align="right" className="text-violet-700 font-mono font-bold text-sm">
+                                                    {parseFloat(r.snf || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell align="right" className="text-pink-600 font-mono text-sm">
+                                                    {parseFloat(r.protein || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell align="right" className={`font-mono text-sm ${isWaterRisk ? "text-rose-600 font-bold" : "text-emerald-600"}`}>
+                                                    {parseFloat(r.water || 0).toFixed(2)}
+                                                    {isWaterRisk && <span className="ml-1 text-rose-500">⚠</span>}
+                                                </TableCell>
+                                                <TableCell align="right" className="text-gray-700 font-mono text-sm">
+                                                    ₹{parseFloat(r.rate_applied || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell align="right" className="text-gray-900 font-extrabold text-sm">
+                                                    ₹{parseFloat(r.total_amount || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell align="center" className="text-gray-400 text-xs">
+                                                    {fmtTime(r.entry_time)}
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        {isAdmin && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleEdit(r)}
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-blue-50/80 hover:bg-blue-100/80 text-blue-600 border border-blue-200/60 hover:border-blue-300/80 transition backdrop-blur-sm shadow-sm"
+                                                                    title="Edit"
+                                                                >
+                                                                    <Pencil size={14} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(r)}
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 border border-rose-200/60 hover:border-rose-300/80 transition backdrop-blur-sm shadow-sm"
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        {!isAdmin && (
+                                                            <span className="text-[9px] text-gray-400">Read-only</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* ── Pagination ── */}
                     {filteredEntries.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2 border-t border-gray-200/60 bg-white/80 shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2 border-t border-gray-200/60 bg-white/80 backdrop-blur-sm shrink-0">
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}

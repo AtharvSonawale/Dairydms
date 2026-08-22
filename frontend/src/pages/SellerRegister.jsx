@@ -227,6 +227,7 @@ export default function SellerRegister() {
     const [isDragging, setIsDragging] = useState(false);
     const [missingRequiredColumns, setMissingRequiredColumns] = useState(false);
     const [importMode, setImportMode] = useState('add'); // 'add' | 'update'
+    const [deleteMissingOnUpdate, setDeleteMissingOnUpdate] = useState(false);
 
     // ── Search Function ──
     const handleSearch = (e) => {
@@ -358,82 +359,14 @@ export default function SellerRegister() {
                     return { ...obj, _rowIndex: idx + 1 };
                 });
 
-                const errors = [];
+                // All per-row validations removed — every parsed row is accepted as-is.
                 rows.forEach((row) => {
-                    const reasons = [];
-                    if (!row.name) reasons.push('Name');
-                    if (!row.mobile) reasons.push('Mobile');
                     if (row.mobile) {
-                        const mobileClean = String(row.mobile).replace(/[^\d]/g, "");
-                        if (mobileClean.length < 10 || mobileClean.length > 12) {
-                            reasons.push('a valid Mobile (10–12 digits)');
-                        } else {
-                            row.mobile = mobileClean;
-                        }
+                        row.mobile = String(row.mobile).replace(/[^\d]/g, "");
                     }
-
-                    // In update mode, Seller Code must be present and match an existing seller
-                    const selfSeller = importMode === 'update' ? sellers.find(s => s.seller_code === row.seller_code) : null;
-                    if (importMode === 'update') {
-                        if (!row.seller_code) {
-                            reasons.push('Seller Code (required to match an existing seller)');
-                        } else if (!selfSeller) {
-                            reasons.push('a Seller Code that matches an existing seller');
-                        }
-                    }
-
-                    // Check for duplicate seller codes within the import data itself
-                    if (row.seller_code) {
-                        const duplicateInImport = rows.some((r, i) =>
-                            i !== row._rowIndex - 1 && r.seller_code === row.seller_code
-                        );
-                        if (duplicateInImport) {
-                            reasons.push('Duplicate Seller Code in import file');
-                        }
-                    }
-
-                    // Check for duplicate bank account numbers (allow max 2), excluding the seller being updated
-                    if (row.bank_account) {
-                        const existingBankAccounts = sellers.filter(s => s.bank_account === row.bank_account && (!selfSeller || s.seller_id !== selfSeller.seller_id));
-                        const duplicateInImportBank = rows.filter((r, i) =>
-                            i !== row._rowIndex - 1 && r.bank_account === row.bank_account && r.bank_account
-                        );
-                        if (existingBankAccounts.length + duplicateInImportBank.length >= 2) {
-                            reasons.push('Bank Account number already exists (max 2 allowed)');
-                        }
-                    }
-
-                    // Check for duplicate PAN numbers (allow max 2), excluding the seller being updated
-                    if (row.pan_number) {
-                        const existingPan = sellers.filter(s => s.pan_number === row.pan_number && (!selfSeller || s.seller_id !== selfSeller.seller_id));
-                        const duplicateInImportPan = rows.filter((r, i) =>
-                            i !== row._rowIndex - 1 && r.pan_number === row.pan_number && r.pan_number
-                        );
-                        if (existingPan.length + duplicateInImportPan.length >= 2) {
-                            reasons.push('PAN number already exists (max 2 allowed)');
-                        }
-                    }
-
-                    // Check for duplicate Aadhaar numbers (allow max 2), excluding the seller being updated
-                    if (row.aadhaar) {
-                        const existingAadhaar = sellers.filter(s => s.aadhaar === row.aadhaar && (!selfSeller || s.seller_id !== selfSeller.seller_id));
-                        const duplicateInImportAadhaar = rows.filter((r, i) =>
-                            i !== row._rowIndex - 1 && r.aadhaar === row.aadhaar && r.aadhaar
-                        );
-                        if (existingAadhaar.length + duplicateInImportAadhaar.length >= 2) {
-                            reasons.push('Aadhaar number already exists (max 2 allowed)');
-                        }
-                    }
-
-                    row._valid = reasons.length === 0;
-                    if (reasons.length > 0) {
-                        errors.push(
-                            t('sellerRegister.rowFieldError', { row: row._rowIndex, fields: reasons.join(', ') })
-                            || `Row ${row._rowIndex}: ${reasons.join(', ')} required/invalid.`
-                        );
-                    }
+                    row._valid = true;
                 });
-                setImportErrors(errors);
+                setImportErrors([]);
                 setImportData(rows);
             } catch (err) {
                 setImportErrors([t('sellerRegister.parseError', { error: err.message }) || 'Failed to parse file: ' + err.message]);
@@ -477,6 +410,7 @@ export default function SellerRegister() {
         setImportErrors([]);
         setMissingRequiredColumns(false);
         setImportResult(null);
+        setDeleteMissingOnUpdate(false);
     };
 
     const handleExportData = () => {
@@ -488,7 +422,22 @@ export default function SellerRegister() {
             "Seller Type", "Milk Type", "Jamin", "Bank Account", "Bank Name", "Account Holder",
             "Branch", "IFSC", "Address", "Pincode", "Advance Enabled", "Advance Deduction",
             "Product Sale Enabled", "Deposit Enabled", "Deposit Per Litre", "Cattle Feed Enabled"];
-        const rows = sellers.map(s => [
+
+        // Sort by seller code ascending. Numeric codes ("001", "052") sort numerically;
+        // any non-numeric codes fall back to a plain string comparison and are placed after.
+        const sortedSellers = [...sellers].sort((a, b) => {
+            const aCode = a.seller_code || "";
+            const bCode = b.seller_code || "";
+            const aNum = /^\d+$/.test(aCode) ? parseInt(aCode, 10) : null;
+            const bNum = /^\d+$/.test(bCode) ? parseInt(bCode, 10) : null;
+
+            if (aNum !== null && bNum !== null) return aNum - bNum;
+            if (aNum !== null) return -1;   // numeric codes sort before non-numeric
+            if (bNum !== null) return 1;
+            return aCode.localeCompare(bCode);
+        });
+
+        const rows = sortedSellers.map(s => [
             s.seller_code || "", s.name || "", s.mobile || "", s.aadhaar || "", s.pan_number || "",
             s.seller_id_code || "", s.seller_type || "Utpadak", s.milk_type || "both", s.jamin || "",
             s.bank_account || "", s.bank_name || "", s.account_holder_name || "", s.branch_name || "",
@@ -518,8 +467,11 @@ export default function SellerRegister() {
         setImportLoading(true);
         try {
             const endpoint = importMode === 'update' ? '/sellers/bulk-update' : '/sellers/import';
-            const response = await api.post(endpoint, { sellers: validRows });
-            const { added, updated, skipped, errors: importResultErrors } = response.data;
+            const payload = importMode === 'update'
+                ? { sellers: validRows, deleteMissing: deleteMissingOnUpdate }
+                : { sellers: validRows };
+            const response = await api.post(endpoint, payload);
+            const { added, updated, inserted, deleted, skipped, errors: importResultErrors } = response.data;
 
             if (importResultErrors && importResultErrors.length > 0) {
                 setImportErrors(importResultErrors.map(e => `Row ${e.row}: ${e.error}`));
@@ -527,7 +479,14 @@ export default function SellerRegister() {
                 setImportErrors([]);
             }
 
-            setImportResult({ added: importMode === 'update' ? updated : added, skipped, mode: importMode });
+            setImportResult({
+                added: importMode === 'update' ? (updated + (inserted || 0)) : added,
+                updated: importMode === 'update' ? updated : undefined,
+                inserted: importMode === 'update' ? inserted : undefined,
+                deleted: importMode === 'update' ? (deleted || 0) : undefined,
+                skipped,
+                mode: importMode,
+            });
             await fetchSellers();
 
             // Close modal if all were added
@@ -642,6 +601,7 @@ export default function SellerRegister() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        if (!form.seller_code || !form.seller_code.trim()) { showFlash("error", t('sellerRegister.sellerCodeRequired') || "Seller code is required."); return; }
         const nameParts = form.name.trim().split(/\s+/);
         if (!form.name || nameParts.length < 2) { showFlash("error", t('sellerRegister.nameFullNameError')); return; }
         if (/\d/.test(form.name)) { showFlash("error", t('sellerRegister.nameNoNumbersError')); return; }
@@ -700,6 +660,28 @@ export default function SellerRegister() {
         finally { setDeleteId(null); }
     };
 
+    // Enter key moves focus to the next visible input in the register form.
+    // Pressing Enter on the last input submits the form (same as clicking Save/Update).
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (e.target.tagName !== "INPUT") return; // let buttons behave normally
+        e.preventDefault();
+
+        const form = e.currentTarget;
+        const focusable = Array.from(
+            form.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
+        ).filter(el => el.offsetParent !== null); // skip hidden radio inputs etc.
+
+        const idx = focusable.indexOf(e.target);
+        if (idx > -1 && idx < focusable.length - 1) {
+            focusable[idx + 1].focus();
+        } else if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+        } else {
+            handleSave(e);
+        }
+    };
+
     const TABLE_COLS = [
         { label: t('sellerRegister.seller'), icon: <User size={11} /> },
         { label: t('sellerRegister.code'), icon: <Hash size={11} /> },
@@ -733,13 +715,6 @@ export default function SellerRegister() {
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <span>{t('sellerRegister.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
-                                <Settings size={12} /> {t('status.admin')}
-                            </span>
-                        </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {t('sellerRegister.pageTitle')}
                         </h1>
@@ -817,7 +792,7 @@ export default function SellerRegister() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-6 space-y-5">
+                        <form onSubmit={handleSave} onKeyDown={handleFormKeyDown} className="p-6 space-y-5">
                             {/* Row 1 */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <Field label={t('sellerRegister.fullName')} name="name" value={form.name} onChange={handleChange} placeholder={t('sellerRegister.namePlaceholder')} required t={t}>
@@ -825,8 +800,10 @@ export default function SellerRegister() {
                                         className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.sellerCode')} name="seller_code" value={form.seller_code} onChange={handleChange} placeholder={t('sellerRegister.codeAutoGenerated')} required t={t}>
-                                    <input value={form.seller_code} readOnly
-                                        className="border border-gray-200/60 bg-gray-100/50 rounded-xl px-4 py-2.5 text-sm text-gray-500 font-mono cursor-not-allowed shadow-sm w-full" />
+                                    <input name="seller_code" value={form.seller_code}
+                                        onChange={e => setForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
+                                        placeholder={t('sellerRegister.codeAutoGenerated')} maxLength={20}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
                                 </Field>
                                 <Field label={t('sellerRegister.mobile')} name="mobile" value={form.mobile} onChange={handleChange} placeholder="+91XXXXXXXXXX" type="tel" required t={t}>
                                     <input name="mobile" value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))} placeholder="+91XXXXXXXXXX" type="tel" required maxLength={13}
@@ -1419,7 +1396,7 @@ export default function SellerRegister() {
             {showImportModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 max-w-4xl w-full max-h-[90vh] flex flex-col">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
+                        <div className="flex items-center rounded-xl justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
                             <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shrink-0 shadow-lg shadow-gray-900/20">
                                     <FileSpreadsheet size={16} className="text-white" />
@@ -1453,6 +1430,23 @@ export default function SellerRegister() {
                                     </button>
                                 ))}
                             </div>
+
+                            {importMode === 'update' && (
+                                <label className="flex items-start gap-2 mb-4 p-3 rounded-xl border border-rose-200/60 bg-rose-50/60 backdrop-blur-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={deleteMissingOnUpdate}
+                                        onChange={e => setDeleteMissingOnUpdate(e.target.checked)}
+                                        className="mt-0.5"
+                                    />
+                                    <span className="text-xs text-rose-700 leading-relaxed">
+                                        <strong>Full sync mode:</strong> any seller currently in the system whose Seller Code
+                                        does <u>not</u> appear in this file will be permanently deleted, along with all their
+                                        milk entries, bills, advances, deposits, and sales history. Leave this unchecked to
+                                        only add/update the rows present in the file.
+                                    </span>
+                                </label>
+                            )}
                             {!importFile ? (
                                 /* Drag & drop zone */
                                 <label
@@ -1557,7 +1551,7 @@ export default function SellerRegister() {
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
+                        <div className="flex items-center rounded-xl justify-between gap-3 px-6 py-4 border-t border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
                             <button onClick={downloadTemplate}
                                 className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
                                 <Download size={12} /> {t('sellerRegister.downloadTemplate') || 'Download sample template'}
@@ -1596,7 +1590,10 @@ export default function SellerRegister() {
                             </div>
                             <h2 className="text-gray-800 font-bold text-base">{t('sellerRegister.importComplete') || 'Import Complete'}</h2>
                             <p className="text-gray-500 text-sm leading-relaxed">
-                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {importResult.mode === 'update' ? (t('sellerRegister.importResultsUpdated') || 'seller(s) updated') : (t('sellerRegister.importResultsAdded') || 'seller(s) added')}
+                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {importResult.mode === 'update' ? (t('sellerRegister.importResultsUpdated') || 'seller(s) added/updated') : (t('sellerRegister.importResultsAdded') || 'seller(s) added')}
+                                {importResult.deleted > 0 && (
+                                    <>, <span className="font-semibold text-rose-600">{importResult.deleted}</span> removed (not in file)</>
+                                )}
                                 {importResult.skipped > 0 && (
                                     <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> {t('sellerRegister.importResultsSkipped') || 'skipped'}</>
                                 )}

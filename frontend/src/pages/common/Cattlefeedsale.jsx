@@ -759,7 +759,7 @@ export default function CattleFeedSales() {
     // ── FIXED: Seller filtering - search by name OR code (partial match) ──
     const filteredSellers = (() => {
         const sorted = [...sellers]
-            .filter((s) => s.product_sale_enabled == 1)
+            .filter((s) => s.cattle_feed_sale_enabled == 1)  // Changed from product_sale_enabled
             .sort((a, b) => a.name.localeCompare(b.name));
         if (!sellerSearch.trim() && !sellerCodeInput.trim()) return sorted.slice(0, 5);
         const searchTerm = sellerSearch.trim() || sellerCodeInput.trim();
@@ -782,7 +782,7 @@ export default function CattleFeedSales() {
 
         // Find exact match by code
         const exactMatch = sellers.find(
-            (s) => s.product_sale_enabled == 1 &&
+            (s) => s.cattle_feed_sale_enabled == 1 &&  // Changed from product_sale_enabled
                 (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
         );
         if (exactMatch) {
@@ -1166,13 +1166,6 @@ export default function CattleFeedSales() {
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <span>{t('cattleFeedSales.pageTitle')}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
-                                <ShoppingCart size={12} /> Sales
-                            </span>
-                        </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {t('cattleFeedSales.pageTitle')}
                         </h1>
@@ -1307,7 +1300,7 @@ export default function CattleFeedSales() {
                         <div data-entry-form onKeyDown={handleFormKeyDown}>
                             {/* ── FIXED: Seller row with Code and Name fields ── */}
                             <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
-                                <Field label={t('cattleFeedSales.form.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
+                                <Field label={t('cattleFeedSales.form.sellerCode') || 'Code'} icon={<User size={12} />}>
                                     <TinyInput
                                         ref={sellerCodeRef}
                                         value={sellerCodeInput}
@@ -1317,7 +1310,7 @@ export default function CattleFeedSales() {
                                     />
                                 </Field>
 
-                                <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
+                                <Field label={t('cattleFeedSales.form.seller') || 'Seller'} icon={<User size={12} />}>
                                     <div className="relative" style={{ width: "220px" }}>
                                         <TinyInput
                                             value={sellerSearch}
@@ -1352,15 +1345,15 @@ export default function CattleFeedSales() {
                                                     setShowSellerDrop(false);
                                                 }
                                             }}
-                                            placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
+                                            placeholder={t('cattleFeedSales.form.sellerPlaceholder') || 'Search by name or code...'}
                                             className="pr-7 w-full"
                                         />
                                         {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
                                             <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
                                                     {sellerSearch.trim() || sellerCodeInput.trim()
-                                                        ? t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })
-                                                        : t('cattleFeedSales.form.sellersAZ')}
+                                                        ? `${filteredSellers.length} match${filteredSellers.length !== 1 ? 'es' : ''} found`
+                                                        : 'All sellers (A-Z)'}
                                                 </p>
                                                 {filteredSellers.map((s, idx) => (
                                                     <button key={s.seller_id} type="button"
@@ -1370,9 +1363,9 @@ export default function CattleFeedSales() {
                                                             focusNextField(e.currentTarget);
                                                         }}
                                                         className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                                ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
+                                    ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
                                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                                ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-gray-100/80 text-gray-600"}`}>
+                                    ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-gray-100/80 text-gray-600"}`}>
                                                             {s.name?.charAt(0)?.toUpperCase()}
                                                         </div>
                                                         <div>
@@ -1407,10 +1400,10 @@ export default function CattleFeedSales() {
                             <div className="flex flex-col gap-3 mb-4">
                                 <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
                                     style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
-                                    <span>{t('cattleFeedSales.form.feed')}</span>
-                                    <span>{t('cattleFeedSales.form.qty')}</span>
-                                    <span>{t('cattleFeedSales.form.rate')}</span>
-                                    <span>{t('cattleFeedSales.form.total')}</span>
+                                    <span>{t('cattleFeedSales.form.feed') || 'Feed'}</span>
+                                    <span>{t('cattleFeedSales.form.qty') || 'Qty'}</span>
+                                    <span>{t('cattleFeedSales.form.rate') || 'Rate'}</span>
+                                    <span>{t('cattleFeedSales.form.total') || 'Total'}</span>
                                     <span />
                                 </div>
 
@@ -1440,7 +1433,7 @@ export default function CattleFeedSales() {
                                                         setShowFeedDrop(p => ({ ...p, [line._key]: false }));
                                                         setLineFeedSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
                                                     }, 150)}
-                                                    placeholder={t('cattleFeedSales.form.feedPlaceholder')}
+                                                    placeholder={t('cattleFeedSales.form.feedPlaceholder') || 'Search feed...'}
                                                     className="w-full"
                                                 />
                                                 {showFeedDrop[line._key] && (
@@ -1464,7 +1457,7 @@ export default function CattleFeedSales() {
                                                                     <p className="text-[10px] text-gray-400">
                                                                         {f.supplier_name && <span className="text-violet-500 font-semibold">{f.supplier_name}</span>}
                                                                         {f.supplier_name && " · "}
-                                                                        {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(f.current_stock || 0).toFixed(1), unit: f.unit })}
+                                                                        {`Stock: ${parseFloat(f.current_stock || 0).toFixed(1)} ${f.unit}`}
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-[10px] text-violet-600 font-semibold">
@@ -1476,8 +1469,8 @@ export default function CattleFeedSales() {
                                                 )}
                                                 {lineFeed && (
                                                     <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineFeed.current_stock) <= 0 ? "text-rose-500" : "text-emerald-600"}`}>
-                                                        {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(lineFeed.current_stock || 0).toFixed(2), unit: lineFeed.unit })}
-                                                        {parseFloat(lineFeed.current_stock) <= 0 && ` · ${t('cattleFeedSales.form.outOfStock')}`}
+                                                        {`Stock: ${parseFloat(lineFeed.current_stock || 0).toFixed(2)} ${lineFeed.unit}`}
+                                                        {parseFloat(lineFeed.current_stock) <= 0 && ` · Out of Stock`}
                                                     </p>
                                                 )}
                                             </div>
@@ -1511,8 +1504,8 @@ export default function CattleFeedSales() {
                                             />
 
                                             <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
-                                            ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
-                                                {lt ? t('cattleFeedSales.form.lineTotal', { amount: lt }) : "—"}
+                        ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
+                                                {lt ? `₹${lt}` : "—"}
                                             </div>
 
                                             <button type="button" onClick={() => removeLine(line._key)}
@@ -1528,14 +1521,14 @@ export default function CattleFeedSales() {
                             <div className="flex items-center justify-between mb-4">
                                 <button type="button" onClick={addLine}
                                     className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500/60 px-3 py-1.5 rounded-xl transition">
-                                    <span className="text-base leading-none">+</span> {t('cattleFeedSales.form.addFeed')}
+                                    <span className="text-base leading-none">+</span> {t('cattleFeedSales.form.addFeed') || 'Add feed'}
                                 </button>
                                 {grandFormTotal > 0 && (
                                     <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
                                         <span className="text-xs text-gray-400 font-medium">
-                                            {t('cattleFeedSales.form.feedCount', { count: lines.filter(l => l.feed_id).length })} ·
+                                            {`${lines.filter(l => l.feed_id).length} feeds · `}
                                         </span>
-                                        {t('cattleFeedSales.form.grandTotal')}
+                                        {t('cattleFeedSales.form.grandTotal') || 'Grand Total'}
                                         <span className="text-emerald-700">₹{grandFormTotal.toFixed(2)}</span>
                                     </div>
                                 )}
@@ -1543,19 +1536,19 @@ export default function CattleFeedSales() {
 
                             <div className="flex items-center justify-between pt-4 border-t border-gray-200/60">
                                 <p className="text-xs text-gray-400">
-                                    {t('cattleFeedSales.table.entries', { count: sales.length })} {t('cattleFeedSales.form.saleOn')}{" "}
+                                    {`${sales.length} entries on `}
                                     {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                                     {totalRevenue > 0 && (
                                         <span className="ml-2 text-emerald-600 font-semibold">
-                                            {t('cattleFeedSales.form.totalRevenueText', { amount: totalRevenue.toFixed(2) })}
+                                            {`Total: ₹${totalRevenue.toFixed(2)}`}
                                         </span>
                                     )}
                                 </p>
                                 <button type="button" onClick={handleSave} disabled={saving}
                                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
-                                    ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}>
+                ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}>
                                     <Save size={15} />
-                                    {saving ? t('cattleFeedSales.form.saving') : t('cattleFeedSales.form.recordSale')}
+                                    {saving ? t('cattleFeedSales.form.saving') || 'Saving...' : t('cattleFeedSales.form.recordSale') || 'Record Sale'}
                                 </button>
                             </div>
                         </div>

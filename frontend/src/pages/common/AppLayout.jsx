@@ -354,9 +354,10 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
             <nav className={`sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 space-y-1`}>
                 {navItems.map(item =>
                     item.children ? (
-                        <div key={item.label} data-tour={item.tourId}>
+                        <div key={item.label} data-tour={item.tourId} className="group relative">
                             <button
                                 onClick={() => setExpanded(p => ({ ...p, [item.label]: !(p[item.label] ?? true) }))}
+                                title={collapsed && !mobile ? item.label : undefined}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150
                                     ${isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'}`}
                             >
@@ -406,6 +407,33 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                                             </NavLink>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* Hover flyout — the only way to reach a group's children when the
+                                sidebar is collapsed (tablet is permanently in this state) */}
+                            {collapsed && !mobile && (
+                                <div className={`hidden group-hover:flex flex-col absolute left-full top-0 ml-2 min-w-[180px] rounded-xl shadow-xl z-50 py-2 px-1
+                                    ${isAdmin ? 'bg-gray-900' : 'bg-emerald-900'}`}>
+                                    <span className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${isAdmin ? 'text-gray-500' : 'text-emerald-300'}`}>
+                                        {item.label}
+                                    </span>
+                                    {item.children.map(child => (
+                                        <NavLink
+                                            key={child.to}
+                                            to={child.to}
+                                            className={({ isActive }) =>
+                                                `flex items-center gap-2 px-3 py-2 rounded-lg text-xs whitespace-nowrap transition
+                                                ${isActive
+                                                    ? 'bg-white/10 text-white font-semibold'
+                                                    : isAdmin ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-emerald-100 hover:bg-emerald-700 hover:text-white'
+                                                }`
+                                            }
+                                        >
+                                            <span className="shrink-0">{child.icon}</span>
+                                            <span>{child.label}</span>
+                                        </NavLink>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -679,7 +707,7 @@ export default function AppLayout() {
             // Pick whichever sidebar is actually visible — desktop and mobile
             // both render the same data-tour attributes, and a plain
             // querySelector would always grab the (possibly hidden) first one.
-            const visibleSidebar = ['[data-sidebar="desktop"]', '[data-sidebar="mobile"]']
+            const visibleSidebar = ['[data-sidebar="desktop"]', '[data-sidebar="tablet"]', '[data-sidebar="mobile"]']
                 .map(sel => document.querySelector(sel))
                 .find(el => el && el.offsetParent !== null);
 
@@ -689,10 +717,11 @@ export default function AppLayout() {
                 return el && el.offsetParent !== null ? el : null;
             };
 
+            const sidebarSelector = `[data-sidebar="${visibleSidebar.getAttribute('data-sidebar')}"]`;
             const navSteps = navItems
                 .filter(item => item.tourId && findVisible(item.tourId))
                 .map(item => ({
-                    element: `${visibleSidebar.matches('[data-sidebar="desktop"]') ? '[data-sidebar="desktop"]' : '[data-sidebar="mobile"]'} [data-tour="${item.tourId}"]`,
+                    element: `${sidebarSelector} [data-tour="${item.tourId}"]`,
                     popover: {
                         title: item.label,
                         description: item.children
@@ -795,8 +824,9 @@ export default function AppLayout() {
                     onClick={() => setMobileOpen(false)} />
             )}
 
-            {/* Mobile sidebar */}
-            <aside data-sidebar="mobile" className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 lg:hidden
+            {/* Mobile sidebar — off-canvas overlay, phones only (< md) */}
+            <aside data-sidebar="mobile" className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] flex flex-col transition-transform duration-300 md:hidden
+                ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
                 ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}`}>
                 <SidebarContent mobile
                     collapsed={collapsed} expanded={expanded} setExpanded={setExpanded}
@@ -806,7 +836,20 @@ export default function AppLayout() {
                 />
             </aside>
 
-            {/* Desktop sidebar - Updated with glass-morphism effect */}
+            {/* Tablet sidebar — persistent, icon-only, no manual collapse (md–lg) */}
+            <aside data-sidebar="tablet" className={`hidden md:flex lg:hidden flex-col shrink-0 w-[68px]
+                ${isAdmin
+                    ? 'bg-gradient-to-b from-gray-900 to-gray-800'
+                    : 'bg-gradient-to-b from-emerald-800 to-emerald-900'}`}>
+                <SidebarContent
+                    collapsed={true} expanded={expanded} setExpanded={setExpanded}
+                    navItems={displayNavItems} isAdmin={isAdmin} isFarmer={isFarmer} user={user} handleLogout={handleLogout}
+                    appName={appName} logoUrl={logoUrl} navigate={navigate}
+                    isFavorited={isFavorited} toggleFavorite={toggleFavorite}
+                />
+            </aside>
+
+            {/* Desktop sidebar - Updated with glass-morphism effect (lg+) */}
             <aside data-sidebar="desktop" className={`relative hidden lg:flex flex-col shrink-0 transition-all duration-300
                 ${collapsed ? 'w-[68px]' : 'w-56'}
                 ${isAdmin
@@ -824,20 +867,20 @@ export default function AppLayout() {
             {/* Main content */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Mobile top bar - Updated with glass-morphism */}
-                <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b bg-white/80 backdrop-blur-sm border-gray-200/60 shadow-lg shadow-gray-200/50">
+                <header className="md:hidden flex items-center gap-3 px-4 py-3 border-b bg-white/80 backdrop-blur-sm border-gray-200/60 shadow-lg shadow-gray-200/50">
                     <button onClick={() => setMobileOpen(true)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-gray-200/80 transition text-gray-600 shadow-sm">
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-gray-200/80 transition text-gray-600 shadow-sm shrink-0">
                         <Menu size={16} />
                     </button>
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden shadow-sm
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden shadow-sm shrink-0
                         ${isAdmin ? 'bg-gray-100 text-white' : 'bg-gray-100 text-white'}`}>
                         {logoUrl
                             ? <img src={logoUrl} alt={appName} className="w-full h-full object-contain p-0.5" />
                             : <Droplets size={14} />
                         }
                     </div>
-                    <span className="text-sm font-semibold text-gray-800">{appName}</span>
-                    <div className={`ml-auto w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm
+                    <span className="text-sm font-semibold text-gray-800 truncate min-w-0 flex-1">{appName}</span>
+                    <div className={`ml-auto w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm shrink-0
                         ${isAdmin ? 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700' : 'bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-700'}`}>
                         {initials(user?.name)}
                     </div>
@@ -850,7 +893,7 @@ export default function AppLayout() {
             {
                 showLogoutConfirm && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 px-6 py-5 w-80 flex flex-col gap-4">
+                        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 px-6 py-5 w-full max-w-80 flex flex-col gap-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">
                                     <LogOut size={16} className="text-rose-500" />

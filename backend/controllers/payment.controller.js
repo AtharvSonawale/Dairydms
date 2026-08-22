@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const ExcelJS = require('exceljs');
 const { applyCommissionToEntries, getCommissionSettingsMap } = require('../utils/commission');
 
+const round2 = (n) => Math.round((parseFloat(n || 0) + Number.EPSILON) * 100) / 100;
 /*
   ── REQUIRED SQL MIGRATIONS ──────────────────────────────────
   See migration block above (commission_settings table +
@@ -262,20 +263,20 @@ exports.getSellerSummary = async (req, res) => {
             }
 
             // Unpaid: Compute everything fresh
-            const milkAmt = computedMilkAmount;
+            const milkAmt = round2(computedMilkAmount);
             const totalMilkQty = parseFloat(s.total_milk_quantity || 0);
             const depositPerLitre = parseFloat(s.deposit_per_litre || 0);
-            const depositAmount = totalMilkQty * depositPerLitre;
-            const advGiven = advMap[s.seller_id] || 0;
-            const productDeduction = productMap[s.seller_id] || 0;
-            const walkinDeduction = walkinMap[s.seller_id] || 0;
-            const cattleFeedDeduction = cattleFeedMap[s.seller_id] || 0;
+            const depositAmount = round2(totalMilkQty * depositPerLitre);
+            const advGiven = round2(advMap[s.seller_id] || 0);
+            const productDeduction = round2(productMap[s.seller_id] || 0);
+            const walkinDeduction = round2(walkinMap[s.seller_id] || 0);
+            const cattleFeedDeduction = round2(cattleFeedMap[s.seller_id] || 0);
             const deductionAmt = parseFloat(s.advance_deduction || 0);
 
             // Installment cut: min(deductionAmt, advGiven)
-            const installmentCut = advGiven > 0
+            const installmentCut = round2(advGiven > 0
                 ? (deductionAmt > 0 ? Math.min(deductionAmt, advGiven) : advGiven)
-                : 0;
+                : 0);
 
             // Deduct deposit from milk payable
             const milkAfterDeposit = milkAmt - depositAmount;
@@ -286,8 +287,7 @@ exports.getSellerSummary = async (req, res) => {
             // Deduct product, walk-in, and cattle feed sales
             const milkAfterAllDeductions = milkAfterInstallment - productDeduction - walkinDeduction - cattleFeedDeduction;
 
-            const finalPayable = parseFloat(milkAfterAllDeductions.toFixed(2));
-
+            const finalPayable = round2(milkAfterAllDeductions);
             // Update deposit balance
             const updatedDepositBalance = depositMap[s.seller_id] || 0;
 
@@ -372,14 +372,16 @@ exports.markPaid = async (req, res) => {
             [seller_id, centreId, from_date, to_date]
         );
         const totalMilkQty = rawMilkEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
-        const { milkAmount, totalCommission: commissionAmount } = applyCommissionToEntries(
+        let { milkAmount, totalCommission: commissionAmount } = applyCommissionToEntries(
             rawMilkEntries, seller.seller_type, commissionSettingsMap
         );
+        milkAmount = round2(milkAmount);
+        commissionAmount = round2(commissionAmount);
 
         // 3. Calculate deposit amount if not provided
-        const finalDepositAmount = deposit_amount > 0
+        const finalDepositAmount = round2(deposit_amount > 0
             ? parseFloat(deposit_amount)
-            : totalMilkQty * depositPerLitre;
+            : totalMilkQty * depositPerLitre);
 
         // 4. Fetch advance balance BEFORE any changes (for snapshot)
         const [[advRowBefore]] = await conn.query(
@@ -393,7 +395,7 @@ exports.markPaid = async (req, res) => {
         const advanceBalanceBefore = parseFloat(advRowBefore.advance_balance || 0);
 
         // 5. Calculate installment cut if not provided
-        let finalInstallmentCut = parseFloat(installment_cut) || 0;
+        let finalInstallmentCut = round2(parseFloat(installment_cut) || 0);
         if (finalInstallmentCut === 0) {
             finalInstallmentCut = advanceBalanceBefore > 0
                 ? (advanceDeduction > 0
@@ -457,7 +459,7 @@ exports.markPaid = async (req, res) => {
         const milkAfterDeposit = milkAmount - finalDepositAmount;
         const milkAfterInstallment = milkAfterDeposit - finalInstallmentCut;
         const milkAfterAllDeductions = milkAfterInstallment - productDeduction - walkinDeduction - cattleFeedDeduction;
-        const finalPayable = parseFloat(milkAfterAllDeductions.toFixed(2));
+        const finalPayable = round2(milkAfterAllDeductions);
 
         // 11. Generate bill number
         const toDateObj = new Date(to_date);

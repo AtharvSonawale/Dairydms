@@ -254,17 +254,6 @@ export default function FarmerCattleFeed() {
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                            <Home size={16} className="text-gray-400" />
-                            <Link to="/farmer/dashboard" className="hover:text-gray-800 transition">
-                                {t('dashboard.myDashboard', { defaultValue: 'My Dashboard' })}
-                            </Link>
-                            <ChevronRight size={12} className="text-gray-300" />
-                            <span>{t('nav.MyCattleFeed', { defaultValue: 'My Cattle Feed' })}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white text-xs font-semibold shadow-md shadow-amber-500/30">
-                                <Wheat size={12} /> {t('status.farmer', { defaultValue: 'Farmer' })}
-                            </span>
-                        </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {t('nav.MyCattleFeed', { defaultValue: 'My Cattle Feed' })}
                         </h1>

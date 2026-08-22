@@ -1,3 +1,4 @@
+// pages/SellerPayments.jsx
 import { useAppConfig } from '../context/AppConfigContext';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,10 +22,16 @@ import "driver.js/dist/driver.css";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+// Import the ReceiptPDF component
+import ReceiptPDF from '../components/ReceiptPDF';
+
 // ── helpers ───────────────────────────────────────────────────
 const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
 const fmtDate = (d) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
+const round2 = (n) => Math.round((parseFloat(n || 0) + Number.EPSILON) * 100) / 100;
+const toPaise = (n) => Math.round(parseFloat(n || 0) * 100);
+const fromPaise = (p) => p / 100;
 
 // Compute all cycles from a seed date
 const computeCycles = (seedFrom, daysPerCycle, count = 50) => {
@@ -381,6 +388,10 @@ export default function SellerPayments() {
         return idx >= 0 ? idx : 0;
     });
 
+    // ── Receipt PDF Modal State ──
+    const [showReceiptModal, setShowReceiptModal] = useState(false);
+    const [receiptData, setReceiptData] = useState(null);
+
     const selectFixedCycle = (idx) => {
         const cycles = getFixedMonthCycles(new Date());
         const c = cycles[idx];
@@ -526,26 +537,28 @@ export default function SellerPayments() {
 
     const getEffectiveInstallmentCut = (seller) => {
         const override = customCutOverrides[seller.seller_id];
-        const advGiven = parseFloat(seller.advance_given || 0);
+        const advGivenP = toPaise(seller.advance_given || 0);
         if (override !== undefined && override !== "") {
-            const val = parseFloat(override);
-            if (!isNaN(val)) return Math.max(0, Math.min(val, advGiven));
+            const valP = toPaise(override);
+            if (!isNaN(valP)) return fromPaise(Math.max(0, Math.min(valP, advGivenP)));
         }
-        return parseFloat(seller.installment_cut || 0);
+        return fromPaise(toPaise(seller.installment_cut || 0));
     };
 
     const getEffectiveFinalPayable = (seller) => {
         if (seller.is_paid || seller.bill_no) {
-            return Math.max(0, parseFloat(seller.final_payable || seller.cash_to_pay || 0));
+            return Math.max(0, fromPaise(toPaise(seller.final_payable || seller.cash_to_pay || 0)));
         }
-        const milkAmt = parseFloat(seller.milk_amount || 0);
-        const depositAmt = parseFloat(seller.deposit_amount || 0);
-        const cut = getEffectiveInstallmentCut(seller);
-        const productDed = parseFloat(seller.product_deduction || 0);
-        const walkinDed = parseFloat(seller.walkin_deduction || 0);
-        const cattleFeedDed = parseFloat(seller.cattle_feed_deduction || 0);
-        const raw = milkAmt - depositAmt - cut - productDed - walkinDed - cattleFeedDed;
-        return Math.max(0, parseFloat(raw.toFixed(2)));
+
+        const milkP = toPaise(seller.milk_amount || 0);
+        const depositP = toPaise(seller.deposit_amount || 0);
+        const cutP = toPaise(getEffectiveInstallmentCut(seller));
+        const productP = toPaise(seller.product_deduction || 0);
+        const walkinP = toPaise(seller.walkin_deduction || 0);
+        const cattleFeedP = toPaise(seller.cattle_feed_deduction || 0);
+
+        const rawP = milkP - depositP - cutP - productP - walkinP - cattleFeedP;
+        return Math.max(0, fromPaise(rawP));
     };
 
     const handleMarkPaid = async (e, sellerId) => {
@@ -558,18 +571,40 @@ export default function SellerPayments() {
 
         const depositAmount = parseFloat(seller.total_milk_quantity || 0) * parseFloat(seller.deposit_per_litre || 0);
         const installmentCut = getEffectiveInstallmentCut(seller);
+        const finalPayable = getEffectiveFinalPayable(seller);
+
+        console.log('🔍 [handleMarkPaid - BEFORE API CALL]', {
+            seller_id: sellerId,
+            name: seller.name,
+            milk_amount: seller.milk_amount,
+            deposit_amount: seller.deposit_amount,
+            installment_cut: installmentCut,
+            depositAmount: depositAmount,
+            finalPayable: finalPayable,
+            product_deduction: seller.product_deduction,
+            walkin_deduction: seller.walkin_deduction,
+            cattle_feed_deduction: seller.cattle_feed_deduction,
+            total_milk_quantity: seller.total_milk_quantity,
+            deposit_per_litre: seller.deposit_per_litre,
+        });
 
         const bill_no = generatePreviewBillNo(sellerId, cycle.from, cycle.to);
 
         try {
-            const { data: paidData } = await api.post("/payments/mark-paid", {
+            const payload = {
                 seller_id: sellerId,
                 from_date: cycle.from,
                 to_date: cycle.to,
                 installment_cut: installmentCut,
                 deposit_amount: depositAmount,
                 bill_no,
-            });
+            };
+
+            console.log('🔍 [handleMarkPaid - PAYLOAD SENT]', payload);
+
+            const { data: paidData } = await api.post("/payments/mark-paid", payload);
+
+            console.log('🔍 [handleMarkPaid - RESPONSE DATA]', paidData);
 
             const confirmedBillNo = paidData?.bill_no || bill_no;
             showFlash("success", t('sellerPayments.paidSuccess', { billNo: confirmedBillNo }));
@@ -581,6 +616,7 @@ export default function SellerPayments() {
             });
             await fetchPayments();
         } catch (err) {
+            console.error('🔍 [handleMarkPaid - ERROR]', err.response?.data || err.message);
             showFlash("error", err.response?.data?.message || t('sellerPayments.paidError'));
         } finally {
             setPaying(null);
@@ -606,2891 +642,215 @@ export default function SellerPayments() {
         setExpanded(p => ({ ...p, [id]: !p[id] }));
 
     // ─────────────────────────────────────────────────────────────
-    // INDUSTRY-GRADE PDF DESIGN SYSTEM
+    // Prepare receipt data for ReceiptPDF component
     // ─────────────────────────────────────────────────────────────
 
-    const PDF_PAGE = {
-        widthPx: 1123,          // A4 landscape at ~96 DPI
-        heightPx: 794,
-        widthMm: 297,
-        heightMm: 210,
-        marginMm: 10,
-        contentWidthMm: 277,
-        contentHeightMm: 190,
-    };
+    const prepareReceiptData = (seller, activeCycle = cycle) => {
+        const entries = seller.entries || [];
+        const totalQty = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const cowQty = entries.filter(e => e.milk_type === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const buffaloQty = entries.filter(e => e.milk_type === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const morningQty = entries.filter(e => e.shift === "morning").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const eveningQty = entries.filter(e => e.shift === "evening").reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+        const avgFat = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.length).toFixed(2) : "0.00";
+        const avgSnf = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.length).toFixed(2) : "0.00";
 
-    const PDF_COLORS = {
-        ink: "#111827",
-        text: "#1f2937",
-        muted: "#6b7280",
-        subtle: "#9ca3af",
-        border: "#d1d5db",
-        borderDark: "#9ca3af",
-        surface: "#f9fafb",
-        surfaceAlt: "#f3f4f6",
+        const milkAmt = parseFloat(seller.milk_amount || 0);
+        const depositAmt = parseFloat(seller.deposit_amount || 0);
+        const installmentCut = parseFloat(seller.installment_cut || 0);
+        const advGiven = parseFloat(seller.advance_given || 0);
+        const productDed = parseFloat(seller.product_deduction || 0);
+        const walkinDed = parseFloat(seller.walkin_deduction || 0);
+        const cattleFeedDed = parseFloat(seller.cattle_feed_deduction || 0);
+        const openingDeposit = parseFloat(seller.deposit_balance || 0);
+        const finalPayable = Math.max(0, parseFloat(seller.final_payable || seller.cash_to_pay || 0));
 
-        primary: "#1f4e78",
-        primaryDark: "#163a5c",
-        primaryLight: "#eaf2f8",
+        // Build daily entries
+        const dailyEntries = entries.map(e => ({
+            date: new Date(e.entry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit" }),
+            morning: {
+                qty: e.shift === "morning" ? parseFloat(e.quantity || 0).toFixed(2) : "0.00",
+                fat: e.shift === "morning" ? parseFloat(e.fat || 0).toFixed(1) : "0.0",
+                snf: e.shift === "morning" ? parseFloat(e.snf || 0).toFixed(1) : "0.0",
+                rate: e.shift === "morning" ? parseFloat(e.rate_applied || 0).toFixed(2) : "0.00",
+                amt: e.shift === "morning" ? parseFloat(e.total_amount || 0).toFixed(2) : "0.00",
+            },
+            evening: {
+                qty: e.shift === "evening" ? parseFloat(e.quantity || 0).toFixed(2) : "0.00",
+                fat: e.shift === "evening" ? parseFloat(e.fat || 0).toFixed(1) : "0.0",
+                snf: e.shift === "evening" ? parseFloat(e.snf || 0).toFixed(1) : "0.0",
+                rate: e.shift === "evening" ? parseFloat(e.rate_applied || 0).toFixed(2) : "0.00",
+                amt: e.shift === "evening" ? parseFloat(e.total_amount || 0).toFixed(2) : "0.00",
+            },
+            dayTotal: parseFloat(e.total_amount || 0).toFixed(2),
+        }));
 
-        success: "#166534",
-        successBg: "#ecfdf5",
-
-        warning: "#92400e",
-        warningBg: "#fffbeb",
-
-        danger: "#991b1b",
-        dangerBg: "#fef2f2",
-
-        info: "#1d4ed8",
-        infoBg: "#eff6ff",
-
-        violet: "#6d28d9",
-        violetBg: "#f5f3ff",
-
-        white: "#ffffff",
-    };
-
-    const pdfEscape = (value) => {
-        if (value === null || value === undefined) return "";
-        return String(value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    };
-
-    const pdfMoney = (value) =>
-        `₹${parseFloat(value || 0).toFixed(2)}`;
-
-    const pdfNumber = (value, decimals = 2) =>
-        parseFloat(value || 0).toFixed(decimals);
-
-    const pdfDate = (value) =>
-        value
-            ? new Date(value).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-            })
-            : "—";
-
-    const pdfDateShort = (value) =>
-        value
-            ? new Date(value).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "2-digit",
-            })
-            : "—";
-
-    const pdfWaitForLayout = (ms = 300) =>
-        new Promise(resolve => setTimeout(resolve, ms));
-
-    // ─────────────────────────────────────────────────────────────
-    // Render HTML into a high-resolution canvas
-    // ─────────────────────────────────────────────────────────────
-
-    const renderPdfHtml = async (htmlContent) => {
-        let iframe = null;
-
-        try {
-            iframe = document.createElement("iframe");
-
-            Object.assign(iframe.style, {
-                position: "fixed",
-                left: "-100000px",
-                top: "0",
-                width: `${PDF_PAGE.widthPx}px`,
-                height: `${PDF_PAGE.heightPx}px`,
-                border: "0",
-                opacity: "0",
-                pointerEvents: "none",
-                zIndex: "-1",
-            });
-
-            document.body.appendChild(iframe);
-
-            await new Promise((resolve, reject) => {
-                const timeout = setTimeout(
-                    () => reject(new Error("PDF iframe load timeout")),
-                    10000
-                );
-
-                iframe.onload = () => {
-                    clearTimeout(timeout);
-                    resolve();
+        // Group by date for proper display
+        const groupedEntries = {};
+        dailyEntries.forEach(e => {
+            if (!groupedEntries[e.date]) {
+                groupedEntries[e.date] = {
+                    morning: { qty: "0.00", fat: "0.0", snf: "0.0", rate: "0.00", amt: "0.00" },
+                    evening: { qty: "0.00", fat: "0.0", snf: "0.0", rate: "0.00", amt: "0.00" },
+                    dayTotal: "0.00"
                 };
-
-                iframe.onerror = () => {
-                    clearTimeout(timeout);
-                    reject(new Error("Unable to load PDF HTML"));
-                };
-
-                iframe.srcdoc = htmlContent;
-            });
-
-            await pdfWaitForLayout(400);
-
-            const iframeDoc = iframe.contentDocument;
-
-            if (!iframeDoc?.body) {
-                throw new Error("PDF document body is unavailable");
             }
+            if (parseFloat(e.morning.qty) > 0) groupedEntries[e.date].morning = e.morning;
+            if (parseFloat(e.evening.qty) > 0) groupedEntries[e.date].evening = e.evening;
+            groupedEntries[e.date].dayTotal = (parseFloat(groupedEntries[e.date].dayTotal) + parseFloat(e.dayTotal)).toFixed(2);
+        });
 
-            // Make sure fonts and layout have settled.
-            if (iframeDoc.fonts?.ready) {
-                await iframeDoc.fonts.ready;
-            }
+        const formattedEntries = Object.entries(groupedEntries).map(([date, data]) => ({
+            date,
+            morning: data.morning,
+            evening: data.evening,
+            dayTotal: data.dayTotal,
+        }));
 
-            const body = iframeDoc.body;
-            const documentElement = iframeDoc.documentElement;
-
-            const width = Math.max(
-                body.scrollWidth,
-                body.offsetWidth,
-                documentElement.scrollWidth,
-                PDF_PAGE.widthPx
-            );
-
-            const height = Math.max(
-                body.scrollHeight,
-                body.offsetHeight,
-                documentElement.scrollHeight
-            );
-
-            iframe.style.width = `${width}px`;
-            iframe.style.height = `${height}px`;
-
-            await pdfWaitForLayout(100);
-
-            const canvas = await html2canvas(body, {
-                scale: 3,
-                useCORS: true,
-                allowTaint: false,
-                logging: false,
-
-                backgroundColor: PDF_COLORS.white,
-
-                width,
-                height,
-
-                windowWidth: width,
-                windowHeight: height,
-
-                imageTimeout: 15000,
-
-                onclone: (clonedDocument) => {
-                    clonedDocument.documentElement.style.background =
-                        PDF_COLORS.white;
-
-                    clonedDocument.body.style.background =
-                        PDF_COLORS.white;
+        return {
+            sellerName: seller.name || "Unknown Seller",
+            sellerCode: seller.seller_code || "---",
+            status: seller.is_paid || seller.bill_no ? "Paid" : "Pending",
+            totalEntries: String(entries.length),
+            totalQty: `${totalQty.toFixed(2)} L`,
+            morningEvening: `${morningQty.toFixed(1)} / ${eveningQty.toFixed(1)} L`,
+            cowBuffalo: `${cowQty.toFixed(1)} / ${buffaloQty.toFixed(1)} L`,
+            avgFatSnf: `${avgFat} / ${avgSnf}`,
+            startDate: new Date(activeCycle.from).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            endDate: new Date(activeCycle.to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            billNo: seller.bill_no || generatePreviewBillNo(seller.seller_id, activeCycle.from, activeCycle.to),
+            generatedDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            paidOn: seller.paid_at ? new Date(seller.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A",
+            entries: formattedEntries,
+            totals: {
+                morning: {
+                    qty: morningQty.toFixed(2),
+                    fat: entries.filter(e => e.shift === "morning").length ? (entries.filter(e => e.shift === "morning").reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.filter(e => e.shift === "morning").length).toFixed(1) : "0.0",
+                    snf: entries.filter(e => e.shift === "morning").length ? (entries.filter(e => e.shift === "morning").reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.filter(e => e.shift === "morning").length).toFixed(1) : "0.0",
                 },
-            });
-
-            return canvas;
-
-        } finally {
-            if (iframe?.parentNode) {
-                iframe.parentNode.removeChild(iframe);
-            }
-        }
+                evening: {
+                    qty: eveningQty.toFixed(2),
+                    fat: entries.filter(e => e.shift === "evening").length ? (entries.filter(e => e.shift === "evening").reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.filter(e => e.shift === "evening").length).toFixed(1) : "0.0",
+                    snf: entries.filter(e => e.shift === "evening").length ? (entries.filter(e => e.shift === "evening").reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.filter(e => e.shift === "evening").length).toFixed(1) : "0.0",
+                },
+                dayTotal: milkAmt.toFixed(2),
+            },
+            advance: {
+                opening: `₹${advGiven.toFixed(2)}`,
+                given: `₹${0}`,
+                cut: `− ₹${installmentCut.toFixed(2)}`,
+                closing: `₹${Math.max(0, advGiven - installmentCut).toFixed(2)}`,
+            },
+            deposit: {
+                opening: `₹${openingDeposit.toFixed(2)}`,
+                added: `+ ₹${depositAmt.toFixed(2)}`,
+                qtyFormula: `${totalQty.toFixed(2)}L × ₹${(seller.deposit_per_litre || 0).toFixed(2)}/L`,
+                closing: `₹${(openingDeposit + depositAmt).toFixed(2)}`,
+            },
+            payment: {
+                milkAmount: `+ ₹${milkAmt.toFixed(2)}`,
+                depositCut: `− ₹${depositAmt.toFixed(2)}`,
+                advInstallment: `− ₹${installmentCut.toFixed(2)}`,
+                netCash: `₹${finalPayable.toFixed(2)}`,
+            },
+            breakdown: {
+                milkAmount: `+ ₹${milkAmt.toFixed(2)}`,
+                openingAdvance: `₹${advGiven.toFixed(2)}`,
+                advanceSub: `(₹${advGiven.toFixed(2)} → ₹${Math.max(0, advGiven - installmentCut).toFixed(2)} remaining)`,
+                advanceCut: `− ₹${installmentCut.toFixed(2)}`,
+                depositSub: `(${totalQty.toFixed(2)}L × ₹${(seller.deposit_per_litre || 0).toFixed(2)}/L · Balance: ₹${openingDeposit.toFixed(2)} → ₹${(openingDeposit + depositAmt).toFixed(2)})`,
+                depositDeducted: `− ₹${depositAmt.toFixed(2)}`,
+                // ── Product Cuts ──
+                productCut: `− ₹${productDed.toFixed(2)}`,
+                productSub: productDed > 0 ? `(product sales deducted)` : '',
+                // ── Cattle Feed Cuts ──
+                cattleFeedCut: `− ₹${cattleFeedDed.toFixed(2)}`,
+                cattleFeedSub: cattleFeedDed > 0 ? `(cattle feed deducted)` : '',
+                netCash: `₹${finalPayable.toFixed(2)}`,
+            },
+        };
     };
 
-
-    // ─────────────────────────────────────────────────────────────
-    // Add a tall canvas to A4 landscape PDF pages without stretching
-    // ─────────────────────────────────────────────────────────────
-
-    const addCanvasToPdfPages = (pdf, canvas, options = {}) => {
-        const {
-            marginMm = PDF_PAGE.marginMm,
-            addPageBefore = false,
-        } = options;
-
-        const contentWidthMm =
-            PDF_PAGE.widthMm - marginMm * 2;
-
-        const contentHeightMm =
-            PDF_PAGE.heightMm - marginMm * 2;
-
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-
-        const pixelsPerMm = canvasWidth / contentWidthMm;
-
-        const pageContentHeightPx =
-            Math.floor(contentHeightMm * pixelsPerMm);
-
-        let sourceY = 0;
-        let pageIndex = 0;
-
-        while (sourceY < canvasHeight) {
-            if (pageIndex > 0 || addPageBefore) {
-                pdf.addPage("a4", "landscape");
-            }
-
-            const remainingHeight = canvasHeight - sourceY;
-
-            const sliceHeightPx = Math.min(
-                pageContentHeightPx,
-                remainingHeight
-            );
-
-            const sliceCanvas = document.createElement("canvas");
-
-            sliceCanvas.width = canvasWidth;
-            sliceCanvas.height = sliceHeightPx;
-
-            const ctx = sliceCanvas.getContext("2d");
-
-            if (!ctx) {
-                throw new Error("Unable to create PDF canvas context");
-            }
-
-            ctx.fillStyle = PDF_COLORS.white;
-            ctx.fillRect(
-                0,
-                0,
-                sliceCanvas.width,
-                sliceCanvas.height
-            );
-
-            ctx.drawImage(
-                canvas,
-                0,
-                sourceY,
-                canvasWidth,
-                sliceHeightPx,
-                0,
-                0,
-                canvasWidth,
-                sliceHeightPx
-            );
-
-            const sliceHeightMm =
-                sliceHeightPx / pixelsPerMm;
-
-            const imageData =
-                sliceCanvas.toDataURL("image/jpeg", 0.96);
-
-            pdf.addImage(
-                imageData,
-                "JPEG",
-                marginMm,
-                marginMm,
-                contentWidthMm,
-                sliceHeightMm,
-                undefined,
-                "FAST"
-            );
-
-            sourceY += sliceHeightPx;
-            pageIndex++;
-        }
-    };
-
-
-    // ─────────────────────────────────────────────────────────────
-    // Final PDF generator
-    // ─────────────────────────────────────────────────────────────
-
-    const generateReceiptPDF = async (htmlContent, fileName) => {
-        try {
-            const canvas = await renderPdfHtml(htmlContent);
-
-            const pdf = new jsPDF({
-                orientation: "landscape",
-                unit: "mm",
-                format: "a4",
-                compress: true,
-            });
-
-            addCanvasToPdfPages(pdf, canvas);
-
-            pdf.save(fileName);
-
-            return true;
-
-        } catch (error) {
-            console.error(
-                "[SellerPayments] PDF generation error:",
-                error
-            );
-
-            return false;
-        }
-    };
-
-    // Replace the entire buildReceiptHtml function with this:
-
-    const buildReceiptHtml = async (seller, overrideCycle) => {
-        const activeCycle = overrideCycle || cycle;
-
+    // ── Updated: Open Receipt PDF Modal ──
+    const handleOpenReceiptModal = async (seller) => {
         let billData = null;
-
         if (seller.bill_no) {
             try {
-                const { data } = await api.get(
-                    `/payments/bill/${seller.bill_no}`
-                );
-
+                const { data } = await api.get(`/payments/bill/${seller.bill_no}`);
                 billData = data;
-            } catch (error) {
-                console.error(
-                    "Failed to load bill:",
-                    seller.bill_no,
-                    error
-                );
-
-                return null;
+            } catch (e) {
+                console.error('Error fetching bill data:', e);
             }
         }
 
-        const entries =
-            billData?.entries ||
-            seller.entries ||
-            [];
-
-        const productSales =
-            billData?.productSales ||
-            [];
-
-        const walkinSales =
-            billData?.walkinSales ||
-            [];
-
-        const cattleFeedSales =
-            billData?.cattleFeedSales ||
-            [];
-
-
-        // ─────────────────────────────────────────────
-        // Normalized seller object
-        // ─────────────────────────────────────────────
-
-        const sellerObj = {
+        const sellerWithEntries = {
             ...seller,
-
-            entries,
-
-            product_deduction:
-                billData?.payment?.product_deduction ??
-                seller.product_deduction,
-
-            walkin_deduction:
-                billData?.payment?.walkin_deduction ??
-                seller.walkin_deduction,
-
-            cattle_feed_deduction:
-                billData?.payment?.cattle_feed_deduction ??
-                seller.cattle_feed_deduction,
-
-            installment_cut:
-                billData?.payment?.installment_cut ??
-                seller.installment_cut,
-
-            deposit_amount: seller.bill_no
-                ? (
-                    billData?.depositAddedThisCycle ??
-                    billData?.payment?.deposit_amount ??
-                    seller.deposit_amount
-                )
-                : (
-                    billData?.payment?.deposit_amount ??
-                    seller.deposit_amount
-                ),
-
-            deposit_per_litre:
-                billData?.payment?.deposit_per_litre ??
-                seller.deposit_per_litre,
-
-            commission_amount:
-                billData?.payment?.commission_amount ??
-                seller.commission_amount,
-
-            total_milk_quantity:
-                entries.reduce(
-                    (sum, entry) =>
-                        sum + parseFloat(entry.quantity || 0),
-                    0
-                ),
-
-            advance_given:
-                billData?.depositSnapshot?.[0] != null
-                    ? (
-                        billData?.payment?.advance_given ??
-                        seller.advance_given
-                    )
-                    : seller.advance_given,
-
-            opening_deposit: seller.bill_no
-                ? (
-                    billData?.depositSnapshot?.[0]
-                        ?.deposit_balance_before ?? 0
-                )
-                : (
-                    seller.deposit_balance ?? 0
-                ),
-
-            final_payable:
-                billData?.payment?.final_payable ??
-                billData?.payment?.cash_paid ??
-                seller.final_payable,
-
-            cash_to_pay:
-                billData?.payment?.cash_paid ??
-                seller.cash_to_pay,
-
+            entries: billData?.entries || seller.entries || [],
+            milk_amount: billData?.payment?.milk_amount ?? seller.milk_amount,
+            deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
+            installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
+            advance_given: billData?.payment?.advance_given ?? seller.advance_given,
+            product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
+            walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+            cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
+            deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+            deposit_balance: billData?.depositSnapshot?.[0]?.deposit_balance_before ?? seller.deposit_balance ?? 0,
+            final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
+            cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
+            paid_at: billData?.payment?.paid_at ?? seller.paid_at,
+            bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
             is_paid: true,
-
-            paid_at:
-                billData?.payment?.paid_at ??
-                seller.paid_at,
-
-            bill_no:
-                seller.bill_no ||
-                generatePreviewBillNo(
-                    seller.seller_id,
-                    activeCycle.from,
-                    activeCycle.to
-                ),
         };
 
-
-        // ─────────────────────────────────────────────
-        // Financial calculations
-        // ─────────────────────────────────────────────
-
-        const milkAmt =
-            parseFloat(sellerObj.milk_amount || 0);
-
-        const depositAmt =
-            parseFloat(sellerObj.deposit_amount || 0);
-
-        const installmentCut =
-            parseFloat(sellerObj.installment_cut || 0);
-
-        const productDed =
-            parseFloat(sellerObj.product_deduction || 0);
-
-        const walkinDed =
-            parseFloat(sellerObj.walkin_deduction || 0);
-
-        const cattleFeedDed =
-            parseFloat(
-                sellerObj.cattle_feed_deduction || 0
-            );
-
-        const advGiven =
-            parseFloat(sellerObj.advance_given || 0);
-
-        const openingDeposit =
-            parseFloat(sellerObj.opening_deposit || 0);
-
-        const finalPayable = Math.max(
-            0,
-            parseFloat(
-                sellerObj.final_payable ||
-                sellerObj.cash_to_pay ||
-                0
-            )
-        );
-
-        const closingAdvance = Math.max(
-            0,
-            advGiven - installmentCut
-        );
-
-        const closingDeposit =
-            openingDeposit + depositAmt;
-
-
-        // ─────────────────────────────────────────────
-        // Milk calculations
-        // ─────────────────────────────────────────────
-
-        const totalQty = entries.reduce(
-            (sum, e) =>
-                sum + parseFloat(e.quantity || 0),
-            0
-        );
-
-        const cowQty = entries
-            .filter(e => e.milk_type === "cow")
-            .reduce(
-                (sum, e) =>
-                    sum + parseFloat(e.quantity || 0),
-                0
-            );
-
-        const buffaloQty = entries
-            .filter(e => e.milk_type === "buffalo")
-            .reduce(
-                (sum, e) =>
-                    sum + parseFloat(e.quantity || 0),
-                0
-            );
-
-        const avgFat = entries.length
-            ? (
-                entries.reduce(
-                    (sum, e) =>
-                        sum + parseFloat(e.fat || 0),
-                    0
-                ) / entries.length
-            ).toFixed(2)
-            : "0.00";
-
-        const avgSnf = entries.length
-            ? (
-                entries.reduce(
-                    (sum, e) =>
-                        sum + parseFloat(e.snf || 0),
-                    0
-                ) / entries.length
-            ).toFixed(2)
-            : "0.00";
-
-
-        const morningEntries =
-            entries.filter(e => e.shift === "morning");
-
-        const eveningEntries =
-            entries.filter(e => e.shift === "evening");
-
-        const allDates = [
-            ...new Set(
-                entries
-                    .map(e => e.entry_date?.split("T")[0])
-                    .filter(Boolean)
-            ),
-        ].sort();
-
-
-        const mQty = morningEntries.reduce(
-            (sum, e) =>
-                sum + parseFloat(e.quantity || 0),
-            0
-        );
-
-        const eQty = eveningEntries.reduce(
-            (sum, e) =>
-                sum + parseFloat(e.quantity || 0),
-            0
-        );
-
-        const mAmt = morningEntries.reduce(
-            (sum, e) =>
-                sum + parseFloat(e.total_amount || 0),
-            0
-        );
-
-        const eAmt = eveningEntries.reduce(
-            (sum, e) =>
-                sum + parseFloat(e.total_amount || 0),
-            0
-        );
-
-        const mFat = morningEntries.length
-            ? morningEntries.reduce(
-                (sum, e) =>
-                    sum + parseFloat(e.fat || 0),
-                0
-            ) / morningEntries.length
-            : 0;
-
-        const eFat = eveningEntries.length
-            ? eveningEntries.reduce(
-                (sum, e) =>
-                    sum + parseFloat(e.fat || 0),
-                0
-            ) / eveningEntries.length
-            : 0;
-
-        const mSnf = morningEntries.length
-            ? morningEntries.reduce(
-                (sum, e) =>
-                    sum + parseFloat(e.snf || 0),
-                0
-            ) / morningEntries.length
-            : 0;
-
-        const eSnf = eveningEntries.length
-            ? eveningEntries.reduce(
-                (sum, e) =>
-                    sum + parseFloat(e.snf || 0),
-                0
-            ) / eveningEntries.length
-            : 0;
-
-
-        // ─────────────────────────────────────────────
-        // Row helpers
-        // ─────────────────────────────────────────────
-
-        const milkCell = (entry) => {
-            if (!entry) {
-                return `
-                <td class="num empty">—</td>
-                <td class="num empty">—</td>
-                <td class="num empty">—</td>
-                <td class="money empty">—</td>
-                <td class="money empty">—</td>
-                <td class="money empty">—</td>
-                <td class="num empty">—</td>
-            `;
-            }
-
-            const qty =
-                parseFloat(entry.quantity || 0);
-
-            const fat =
-                parseFloat(entry.fat || 0);
-
-            const snf =
-                parseFloat(entry.snf || 0);
-
-            const baseRate =
-                parseFloat(
-                    entry.base_rate ||
-                    entry.rate_applied ||
-                    0
-                );
-
-            const finalRate =
-                parseFloat(entry.rate_applied || 0);
-
-            const amount =
-                parseFloat(entry.total_amount || 0);
-
-            const ratePerLtr =
-                qty > 0
-                    ? (amount / qty).toFixed(2)
-                    : "—";
-
-            return `
-            <td class="num">${qty.toFixed(2)}</td>
-            <td class="num">${fat.toFixed(1)}</td>
-            <td class="num">${snf.toFixed(1)}</td>
-            <td class="money">${baseRate.toFixed(2)}</td>
-            <td class="money rate-final">${finalRate.toFixed(2)}</td>
-            <td class="money strong">${amount.toFixed(2)}</td>
-            <td class="num">${ratePerLtr}</td>
-        `;
-        };
-
-
-        const buildRow = (date) => {
-            const morning =
-                morningEntries.find(
-                    e => e.entry_date?.startsWith(date)
-                );
-
-            const evening =
-                eveningEntries.find(
-                    e => e.entry_date?.startsWith(date)
-                );
-
-            const dayAmount =
-                parseFloat(
-                    morning?.total_amount || 0
-                ) +
-                parseFloat(
-                    evening?.total_amount || 0
-                );
-
-            return `
-            <tr>
-                <td class="date-cell">
-                    ${pdfDateShort(date)}
-                </td>
-
-                ${milkCell(morning)}
-                ${milkCell(evening)}
-
-                <td class="money day-total">
-                    ${dayAmount > 0
-                    ? dayAmount.toFixed(2)
-                    : "—"
-                }
-                </td>
-            </tr>
-        `;
-        };
-
-
-        // ─────────────────────────────────────────────
-        // Product deductions
-        // ─────────────────────────────────────────────
-
-        const productSalesTable =
-            productSales.length > 0
-                ? `
-                <section class="section">
-                    <div class="section-heading">
-                        ${pdfEscape(
-                    t(
-                        "sellerPayments.productSalesDeductions"
-                    )
-                )}
-                    </div>
-
-                    <table class="small-table">
-                        <thead>
-                            <tr>
-                                <th class="text-left">
-                                    ${pdfEscape(
-                    t("sellerPayments.product")
-                )}
-                                </th>
-                                <th>
-                                    ${pdfEscape(
-                    t("sellerPayments.qty")
-                )}
-                                </th>
-                                <th>
-                                    ${pdfEscape(
-                    t("sellerPayments.rate")
-                )}
-                                </th>
-                                <th class="text-right">
-                                    ${pdfEscape(
-                    t("sellerPayments.amount")
-                )}
-                                </th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            ${productSales.map((p, index) => `
-                                <tr class="${index % 2 ? "alt-row" : ""}">
-                                    <td class="text-left">
-                                        ${pdfEscape(
-                    p.product_name ||
-                    t(
-                        "sellerPayments.unknown"
-                    )
-                )}
-                                    </td>
-
-                                    <td>
-                                        ${pdfNumber(
-                    p.quantity
-                )} ${pdfEscape(
-                    p.unit || ""
-                )}
-                                    </td>
-
-                                    <td>
-                                        ${pdfMoney(p.rate)}
-                                    </td>
-
-                                    <td class="money strong">
-                                        ${pdfMoney(
-                    p.total_amount
-                )}
-                                    </td>
-                                </tr>
-                            `).join("")}
-
-                            <tr class="total-row">
-                                <td
-                                    colspan="3"
-                                    class="text-left"
-                                >
-                                    ${pdfEscape(
-                    t("sellerPayments.total")
-                )}
-                                </td>
-
-                                <td class="money">
-                                    ${pdfMoney(productDed)}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </section>
-            `
-                : "";
-
-
-        // ─────────────────────────────────────────────
-        // Cattle feed deductions
-        // ─────────────────────────────────────────────
-
-        const cattleFeedTable =
-            cattleFeedSales.length > 0
-                ? `
-                <section class="section">
-                    <div class="section-heading">
-                        ${pdfEscape(
-                    t(
-                        "sellerPayments.cattleFeedDeductions"
-                    )
-                )}
-                    </div>
-
-                    <table class="small-table">
-                        <thead>
-                            <tr>
-                                <th class="text-left">
-                                    ${pdfEscape(
-                    t("sellerPayments.feed")
-                )}
-                                </th>
-                                <th>
-                                    ${pdfEscape(
-                    t("sellerPayments.qty")
-                )}
-                                </th>
-                                <th>
-                                    ${pdfEscape(
-                    t("sellerPayments.rate")
-                )}
-                                </th>
-                                <th class="text-right">
-                                    ${pdfEscape(
-                    t("sellerPayments.amount")
-                )}
-                                </th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            ${cattleFeedSales.map((feed, index) => `
-                                <tr class="${index % 2 ? "alt-row" : ""}">
-                                    <td class="text-left">
-                                        ${pdfEscape(
-                    feed.feed_name ||
-                    t(
-                        "sellerPayments.unknown"
-                    )
-                )}
-                                    </td>
-
-                                    <td>
-                                        ${pdfNumber(
-                    feed.quantity
-                )}
-                                    </td>
-
-                                    <td>
-                                        ${pdfMoney(feed.rate)}
-                                    </td>
-
-                                    <td class="money strong">
-                                        ${pdfMoney(
-                    feed.total_amount
-                )}
-                                    </td>
-                                </tr>
-                            `).join("")}
-
-                            <tr class="total-row">
-                                <td
-                                    colspan="3"
-                                    class="text-left"
-                                >
-                                    ${pdfEscape(
-                    t("sellerPayments.total")
-                )}
-                                </td>
-
-                                <td class="money">
-                                    ${pdfMoney(cattleFeedDed)}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </section>
-            `
-                : "";
-
-
-        const walkinBanner =
-            walkinDed > 0
-                ? `
-                <div class="notice notice-warning">
-                    <span>
-                        ${pdfEscape(
-                    t(
-                        "sellerPayments.milkBoughtBySeller"
-                    )
-                )}
-                    </span>
-
-                    <strong>
-                        ${pdfMoney(walkinDed)}
-                    </strong>
-                </div>
-            `
-                : "";
-
-
-        const commissionAmt =
-            parseFloat(
-                sellerObj.commission_amount || 0
-            );
-
-        const commissionBanner =
-            sellerObj.seller_type === "Gavali" &&
-                commissionAmt > 0
-                ? `
-                <div class="notice notice-violet">
-                    <span>
-                        ${pdfEscape(
-                    t(
-                        "sellerPayments.gavaliCommissionIncluded"
-                    ) ||
-                    "Gavali Commission (included in milk rate)"
-                )}
-                    </span>
-
-                    <strong>
-                        + ${pdfMoney(commissionAmt)}
-                    </strong>
-                </div>
-            `
-                : "";
-
-
-        // ─────────────────────────────────────────────
-        // Final professional HTML
-        // ─────────────────────────────────────────────
-
-        return `<!DOCTYPE html>
-<html lang="en">
-
-<head>
-<meta charset="UTF-8">
-
-<title>
-    ${pdfEscape(
-            t("sellerPayments.paymentReceipt")
-        )} -
-    ${pdfEscape(sellerObj.name)}
-</title>
-
-<style>
-
-@page {
-    size: A4 landscape;
-    margin: 10mm;
-}
-
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-}
-
-html,
-body {
-    margin: 0;
-    padding: 0;
-    background: #ffffff;
-}
-
-body {
-    width: 100%;
-    font-family:
-        Arial,
-        "Helvetica Neue",
-        "Noto Sans",
-        sans-serif;
-
-    font-size: 9px;
-    line-height: 1.35;
-    color: ${PDF_COLORS.text};
-
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-
-    text-rendering: geometricPrecision;
-}
-
-.receipt {
-    width: 100%;
-    max-width: 1123px;
-    margin: 0 auto;
-    background: #ffffff;
-}
-
-
-/* ─────────────────────────────────────────────
-   HEADER
-   ───────────────────────────────────────────── */
-
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-
-    padding-bottom: 8px;
-    margin-bottom: 9px;
-
-    border-bottom: 2px solid ${PDF_COLORS.primaryDark};
-}
-
-.brand {
-    min-width: 0;
-}
-
-.brand-name {
-    margin: 0;
-
-    font-size: 20px;
-    line-height: 1.1;
-    font-weight: 700;
-
-    letter-spacing: -0.2px;
-    color: ${PDF_COLORS.primaryDark};
-}
-
-.document-title {
-    margin-top: 3px;
-
-    font-size: 9px;
-    line-height: 1.2;
-    font-weight: 600;
-
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-
-    color: ${PDF_COLORS.muted};
-}
-
-.header-meta {
-    text-align: right;
-
-    font-size: 8.5px;
-    line-height: 1.55;
-
-    color: ${PDF_COLORS.muted};
-}
-
-.header-meta .cycle {
-    font-size: 10px;
-    font-weight: 700;
-    color: ${PDF_COLORS.ink};
-}
-
-.header-meta .bill {
-    font-family:
-        "Courier New",
-        monospace;
-
-    font-weight: 700;
-    color: ${PDF_COLORS.primary};
-}
-
-
-/* ─────────────────────────────────────────────
-   SELLER INFORMATION
-   ───────────────────────────────────────────── */
-
-.info-grid {
-    display: grid;
-
-    grid-template-columns:
-        1.8fr
-        1fr
-        .8fr
-        .8fr
-        .9fr
-        1fr
-        1fr
-        1fr;
-
-    border: 1px solid ${PDF_COLORS.border};
-    border-radius: 4px;
-
-    background: ${PDF_COLORS.surface};
-
-    margin-bottom: 9px;
-
-    overflow: hidden;
-}
-
-.info-item {
-    min-width: 0;
-
-    padding: 6px 8px;
-
-    border-right: 1px solid ${PDF_COLORS.border};
-}
-
-.info-item:last-child {
-    border-right: 0;
-}
-
-.info-label {
-    margin-bottom: 2px;
-
-    font-size: 6.8px;
-    line-height: 1.2;
-
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: .55px;
-
-    color: ${PDF_COLORS.muted};
-}
-
-.info-value {
-    min-height: 12px;
-
-    font-size: 9px;
-    line-height: 1.3;
-
-    font-weight: 600;
-
-    color: ${PDF_COLORS.ink};
-
-    overflow-wrap: anywhere;
-}
-
-.mono {
-    font-family:
-        "Courier New",
-        monospace;
-}
-
-
-/* ─────────────────────────────────────────────
-   KPI SUMMARY
-   ───────────────────────────────────────────── */
-
-.kpi-grid {
-    display: grid;
-
-    grid-template-columns:
-        repeat(4, 1fr);
-
-    gap: 6px;
-
-    margin-bottom: 9px;
-}
-
-.kpi {
-    padding: 7px 9px;
-
-    border: 1px solid ${PDF_COLORS.border};
-    border-radius: 4px;
-
-    background: #ffffff;
-}
-
-.kpi-label {
-    font-size: 6.8px;
-    line-height: 1.2;
-
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: .5px;
-
-    color: ${PDF_COLORS.muted};
-}
-
-.kpi-value {
-    margin-top: 2px;
-
-    font-size: 13px;
-    line-height: 1.15;
-
-    font-weight: 700;
-
-    color: ${PDF_COLORS.ink};
-}
-
-.kpi-sub {
-    margin-top: 2px;
-
-    font-size: 6.8px;
-    line-height: 1.2;
-
-    color: ${PDF_COLORS.muted};
-}
-
-
-/* ─────────────────────────────────────────────
-   SECTIONS
-   ───────────────────────────────────────────── */
-
-.section {
-    margin-top: 8px;
-    margin-bottom: 8px;
-}
-
-.section-heading {
-    display: flex;
-    align-items: center;
-
-    min-height: 17px;
-
-    margin-bottom: 4px;
-    padding-bottom: 3px;
-
-    border-bottom: 1px solid ${PDF_COLORS.borderDark};
-
-    font-size: 8px;
-    line-height: 1.2;
-
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: .65px;
-
-    color: ${PDF_COLORS.primaryDark};
-}
-
-
-/* ─────────────────────────────────────────────
-   TABLES
-   ───────────────────────────────────────────── */
-
-table {
-    width: 100%;
-
-    border-collapse: collapse;
-    border-spacing: 0;
-
-    table-layout: fixed;
-
-    font-size: 7.4px;
-}
-
-th,
-td {
-    border: 1px solid ${PDF_COLORS.border};
-
-    padding: 4px 4px;
-
-    vertical-align: middle;
-
-    line-height: 1.2;
-
-    text-align: center;
-
-    white-space: nowrap;
-}
-
-th {
-    background: ${PDF_COLORS.surfaceAlt};
-
-    color: ${PDF_COLORS.ink};
-
-    font-size: 10px;
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: .25px;
-}
-
-td {
-    color: ${PDF_COLORS.text};
-    font-weight: 500;
-        font-size: 10;
-
-}
-
-.text-left {
-    text-align: left !important;
-}
-
-.text-right {
-    text-align: right !important;
-}
-
-.num {
-    text-align: center;
-}
-
-.money {
-    text-align: right;
-
-    font-family:
-        "Courier New",
-        monospace;
-
-    font-variant-numeric: tabular-nums;
-}
-
-.strong {
-    font-weight: 700;
-    color: ${PDF_COLORS.ink};
-}
-
-.rate-final {
-    font-weight: 600;
-    color: ${PDF_COLORS.success};
-}
-
-.empty {
-    color: ${PDF_COLORS.subtle};
-}
-
-.date-cell {
-    background: ${PDF_COLORS.surface};
-
-    font-weight: 700;
-
-    color: ${PDF_COLORS.ink};
-}
-
-.day-total {
-    background: ${PDF_COLORS.primaryLight};
-
-    font-weight: 700;
-
-    color: ${PDF_COLORS.primaryDark};
-}
-
-.alt-row {
-    background: #fafafa;
-}
-
-.total-row td {
-    background: ${PDF_COLORS.surfaceAlt};
-
-    border-top: 2px solid ${PDF_COLORS.primaryDark};
-
-    font-weight: 700;
-}
-
-.milk-table th {
-    color: #ffffff;
-}
-
-.morning-group {
-    background: ${PDF_COLORS.primary} !important;
-}
-
-.evening-group {
-    background: #374151 !important;
-}
-
-.day-total-head {
-    background: ${PDF_COLORS.primaryDark} !important;
-    color: #ffffff !important;
-}
-
-
-/* ─────────────────────────────────────────────
-   ACCOUNT SUMMARY
-   ───────────────────────────────────────────── */
-
-.account-grid {
-    display: grid;
-
-    grid-template-columns:
-        repeat(3, 1fr);
-
-    border: 1px solid ${PDF_COLORS.border};
-
-    border-radius: 4px;
-
-    overflow: hidden;
-
-    margin-bottom: 8px;
-}
-
-.account {
-    min-width: 0;
-
-    border-right: 1px solid ${PDF_COLORS.border};
-}
-
-.account:last-child {
-    border-right: 0;
-}
-
-.account-header {
-    padding: 5px 8px;
-
-    background: ${PDF_COLORS.primaryDark};
-
-    color: #ffffff;
-
-    text-align: center;
-
-    font-size: 7px;
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: .55px;
-}
-
-.account-row {
-    display: flex;
-
-    justify-content: space-between;
-    align-items: center;
-
-    gap: 8px;
-
-    min-height: 21px;
-
-    padding: 4px 8px;
-
-    border-bottom: 1px solid #e5e7eb;
-
-    font-size: 7.5px;
-}
-
-.account-row:last-child {
-    border-bottom: 0;
-}
-
-.account-label {
-    color: ${PDF_COLORS.muted};
-}
-
-.account-value {
-    flex-shrink: 0;
-
-    font-family:
-        "Courier New",
-        monospace;
-
-    font-weight: 700;
-
-    color: ${PDF_COLORS.ink};
-}
-
-.account-total {
-    display: flex;
-
-    justify-content: space-between;
-
-    padding: 5px 8px;
-
-    border-top: 2px solid ${PDF_COLORS.primaryDark};
-
-    background: ${PDF_COLORS.surfaceAlt};
-
-    font-size: 8px;
-    font-weight: 700;
-}
-
-
-/* ─────────────────────────────────────────────
-   NOTICES
-   ───────────────────────────────────────────── */
-
-.notice {
-    display: flex;
-
-    justify-content: space-between;
-    align-items: center;
-
-    gap: 12px;
-
-    margin: 5px 0;
-
-    padding: 6px 9px;
-
-    border: 1px solid;
-
-    border-radius: 4px;
-
-    font-size: 7.8px;
-}
-
-.notice strong {
-    font-family:
-        "Courier New",
-        monospace;
-
-    font-size: 8.5px;
-}
-
-.notice-warning {
-    background: ${PDF_COLORS.warningBg};
-    border-color: #fcd34d;
-    color: ${PDF_COLORS.warning};
-}
-
-.notice-violet {
-    background: ${PDF_COLORS.violetBg};
-    border-color: #c4b5fd;
-    color: ${PDF_COLORS.violet};
-}
-
-
-/* ─────────────────────────────────────────────
-   DETAILED BREAKDOWN
-   ───────────────────────────────────────────── */
-
-.breakdown {
-    border: 1px solid ${PDF_COLORS.border};
-
-    border-radius: 4px;
-
-    overflow: hidden;
-
-    margin-bottom: 8px;
-}
-
-.breakdown-row {
-    display: flex;
-
-    justify-content: space-between;
-    align-items: center;
-
-    gap: 12px;
-
-    min-height: 22px;
-
-    padding: 4px 9px;
-
-    border-bottom: 1px solid ${PDF_COLORS.border};
-
-    font-size: 7.6px;
-}
-
-.breakdown-row:last-child {
-    border-bottom: 0;
-}
-
-.breakdown-label {
-    color: ${PDF_COLORS.text};
-}
-
-.breakdown-detail {
-    margin-left: 4px;
-
-    color: ${PDF_COLORS.muted};
-
-    font-size: 6.7px;
-}
-
-.breakdown-value {
-    flex-shrink: 0;
-
-    font-family:
-        "Courier New",
-        monospace;
-
-    font-weight: 700;
-}
-
-.breakdown-positive {
-    background: ${PDF_COLORS.successBg};
-}
-
-.breakdown-negative {
-    background: ${PDF_COLORS.dangerBg};
-}
-
-.breakdown-info {
-    background: ${PDF_COLORS.infoBg};
-}
-
-.breakdown-warning {
-    background: ${PDF_COLORS.warningBg};
-}
-
-.net-payable {
-    display: flex;
-
-    justify-content: space-between;
-    align-items: center;
-
-    padding: 8px 10px;
-
-    background: ${PDF_COLORS.primaryDark};
-
-    color: #ffffff;
-
-    border-top: 2px solid #0f2940;
-}
-
-.net-payable .label {
-    font-size: 8px;
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: .65px;
-}
-
-.net-payable .amount {
-    font-family:
-        "Courier New",
-        monospace;
-
-    font-size: 13px;
-    font-weight: 700;
-
-    color: #ffffff;
-}
-
-
-/* ─────────────────────────────────────────────
-   FOOTER
-   ───────────────────────────────────────────── */
-
-.footer {
-    display: flex;
-
-    justify-content: space-between;
-
-    gap: 20px;
-
-    margin-top: 8px;
-    padding-top: 6px;
-
-    border-top: 1px solid ${PDF_COLORS.border};
-
-    color: ${PDF_COLORS.muted};
-
-    font-size: 6.7px;
-}
-
-.footer-right {
-    text-align: right;
-}
-
-
-/* ─────────────────────────────────────────────
-   PRINT / PAGE BREAKS
-   ───────────────────────────────────────────── */
-
-.section,
-.kpi,
-.account,
-.notice,
-.breakdown {
-    break-inside: avoid;
-    page-break-inside: avoid;
-}
-
-tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
-}
-
-thead {
-    display: table-header-group;
-}
-
-@media print {
-
-    body {
-        width: 100%;
-    }
-
-    .receipt {
-        width: 100%;
-    }
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="receipt">
-
-    <!-- HEADER -->
-
-    <header class="header">
-
-        <div class="brand">
-
-            <div class="brand-name">
-                ${pdfEscape(appName)}
-            </div>
-
-            <div class="document-title">
-                ${pdfEscape(
-            t(
-                "sellerPayments.milkCollectionReceipt"
-            )
-        )}
-            </div>
-
-        </div>
-
-        <div class="header-meta">
-
-            <div class="cycle">
-                ${pdfDate(activeCycle.from)}
-                –
-                ${pdfDate(activeCycle.to)}
-            </div>
-
-            <div>
-                ${pdfEscape(
-            t("sellerPayments.billNo")
-        )}:
-                <span class="bill">
-                    ${pdfEscape(sellerObj.bill_no)}
-                </span>
-            </div>
-
-            <div>
-                ${pdfEscape(
-            t("sellerPayments.generated")
-        )}:
-                ${pdfDate(new Date())}
-            </div>
-
-        </div>
-
-    </header>
-
-
-    <!-- SELLER INFORMATION -->
-
-    <div class="info-grid">
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-            t("sellerPayments.sellerName")
-        )}
-            </div>
-
-            <div class="info-value">
-                ${pdfEscape(sellerObj.name || "—")}
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-            t("sellerPayments.sellerCode")
-        )}
-            </div>
-
-            <div class="info-value mono">
-                ${pdfEscape(
-            sellerObj.seller_code || "—"
-        )}
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-            t("sellerPayments.status")
-        )}
-            </div>
-
-            <div
-                class="info-value"
-                style="
-                    color:
-                    ${sellerObj.is_paid
-                ? PDF_COLORS.success
-                : PDF_COLORS.warning};
-                "
-            >
-                ${pdfEscape(
-                    sellerObj.is_paid
-                        ? t("sellerPayments.paid")
-                        : t("sellerPayments.pending")
-                )}
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-                    t("sellerPayments.totalEntries")
-                )}
-            </div>
-
-            <div class="info-value">
-                ${entries.length}
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-                    t("sellerPayments.totalQty")
-                )}
-            </div>
-
-            <div class="info-value">
-                ${totalQty.toFixed(2)} L
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-                    t("sellerPayments.morning")
-                )}
-                /
-                ${pdfEscape(
-                    t("sellerPayments.evening")
-                )}
-            </div>
-
-            <div class="info-value">
-                ${mQty.toFixed(1)}
-                /
-                ${eQty.toFixed(1)} L
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-                    t("sellerPayments.cowBuffalo")
-                )}
-            </div>
-
-            <div class="info-value">
-                ${cowQty.toFixed(1)}
-                /
-                ${buffaloQty.toFixed(1)} L
-            </div>
-        </div>
-
-
-        <div class="info-item">
-            <div class="info-label">
-                ${pdfEscape(
-                    t("sellerPayments.avgFat")
-                )}
-                /
-                ${pdfEscape(
-                    t("sellerPayments.avgSnf")
-                )}
-            </div>
-
-            <div class="info-value">
-                ${avgFat}
-                /
-                ${avgSnf}
-            </div>
-        </div>
-
-    </div>
-
-
-    <!-- KPI SUMMARY -->
-
-    <div class="kpi-grid">
-
-        <div class="kpi">
-            <div class="kpi-label">
-                ${pdfEscape(
-                    t("sellerPayments.milkAmount")
-                )}
-            </div>
-
-            <div
-                class="kpi-value"
-                style="color:${PDF_COLORS.success}"
-            >
-                ${pdfMoney(milkAmt)}
-            </div>
-        </div>
-
-
-        <div class="kpi">
-            <div class="kpi-label">
-                ${pdfEscape(
-                    t("sellerPayments.advancePending")
-                )}
-            </div>
-
-            <div
-                class="kpi-value"
-                style="color:${PDF_COLORS.violet}"
-            >
-                ${pdfMoney(advGiven)}
-            </div>
-
-            <div class="kpi-sub">
-                ${pdfEscape(
-                    t("sellerPayments.openingBalance")
-                )}
-            </div>
-        </div>
-
-
-        <div class="kpi">
-            <div class="kpi-label">
-                ${pdfEscape(
-                    t("sellerPayments.advanceCut")
-                )}
-            </div>
-
-            <div
-                class="kpi-value"
-                style="color:${PDF_COLORS.danger}"
-            >
-                − ${pdfMoney(installmentCut)}
-            </div>
-
-            <div class="kpi-sub">
-                ${pdfEscape(
-                    t("sellerPayments.installment")
-                )}
-            </div>
-        </div>
-
-
-        <div class="kpi">
-            <div class="kpi-label">
-                ${pdfEscape(
-                    t("sellerPayments.closingAdvance")
-                )}
-            </div>
-
-            <div
-                class="kpi-value"
-                style="color:${PDF_COLORS.violet}"
-            >
-                ${pdfMoney(closingAdvance)}
-            </div>
-
-            <div class="kpi-sub">
-                ${pdfEscape(
-                    t("sellerPayments.remaining")
-                )}
-            </div>
-        </div>
-
-    </div>
-
-
-    <!-- DAILY MILK BREAKDOWN -->
-
-    ${entries.length > 0
-                ? `
-                <section class="section">
-
-                    <div class="section-heading">
-                        ${pdfEscape(
-                    t(
-                        "sellerPayments.dailyEntryBreakdown"
-                    )
-                )}
-                    </div>
-
-                    <table class="milk-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th rowspan="2" style="width:42px">
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.date"
-                    )
-                )}
-                                </th>
-
-                                <th
-                                    colspan="7"
-                                    class="morning-group"
-                                >
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.morningShift"
-                    )
-                )}
-                                </th>
-
-                                <th
-                                    colspan="7"
-                                    class="evening-group"
-                                >
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.eveningShift"
-                    )
-                )}
-                                </th>
-
-                                <th
-                                    rowspan="2"
-                                    class="day-total-head"
-                                    style="width:58px"
-                                >
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.dayTotal"
-                    )
-                )}
-                                </th>
-
-                            </tr>
-
-                            <tr>
-
-                                ${[
-                    "qtyL",
-                    "fat",
-                    "snf",
-                    "rateBeforeComm",
-                    "rateAfterComm",
-                    "amt",
-                    "ratePerLtr",
-                ]
-                    .map(
-                        key => `
-                                            <th class="morning-group">
-                                                ${pdfEscape(
-                            t(
-                                `sellerPayments.${key}`
-                            )
-                        )}
-                                            </th>
-                                        `
-                    )
-                    .join("")}
-
-                                ${[
-                    "qtyL",
-                    "fat",
-                    "snf",
-                    "rateBeforeComm",
-                    "rateAfterComm",
-                    "amt",
-                    "ratePerLtr",
-                ]
-                    .map(
-                        key => `
-                                            <th class="evening-group">
-                                                ${pdfEscape(
-                            t(
-                                `sellerPayments.${key}`
-                            )
-                        )}
-                                            </th>
-                                        `
-                    )
-                    .join("")}
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody>
-
-                            ${allDates
-                    .map(buildRow)
-                    .join("")}
-
-                            <tr class="total-row">
-
-                                <td>
-                                    ${pdfEscape(
-                        t(
-                            "sellerPayments.total"
-                        )
-                    )}
-                                </td>
-
-                                <td>
-                                    ${mQty.toFixed(2)}
-                                </td>
-
-                                <td>
-                                    ${mFat.toFixed(1)}
-                                </td>
-
-                                <td>
-                                    ${mSnf.toFixed(1)}
-                                </td>
-
-                                <td>—</td>
-                                <td>—</td>
-
-                                <td class="money">
-                                    ${mAmt.toFixed(2)}
-                                </td>
-
-                                <td>
-                                    ${mQty > 0
-                    ? (
-                        mAmt / mQty
-                    ).toFixed(2)
-                    : "—"
-                }
-                                </td>
-
-
-                                <td>
-                                    ${eQty.toFixed(2)}
-                                </td>
-
-                                <td>
-                                    ${eFat.toFixed(1)}
-                                </td>
-
-                                <td>
-                                    ${eSnf.toFixed(1)}
-                                </td>
-
-                                <td>—</td>
-                                <td>—</td>
-
-                                <td class="money">
-                                    ${eAmt.toFixed(2)}
-                                </td>
-
-                                <td>
-                                    ${eQty > 0
-                    ? (
-                        eAmt / eQty
-                    ).toFixed(2)
-                    : "—"
-                }
-                                </td>
-
-                                <td
-                                    class="money"
-                                    style="
-                                        background:
-                                        ${PDF_COLORS.primaryLight};
-                                        color:
-                                        ${PDF_COLORS.primaryDark};
-                                    "
-                                >
-                                    ${milkAmt.toFixed(2)}
-                                </td>
-
-                            </tr>
-
-                        </tbody>
-
-                    </table>
-
-                </section>
-            `
-                : ""
-            }
-
-
-    ${productSalesTable}
-
-    ${cattleFeedTable}
-
-    ${walkinBanner}
-
-    ${commissionBanner}
-
-
-    <!-- ACCOUNT SUMMARY -->
-
-    <section class="section">
-
-        <div class="section-heading">
-            ${pdfEscape(
-                t("sellerPayments.accountSummary")
-            )}
-        </div>
-
-
-        <div class="account-grid">
-
-
-            <!-- ADVANCE -->
-
-            <div class="account">
-
-                <div class="account-header">
-                    ${pdfEscape(
-                t(
-                    "sellerPayments.advanceAccount"
-                )
-            )}
-                </div>
-
-                <div class="account-row">
-                    <span class="account-label">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.openingBalance"
-                )
-            )}
-                    </span>
-
-                    <span class="account-value">
-                        ${pdfMoney(advGiven)}
-                    </span>
-                </div>
-
-                <div class="account-row">
-                    <span class="account-label">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.givenThisCycle"
-                )
-            )}
-                    </span>
-
-                    <span class="account-value">
-                        ${pdfMoney(0)}
-                    </span>
-                </div>
-
-                <div
-                    class="account-row"
-                    style="
-                        background:
-                        ${PDF_COLORS.dangerBg};
-                    "
-                >
-                    <span class="account-label">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.installmentCut"
-                )
-            )}
-                    </span>
-
-                    <span
-                        class="account-value"
-                        style="
-                            color:
-                            ${PDF_COLORS.danger};
-                        "
-                    >
-                        − ${pdfMoney(installmentCut)}
-                    </span>
-                </div>
-
-                <div class="account-total">
-                    <span>
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.closingBalance"
-                )
-            )}
-                    </span>
-
-                    <span>
-                        ${pdfMoney(closingAdvance)}
-                    </span>
-                </div>
-
-            </div>
-
-
-            <!-- DEPOSIT -->
-
-            <div class="account">
-
-                <div class="account-header">
-                    ${pdfEscape(
-                t(
-                    "sellerPayments.depositAccount"
-                )
-            )}
-                </div>
-
-                <div class="account-row">
-                    <span class="account-label">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.openingBalance"
-                )
-            )}
-                    </span>
-
-                    <span class="account-value">
-                        ${pdfMoney(openingDeposit)}
-                    </span>
-                </div>
-
-                <div
-                    class="account-row"
-                    style="
-                        background:
-                        ${PDF_COLORS.infoBg};
-                    "
-                >
-                    <span class="account-label">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.addedThisCycle"
-                )
-            )}
-                    </span>
-
-                    <span
-                        class="account-value"
-                        style="
-                            color:
-                            ${PDF_COLORS.success};
-                        "
-                    >
-                        + ${pdfMoney(depositAmt)}
-                    </span>
-                </div>
-
-                <div class="account-row">
-
-                    <span class="account-label">
-                        ${totalQty.toFixed(2)} L ×
-                        ${pdfMoney(
-                sellerObj.deposit_per_litre
-            )}/L
-                    </span>
-
-                    <span
-                        style="
-                            font-size:6.5px;
-                            color:${PDF_COLORS.muted};
-                        "
-                    >
-                        ${pdfEscape(
-                t("sellerPayments.formula")
-            )}
-                    </span>
-
-                </div>
-
-                <div class="account-total">
-
-                    <span>
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.closingBalance"
-                )
-            )}
-                    </span>
-
-                    <span>
-                        ${pdfMoney(closingDeposit)}
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <!-- PAYMENT -->
-
-            <div class="account">
-
-                <div class="account-header">
-                    ${pdfEscape(
-                t(
-                    "sellerPayments.paymentSummary"
-                )
-            )}
-                </div>
-
-                <div
-                    class="account-row"
-                    style="
-                        background:
-                        ${PDF_COLORS.successBg};
-                    "
-                >
-                    <span class="account-label">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.milkAmount"
-                )
-            )}
-                    </span>
-
-                    <span
-                        class="account-value"
-                        style="
-                            color:
-                            ${PDF_COLORS.success};
-                        "
-                    >
-                        + ${pdfMoney(milkAmt)}
-                    </span>
-                </div>
-
-                ${depositAmt > 0
-                ? `
-                            <div class="account-row">
-                                <span class="account-label">
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.depositCut"
-                    )
-                )}
-                                </span>
-
-                                <span
-                                    class="account-value"
-                                    style="
-                                        color:
-                                        ${PDF_COLORS.danger};
-                                    "
-                                >
-                                    − ${pdfMoney(depositAmt)}
-                                </span>
-                            </div>
-                        `
-                : ""
-            }
-
-                ${installmentCut > 0
-                ? `
-                            <div class="account-row">
-                                <span class="account-label">
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.advInstallment"
-                    )
-                )}
-                                </span>
-
-                                <span
-                                    class="account-value"
-                                    style="
-                                        color:
-                                        ${PDF_COLORS.danger};
-                                    "
-                                >
-                                    − ${pdfMoney(
-                    installmentCut
-                )}
-                                </span>
-                            </div>
-                        `
-                : ""
-            }
-
-                ${productDed > 0
-                ? `
-                            <div class="account-row">
-                                <span class="account-label">
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.products"
-                    )
-                )}
-                                </span>
-
-                                <span class="account-value">
-                                    − ${pdfMoney(productDed)}
-                                </span>
-                            </div>
-                        `
-                : ""
-            }
-
-                ${cattleFeedDed > 0
-                ? `
-                            <div class="account-row">
-                                <span class="account-label">
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.cattleFeed"
-                    )
-                )}
-                                </span>
-
-                                <span class="account-value">
-                                    − ${pdfMoney(
-                    cattleFeedDed
-                )}
-                                </span>
-                            </div>
-                        `
-                : ""
-            }
-
-                ${walkinDed > 0
-                ? `
-                            <div class="account-row">
-                                <span class="account-label">
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.milkBought"
-                    )
-                )}
-                                </span>
-
-                                <span class="account-value">
-                                    − ${pdfMoney(walkinDed)}
-                                </span>
-                            </div>
-                        `
-                : ""
-            }
-
-                <div
-                    class="account-total"
-                    style="
-                        background:
-                        ${PDF_COLORS.primaryDark};
-                        color:#fff;
-                    "
-                >
-                    <span style="color:#fff">
-                        ${pdfEscape(
-                t(
-                    "sellerPayments.netCashToHand"
-                )
-            )}
-                    </span>
-
-                    <span
-                        style="
-                            color:#fff;
-                            font-family:
-                            'Courier New',monospace;
-                        "
-                    >
-                        ${pdfMoney(finalPayable)}
-                    </span>
-                </div>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- DETAILED BREAKDOWN -->
-
-    <section class="section">
-
-        <div class="section-heading">
-            ${pdfEscape(
-                t("sellerPayments.detailedBreakdown")
-            )}
-        </div>
-
-
-        <div class="breakdown">
-
-            <div
-                class="
-                    breakdown-row
-                    breakdown-positive
-                "
-            >
-                <span class="breakdown-label">
-                    ${pdfEscape(
-                t(
-                    "sellerPayments.milkAmountPayable"
-                )
-            )}
-                </span>
-
-                <span
-                    class="breakdown-value"
-                    style="
-                        color:
-                        ${PDF_COLORS.success};
-                    "
-                >
-                    + ${pdfMoney(milkAmt)}
-                </span>
-            </div>
-
-
-            ${advGiven > 0
-                ? `
-                        <div
-                            class="
-                                breakdown-row
-                                breakdown-info
-                            "
-                        >
-                            <span class="breakdown-label">
-                                ${pdfEscape(
-                    t(
-                        "sellerPayments.openingAdvanceBalance"
-                    )
-                )}
-                            </span>
-
-                            <span class="breakdown-value">
-                                ${pdfMoney(advGiven)}
-                            </span>
-                        </div>
-                    `
-                : ""
-            }
-
-
-            ${installmentCut > 0
-                ? `
-                        <div
-                            class="
-                                breakdown-row
-                                breakdown-negative
-                            "
-                        >
-                            <span class="breakdown-label">
-
-                                ${pdfEscape(
-                    t(
-                        "sellerPayments.advanceInstallmentCut"
-                    )
-                )}
-
-                                <span class="breakdown-detail">
-                                    (
-                                    ${pdfMoney(advGiven)}
-                                    →
-                                    ${pdfMoney(closingAdvance)}
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.remaining"
-                    )
-                )}
-                                    )
-                                </span>
-
-                            </span>
-
-                            <span
-                                class="breakdown-value"
-                                style="
-                                    color:
-                                    ${PDF_COLORS.danger};
-                                "
-                            >
-                                − ${pdfMoney(
-                    installmentCut
-                )}
-                            </span>
-
-                        </div>
-                    `
-                : ""
-            }
-
-
-            ${depositAmt > 0
-                ? `
-                        <div
-                            class="
-                                breakdown-row
-                                breakdown-info
-                            "
-                        >
-
-                            <span class="breakdown-label">
-
-                                ${pdfEscape(
-                    t(
-                        "sellerPayments.depositDeducted"
-                    )
-                )}
-
-                                <span class="breakdown-detail">
-                                    (
-                                    ${totalQty.toFixed(2)}L ×
-                                    ${pdfMoney(
-                    sellerObj.deposit_per_litre
-                )}/L
-                                    ·
-                                    ${pdfEscape(
-                    t(
-                        "sellerPayments.balance"
-                    )
-                )}:
-                                    ${pdfMoney(openingDeposit)}
-                                    →
-                                    ${pdfMoney(closingDeposit)}
-                                    )
-                                </span>
-
-                            </span>
-
-                            <span
-                                class="breakdown-value"
-                                style="
-                                    color:
-                                    ${PDF_COLORS.info};
-                                "
-                            >
-                                − ${pdfMoney(depositAmt)}
-                            </span>
-
-                        </div>
-                    `
-                : ""
-            }
-
-
-            ${productDed > 0
-                ? `
-                        <div
-                            class="
-                                breakdown-row
-                                breakdown-warning
-                            "
-                        >
-                            <span class="breakdown-label">
-                                ${pdfEscape(
-                    t(
-                        "sellerPayments.productSalesDeduction"
-                    )
-                )}
-                            </span>
-
-                            <span class="breakdown-value">
-                                − ${pdfMoney(productDed)}
-                            </span>
-                        </div>
-                    `
-                : ""
-            }
-
-
-            ${cattleFeedDed > 0
-                ? `
-                        <div
-                            class="
-                                breakdown-row
-                                breakdown-positive
-                            "
-                        >
-                            <span class="breakdown-label">
-                                ${pdfEscape(
-                    t(
-                        "sellerPayments.cattleFeedDeduction"
-                    )
-                )}
-                            </span>
-
-                            <span class="breakdown-value">
-                                − ${pdfMoney(
-                    cattleFeedDed
-                )}
-                            </span>
-                        </div>
-                    `
-                : ""
-            }
-
-
-            ${walkinDed > 0
-                ? `
-                        <div
-                            class="
-                                breakdown-row
-                                breakdown-warning
-                            "
-                        >
-                            <span class="breakdown-label">
-                                ${pdfEscape(
-                    t(
-                        "sellerPayments.milkBoughtBySellerWalkin"
-                    )
-                )}
-                            </span>
-
-                            <span class="breakdown-value">
-                                − ${pdfMoney(walkinDed)}
-                            </span>
-                        </div>
-                    `
-                : ""
-            }
-
-
-            <div class="net-payable">
-
-                <span class="label">
-                    ${pdfEscape(
-                t(
-                    "sellerPayments.netCashToHand"
-                )
-            )}
-                </span>
-
-                <span class="amount">
-                    ${pdfMoney(finalPayable)}
-                </span>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- FOOTER -->
-
-    <footer class="footer">
-
-        <span>
-            ${pdfEscape(
-                t(
-                    "sellerPayments.computerGenerated"
-                )
-            )}
-            ·
-            ${pdfEscape(appName)}
-        </span>
-
-        <span class="footer-right">
-
-            ${sellerObj.is_paid &&
-                sellerObj.paid_at
-                ? `
-                        ${pdfEscape(
-                    t(
-                        "sellerPayments.paidOn"
-                    )
-                )}:
-                        ${pdfDate(sellerObj.paid_at)}
-                    `
-                : ""
-            }
-
-        </span>
-
-    </footer>
-
-</div>
-
-</body>
-</html>`;
+        const data = prepareReceiptData(sellerWithEntries);
+        setReceiptData(data);
+        setShowReceiptModal(true);
     };
 
+    // ── Updated: Download single receipt PDF using ReceiptPDF component ──
     const downloadReceiptPDF = async (seller) => {
         try {
-            const html = await buildReceiptHtml(seller);
-            if (!html) {
-                showFlash("error", t('sellerPayments.receiptGenerationError'));
-                return false;
+            let billData = null;
+            if (seller.bill_no) {
+                try {
+                    const { data } = await api.get(`/payments/bill/${seller.bill_no}`);
+                    billData = data;
+                } catch (e) {
+                    console.error('Error fetching bill data:', e);
+                }
             }
-            const fromDate = cycle.from ? new Date(cycle.from).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
-            const toDate = cycle.to ? new Date(cycle.to).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/[/, ]/g, '_') : 'draft';
-            const fileName = `Receipt_${seller.seller_code || seller.seller_id}_${seller.bill_no || 'draft'}_${fromDate}_to_${toDate}.pdf`;
-            const success = await generateReceiptPDF(html, fileName);
-            if (success) {
-                return true;
-            } else {
-                showFlash("error", t('sellerPayments.pdfGenerationError'));
-                return false;
-            }
+
+            const sellerWithEntries = {
+                ...seller,
+                entries: billData?.entries || seller.entries || [],
+                milk_amount: billData?.payment?.milk_amount ?? seller.milk_amount,
+                deposit_amount: billData?.payment?.deposit_amount ?? seller.deposit_amount,
+                installment_cut: billData?.payment?.installment_cut ?? seller.installment_cut,
+                advance_given: billData?.payment?.advance_given ?? seller.advance_given,
+                product_deduction: billData?.payment?.product_deduction ?? seller.product_deduction,
+                walkin_deduction: billData?.payment?.walkin_deduction ?? seller.walkin_deduction,
+                cattle_feed_deduction: billData?.payment?.cattle_feed_deduction ?? seller.cattle_feed_deduction,
+                deposit_per_litre: billData?.payment?.deposit_per_litre ?? seller.deposit_per_litre,
+                deposit_balance: billData?.depositSnapshot?.[0]?.deposit_balance_before ?? seller.deposit_balance ?? 0,
+                final_payable: billData?.payment?.final_payable ?? billData?.payment?.cash_paid ?? seller.final_payable,
+                cash_to_pay: billData?.payment?.cash_paid ?? seller.cash_to_pay,
+                paid_at: billData?.payment?.paid_at ?? seller.paid_at,
+                bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
+                is_paid: true,
+            };
+
+            const data = prepareReceiptData(sellerWithEntries);
+            setReceiptData(data);
+            setShowReceiptModal(true);
+            return true;
         } catch (error) {
-            console.error('Error generating PDF:', error);
+            console.error('Error preparing receipt:', error);
             showFlash("error", t('sellerPayments.pdfGenerationError'));
             return false;
         }
     };
 
+    // ── Print receipt (kept for existing print functionality) ──
     const printReceipt = async (e, seller, overrideCycle) => {
         e?.stopPropagation?.();
 
@@ -3504,19 +864,16 @@ thead {
                     const { data } = await api.get(
                         `/payments/bill/${seller.bill_no}`
                     );
-
                     billData = data;
                 } catch (error) {
                     console.error(
                         "Failed to load bill for printing:",
                         error
                     );
-
                     showFlash(
                         "error",
                         t("sellerPayments.printLoadError")
                     );
-
                     return;
                 }
             }
@@ -3529,60 +886,46 @@ thead {
             const sellerForPrint = {
                 ...seller,
                 entries,
-
                 product_deduction:
                     billData?.payment?.product_deduction ??
                     seller.product_deduction,
-
                 walkin_deduction:
                     billData?.payment?.walkin_deduction ??
                     seller.walkin_deduction,
-
                 cattle_feed_deduction:
                     billData?.payment?.cattle_feed_deduction ??
                     seller.cattle_feed_deduction,
-
                 installment_cut:
                     billData?.payment?.installment_cut ??
                     seller.installment_cut,
-
                 deposit_amount:
                     billData?.payment?.deposit_amount ??
                     seller.deposit_amount,
-
                 deposit_per_litre:
                     billData?.payment?.deposit_per_litre ??
                     seller.deposit_per_litre,
-
                 commission_amount:
                     billData?.payment?.commission_amount ??
                     seller.commission_amount,
-
                 advance_given:
                     billData?.payment?.advance_given ??
                     seller.advance_given,
-
                 opening_deposit:
                     billData?.depositSnapshot?.[0]
                         ?.deposit_balance_before ??
                     seller.deposit_balance ??
                     0,
-
                 final_payable:
                     billData?.payment?.final_payable ??
                     billData?.payment?.cash_paid ??
                     seller.final_payable,
-
                 cash_to_pay:
                     billData?.payment?.cash_paid ??
                     seller.cash_to_pay,
-
                 is_paid: true,
-
                 paid_at:
                     billData?.payment?.paid_at ??
                     seller.paid_at,
-
                 bill_no:
                     seller.bill_no ||
                     generatePreviewBillNo(
@@ -3592,73 +935,15 @@ thead {
                     ),
             };
 
-            const htmlContent =
-                await buildReceiptHtml(
-                    sellerForPrint,
-                    activeCycle
-                );
-
-            if (!htmlContent) {
-                showFlash(
-                    "error",
-                    t("sellerPayments.pdfGenerationError")
-                );
-
-                return;
-            }
-
-            const printWindow = window.open(
-                "",
-                "_blank",
-                "width=1200,height=900"
-            );
-
-            if (!printWindow) {
-                showFlash(
-                    "error",
-                    t("sellerPayments.popupBlocked")
-                );
-
-                return;
-            }
-
-            printWindow.document.open();
-
-            // Add automatic print trigger.
-            const printableHtml =
-                htmlContent.replace(
-                    "</body>",
-                    `
-                    <script>
-                        window.addEventListener(
-                            "load",
-                            function () {
-                                setTimeout(
-                                    function () {
-                                        window.focus();
-                                        window.print();
-                                    },
-                                    350
-                                );
-                            }
-                        );
-                    </script>
-                </body>
-                `
-                );
-
-            printWindow.document.write(
-                printableHtml
-            );
-
-            printWindow.document.close();
+            const data = prepareReceiptData(sellerForPrint, activeCycle);
+            setReceiptData(data);
+            setShowReceiptModal(true);
 
         } catch (error) {
             console.error(
                 "[SellerPayments] Print error:",
                 error
             );
-
             showFlash(
                 "error",
                 t("sellerPayments.pdfGenerationError")
@@ -3666,7 +951,7 @@ thead {
         }
     };
 
-    // ── UPDATED: Combined PDF Generation with Minimized Header ──
+    // ── Combined PDF Generation (existing) ──
     const generateCombinedPDF = async (sellers) => {
         try {
             let successCount = 0;
@@ -4251,7 +1536,7 @@ thead {
 
             const imgWidth = 297;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            const pageHeight = 210; // combined receipts can genuinely span multiple sellers/pages
+            const pageHeight = 210;
             const pdf = new jsPDF('l', 'mm', 'a4');
 
             let heightLeft = imgHeight;
@@ -4283,6 +1568,7 @@ thead {
 
     const [bulkDownloading, setBulkDownloading] = useState(false);
 
+    // ── Updated: Bulk download using ReceiptPDF component ──
     const handleBulkDownloadPDFs = async () => {
         const paidSellers = sellers.filter(s => !!(s.is_paid || s.bill_no) && parseFloat(s.milk_amount || 0) > 0);
         if (paidSellers.length === 0) {
@@ -4306,12 +1592,14 @@ thead {
                     showFlash("info", `Downloading ${index + 1}/${paidSellers.length} receipts...`);
                 }
 
+                // Use the ReceiptPDF component flow
                 const success = await downloadReceiptPDF(sellerWithBillNo);
                 if (success) {
                     successCount++;
                 } else {
                     failCount++;
                 }
+                // Wait between downloads to avoid browser issues
                 await new Promise(r => setTimeout(r, 600));
             }
 
@@ -4414,7 +1702,8 @@ thead {
         };
 
         const cycleObj = { from: payment.from_date, to: payment.to_date };
-        printReceipt({ stopPropagation: () => { } }, sellerObj, cycleObj);
+        // Use the ReceiptPDF component instead of print
+        await downloadReceiptPDF(sellerObj);
     };
 
     const handleDeleteBill = (bill_no) => {
@@ -4744,13 +2033,6 @@ thead {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div className="flex items-center gap-3 shrink-0">
                         <div className="min-w-0">
-                            <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
-                                <Home size={16} className="text-gray-400" />
-                                <span>{t('sellerPayments.pageBreadcrumb', { defaultValue: 'Milk Collection' })}</span>
-                                <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white text-xs font-semibold shadow-md shadow-violet-500/30">
-                                    <Settings size={12} /> {t('status.admin')}
-                                </span>
-                            </div>
                             <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
                                 {t('sellerPayments.pageTitle')}
                             </h1>
@@ -5552,7 +2834,7 @@ thead {
                                                             e.stopPropagation();
                                                             try {
                                                                 const { data } = await api.get(`/payments/bill/${b.bill_no}`);
-                                                                printBillReceipt(data);
+                                                                await printBillReceipt(data);
                                                             } catch {
                                                                 showFlash("error", t('sellerPayments.printLoadError'));
                                                             }
@@ -5932,6 +3214,17 @@ thead {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Receipt PDF Modal */}
+            {showReceiptModal && receiptData && (
+                <ReceiptPDF
+                    data={receiptData}
+                    onClose={() => {
+                        setShowReceiptModal(false);
+                        setReceiptData(null);
+                    }}
+                />
             )}
 
             <ExcelConfigModal
