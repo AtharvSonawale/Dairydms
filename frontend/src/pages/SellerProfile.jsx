@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -280,6 +280,39 @@ function Paginator({ total, page, setPage, pageSize, setPageSize, t }) {
     );
 }
 
+// ── flash / toast timing ────────────────────────────────────────
+const FLASH_DURATION = 3500;
+const FLASH_ANIM_MS = 420;
+
+// ── Sliding toast alert ──────────────────────────────────────
+function FlashToast({ flash, phase, onClose }) {
+    if (!flash) return null;
+    const isVisible = phase === "visible";
+    return (
+        <div
+            className="fixed top-4 right-4 z-[9999] pointer-events-none"
+            style={{ maxWidth: "min(92vw, 420px)" }}
+        >
+            <div
+                className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl text-base font-semibold shadow-2xl backdrop-blur-sm border
+                    ${flash.type === "success" ? "bg-emerald-50/95 border-emerald-200/70 text-emerald-700" : "bg-rose-50/95 border-rose-200/70 text-rose-600"}`}
+                style={{
+                    transform: isVisible ? "translateX(0)" : "translateX(150%)",
+                    opacity: isVisible ? 1 : 0,
+                    transition: `transform ${FLASH_ANIM_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${FLASH_ANIM_MS}ms ease`,
+                }}
+            >
+                {flash.type === "error" && <AlertTriangle size={18} className="shrink-0" />}
+                {flash.type === "success" && <BadgeCheck size={18} className="shrink-0" />}
+                <span className="flex-1">{flash.msg}</span>
+                <button onClick={onClose} className="opacity-50 hover:opacity-100 transition shrink-0">
+                    <X size={16} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ── Main ──────────────────────────────────────────────────────
 export default function SellerProfile() {
     const { t } = useTranslation();
@@ -302,6 +335,9 @@ export default function SellerProfile() {
     const [showDelete, setShowDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [flash, setFlash] = useState(null);
+    const [flashPhase, setFlashPhase] = useState("idle");
+    const flashHideTimer = useRef(null);
+    const flashClearTimer = useRef(null);
 
     // ── Filter & Pagination State ──────────────────────────────
     const [milkFilter, setMilkFilter] = useState("all");
@@ -387,8 +423,22 @@ export default function SellerProfile() {
     };
 
     const showFlash = (type, msg) => {
+        clearTimeout(flashHideTimer.current);
+        clearTimeout(flashClearTimer.current);
         setFlash({ type, msg });
-        setTimeout(() => setFlash(null), 3500);
+        setFlashPhase("idle");
+        requestAnimationFrame(() => requestAnimationFrame(() => setFlashPhase("visible")));
+        flashHideTimer.current = setTimeout(() => {
+            setFlashPhase("idle");
+            flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
+        }, FLASH_DURATION);
+    };
+
+    const dismissFlash = () => {
+        clearTimeout(flashHideTimer.current);
+        clearTimeout(flashClearTimer.current);
+        setFlashPhase("idle");
+        flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
     };
 
     const openEdit = () => {
@@ -481,7 +531,7 @@ export default function SellerProfile() {
             await api.put(`/sellers/${id}`, payload);
             showFlash("success", t('sellerProfile.editForm.saveSuccess'));
             setShowEdit(false);
-            await fetchAll();
+            await fetchAll(true);
         } catch (err) {
             showFlash("error", err.response?.data?.error || t('sellerProfile.editForm.saveError'));
         } finally { setSaving(false); }
@@ -495,7 +545,7 @@ export default function SellerProfile() {
                 setShowDelete(false);
                 setDeleting(false);
                 showFlash("success", t('sellerProfile.deleteModal.softDeleteSuccess'));
-                await fetchAll();
+                await fetchAll(true);
             } else {
                 navigate("/sellerregister");
             }
@@ -506,8 +556,8 @@ export default function SellerProfile() {
         }
     };
 
-    const fetchAll = async () => {
-        setLoading(true);
+    const fetchAll = async (silent = false) => {
+        if (!silent) setLoading(true);
         setError(null);
         try {
             const [sellerRes, entriesRes, premiumRes, cashRes, depRes, productsRes, depBalRes,
@@ -541,7 +591,7 @@ export default function SellerProfile() {
         } catch {
             setError(t('sellerProfile.flash.loadError'));
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -581,6 +631,7 @@ export default function SellerProfile() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <FlashToast flash={flash} phase={flashPhase} onClose={dismissFlash} />
             <main className="max-w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
 
                 {/* ── Top Bar ── */}
@@ -637,17 +688,7 @@ export default function SellerProfile() {
                     </div>
                 </div>
 
-                {/* ── Flash ── */}
-                {flash && (
-                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-sm
-                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
-                        {flash.type === "error" ? <AlertTriangle size={18} /> : <BadgeCheck size={18} />}
-                        {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
-                            <X size={16} />
-                        </button>
-                    </div>
-                )}
+
 
                 {/* ── Edit Form ── */}
                 {showEdit && (

@@ -1246,6 +1246,33 @@ CREATE TABLE walkin_sales (
    CONSTRAINT walkin_sales_ibfk_6 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+
+-- ADD near the other centre-scoped settings tables (e.g. after page_visibility)
+CREATE TABLE print_settings (
+   id int NOT NULL AUTO_INCREMENT,
+   centre_id int NOT NULL,
+   printer_type enum('thermal','a4') NOT NULL DEFAULT 'thermal',
+   paper_width_mm int NOT NULL DEFAULT 80,
+   updated_by int DEFAULT NULL,
+   updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (id),
+   UNIQUE KEY uq_centre (centre_id),
+   KEY idx_centre_id (centre_id),
+   CONSTRAINT print_settings_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ 
+ CREATE TABLE receipt_templates (
+   id int NOT NULL AUTO_INCREMENT,
+   centre_id int NOT NULL,
+   config json NOT NULL,
+   updated_by int DEFAULT NULL,
+   updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (id),
+   UNIQUE KEY uq_centre (centre_id),
+   KEY idx_centre_id (centre_id),
+   CONSTRAINT receipt_templates_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 

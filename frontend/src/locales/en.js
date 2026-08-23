@@ -2090,6 +2090,217 @@ const en = {
                 "Click the status badge to toggle active/inactive. Use Edit or Delete to manage a buyer.",
         },
 
+        // ── Cattle Feed Sales ─────────────────────────────────────────
+        cattleFeedSales: {
+
+            receipt: {
+                title: "Cattle Feed Cash Memo",
+                transactionId: "Transaction ID",
+                date: "Date",
+                time: "Time",
+                seller: "Seller",
+                code: "Code",
+                centerName: "Cattle Feed Sales Center",
+                no: "#",
+                feed: "Feed",
+                qty: "Qty",
+                rate: "Rate",
+                amount: "Amount",
+                grandTotal: "Grand Total",
+                footer: "Thank you for your business",
+                gst: "GST: 27AABCQ1234D1ZP",
+                signatory: "Authorized Signatory",
+                print: "Print Receipt",
+                close: "Close",
+                unknown: "—",
+                customerId: "Cust No",
+                customerName: "Cust Name",
+                page: "Page",
+                of: "of",
+            },
+            // Page
+            pageTitle: "Cattle Feed Sales",
+            pageSubtitle: "Record and manage feed sales — {{date}}",
+            takeTour: "Take a Tour",
+            speedConfigButton: "Speed Config",
+            loading: "Loading…",
+            dateLabel: "Date",
+            downloadPDF: "Download PDF",
+
+            // Range modes
+            rangeDay: "Day",
+            rangeWeek: "Week",
+            rangeMonth: "Month",
+            rangeCustom: "Custom",
+
+            // Stats
+            stats: {
+                todaySales: "Today's Sales",
+                totalRevenue: "Total Revenue",
+                sellersServed: "Sellers Served",
+            },
+
+            // Form
+            form: {
+                title: "New Sale Entry",
+                seller: "Seller",
+                sellerCode: "Code",
+                sellerPlaceholder: "Search seller by name or code",
+                sellerMatches: "{{count}} matches",
+                sellersAZ: "Sellers A–Z",
+                addFeed: "Add Feed",
+                grandTotal: "Grand Total:",
+                recordSale: "Record Sale",
+                saving: "Saving…",
+                feed: "Feed",
+                qty: "Qty",
+                rate: "Rate",
+                total: "Total",
+                feedPlaceholder: "Search feed…",
+                stockLabel: "Stock: {{amount}} {{unit}}",
+                outOfStock: "⚠ Out of stock",
+                insufficientStock: "Insufficient stock for {{feed}}. Available: {{available}} {{unit}}",
+                selectSeller: "Please select a seller",
+                addAtLeastOneFeed: "Add at least one feed with quantity and rate",
+                saleRecorded: "Sale recorded",
+                saveFailed: "Save failed",
+            },
+
+            // Speed Strip
+            speedStrip: {
+                quick: "Quick ({{count}})",
+                cols: "Cols:",
+                outOfStock: "Out of stock",
+            },
+
+            // Table
+            table: {
+                salesList: "Sales List",
+                headers: {
+                    seller: "Seller",
+                    feed: "Feed",
+                    qty: "Qty",
+                    rate: "Rate",
+                    total: "Total",
+                    time: "Time",
+                    actions: "",
+                },
+                noSalesDay: "No sales recorded for this day",
+                noSalesRange: "No sales in this range",
+                entries: "{{count}} entry",
+                entries_plural: "{{count}} entries",
+                salesToday: "sales recorded today",
+                salesInRange: "sales in range",
+                printReceipt: "Print receipt",
+                edit: "Edit",
+                delete: "Delete",
+                totalRevenue: "₹{{amount}}",
+            },
+
+            // Legend
+            legend: {
+                salesCount: "• <strong>{{count}}</strong> {{label}}",
+                stockAutoUpdate: "• Stock updates automatically when recording or deleting",
+                clickFeedCard: "• Click a feed card to add it quickly",
+            },
+
+            // Edit Modal
+            editModal: {
+                title: "Edit Sale",
+                subtitle: "Editing transaction: {{id}}",
+                seller: "Seller",
+                feed: "Feed",
+                qty: "Qty",
+                rate: "Rate",
+                grandTotal: "Grand Total",
+                cancel: "Cancel",
+                saveChanges: "Save Changes",
+                saving: "Saving…",
+            },
+
+            // Delete Modal
+            deleteModal: {
+                title: "Delete Sale?",
+                warning: 'This will permanently delete the sale for <strong>{{label}}</strong>. Stock will be reversed.',
+                cancel: "Cancel",
+                confirm: "Yes, Delete",
+            },
+
+            // Speed Config
+            speedConfig: {
+                title: "Speed Feeds Config",
+                desc: "Add quick‑tap feeds with images",
+                addNew: "Add New",
+                editEntry: "Edit Entry",
+                feed: "Feed",
+                selectFeed: "Select feed…",
+                displayName: "Display Name",
+                displayPlaceholder: "Optional override",
+                sortOrder: "Order / Sequence",
+                image: "Feed Image",
+                uploadImage: "Upload Image",
+                changeImage: "Change Image",
+                noFeeds: "No speed feeds yet",
+                add: "Add",
+                update: "Update",
+                cancel: "Cancel",
+                stock: "Stock: {{amount}} {{unit}}",
+                supplier: "Supplier: {{name}}",
+                rate: "₹{{rate}}",
+                removeImage: "Remove image",
+                imageTooLarge: "Image must be under 5MB",
+                onlyImages: "Only images allowed",
+                loadError: "Failed to load speed feeds",
+                saveSuccess: "Updated!",
+                addSuccess: "Added!",
+                saveError: "Save failed",
+                deleteSuccess: "Removed",
+                deleteError: "Delete failed",
+                count: "{{count}} Speed Feed",
+                count_plural: "{{count}} Speed Feeds",
+            },
+
+            // PDF
+            pdf: {
+                title: "Cattle Feed Sales",
+                report: "Report",
+                generated: "Generated",
+                sales: "Sales",
+                sellers: "Sellers",
+                revenue: "Revenue",
+                seller: "Seller",
+                feed: "Feed",
+                qty: "Qty",
+                rate: "Rate",
+                amount: "Amount",
+                dateTime: "Date / Time",
+                grandTotal: "Grand Total",
+                entries: "entries",
+                sellerCount: "seller",
+                sellerCount_plural: "sellers",
+                footer: "This is a system‑generated report.",
+                signatory: "Authorised Signatory",
+                period: "{{mode}} Report · {{period}}",
+            },
+
+            // Messages
+            messages: {
+                loadRangeFailed: "Failed to load range entries",
+                loadSalesFailed: "Failed to load sales",
+                saleUpdated: "Sale updated",
+                updateFailed: "Update failed",
+                saleDeleted: "Sale deleted.",
+                deleteFailed: "Delete failed.",
+                saveFailed: "Save failed",
+            },
+
+            // Tour descriptions
+            tourDateDesc: "Pick a date or range, switch between daily/weekly/monthly, and download a PDF report. Use Speed Config to set up quick‑tap feed buttons.",
+            tourStatsDesc: "Live counts of sales, total revenue, and unique sellers served.",
+            tourFormDesc: "Search for a seller, add feed lines via the quick strip or search, and record the sale. Totals update automatically.",
+            tourTableDesc: "List of all sales in the selected period. Print receipts, edit quantities/rates, or delete a sale (stock is reversed).",
+        },
+
         // ── Navigation ───────────────────────────────────────────────
         nav: {
             favourites: "Favourites",

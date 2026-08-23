@@ -1,15 +1,13 @@
-// CattleFeedSalesPDF.jsx
-import { useTranslation } from "react-i18next";
-
-export const printSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel) => {
+// ProductSalesPDF.jsx
+export const printProductSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel) => {
     const fmtD = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
     const fmtT = (d) => d ? new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—";
 
-    const modeLabel = rangeMode === "daily" ? t('cattleFeedSales.rangeDay')
-        : rangeMode === "weekly" ? t('cattleFeedSales.rangeWeek')
-            : rangeMode === "monthly" ? t('cattleFeedSales.rangeMonth') : t('cattleFeedSales.rangeCustom');
+    const modeLabel = rangeMode === "daily" ? t('productSales.pdfDaily')
+        : rangeMode === "weekly" ? t('productSales.pdfWeekly')
+            : rangeMode === "monthly" ? t('productSales.pdfMonthly') : t('productSales.pdfCustom');
 
-    const periodLabel = fromDate === toDate ? fmtD(fromDate) : `${fmtD(fromDate)} ${t('cattleFeedSales.pdf.report').toLowerCase()} ${fmtD(toDate)}`;
+    const periodLabel = fromDate === toDate ? fmtD(fromDate) : `${fmtD(fromDate)} ${t('productSales.pdfTo')} ${fmtD(toDate)}`;
     const totalRevenueCalc = data.reduce((a, txn) => a + parseFloat(txn.total_amount || 0), 0);
 
     const qtyByUnit = data.reduce((acc, txn) => {
@@ -21,15 +19,15 @@ export const printSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel
     }, {});
 
     const uniqueSellersCount = [...new Set(data.map((txn) => txn.seller_id))].length;
+    const colLabel = productLabel || t('productSales.pdfProduct');
 
     const rows = [...data].reverse().map((txn, i) => {
-        const feedsHtml = txn.items.map(item => `
-      <div style="margin-bottom:3px">
-        <span style="font-weight:600">${item.feed_name || `ID:${item.feed_id}`}</span>
-        <span style="font-size:8px;color:#555"> (${item.unit || "—"})</span>
-      </div>
-    `).join("");
-
+        const productsHtml = txn.items.map(item => `
+            <div style="margin-bottom:3px">
+                <span style="font-weight:600">${item.product_name || `ID:${item.product_id}`}</span>
+                <span style="font-size:8px;color:#555"> (${item.unit || "—"})</span>
+            </div>
+        `).join("");
         const qtyHtml = txn.items.map(item => `<div style="margin-bottom:3px">${parseFloat(item.quantity).toFixed(2)}</div>`).join("");
         const rateHtml = txn.items.map(item => `<div style="margin-bottom:3px">₹${parseFloat(item.rate).toFixed(2)}</div>`).join("");
 
@@ -41,11 +39,12 @@ export const printSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel
               ${(txn.seller_name || "?").charAt(0).toUpperCase()}
             </span>
             <div>
+              <div>${txn.seller_name || `ID:${txn.seller_id}`}</div>
               <div style="font-size:8px;color:#555;font-family:monospace">${txn.seller_code || "—"}</div>
             </div>
           </div>
         </td>
-        <td style="padding:4px 6px;border:1px solid #999;font-size:9px;color:#000">${feedsHtml}</td>
+        <td style="padding:4px 6px;border:1px solid #999;font-size:9px;color:#000">${productsHtml}</td>
         <td style="padding:4px 6px;border:1px solid #999;font-size:9px;text-align:right;font-weight:600;color:#000">${qtyHtml}</td>
         <td style="padding:4px 6px;border:1px solid #999;font-size:9px;text-align:right;color:#000">${rateHtml}</td>
         <td style="padding:4px 6px;border:1px solid #999;background:#e0e0e0;font-size:9px;text-align:right;font-weight:700;color:#000">₹${parseFloat(txn.total_amount).toFixed(2)}</td>
@@ -61,38 +60,33 @@ export const printSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel
     if (!win) return;
 
     win.document.write(`<!DOCTYPE html><html><head>
-    <title>${t('cattleFeedSales.pdf.title')} — ${periodLabel}</title>
+    <title>${t('productSales.pdfTitle')} — ${periodLabel}</title>
     <style>
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       body { font-family: Arial, sans-serif; font-size: 9px; color: #000; margin: 0; padding: 16px; background: #fff; }
       table { border-collapse: collapse; width: 100%; }
-      @media print {
-        @page { margin: 8mm; size: A4 portrait; }
-        body { padding: 0; }
-      }
-      @media screen {
-        body { max-width: 175mm; margin: 0 auto; }
-      }
+      @media print { @page { margin: 8mm; size: A4 portrait; } body { padding: 0; } }
+      @media screen { body { max-width: 175mm; margin: 0 auto; } }
     </style>
   </head><body>
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:10px">
     <div>
-      <div style="font-size:18px;font-weight:bold;color:#000">${t('cattleFeedSales.pdf.title')}</div>
-      <div style="font-size:11px;color:#333;margin-top:3px">${t('cattleFeedSales.pdf.period', { mode: modeLabel, period: periodLabel })}</div>
-      <div style="font-size:10px;color:#555;margin-top:2px">${t('cattleFeedSales.pdf.generated')} ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+      <div style="font-size:18px;font-weight:bold;color:#000">${t('productSales.pdfTitle')}</div>
+      <div style="font-size:11px;color:#333;margin-top:3px">${modeLabel} ${t('productSales.pdfReport')} · ${periodLabel}</div>
+      <div style="font-size:10px;color:#555;margin-top:2px">${t('productSales.pdfGenerated')} ${new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</div>
     </div>
     <div style="display:flex;gap:10px">
       <div style="background:#f2f2f2;border:1px solid #999;padding:8px 14px;border-radius:4px;text-align:center">
-        <div style="font-size:9px;color:#333;font-weight:600;text-transform:uppercase">${t('cattleFeedSales.pdf.sales')}</div>
+        <div style="font-size:9px;color:#333;font-weight:600;text-transform:uppercase">${t('productSales.pdfSales')}</div>
         <div style="font-size:16px;font-weight:700;color:#000">${data.length}</div>
       </div>
       <div style="background:#f2f2f2;border:1px solid #999;padding:8px 14px;border-radius:4px;text-align:center">
-        <div style="font-size:9px;color:#333;font-weight:600;text-transform:uppercase">${t('cattleFeedSales.pdf.sellers')}</div>
+        <div style="font-size:9px;color:#333;font-weight:600;text-transform:uppercase">${t('productSales.pdfSellers')}</div>
         <div style="font-size:16px;font-weight:700;color:#000">${uniqueSellersCount}</div>
       </div>
       <div style="background:#f2f2f2;border:1px solid #999;padding:8px 14px;border-radius:4px;text-align:center">
-        <div style="font-size:9px;color:#333;font-weight:600;text-transform:uppercase">${t('cattleFeedSales.pdf.revenue')}</div>
+        <div style="font-size:9px;color:#333;font-weight:600;text-transform:uppercase">${t('productSales.pdfTotalRevenue')}</div>
         <div style="font-size:16px;font-weight:700;color:#000">₹${totalRevenueCalc.toFixed(2)}</div>
       </div>
     </div>
@@ -101,23 +95,19 @@ export const printSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel
   <table>
     <thead>
       <tr style="background:#000;color:#fff">
-        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:left;width:22%">${t('cattleFeedSales.pdf.seller')}</th>
-        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:left;width:20%">${productLabel || t('cattleFeedSales.pdf.feed')}</th>
-        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:right;width:12%">${t('cattleFeedSales.pdf.qty')}</th>
-        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:right;width:12%">${t('cattleFeedSales.pdf.rate')}</th>
-        <th style="padding:5px 6px;border:1px solid #333;background:#333;font-size:9px;text-align:right;width:14%">${t('cattleFeedSales.pdf.amount')}</th>
-        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:left;width:20%">${t('cattleFeedSales.pdf.dateTime')}</th>
+        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:left;width:22%">${t('productSales.pdfSeller')}</th>
+        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:left;width:20%">${colLabel}</th>
+        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:right;width:12%">${t('productSales.pdfQty')}</th>
+        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:right;width:12%">${t('productSales.pdfRate')}</th>
+        <th style="padding:5px 6px;border:1px solid #333;background:#333;font-size:9px;text-align:right;width:14%">${t('productSales.pdfAmount')}</th>
+        <th style="padding:5px 6px;border:1px solid #444;font-size:9px;text-align:left;width:20%">${t('productSales.pdfDateTime')}</th>
       </tr>
     </thead>
     <tbody>
       ${rows}
       <tr style="background:#e0e0e0;font-weight:bold;border-top:2px solid #000">
-        <td colspan="2" style="padding:5px 6px;border:1px solid #999;font-size:9px;font-weight:700;color:#000">
-          ${t('cattleFeedSales.pdf.grandTotal')} — ${data.length} ${t('cattleFeedSales.pdf.entries')} · ${uniqueSellersCount} ${t('cattleFeedSales.pdf.sellerCount', { count: uniqueSellersCount })}
-        </td>
-        <td style="padding:5px 6px;border:1px solid #999;font-size:9px;text-align:right;font-weight:700;color:#000">
-          ${Object.entries(qtyByUnit).map(([u, q]) => `${q.toFixed(2)} ${u}`).join(" · ")}
-        </td>
+        <td colspan="2" style="padding:5px 6px;border:1px solid #999;font-size:9px;font-weight:700;color:#000">${t('productSales.pdfGrandTotal')} — ${data.length} ${t('productSales.pdfEntries')} · ${uniqueSellersCount} ${t('productSales.pdfSeller')}${uniqueSellersCount !== 1 ? "s" : ""}</td>
+        <td style="padding:5px 6px;border:1px solid #999;font-size:9px;text-align:right;font-weight:700;color:#000">${Object.entries(qtyByUnit).map(([u, q]) => `${q.toFixed(2)} ${u}`).join(" · ")}</td>
         <td style="padding:5px 6px;border:1px solid #999;font-size:9px"></td>
         <td style="padding:5px 6px;border:1px solid #999;background:#d0d0d0;font-size:9px;text-align:right;font-weight:700;color:#000">₹${totalRevenueCalc.toFixed(2)}</td>
         <td style="padding:5px 6px;border:1px solid #999;font-size:9px"></td>
@@ -126,8 +116,8 @@ export const printSalesPDF = (data, rangeMode, fromDate, toDate, t, productLabel
   </table>
 
   <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:9px;color:#444">
-    <span>${t('cattleFeedSales.pdf.footer')}</span>
-    <span>${t('cattleFeedSales.pdf.signatory')}</span>
+    <span>${t('productSales.pdfFooter')}</span>
+    <span>${t('productSales.pdfSignatory')}</span>
   </div>
 
   <script>window.onload = () => { window.print(); };<\/script>

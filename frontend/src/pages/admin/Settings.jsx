@@ -1,17 +1,19 @@
 // src/pages/admin/Settings.jsx
 import { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { getPrintSettings, fetchPrintSettings, savePrintSettings, DEFAULT_PRINT_SETTINGS } from "../../utils/printSettings";
+import { fetchReceiptTemplate, saveReceiptTemplate, DEFAULT_RECEIPT_TEMPLATE } from "../../utils/receiptTemplate";
 import {
     Settings, Type, Save,
     BadgeCheck, AlertTriangle, X,
     Check, Lock, Unlock, RefreshCw,
     Users, Building2, Upload, Languages, Percent, Truck, Eye,
-    Home,
+    Home, FileText,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { useTranslation } from 'react-i18next';
 
 // ── All pages with their CRUD labels ─────────────────────────
 const ALL_PAGES = [
@@ -332,6 +334,25 @@ const SERVER_DEFAULTS = {
     fssaiCode: ''
 };
 
+function FontSizeInput({ value, onChange, min = 8, max = 40 }) {
+    return (
+        <label className="flex items-center gap-1.5 text-[10px] text-gray-400 shrink-0">
+            <span>Size</span>
+            <input
+                type="number"
+                min={min}
+                max={max}
+                step="0.5"
+                value={value}
+                onChange={e => onChange(Number(e.target.value) || min)}
+                className="w-14 px-1.5 py-1 rounded-lg border border-gray-200/60 bg-white/50 text-xs text-gray-700 text-center
+                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+            />
+            <span>px</span>
+        </label>
+    );
+}
+
 function SectionCard({ title, icon, children, ...rest }) {
     return (
         <div className="relative rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50" {...rest}>
@@ -373,6 +394,10 @@ export default function AdminSettings() {
     const [pageVisibility, setPageVisibility] = useState({});
     const [loadingVisibility, setLoadingVisibility] = useState(false);
     const [flash, setFlash] = useState(null);
+    const [printerType, setPrinterType] = useState(DEFAULT_PRINT_SETTINGS.printerType);
+    const [paperWidthMm, setPaperWidthMm] = useState(DEFAULT_PRINT_SETTINGS.paperWidthMm);
+    const [autoPrint, setAutoPrint] = useState(DEFAULT_PRINT_SETTINGS.autoPrint ?? true);
+    const [receiptTpl, setReceiptTpl] = useState(DEFAULT_RECEIPT_TEMPLATE);
 
     const showFlash = (type, msg) => {
         setFlash({ type, msg });
@@ -473,6 +498,21 @@ export default function AdminSettings() {
                 setPageVisibility(merged);
             })
             .finally(() => setLoadingVisibility(false));
+    }, []);
+
+    // ── Load print (receipt) settings ─────────────────────────
+    useEffect(() => {
+        fetchPrintSettings().then(({ printerType, paperWidthMm, autoPrint }) => {
+            setPrinterType(printerType);
+            setPaperWidthMm(paperWidthMm);
+            setAutoPrint(autoPrint ?? true);
+        });
+    }, []);
+
+    // ── Load receipt template (was missing — meant font sizes and
+    // every other receipt field silently reset to defaults on load) ──
+    useEffect(() => {
+        fetchReceiptTemplate().then(setReceiptTpl);
     }, []);
 
     // ── Load permissions for selected operator ──────────────
@@ -579,6 +619,9 @@ export default function AdminSettings() {
 
             await api.post('/settings/page-visibility', { visibility: pageVisibility });
 
+            await savePrintSettings({ printerType, paperWidthMm, autoPrint });
+            await saveReceiptTemplate(receiptTpl);
+
             showFlash('success', t('settings.savedSuccess'));
         } catch {
             showFlash('error', t('settings.savedError'));
@@ -596,6 +639,8 @@ export default function AdminSettings() {
         setLanguage(savedState.language);
         setFatOnlyAutofill(savedState.fatOnlyAutofill);
         setFssaiCode(SERVER_DEFAULTS.fssaiCode);
+        setPrinterType(DEFAULT_PRINT_SETTINGS.printerType);
+        setPaperWidthMm(DEFAULT_PRINT_SETTINGS.paperWidthMm);
         if (selectedOp) setOpAccess(buildDefaultAccess());
         showFlash('success', t('settings.resetSuccess'));
         const reset = {};
@@ -876,6 +921,291 @@ export default function AdminSettings() {
                                 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm placeholder:font-normal placeholder:text-gray-300"
                         />
                         <p className="text-[11px] text-gray-400 mt-2">{t('settings.fssaiCodeHint')}</p>
+                    </div>
+                </SectionCard>
+
+                {/* ── Receipt Printer ── */}
+                <SectionCard
+                    title="Receipt Printer"
+                    icon={<Truck size={16} className="text-white" />}
+                    data-tour="print-settings"
+                >
+                    <div className="flex flex-col gap-5 max-w-xl">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                Printer Type
+                            </label>
+                            <div className="flex gap-3">
+                                {[
+                                    { key: 'thermal', label: 'Thermal Roll' },
+                                    { key: 'a4', label: 'A4 Sheet' },
+                                ].map(({ key, label }) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setPrinterType(key)}
+                                        className={`px-5 py-3 rounded-xl border-2 text-sm font-semibold transition-all duration-150
+                                            ${printerType === key
+                                                ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-900 text-white shadow-lg shadow-gray-900/30'
+                                                : 'bg-white/60 backdrop-blur-sm border-gray-200/60 text-gray-700 hover:border-gray-400 hover:bg-gray-50/50 shadow-sm'}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {printerType === 'thermal' && (
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    Paper Width
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    {[58, 80].map((w) => (
+                                        <button
+                                            key={w}
+                                            type="button"
+                                            onClick={() => setPaperWidthMm(w)}
+                                            className={`px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all duration-150
+                                                ${paperWidthMm === w
+                                                    ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-900 text-white shadow-lg shadow-gray-900/30'
+                                                    : 'bg-white/60 backdrop-blur-sm border-gray-200/60 text-gray-700 hover:border-gray-400 hover:bg-gray-50/50 shadow-sm'}`}
+                                        >
+                                            {w}mm
+                                        </button>
+                                    ))}
+                                    <input
+                                        type="number"
+                                        min={40}
+                                        max={120}
+                                        value={paperWidthMm}
+                                        onChange={(e) => setPaperWidthMm(Number(e.target.value) || 80)}
+                                        className="w-24 px-3 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-800 font-semibold text-sm text-center
+                                            focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                    />
+                                </div>
+                                <p className="text-[11px] text-gray-400 mt-2">
+                                    Match this to your roll's actual width (printed on the box — 58mm or 80mm are the two common sizes). This is applied to receipt printing so it doesn't print with extra blank space or get cut off.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-200/60">
+                            <div>
+                                <label className="text-sm text-gray-700">Auto-print receipt after recording a sale</label>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                    Skips the manual "Print Receipt" click — the receipt opens the print dialog automatically right after Save. The browser's print dialog will still appear once; that's a browser security limit, not a setting.
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setAutoPrint(v => !v)}
+                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shrink-0 shadow-sm ${autoPrint ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${autoPrint ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
+                    </div>
+                </SectionCard>
+
+                {/* ── Receipt Format ── */}
+                <SectionCard title="Receipt Format" icon={<FileText size={16} className="text-white" />} data-tour="receipt-format">
+                    <p className="text-[11px] text-gray-400 mb-5">
+                        Controls what appears on every printed receipt — Cattle Feed sales, Product sales, and any future receipt type all use this same format.
+                    </p>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Fields */}
+                        <div className="flex flex-col gap-4">
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                                    Transaction ID prefix
+                                </label>
+                                <input type="text" value={receiptTpl.txnPrefix} maxLength={10}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, txnPrefix: e.target.value.toUpperCase() }))}
+                                    placeholder="KDM"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                    IDs are generated as PREFIX/FinancialYear/Number, e.g. "{receiptTpl.txnPrefix || 'KDM'}/2627/1". The financial year and running number are added automatically.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                                    Product label (currently "Feed")
+                                </label>
+                                <input type="text" value={receiptTpl.productLabel}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, productLabel: e.target.value }))}
+                                    placeholder="Feed"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                    Replaces "Feed" on the sales page and receipts (e.g. change to "Product").
+                                </p>
+                            </div>
+
+                           <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show top symbol (e.g. श्री)</label>
+                                <div className="flex items-center gap-3">
+                                    {receiptTpl.showTopSymbol && (
+                                        <FontSizeInput value={receiptTpl.topSymbolFontSize}
+                                            onChange={v => setReceiptTpl(p => ({ ...p, topSymbolFontSize: v }))} />
+                                    )}
+                                    <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showTopSymbol: !p.showTopSymbol }))}
+                                        className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showTopSymbol ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                        <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showTopSymbol ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                            {receiptTpl.showTopSymbol && (
+                                <input type="text" value={receiptTpl.topSymbolText}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, topSymbolText: e.target.value }))}
+                                    placeholder="श्री"
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                            )}
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show app/dairy name</label>
+                                <div className="flex items-center gap-3">
+                                    {receiptTpl.showAppName && (
+                                        <FontSizeInput value={receiptTpl.appNameFontSize}
+                                            onChange={v => setReceiptTpl(p => ({ ...p, appNameFontSize: v }))} />
+                                    )}
+                                    <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showAppName: !p.showAppName }))}
+                                        className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showAppName ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                        <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showAppName ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-gray-400 -mt-2">Uses the app name set in "App Identity" above.</p>
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show centre name</label>
+                                <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showCentreName: !p.showCentreName }))}
+                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showCentreName ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showCentreName ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            {receiptTpl.showCentreName && (
+                                <input type="text" value={receiptTpl.centreNameOverride}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, centreNameOverride: e.target.value }))}
+                                    placeholder="Leave blank to use your registered centre name"
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                            )}
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show transaction ID</label>
+                                <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showTransactionId: !p.showTransactionId }))}
+                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showTransactionId ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showTransactionId ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            {receiptTpl.showTransactionId && (
+                                <input type="text" value={receiptTpl.transactionIdLabel}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, transactionIdLabel: e.target.value }))}
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                            )}
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show date &amp; time row</label>
+                                <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showDateTime: !p.showDateTime }))}
+                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showDateTime ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showDateTime ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show seller code next to name</label>
+                                <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showSellerCode: !p.showSellerCode }))}
+                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showSellerCode ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showSellerCode ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Footer text</label>
+                                <input type="text" value={receiptTpl.footerText}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, footerText: e.target.value }))}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Item table text</label>
+                                <div className="flex items-center gap-3">
+                                    <FontSizeInput value={receiptTpl.tableHeaderFontSize}
+                                        onChange={v => setReceiptTpl(p => ({ ...p, tableHeaderFontSize: v }))} />
+                                    <span className="text-[10px] text-gray-300">header</span>
+                                    <FontSizeInput value={receiptTpl.tableBodyFontSize}
+                                        onChange={v => setReceiptTpl(p => ({ ...p, tableBodyFontSize: v }))} />
+                                    <span className="text-[10px] text-gray-300">rows</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Grand total row</label>
+                                <FontSizeInput value={receiptTpl.grandTotalFontSize}
+                                    onChange={v => setReceiptTpl(p => ({ ...p, grandTotalFontSize: v }))} />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show GST line</label>
+                                <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showGst: !p.showGst }))}
+                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showGst ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showGst ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            {receiptTpl.showGst && (
+                                <input type="text" value={receiptTpl.gstText}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, gstText: e.target.value }))}
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                            )}
+
+                            <div className="flex items-center justify-between gap-3">
+                                <label className="text-sm text-gray-700">Show signatory line</label>
+                                <button type="button" onClick={() => setReceiptTpl(p => ({ ...p, showSignatory: !p.showSignatory }))}
+                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm ${receiptTpl.showSignatory ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${receiptTpl.showSignatory ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            {receiptTpl.showSignatory && (
+                                <input type="text" value={receiptTpl.signatoryText}
+                                    onChange={e => setReceiptTpl(p => ({ ...p, signatoryText: e.target.value }))}
+                                    className="px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                            )}
+                        </div>
+
+                        {/* Live preview */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Live Preview</label>
+                            <div className="rounded-xl border border-gray-200/60 bg-white p-5 shadow-sm text-[13px]" style={{ fontFamily: 'Arial, sans-serif' }}>
+                                <div style={{ textAlign: 'center', borderBottom: '2px solid #111', paddingBottom: 10, marginBottom: 12 }}>
+                                    {receiptTpl.showTopSymbol && <div style={{ fontSize: receiptTpl.topSymbolFontSize, fontWeight: 700 }}>{receiptTpl.topSymbolText}</div>}
+                                    {receiptTpl.showAppName && <div style={{ fontSize: receiptTpl.appNameFontSize, fontWeight: 700, marginTop: 2 }}>{appName || 'MilkApp'}</div>}
+                                    {receiptTpl.showCentreName && <div style={{ fontSize: receiptTpl.centreNameFontSize, color: '#555', marginTop: 2 }}>{receiptTpl.centreNameOverride || 'Your Centre Name'}</div>}
+                                </div>
+                                {receiptTpl.showTransactionId && (
+                                    <div style={{ textAlign: 'center', fontSize: receiptTpl.transactionIdFontSize, color: '#666', marginBottom: 10 }}>
+                                        {receiptTpl.transactionIdLabel}: {receiptTpl.txnPrefix || 'KDM'}/2627/1
+                                    </div>
+                                )}
+                                {receiptTpl.showDateTime && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: receiptTpl.dateTimeFontSize, borderBottom: '1px dashed #ddd', paddingBottom: 6, marginBottom: 10 }}>
+                                        <span>23/08/2026</span><span>10:45 AM</span>
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: receiptTpl.sellerNameFontSize, marginBottom: 12 }}>
+                                    <span style={{ fontWeight: 600 }}>Ramesh Kumar Patil</span>
+                                    {receiptTpl.showSellerCode && <span style={{ fontSize: receiptTpl.sellerCodeFontSize, color: '#666' }}>SC-001</span>}
+                                </div>
+                                <div style={{ borderTop: '1px dashed #ccc', paddingTop: 10, fontSize: receiptTpl.tableBodyFontSize, color: '#999', textAlign: 'center' }}>[ item table here ]</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: receiptTpl.footerFontSize, color: '#666', marginTop: 14, paddingTop: 8, borderTop: '1px solid #eee' }}>
+                                    <span>{receiptTpl.footerText}</span>
+                                    {receiptTpl.showGst && <span>{receiptTpl.gstText}</span>}
+                                </div>
+                                {receiptTpl.showSignatory && (
+                                    <div style={{ textAlign: 'right', fontSize: receiptTpl.signatoryFontSize, marginTop: 20, paddingTop: 6, borderTop: '1px solid #111', width: 140, marginLeft: 'auto' }}>
+                                        {receiptTpl.signatoryText}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </SectionCard>
 

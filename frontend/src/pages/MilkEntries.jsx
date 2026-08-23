@@ -1202,22 +1202,27 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
     };
 
     const handleSellerCodeChange = (code) => {
-        setSellerCodeInput(code);
-        if (!code.trim()) {
-            setForm(p => ({ ...p, seller_id: "", seller_code: "", seller_type: p.seller_type }));
-            setSellerSearch("");
-            return;
-        }
-        const found = sellers.find(s =>
-            s.seller_code && s.seller_code.toLowerCase() === code.trim().toLowerCase()
-        );
-        if (found) {
-            handleSellerChange(found.seller_id);
-        } else {
-            setForm(p => ({ ...p, seller_code: code, seller_id: "" }));
-        }
-    };
-
+    setSellerCodeInput(code);
+    if (!code.trim()) {
+        setForm(p => ({ ...p, seller_id: "", seller_code: "", seller_type: p.seller_type }));
+        setSellerSearch("");
+        return;
+    }
+    const found = sellers.find(s =>
+        s.seller_code && s.seller_code.toLowerCase() === code.trim().toLowerCase()
+    );
+    if (found && !(found.is_active === 1 || found.is_active === true)) {
+        showFlash("error", `${found.name} is marked Inactive and cannot sell milk. Reactivate the seller first.`);
+        setForm(p => ({ ...p, seller_id: "", seller_code: "", seller_type: p.seller_type }));
+        setSellerSearch("");
+        return;
+    }
+    if (found) {
+        handleSellerChange(found.seller_id);
+    } else {
+        setForm(p => ({ ...p, seller_code: code, seller_id: "" }));
+    }
+};
     const addMilkFromScale = () => {
         const val = parseFloat(machineQty2);
         if (!val || val <= 0) {
@@ -1240,6 +1245,11 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
 
     const handleSave = async () => {
         if (!form.seller_id) { showFlash("error", t('milkEntry.selectSeller')); return; }
+        const activeCheckSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
+        if (activeCheckSeller && !(activeCheckSeller.is_active === 1 || activeCheckSeller.is_active === true)) {
+            showFlash("error", `${activeCheckSeller.name} is marked Inactive. Reactivate the seller before recording milk entries.`);
+            return;
+        }
         if (!form.quantity) { showFlash("error", t('milkEntry.qtyRequired')); return; }
         if (!form.fat) { showFlash("error", t('milkEntry.fatRequired')); return; }
         if (!form.snf) { showFlash("error", t('milkEntry.snfRequired')); return; }
@@ -1325,6 +1335,11 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
     };
 
     const handleUpdate = async () => {
+        const activeCheckSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
+        if (activeCheckSeller && !(activeCheckSeller.is_active === 1 || activeCheckSeller.is_active === true)) {
+            showFlash("error", `${activeCheckSeller.name} is marked Inactive. Reactivate the seller before updating milk entries.`);
+            return;
+        }
         if (!form.quantity || !form.fat || !form.snf || !form.rate_applied) {
             showFlash("error", t('milkEntry.allFieldsRequired')); return;
         }
@@ -1430,14 +1445,15 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
     };
 
     const filteredSellers = (() => {
-        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
-        if (!sellerSearch.trim()) return sorted.slice(0, 5);
-        const matched = sorted.filter((s) =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
-        );
-        return matched.slice(0, 5);
-    })();
+    const activeSellers = sellers.filter((s) => s.is_active === 1 || s.is_active === true);
+    const sorted = [...activeSellers].sort((a, b) => a.name.localeCompare(b.name));
+    if (!sellerSearch.trim()) return sorted.slice(0, 5);
+    const matched = sorted.filter((s) =>
+        s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
+        (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
+    );
+    return matched.slice(0, 5);
+})();
 
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 
@@ -1744,7 +1760,10 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                                     const exact = trimmed && sellers.find(
                                                         (s) => (s.seller_code || "").trim().toLowerCase() === trimmed.toLowerCase()
                                                     );
-                                                    if (exact) {
+                                                    if (exact && !(exact.is_active === 1 || exact.is_active === true)) {
+                                                        showFlash("error", `${exact.name} is marked Inactive and cannot sell milk.`);
+                                                        setDropdownOpen(false);
+                                                    } else if (exact) {
                                                         handleSellerChange(exact.seller_id);
                                                         setSellerSearch(exact.name || "");
                                                         setDropdownOpen(false);

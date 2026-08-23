@@ -1206,6 +1206,11 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
 
     const handleSave = async () => {
         if (!form.seller_id) { showFlash("error", t('milkEntry.selectSeller')); return; }
+        const activeCheckSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
+        if (activeCheckSeller && !(activeCheckSeller.is_active === 1 || activeCheckSeller.is_active === true)) {
+            showFlash("error", `${activeCheckSeller.name} is marked Inactive. Reactivate the seller before recording milk entries.`);
+            return;
+        }
         if (!form.quantity) { showFlash("error", t('milkEntry.qtyRequired')); return; }
         if (!form.fat) { showFlash("error", t('milkEntry.fatRequired')); return; }
         if (!form.snf) { showFlash("error", t('milkEntry.snfRequired')); return; }
@@ -1286,6 +1291,11 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
     };
 
     const handleUpdate = async () => {
+        const activeCheckSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
+        if (activeCheckSeller && !(activeCheckSeller.is_active === 1 || activeCheckSeller.is_active === true)) {
+            showFlash("error", `${activeCheckSeller.name} is marked Inactive. Reactivate the seller before updating milk entries.`);
+            return;
+        }
         if (!form.quantity || !form.fat || !form.snf || !form.rate_applied) {
             showFlash("error", t('milkEntry.allFieldsRequired')); return;
         }
@@ -1590,14 +1600,15 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
     };
 
     const filteredSellers = (() => {
-        const sorted = [...sellers].sort((a, b) => a.name.localeCompare(b.name));
-        if (!sellerSearch.trim()) return sorted.slice(0, 5);
-        const matched = sorted.filter((s) =>
-            s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
-            (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
-        );
-        return matched.slice(0, 5);
-    })();
+    const activeSellers = sellers.filter((s) => s.is_active === 1 || s.is_active === true);
+    const sorted = [...activeSellers].sort((a, b) => a.name.localeCompare(b.name));
+    if (!sellerSearch.trim()) return sorted.slice(0, 5);
+    const matched = sorted.filter((s) =>
+        s.name.toLowerCase().includes(sellerSearch.toLowerCase()) ||
+        (s.seller_code || "").toLowerCase().includes(sellerSearch.toLowerCase())
+    );
+    return matched.slice(0, 5);
+})();
 
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 

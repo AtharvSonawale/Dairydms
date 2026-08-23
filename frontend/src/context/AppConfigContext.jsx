@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import i18n from '../i18n';
 import api from '../api/axios';
 import { useAuth } from './AuthContext';
+import { fetchCentreName } from '../utils/centreName';
 
 const AppConfigContext = createContext({
     appName: 'MilkApp',
@@ -10,6 +11,7 @@ const AppConfigContext = createContext({
     language: 'en',
     textSize: 'base',
     fatOnlyAutofill: false,
+    centreName: '',
     updateConfig: () => { },
     loaded: false,
 });
@@ -21,6 +23,7 @@ export function AppConfigProvider({ children }) {
     const [language, setLanguage] = useState('en');
     const [textSize, setTextSize] = useState('base');
     const [fatOnlyAutofill, setFatOnlyAutofill] = useState(false);
+    const [centreName, setCentreName] = useState('');
     const [loaded, setLoaded] = useState(false);
 
     // Apply the hard defaults (medium / English) immediately on boot, before
@@ -59,7 +62,14 @@ export function AppConfigProvider({ children }) {
                         applyFontSize(data.text_size);
                     }
                 })
-                .catch(() => { /* keep defaults */ })
+                .catch(() => { /* keep defaults */ });
+
+            // Centre name — cached to localStorage inside fetchCentreName()
+            // so renderReceiptHeader() can read it synchronously without
+            // needing this context.
+            fetchCentreName()
+                .then(setCentreName)
+                .catch(() => { /* keep default */ })
                 .finally(() => setLoaded(true));
         } else {
             setLoaded(true);
@@ -86,10 +96,14 @@ export function AppConfigProvider({ children }) {
         if (patch.fatOnlyAutofill !== undefined) {
             setFatOnlyAutofill(patch.fatOnlyAutofill);
         }
+        if (patch.centreName !== undefined) {
+            setCentreName(patch.centreName);
+            cacheCentreName(patch.centreName);
+        }
     };
 
     return (
-        <AppConfigContext.Provider value={{ appName, logoUrl, language, textSize, fatOnlyAutofill, updateConfig, loaded }}>
+        <AppConfigContext.Provider value={{ appName, logoUrl, language, textSize, fatOnlyAutofill, centreName, updateConfig, loaded }}>
             {children}
         </AppConfigContext.Provider>
     );

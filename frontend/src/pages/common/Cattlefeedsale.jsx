@@ -8,13 +8,16 @@ import {
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
     Home
 } from "lucide-react";
+// AFTER
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
+import { useAppConfig } from '../../context/AppConfigContext';
 import AccessDenied from '../../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { printSalesPDF } from '../../components/CattleFeedSalesPDF';
 import { printReceipt } from '../../components/CattleFeedReceipt';
+import { getPrintSettings } from '../../utils/printSettings';
 
 // ── focus helper ──────────────────────────────────────────────
 function focusNextField(current) {
@@ -405,8 +408,7 @@ function SpeedFeedConfigModal({ open, onClose, feeds, showFlash }) {
     );
 }
 
-function SpeedStripInForm({ onTap }) {
-    const { t } = useTranslation();
+function SpeedStripInForm({ onTap, t }) {
     const [speedFeeds, setSpeedFeeds] = useState([]);
     const [cols, setCols] = useState(7);
     const stripRef = useRef(null);
@@ -540,6 +542,18 @@ function SpeedStripInForm({ onTap }) {
 export default function CattleFeedSales() {
     const { t } = useTranslation();
     const { can, loading: permLoading } = usePermission();
+    const { appName } = useAppConfig();
+    const [centreName, setCentreName] = useState("");
+    const [productLabel, setProductLabel] = useState("");
+
+    useEffect(() => {
+        api.get('/settings/system-info')
+            .then(({ data }) => setCentreName(data?.centre?.centre_name || ""))
+            .catch(() => { });
+        api.get('/settings/receipt-template')
+            .then(({ data }) => setProductLabel(data?.productLabel || ""))
+            .catch(() => { });
+    }, []);
     const [form, setForm] = useState({ seller_id: "", seller_code: "" });
     const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
@@ -602,28 +616,28 @@ export default function CattleFeedSales() {
                     element: '[data-tour="sales-header-actions"]',
                     popover: {
                         title: t('cattleFeedSales.dateLabel'),
-                        description: t('cattleFeedSales.tourDateDesc', 'Pick a date or range, switch between daily/weekly/monthly, and download a PDF report. Use Speed Config to set up quick‑tap feed buttons.')
+                        description: t('cattleFeedSales.tourDateDesc')
                     },
                 },
                 {
                     element: '[data-tour="sales-stats"]',
                     popover: {
                         title: t('cattleFeedSales.stats.todaySales'),
-                        description: t('cattleFeedSales.tourStatsDesc', 'Live counts of sales, total revenue, and unique sellers served.')
+                        description: t('cattleFeedSales.tourStatsDesc')
                     },
                 },
                 {
                     element: '[data-tour="sales-form"]',
                     popover: {
                         title: t('cattleFeedSales.form.title'),
-                        description: t('cattleFeedSales.tourFormDesc', 'Search for a seller, add feed lines via the quick strip or search, and record the sale. Totals update automatically.')
+                        description: t('cattleFeedSales.tourFormDesc')
                     },
                 },
                 {
                     element: '[data-tour="sales-table"]',
                     popover: {
                         title: t('cattleFeedSales.table.headers.seller'),
-                        description: t('cattleFeedSales.tourTableDesc', 'List of all sales in the selected period. Print receipts, edit quantities/rates, or delete a sale (stock is reversed).')
+                        description: t('cattleFeedSales.tourTableDesc')
                     },
                 },
             ],
@@ -859,7 +873,7 @@ export default function CattleFeedSales() {
         if (saving) return;
         setSaving(true);
         try {
-            await api.post("/cattle-feed-sales", {
+            const { data: created } = await api.post("/cattle-feed-sales", {
                 seller_id: Number(form.seller_id),
                 sale_date: selectedDate,
                 lines: validLines.map(l => ({
@@ -871,6 +885,29 @@ export default function CattleFeedSales() {
             await fetchSales(selectedDate);
             await fetchFeeds();
             showFlash("success", t('cattleFeedSales.form.saleRecorded'));
+
+            // ── Auto-print the receipt immediately, no manual click ──
+            const { autoPrint } = getPrintSettings();
+            if (autoPrint && created?.items?.length) {
+                const first = created.items[0];
+                const txnForPrint = {
+                    transaction_id: created.transaction_id,
+                    seller_name: first.seller_name,
+                    seller_code: first.seller_code,
+                    sale_date: first.sale_date,
+                    created_at: first.created_at,
+                    items: created.items.map(item => ({
+                        sale_id: item.sale_id,
+                        feed_name: item.feed_name,
+                        unit: item.unit,
+                        quantity: item.quantity,
+                        rate: item.rate,
+                        total_amount: item.total_amount,
+                    })),
+                };
+                handlePrintReceipt(txnForPrint);
+            }
+
             setForm({ seller_id: "", seller_code: "" });
             setLines([{ ...EMPTY_LINE, _key: Date.now() }]);
             setLineFeedSearch({});
@@ -925,11 +962,11 @@ export default function CattleFeedSales() {
 
     const handleDownloadPDF = () => {
         const baseData = rangeMode === "daily" ? sales : (pdfReady ? rangeEntries : sales);
-        printSalesPDF(baseData, rangeMode, fromDate, toDate, t);
+        printSalesPDF(baseData, rangeMode, fromDate, toDate, t, productLabel);
     };
 
     const handlePrintReceipt = (txn) => {
-        printReceipt(txn, t);
+        printReceipt(txn, t, appName, centreName);
     };
 
     const activeData = rangeMode === "daily" ? sales : (pdfReady ? rangeEntries : []);
@@ -944,7 +981,7 @@ export default function CattleFeedSales() {
 
     const COLS = [
         t('cattleFeedSales.table.headers.seller'),
-        t('cattleFeedSales.table.headers.feed'),
+        productLabel || t('cattleFeedSales.table.headers.feed'),
         t('cattleFeedSales.table.headers.qty'),
         t('cattleFeedSales.table.headers.rate'),
         t('cattleFeedSales.table.headers.total'),
@@ -1102,7 +1139,7 @@ export default function CattleFeedSales() {
                         <div data-entry-form onKeyDown={handleFormKeyDown}>
                             {/* ── FIXED: Seller row with Code and Name fields ── */}
                             <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
-                                <Field label={t('cattleFeedSales.form.sellerCode') || 'Code'} icon={<User size={12} />}>
+                                <Field label={t('cattleFeedSales.form.sellerCode')} icon={<User size={12} />}>
                                     <TinyInput
                                         ref={sellerCodeRef}
                                         value={sellerCodeInput}
@@ -1112,7 +1149,7 @@ export default function CattleFeedSales() {
                                     />
                                 </Field>
 
-                                <Field label={t('cattleFeedSales.form.seller') || 'Seller'} icon={<User size={12} />}>
+                                <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
                                     <div className="relative" style={{ width: "220px" }}>
                                         <TinyInput
                                             value={sellerSearch}
@@ -1147,15 +1184,15 @@ export default function CattleFeedSales() {
                                                     setShowSellerDrop(false);
                                                 }
                                             }}
-                                            placeholder={t('cattleFeedSales.form.sellerPlaceholder') || 'Search by name or code...'}
+                                            placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
                                             className="pr-7 w-full"
                                         />
                                         {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
                                             <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
                                                     {sellerSearch.trim() || sellerCodeInput.trim()
-                                                        ? `${filteredSellers.length} match${filteredSellers.length !== 1 ? 'es' : ''} found`
-                                                        : 'All sellers (A-Z)'}
+                                                        ? `${filteredSellers.length} ${t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })}`
+                                                        : t('cattleFeedSales.form.sellersAZ')}
                                                 </p>
                                                 {filteredSellers.map((s, idx) => (
                                                     <button key={s.seller_id} type="button"
@@ -1196,16 +1233,16 @@ export default function CattleFeedSales() {
                                 rate: String(sp.mrp_rate || sp.rate || ""),
                                 mrp_rate: String(sp.mrp_rate || ""),
                                 _key: Date.now() + Math.random(),
-                            }])} />
+                            }])} t={t} />
 
                             {/* Feed lines */}
                             <div className="flex flex-col gap-3 mb-4">
                                 <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
                                     style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
-                                    <span>{t('cattleFeedSales.form.feed') || 'Feed'}</span>
-                                    <span>{t('cattleFeedSales.form.qty') || 'Qty'}</span>
-                                    <span>{t('cattleFeedSales.form.rate') || 'Rate'}</span>
-                                    <span>{t('cattleFeedSales.form.total') || 'Total'}</span>
+                                    <span>{productLabel || t('cattleFeedSales.form.feed')}</span>
+                                    <span>{t('cattleFeedSales.form.qty')}</span>
+                                    <span>{t('cattleFeedSales.form.rate')}</span>
+                                    <span>{t('cattleFeedSales.form.total')}</span>
                                     <span />
                                 </div>
 
@@ -1235,7 +1272,7 @@ export default function CattleFeedSales() {
                                                         setShowFeedDrop(p => ({ ...p, [line._key]: false }));
                                                         setLineFeedSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
                                                     }, 150)}
-                                                    placeholder={t('cattleFeedSales.form.feedPlaceholder') || 'Search feed...'}
+                                                    placeholder={t('cattleFeedSales.form.feedPlaceholder')}
                                                     className="w-full"
                                                 />
                                                 {showFeedDrop[line._key] && (
@@ -1259,7 +1296,7 @@ export default function CattleFeedSales() {
                                                                     <p className="text-[10px] text-gray-400">
                                                                         {f.supplier_name && <span className="text-violet-500 font-semibold">{f.supplier_name}</span>}
                                                                         {f.supplier_name && " · "}
-                                                                        {`Stock: ${parseFloat(f.current_stock || 0).toFixed(1)} ${f.unit}`}
+                                                                        {`${t('cattleFeedSales.form.stockLabel', { amount: parseFloat(f.current_stock || 0).toFixed(1), unit: f.unit })}`}
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-[10px] text-violet-600 font-semibold">
@@ -1271,8 +1308,8 @@ export default function CattleFeedSales() {
                                                 )}
                                                 {lineFeed && (
                                                     <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineFeed.current_stock) <= 0 ? "text-rose-500" : "text-emerald-600"}`}>
-                                                        {`Stock: ${parseFloat(lineFeed.current_stock || 0).toFixed(2)} ${lineFeed.unit}`}
-                                                        {parseFloat(lineFeed.current_stock) <= 0 && ` · Out of Stock`}
+                                                        {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(lineFeed.current_stock || 0).toFixed(2), unit: lineFeed.unit })}
+                                                        {parseFloat(lineFeed.current_stock) <= 0 && ` · ${t('cattleFeedSales.form.outOfStock')}`}
                                                     </p>
                                                 )}
                                             </div>
@@ -1323,14 +1360,14 @@ export default function CattleFeedSales() {
                             <div className="flex items-center justify-between mb-4">
                                 <button type="button" onClick={addLine}
                                     className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500/60 px-3 py-1.5 rounded-xl transition">
-                                    <span className="text-base leading-none">+</span> {t('cattleFeedSales.form.addFeed') || 'Add feed'}
+                                    <span className="text-base leading-none">+</span> {t('cattleFeedSales.form.addFeed')}
                                 </button>
                                 {grandFormTotal > 0 && (
                                     <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
                                         <span className="text-xs text-gray-400 font-medium">
                                             {`${lines.filter(l => l.feed_id).length} feeds · `}
                                         </span>
-                                        {t('cattleFeedSales.form.grandTotal') || 'Grand Total'}
+                                        {t('cattleFeedSales.form.grandTotal')}
                                         <span className="text-emerald-700">₹{grandFormTotal.toFixed(2)}</span>
                                     </div>
                                 )}
@@ -1338,11 +1375,11 @@ export default function CattleFeedSales() {
 
                             <div className="flex items-center justify-between pt-4 border-t border-gray-200/60">
                                 <p className="text-xs text-gray-400">
-                                    {`${sales.length} entries on `}
+                                    {`${sales.length} ${t('cattleFeedSales.table.entries', { count: sales.length })} on `}
                                     {new Date(selectedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                                     {totalRevenue > 0 && (
                                         <span className="ml-2 text-emerald-600 font-semibold">
-                                            {`Total: ₹${totalRevenue.toFixed(2)}`}
+                                            {t('cattleFeedSales.table.totalRevenue', { amount: totalRevenue.toFixed(2) })}
                                         </span>
                                     )}
                                 </p>
@@ -1350,7 +1387,7 @@ export default function CattleFeedSales() {
                                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all
                 ${saving ? "bg-gray-300 cursor-not-allowed" : "bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 active:scale-95"}`}>
                                     <Save size={15} />
-                                    {saving ? t('cattleFeedSales.form.saving') || 'Saving...' : t('cattleFeedSales.form.recordSale') || 'Record Sale'}
+                                    {saving ? t('cattleFeedSales.form.saving') : t('cattleFeedSales.form.recordSale')}
                                 </button>
                             </div>
                         </div>
@@ -1500,7 +1537,7 @@ export default function CattleFeedSales() {
                             </div>
                             <div className="px-3 py-2.5 border-r border-gray-200/60" />
                             <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
-                                ₹{totalRevenue.toFixed(2)}
+                                {t('cattleFeedSales.table.totalRevenue', { amount: totalRevenue.toFixed(2) })}
                             </div>
                             <div className="px-3 py-2.5" />
                         </div>

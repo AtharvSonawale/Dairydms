@@ -1,5 +1,14 @@
 // CattleFeedReceipt.jsx
-export const printReceipt = (txn, t) => {
+import { getPrintSettings } from "../utils/printSettings";
+import { getReceiptTemplate } from "../utils/receiptTemplate";
+import { renderReceiptHeader, renderReceiptFooter } from "../utils/receiptTemplateRenderer";
+
+export const printReceipt = (txn, t, appName, centreName) => {
+  const { printerType, paperWidthMm } = getPrintSettings();
+  const tpl = getReceiptTemplate();
+  const isThermal = printerType === "thermal";
+  const displayAppName = appName || t('appName') || 'CATTLE FEED SALES';
+  const displayCentreName = centreName || t('cattleFeedSales.receipt.centerName') || 'Cattle Feed Sales Center';
   const dateStr = new Date(txn.sale_date).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "2-digit",
@@ -16,7 +25,7 @@ export const printReceipt = (txn, t) => {
   const itemRows = txn.items.map((item, i) => `
     <tr>
       <td style="text-align:center;padding:6px 8px;border-bottom:1px solid #ddd;">${i + 1}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #ddd;">${item.feed_name || "—"}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #ddd;">${item.feed_name || t('cattleFeedSales.receipt.unknown') || "—"}</td>
       <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${parseFloat(item.quantity).toFixed(2)}</td>
       <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${parseFloat(item.rate).toFixed(2)}</td>
       <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;">${parseFloat(item.total_amount || item.quantity * item.rate).toFixed(2)}</td>
@@ -24,26 +33,34 @@ export const printReceipt = (txn, t) => {
   `).join("");
 
   const grandTotal = txn.items.reduce((s, i) => s + parseFloat(i.total_amount || i.quantity * i.rate || 0), 0);
+  const showDateTime = tpl.showDateTime;
+  const showSellerCode = tpl.showSellerCode;
 
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8"/>
-      <title>Receipt_${txn.transaction_id}</title>
+      <title>${t('cattleFeedSales.receipt.title') || 'Receipt'}_${txn.transaction_id}</title>
       <style>
         * {
+          letter-spacing: -0.04em;
           margin: 0;
           padding: 0;
           box-sizing: border-box;
         }
+        @page {
+          size: ${isThermal ? `${paperWidthMm}mm auto` : "A4"};
+          margin: ${isThermal ? "4mm" : "12mm"};
+        }
         body {
           font-family: 'Arial', 'Helvetica', sans-serif;
-          padding: 30px;
+          padding: ${isThermal ? "0 4px" : "30px"};
           color: #111;
-          max-width: 580px;
+          max-width: ${isThermal ? `${paperWidthMm - 10}mm` : "580px"};
+          width: ${isThermal ? `${paperWidthMm - 10}mm` : "auto"};
           margin: 0 auto;
-          font-size: 13px;
+          font-size: ${isThermal ? "11px" : "13px"};
           background: #fff;
         }
         .header {
@@ -53,41 +70,41 @@ export const printReceipt = (txn, t) => {
           margin-bottom: 16px;
         }
         .shri {
-          font-size: 28px;
+          font-size: ${tpl.topSymbolFontSize}px;
           font-weight: 700;
           color: #111;
-          letter-spacing: 2px;
+          letter-spacing: -2px;
           margin-bottom: 2px;
         }
         .app-name {
-          font-size: 20px;
+          font-size: ${tpl.appNameFontSize}px;
           font-weight: 700;
           color: #111;
-          letter-spacing: 1px;
+          letter-spacing: -1px;
           margin-top: 2px;
         }
         .center-name {
-          font-size: 14px;
+          font-size: ${tpl.centreNameFontSize}px;
           font-weight: 500;
           color: #333;
           margin-top: 2px;
         }
         .transaction-id {
           text-align: center;
-          font-size: 11px;
+          font-size: ${tpl.transactionIdFontSize}px;
           color: #666;
           margin: 8px 0 12px 0;
-          letter-spacing: 0.05em;
+          letter-spacing: -0.05em;
           font-weight: 600;
         }
         .info-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 6px 0;
+          padding: 6px 4px 6px 0;
           border-bottom: 1px dashed #ddd;
           margin-bottom: 12px;
-          font-size: 13px;
+          font-size: ${tpl.dateTimeFontSize}px;
         }
         .info-row .left {
           font-weight: 600;
@@ -106,10 +123,10 @@ export const printReceipt = (txn, t) => {
           background: #f5f5f5;
           color: #111;
           padding: 8px 8px;
-          font-size: 11px;
+          font-size: ${tpl.tableHeaderFontSize}px;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: -0.5px;
           border-bottom: 2px solid #111;
           text-align: left;
         }
@@ -138,7 +155,7 @@ export const printReceipt = (txn, t) => {
         }
         tbody td {
           padding: 6px 8px;
-          font-size: 12.5px;
+          font-size: ${tpl.tableBodyFontSize}px;
         }
         tbody td:nth-child(1) {
           text-align: center;
@@ -156,26 +173,26 @@ export const printReceipt = (txn, t) => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 15px;
+          font-size: ${tpl.grandTotalFontSize}px;
           font-weight: 700;
         }
         .grand-total-row .label {
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: -0.5px;
           color: #111;
         }
         .grand-total-row .amount {
           color: #111;
-          font-size: 16px;
+          font-size: ${tpl.grandTotalFontSize + 1}px;
         }
         .footer {
           margin-top: 24px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-top: 12px;
+          padding: 12px 4px 0 0;
           border-top: 1px solid #ddd;
-          font-size: 11px;
+          font-size: ${tpl.footerFontSize}px;
           color: #666;
         }
         .footer .left {
@@ -194,12 +211,12 @@ export const printReceipt = (txn, t) => {
           margin-left: auto;
           text-align: center;
           border-top: 1px solid #111;
-          font-size: 12px;
+          font-size: ${tpl.signatoryFontSize}px;
           color: #555;
         }
         @media print {
           body {
-            padding: 20px;
+            padding: ${isThermal ? "0 4px" : "20px"};
           }
           .no-print {
             display: none;
@@ -215,36 +232,28 @@ export const printReceipt = (txn, t) => {
       </style>
     </head>
     <body>
-      <!-- Header -->
-      <div class="header">
-        <div class="shri">श्री</div>
-        <div class="app-name">${t('appName') || 'CATTLE FEED SALES'}</div>
-        <div class="center-name">${t('centerName') || 'Cattle Feed Sales Center'}</div>
-      </div>
+            <!-- Header (fully driven by the saved receipt template) -->
+      ${renderReceiptHeader({ appName: displayAppName, centreName, transactionId: txn.transaction_id, t })}
 
-      <!-- Transaction ID -->
-      <div class="transaction-id">
-        Transaction ID: ${txn.transaction_id}
-      </div>
-
-      <!-- Info Row: Date & Time -->
+            <!-- Info Row: Date & Time -->
+      ${showDateTime ? `
       <div class="info-row">
         <span class="left">${dateStr}</span>
         <span class="right">${timeStr}</span>
-      </div>
+      </div>` : ''}
 
       <!-- Seller Info -->
-      <div style="margin-bottom: 12px; padding: 6px 0; font-size: 13px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; padding: 6px 4px 6px 0; font-size: ${tpl.sellerNameFontSize}px;">
         <span style="font-weight: 600; color: #333;">${txn.seller_name || "—"}</span>
-        ${txn.seller_code ? `<span style="color: #666; margin-left: 8px; font-size: 12px;">(${txn.seller_code})</span>` : ''}
+        ${showSellerCode && txn.seller_code ? `<span style="font-size: ${tpl.sellerCodeFontSize}px; color: #666; font-weight: 500;">Farmer Code: ${txn.seller_code}</span>` : ''}
       </div>
 
       <!-- Table -->
       <table>
         <thead>
           <tr>
-            <th>#</th>
-            <th>${t('cattleFeedSales.receipt.feed') || 'Feed'}</th>
+            <th>${t('cattleFeedSales.receipt.no') || '#'}</th>
+            <th>${tpl.productLabel || t('cattleFeedSales.receipt.feed') || 'Feed'}</th>
             <th>${t('cattleFeedSales.receipt.qty') || 'Qty'}</th>
             <th>${t('cattleFeedSales.receipt.rate') || 'Rate'}</th>
             <th>${t('cattleFeedSales.receipt.amount') || 'Amount'}</th>
@@ -261,50 +270,42 @@ export const printReceipt = (txn, t) => {
         <span class="amount">₹${grandTotal.toFixed(2)}</span>
       </div>
 
-      <!-- Footer -->
-      <div class="footer">
-        <span class="left">${t('cattleFeedSales.receipt.footer') || 'Thank you for your business'}</span>
-        <span class="right">${t('cattleFeedSales.receipt.gst') || 'GST: 27AABCQ1234D1ZP'}</span>
+       <!-- Footer (fully driven by the saved receipt template) -->
+      ${renderReceiptFooter()}
+
+      <!-- Hardcoded advertising line — not user-configurable -->
+      <div style="text-align:start; margin-top: 14px; padding-top: 8px; font-size: 8px; letter-spacing: -0.6px; color: #999;">
+        PRAVAS DIGITAL VISION SYSTEMS PVT. LTD.
       </div>
 
-      <!-- Signature -->
-      <div class="signature">
-        ${t('cattleFeedSales.receipt.signatory') || 'Authorized Signatory'}
-      </div>
-
-      <!-- Print Button (visible only on screen) -->
-      <div style="text-align: center; margin-top: 20px;" class="no-print">
-        <button onclick="window.print()" style="padding: 8px 24px; background: #111; color: #fff; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;">
-          🖨️ ${t('cattleFeedSales.receipt.print') || 'Print Receipt'}
-        </button>
-        <button onclick="window.close()" style="padding: 8px 24px; margin-left: 8px; background: #f0f0f0; color: #333; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;">
-          ✕ ${t('cattleFeedSales.receipt.close') || 'Close'}
-        </button>
-      </div>
-
-      <script>
-        // Auto-print when loaded
-        window.onload = function() {
-          // Small delay to ensure everything renders
-          setTimeout(function() {
-            window.print();
-          }, 500);
-        };
-      </script>
-    </body>
+      </body>
     </html>
   `;
+  // Print via a hidden iframe instead of a new tab — no extra page,
+  // no manual "download"/"print" click. The OS print dialog still
+  // appears once (browsers won't skip that for security reasons),
+  // but it opens immediately and defaults to the system default printer.
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
 
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if (win) {
-    win.onload = () => {
-      win.document.title = `Receipt_${txn.transaction_id}`;
-      // Keep the URL for a bit longer
-      setTimeout(() => {
-        // Don't revoke immediately to allow printing
-      }, 3000);
-    };
-  }
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  iframe.onload = () => {
+    // small delay lets fonts/images settle before the print dialog opens
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      // clean up after the print dialog has been dismissed
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 300);
+  };
 };

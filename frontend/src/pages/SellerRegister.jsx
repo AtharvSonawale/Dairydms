@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -195,6 +195,39 @@ function TableCell({ children, className = "" }) {
     );
 }
 
+// ── flash / toast timing ────────────────────────────────────────
+const FLASH_DURATION = 3500;
+const FLASH_ANIM_MS = 420;
+
+// ── Sliding toast alert ──────────────────────────────────────
+function FlashToast({ flash, phase, onClose }) {
+    if (!flash) return null;
+    const isVisible = phase === "visible";
+    return (
+        <div
+            className="fixed top-4 right-4 z-[9999] pointer-events-none"
+            style={{ maxWidth: "min(92vw, 420px)" }}
+        >
+            <div
+                className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl text-base font-semibold shadow-2xl backdrop-blur-sm border
+                    ${flash.type === "success" ? "bg-emerald-50/95 border-emerald-200/70 text-emerald-700" : "bg-rose-50/95 border-rose-200/70 text-rose-600"}`}
+                style={{
+                    transform: isVisible ? "translateX(0)" : "translateX(150%)",
+                    opacity: isVisible ? 1 : 0,
+                    transition: `transform ${FLASH_ANIM_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${FLASH_ANIM_MS}ms ease`,
+                }}
+            >
+                {flash.type === "error" && <AlertTriangle size={18} className="shrink-0" />}
+                {flash.type === "success" && <BadgeCheck size={18} className="shrink-0" />}
+                <span className="flex-1">{flash.msg}</span>
+                <button onClick={onClose} className="opacity-50 hover:opacity-100 transition shrink-0">
+                    <X size={16} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ── Main ──────────────────────────────────────────────────────
 export default function SellerRegister() {
     const { t } = useTranslation();
@@ -208,12 +241,18 @@ export default function SellerRegister() {
     const [editingId, setEditingId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
     const [flash, setFlash] = useState(null);
+    const [flashPhase, setFlashPhase] = useState("idle");
+    const flashHideTimer = useRef(null);
+    const flashClearTimer = useRef(null);
     const [showForm, setShowForm] = useState(false);
-    const [filter, setFilter] = useState("all");
-    const [searchTerm, setSearchTerm] = useState("");
+    const [filter, setFilter] = useState(() => sessionStorage.getItem('sellerRegister_filter') || "all");
+    const [searchTerm, setSearchTerm] = useState(() => sessionStorage.getItem('sellerRegister_searchTerm') || "");
     const [pageSize, setPageSize] = useState(10);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [hasPassword, setHasPassword] = useState(false);
+    const [currentPage, setCurrentPage] = useState(() => {
+        const saved = sessionStorage.getItem('sellerRegister_currentPage');
+        const n = saved ? parseInt(saved, 10) : 1;
+        return Number.isNaN(n) || n < 1 ? 1 : n;
+    });    const [hasPassword, setHasPassword] = useState(false);
     const [codeSortDirection, setCodeSortDirection] = useState('asc'); // null | 'asc' | 'desc'
 
     // Cycles: none -> ascending -> descending -> none
@@ -235,7 +274,25 @@ export default function SellerRegister() {
         if (bNum !== null) return 1;
         return aCode.localeCompare(bCode);
     };
-    const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 3500); };
+
+    const showFlash = (type, msg) => {
+        clearTimeout(flashHideTimer.current);
+        clearTimeout(flashClearTimer.current);
+        setFlash({ type, msg });
+        setFlashPhase("idle");
+        requestAnimationFrame(() => requestAnimationFrame(() => setFlashPhase("visible")));
+        flashHideTimer.current = setTimeout(() => {
+            setFlashPhase("idle");
+            flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
+        }, FLASH_DURATION);
+    };
+
+    const dismissFlash = () => {
+        clearTimeout(flashHideTimer.current);
+        clearTimeout(flashClearTimer.current);
+        setFlashPhase("idle");
+        flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
+    };
     const handleFilterChange = (f) => { setFilter(f); setCurrentPage(1); };
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
     const [showImportModal, setShowImportModal] = useState(false);
@@ -292,6 +349,22 @@ export default function SellerRegister() {
     }, [sellers, filter, searchTerm, codeSortDirection]);
 
     const totalPages = Math.ceil(filteredSellers.length / pageSize);
+
+    // Clamp restored page if it's no longer valid (list shrank, filters changed, etc.)
+    useEffect(() => {
+        if (totalPages > 0 && currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [totalPages, currentPage]);
+
+    useEffect(() => {
+        sessionStorage.setItem('sellerRegister_filter', filter);
+    }, [filter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('sellerRegister_searchTerm', searchTerm);
+    }, [searchTerm]);
+
     const paginated = filteredSellers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const processFile = (file) => {
@@ -513,6 +586,7 @@ export default function SellerRegister() {
                 setImportErrors([]);
             }
 
+// AFTER
             setImportResult({
                 added: importMode === 'update' ? (updated + (inserted || 0)) : added,
                 updated: importMode === 'update' ? updated : undefined,
@@ -521,7 +595,7 @@ export default function SellerRegister() {
                 skipped,
                 mode: importMode,
             });
-            await fetchSellers();
+            await fetchSellers(true);
 
             // Close modal if all were added
             if (skipped === 0) {
@@ -568,19 +642,25 @@ export default function SellerRegister() {
         driverObj.drive();
     };
 
-    const fetchSellers = async () => {
-        setLoading(true);
+    const fetchSellers = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const { data } = await api.get("/sellers");
             setSellers(data);
         } catch (err) {
             showFlash("error", t('sellerRegister.loadError') || 'Failed to load sellers.');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     useEffect(() => { fetchSellers(); }, [t]);
+
+    // Persist the current page across unmount/remount (e.g. navigating to a
+    // seller profile and back), so the list doesn't snap back to page 1.
+    useEffect(() => {
+        sessionStorage.setItem('sellerRegister_currentPage', String(currentPage));
+    }, [currentPage]);
 
     if (permLoading) return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
@@ -681,7 +761,7 @@ export default function SellerRegister() {
             if (!payload.password) delete payload.password;
             if (editingId) { await api.put(`/sellers/${editingId}`, payload); showFlash("success", t('sellerRegister.updateSuccess')); }
             else { await api.post("/sellers", payload); showFlash("success", t('sellerRegister.createSuccess')); }
-            await fetchSellers();
+            await fetchSellers(true);
             closeForm();
         } catch (err) {
             showFlash("error", err.response?.data?.error || err.response?.data?.message || t('sellerRegister.saveError'));
@@ -689,7 +769,7 @@ export default function SellerRegister() {
     };
 
     const handleDelete = async () => {
-        try { await api.delete(`/sellers/${deleteId}`); await fetchSellers(); showFlash("success", t('sellerRegister.deleteSuccess')); }
+        try { await api.delete(`/sellers/${deleteId}`); await fetchSellers(true); showFlash("success", t('sellerRegister.deleteSuccess')); }
         catch (err) { showFlash("error", err.response?.data?.error || t('sellerRegister.deleteError')); }
         finally { setDeleteId(null); }
     };
@@ -744,6 +824,7 @@ export default function SellerRegister() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <FlashToast flash={flash} phase={flashPhase} onClose={dismissFlash} />
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-6">
 
                 {/* ── Top Bar ── */}
@@ -800,18 +881,6 @@ export default function SellerRegister() {
                     ))}
                 </div>
 
-                {/* ── Flash ── */}
-                {flash && (
-                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm mb-6
-                        ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700" : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
-                        {flash.type === "error" && <AlertTriangle size={18} />}
-                        {flash.type === "success" && <BadgeCheck size={18} />}
-                        {flash.msg}
-                        <button onClick={() => setFlash(null)} className="ml-auto opacity-50 hover:opacity-100 transition">
-                            <X size={16} />
-                        </button>
-                    </div>
-                )}
 
                 {/* ── Form ── */}
                 {showForm && (

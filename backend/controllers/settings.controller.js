@@ -647,3 +647,140 @@ exports.uploadLogo = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// ─── Receipt Print Settings (centre-level: thermal vs A4, paper width) ──────
+
+// GET /api/settings/print
+exports.getPrintSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const [rows] = await pool.query(
+            `SELECT printer_type, paper_width_mm, auto_print FROM print_settings WHERE centre_id = ?`,
+            [centreId]
+        );
+        if (rows.length === 0) {
+            return res.json({ printerType: 'thermal', paperWidthMm: 80, autoPrint: true });
+        }
+        res.json({
+            printerType: rows[0].printer_type,
+            paperWidthMm: rows[0].paper_width_mm,
+            autoPrint: !!rows[0].auto_print,
+        });
+    } catch (err) {
+        console.error('getPrintSettings error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// POST /api/settings/print
+exports.savePrintSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        }
+
+        const { printerType, paperWidthMm, autoPrint } = req.body;
+        const type = printerType === 'a4' ? 'a4' : 'thermal';
+        const width = Number(paperWidthMm) > 0 ? Number(paperWidthMm) : 80;
+        const auto = autoPrint === false ? 0 : 1;
+
+        await pool.query(
+            `INSERT INTO print_settings (centre_id, printer_type, paper_width_mm, auto_print, updated_by)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               printer_type   = VALUES(printer_type),
+               paper_width_mm = VALUES(paper_width_mm),
+               auto_print     = VALUES(auto_print),
+               updated_by     = VALUES(updated_by)`,
+            [centreId, type, width, auto, req.user.id]
+        );
+
+        res.json({ message: 'Print settings saved.', printerType: type, paperWidthMm: width, autoPrint: !!auto });
+    } catch (err) {
+        console.error('savePrintSettings error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// ─── Receipt Template (shared format for all receipt printers) ─────────────
+
+const DEFAULT_RECEIPT_TEMPLATE = {
+    txnPrefix: 'KDM',            // NEW: custom prefix, e.g. "KDM"
+    productLabel: 'Feed',        // NEW: replaces hardcoded "Feed" everywhere
+    showTopSymbol: true,
+    topSymbolText: 'श्री',
+    topSymbolFontSize: 28,
+    showAppName: true,
+    appNameFontSize: 20,
+    showCentreName: true,
+    centreNameOverride: '',       // blank = use the real centre name
+    centreNameFontSize: 14,
+    showTransactionId: true,
+    transactionIdLabel: 'Transaction ID',
+    transactionIdFontSize: 11,
+    showDateTime: true,
+    dateTimeFontSize: 13,
+    showSellerCode: true,
+    sellerNameFontSize: 13,
+    sellerCodeFontSize: 11,
+    tableHeaderFontSize: 11,
+    tableBodyFontSize: 12.5,
+    grandTotalFontSize: 15,
+    footerText: 'Thank you for your business',
+    footerFontSize: 11,
+    showGst: true,
+    gstText: 'GST: 27AABCQ1234D1ZP',
+    showSignatory: true,
+    signatoryText: 'Authorized Signatory',
+    signatoryFontSize: 12,
+};
+
+// GET /api/settings/receipt-template
+exports.getReceiptTemplate = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const [rows] = await pool.query(
+            `SELECT config FROM receipt_templates WHERE centre_id = ?`,
+            [centreId]
+        );
+        if (rows.length === 0) {
+            return res.json(DEFAULT_RECEIPT_TEMPLATE);
+        }
+        const saved = typeof rows[0].config === 'string' ? JSON.parse(rows[0].config) : rows[0].config;
+        res.json({ ...DEFAULT_RECEIPT_TEMPLATE, ...saved });
+    } catch (err) {
+        console.error('getReceiptTemplate error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// POST /api/settings/receipt-template
+exports.saveReceiptTemplate = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+        }
+
+        const config = { ...DEFAULT_RECEIPT_TEMPLATE, ...(req.body.config || {}) };
+
+        await pool.query(
+            `INSERT INTO receipt_templates (centre_id, config, updated_by)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               config     = VALUES(config),
+               updated_by = VALUES(updated_by)`,
+            [centreId, JSON.stringify(config), req.user.id]
+        );
+
+        res.json({ message: 'Receipt template saved.', config });
+    } catch (err) {
+        console.error('saveReceiptTemplate error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};

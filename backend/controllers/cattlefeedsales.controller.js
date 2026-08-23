@@ -25,11 +25,40 @@ const upload = multer({
 });
 exports.uploadMiddleware = upload.single('image');
 
-// ── helper: generate unique transaction ID ──────────────────
-const generateTxnId = () => {
-    const now = new Date();
-    const pad = (n, l = 2) => String(n).padStart(l, '0');
-    return `TXN${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${pad(now.getMilliseconds(), 3)}`;
+// ── helper: current financial year code, e.g. Aug 2026 -> "2627" ──
+const getFinancialYearCode = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0 = Jan
+    const startYear = month >= 3 ? year : year - 1; // FY starts April
+    const endYear = startYear + 1;
+    return `${String(startYear).slice(-2)}${String(endYear).slice(-2)}`;
+};
+
+// ── helper: atomically get next transaction ID for this centre+FY ──
+// Format: PREFIX/FY/N  e.g.  KDM/2627/1
+// Must be called with an open transaction connection (conn), inside the
+// same DB transaction as the sale insert, so numbers never collide or skip.
+const nextTransactionId = async (conn, centreId, saleType = 'cattle_feed', asOfDate = new Date()) => {
+    const fy = getFinancialYearCode(asOfDate);
+
+    const [[tplRow]] = await conn.query(
+        `SELECT config FROM receipt_templates WHERE centre_id = ?`,
+        [centreId]
+    );
+    const config = tplRow
+        ? (typeof tplRow.config === 'string' ? JSON.parse(tplRow.config) : tplRow.config)
+        : {};
+    const prefix = (config.txnPrefix || 'KDM').toUpperCase();
+
+    await conn.query(
+        `INSERT INTO transaction_sequences (centre_id, sale_type, financial_year, last_number)
+         VALUES (?, ?, ?, 1)
+         ON DUPLICATE KEY UPDATE last_number = LAST_INSERT_ID(last_number + 1)`,
+        [centreId, saleType, fy]
+    );
+    const [[seqRow]] = await conn.query(`SELECT LAST_INSERT_ID() AS n`);
+
+    return `${prefix}/${fy}/${seqRow.n}`;
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -256,8 +285,8 @@ exports.createSale = async (req, res) => {
             }
         }
 
-        // ── generate one transaction ID ──
-        const transaction_id = generateTxnId();
+        // ── generate one transaction ID (atomic, per centre+financial year of the entered sale_date) ──
+        const transaction_id = await nextTransactionId(conn, centreId, 'cattle_feed', new Date(sale_date));
 
         // ── insert all lines + deduct stock ──
         const insertedIds = [];

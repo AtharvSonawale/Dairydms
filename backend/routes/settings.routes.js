@@ -36,4 +36,12 @@ router.get('/system-info', protect, settingsController.getSystemInfo);
 router.get('/page-visibility', protect, settingsController.getPageVisibility);
 router.post('/page-visibility', protect, isAdmin, settingsController.savePageVisibility);
 
+// Receipt print settings (centre-level: thermal/A4, paper width)
+router.get('/print', protect, settingsController.getPrintSettings);
+router.post('/print', protect, isAdmin, settingsController.savePrintSettings);
+
+// Receipt template (shared header/footer format across all receipt printers)
+router.get('/receipt-template', protect, settingsController.getReceiptTemplate);
+router.post('/receipt-template', protect, isAdmin, settingsController.saveReceiptTemplate);
+
 module.exports = router;
