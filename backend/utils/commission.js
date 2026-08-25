@@ -24,7 +24,60 @@ function computeCommissionAmount(setting, fat, snf) {
 // entries: array of { quantity, fat, snf, milk_type, rate_applied, ... }
 // sellerType: 'Utpadak' | 'Gavali'
 // settingsMap: { cow: {...}, buffalo: {...} }
-function applyCommissionToEntries(entries, sellerType, settingsMap) {
+
+// ── NEW: pick the override that applies to this milk_type + date, if any ──
+function findActiveOverride(overrides, milkType, entryDate) {
+    if (!overrides || !overrides.length || !entryDate) return null;
+    return overrides.find(o =>
+        o.milk_type === milkType &&
+        o.is_active &&
+        o.effective_from <= entryDate &&
+        (!o.effective_to || o.effective_to >= entryDate)
+    ) || null;
+}
+
+// ── NEW: fetch a single Gavali seller's active overrides (all milk types) ──
+async function getSellerCommissionOverrides(dbHandle, centreId, sellerId) {
+    const [rows] = await dbHandle.query(
+        `SELECT milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut,
+                effective_from, effective_to, is_active
+         FROM seller_commission_overrides
+         WHERE centre_id = ? AND seller_id = ? AND is_active = 1`,
+        [centreId, sellerId]
+    );
+    // normalise dates to 'YYYY-MM-DD' strings for string comparison against entry_date
+    return rows.map(r => ({
+        ...r,
+        effective_from: r.effective_from.toISOString ? r.effective_from.toISOString().split('T')[0] : r.effective_from,
+        effective_to: r.effective_to ? (r.effective_to.toISOString ? r.effective_to.toISOString().split('T')[0] : r.effective_to) : null,
+    }));
+}
+
+// ── NEW: bulk fetch for a batch of sellers (e.g. cycle-billing all sellers at once) ──
+async function getSellerCommissionOverridesMap(dbHandle, centreId, sellerIds) {
+    if (!sellerIds || !sellerIds.length) return {};
+    const placeholders = sellerIds.map(() => '?').join(',');
+    const [rows] = await dbHandle.query(
+        `SELECT seller_id, milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut,
+                effective_from, effective_to, is_active
+         FROM seller_commission_overrides
+         WHERE centre_id = ? AND seller_id IN (${placeholders}) AND is_active = 1`,
+        [centreId, ...sellerIds]
+    );
+    const map = {};
+    for (const r of rows) {
+        const norm = {
+            ...r,
+            effective_from: r.effective_from.toISOString ? r.effective_from.toISOString().split('T')[0] : r.effective_from,
+            effective_to: r.effective_to ? (r.effective_to.toISOString ? r.effective_to.toISOString().split('T')[0] : r.effective_to) : null,
+        };
+        (map[r.seller_id] ||= []).push(norm);
+    }
+    return map;
+}
+
+// CHANGED signature: added sellerOverrides = []
+function applyCommissionToEntries(entries, sellerType, settingsMap, sellerOverrides = []) {
     let milkAmount = 0;
     let totalCommission = 0;
 
@@ -34,7 +87,15 @@ function applyCommissionToEntries(entries, sellerType, settingsMap) {
 
         let commissionPerLitre = 0;
         if (sellerType === 'Gavali' && settingsMap) {
-            const setting = settingsMap[e.milk_type];
+            // entry_date may be a Date object or a string depending on caller
+            const entryDate = e.entry_date
+                ? (e.entry_date.toISOString ? e.entry_date.toISOString().split('T')[0] : e.entry_date)
+                : null;
+
+            // CHANGED: override wins; regular commission_settings is used ONLY when no override applies
+            const override = findActiveOverride(sellerOverrides, e.milk_type, entryDate);
+            const setting = override || settingsMap[e.milk_type];
+
             commissionPerLitre = computeCommissionAmount(setting, e.fat, e.snf);
         }
 
@@ -50,8 +111,8 @@ function applyCommissionToEntries(entries, sellerType, settingsMap) {
             base_rate: baseRate,
             commission_per_litre: commissionPerLitre,
             commission_amount: commissionAmt,
-            rate_applied: effectiveRate,   // overwritten with the effective (commission-inclusive) rate
-            total_amount: totalAmt,        // overwritten with the commission-inclusive total
+            rate_applied: effectiveRate,
+            total_amount: totalAmt,
         };
     });
 
@@ -75,4 +136,7 @@ module.exports = {
     computeCommissionAmount,
     applyCommissionToEntries,
     getCommissionSettingsMap,
+    findActiveOverride,               // NEW
+    getSellerCommissionOverrides,     // NEW
+    getSellerCommissionOverridesMap,  // NEW
 };

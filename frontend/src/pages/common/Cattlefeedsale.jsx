@@ -580,6 +580,7 @@ export default function CattleFeedSales() {
     const [deletingId, setDeletingId] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [speedConfigOpen, setSpeedConfigOpen] = useState(false);
+    const [printStatus, setPrintStatus] = useState(null); // null | 'preparing' | 'printing'
     const sellerCodeRef = useRef(null);
 
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
@@ -966,7 +967,11 @@ export default function CattleFeedSales() {
     };
 
     const handlePrintReceipt = (txn) => {
-        printReceipt(txn, t, appName, centreName);
+        printReceipt(txn, t, appName, centreName, {
+            onStart: () => setPrintStatus('preparing'),
+            onReady: () => setPrintStatus('printing'),
+            onDone: () => setPrintStatus(null),
+        });
     };
 
     const activeData = rangeMode === "daily" ? sales : (pdfReady ? rangeEntries : []);
@@ -1000,6 +1005,16 @@ export default function CattleFeedSales() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+
+            {printStatus && (
+                <div className="fixed top-4 right-4 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-900/95 backdrop-blur-sm text-white text-sm font-medium shadow-2xl shadow-gray-900/30">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                    {printStatus === 'preparing'
+                        ? (t('cattleFeedSales.receipt.preparing') || 'Preparing receipt…')
+                        : (t('cattleFeedSales.receipt.sendingToPrinter') || 'Sending to printer…')}
+                </div>
+            )}
+
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
                 {/* ── Top Bar ── */}

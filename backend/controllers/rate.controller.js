@@ -34,6 +34,100 @@ exports.getRates = async (req, res) => {
   }
 };
 
+// ── GET /api/rates/range ─────────────────────────────────────
+// Returns all rates in a date range for a specific milk type
+exports.getRatesByDateRange = async (req, res) => {
+  try {
+    const centreId = req.user.centre_id;
+    const { from_date, to_date, milk_type } = req.query;
+
+    if (!from_date || !to_date || !milk_type) {
+      return res.status(400).json({
+        message: "from_date, to_date and milk_type are required"
+      });
+    }
+
+    if (to_date < from_date) {
+      return res.status(400).json({
+        message: "to_date must be on or after from_date"
+      });
+    }
+
+    const table = tbl(milk_type);
+
+    const [rows] = await pool.query(
+      `SELECT *, '${milk_type}' AS milk_type
+       FROM ${table}
+       WHERE centre_id = ? AND effective_from BETWEEN ? AND ?
+       ORDER BY effective_from ASC, fat ASC, snf ASC`,
+      [centreId, from_date, to_date]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("getRatesByDateRange error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// ── DELETE /api/rates/range ──────────────────────────────────
+// Deletes all rates in a date range for a specific milk type
+exports.deleteRatesByDateRange = async (req, res) => {
+  try {
+    const centreId = req.user.centre_id;
+    const { from_date, to_date, milk_type } = req.body;
+
+    if (!from_date || !to_date || !milk_type) {
+      return res.status(400).json({
+        message: "from_date, to_date and milk_type are required"
+      });
+    }
+
+    if (to_date < from_date) {
+      return res.status(400).json({
+        message: "to_date must be on or after from_date"
+      });
+    }
+
+    const table = tbl(milk_type);
+
+    // First, count how many will be deleted
+    const [countResult] = await pool.query(
+      `SELECT COUNT(*) as count FROM ${table} 
+       WHERE centre_id = ? AND effective_from BETWEEN ? AND ?`,
+      [centreId, from_date, to_date]
+    );
+
+    const count = countResult[0].count;
+
+    if (count === 0) {
+      return res.status(404).json({
+        message: `No ${milk_type} rates found in the date range ${from_date} to ${to_date}.`
+      });
+    }
+
+    // Perform the deletion
+    const [result] = await pool.query(
+      `DELETE FROM ${table} 
+       WHERE centre_id = ? AND effective_from BETWEEN ? AND ?`,
+      [centreId, from_date, to_date]
+    );
+
+    const dateRangeStr = `${new Date(from_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} – ${new Date(to_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+
+    res.json({
+      message: `${result.affectedRows} ${milk_type} rate(s) deleted for ${dateRangeStr}.`,
+      deleted: result.affectedRows,
+      from_date,
+      to_date,
+      milk_type
+    });
+  } catch (err) {
+    console.error("deleteRatesByDateRange error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 // ── POST /api/rates ───────────────────────────────────────────
 exports.createRate = async (req, res) => {
   try {
@@ -813,6 +907,91 @@ exports.importRates = async (req, res) => {
     });
   } catch (err) {
     console.error("importRates error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// ── POST /api/rates/import/update ─────────────────────────────
+// Bulk-updates existing rates from a parsed Excel/CSV file.
+// Matches by milk_type, fat, snf, and effective_from.
+exports.importUpdateRates = async (req, res) => {
+  try {
+    const centreId = req.user.centre_id;
+    const { rates } = req.body;
+
+    if (!Array.isArray(rates) || rates.length === 0)
+      return res.status(400).json({ message: "rates array is required" });
+
+    let updated = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (let i = 0; i < rates.length; i++) {
+      const row = rates[i];
+      const rowNum = row._rowIndex || i + 1;
+
+      const milk_type = ["buffalo", "mixed"].includes(row.milk_type)
+        ? row.milk_type
+        : "cow";
+      const fat = parseFloat(row.fat);
+      const snf = parseFloat(row.snf);
+      const rate = parseFloat(row.rate);
+      const mrp =
+        row.mrp !== "" && row.mrp != null && !isNaN(parseFloat(row.mrp))
+          ? parseFloat(row.mrp)
+          : null;
+      const effective_from = row.effective_from;
+      const effective_to = row.effective_to || null;
+
+      if (isNaN(fat) || isNaN(snf) || isNaN(rate) || !effective_from) {
+        errors.push({
+          row: rowNum,
+          error: "Missing or invalid FAT, SNF, Rate, or Effective From.",
+        });
+        skipped++;
+        continue;
+      }
+
+      const table = tbl(milk_type);
+
+      // Check if the rate exists
+      const [existing] = await pool.query(
+        `SELECT rate_id FROM ${table} 
+         WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
+        [centreId, fat, snf, effective_from]
+      );
+
+      if (existing.length === 0) {
+        errors.push({
+          row: rowNum,
+          error: `No existing rate found for FAT ${fat}, SNF ${snf} on ${effective_from}. Use "Add New Rates" mode to insert.`,
+        });
+        skipped++;
+        continue;
+      }
+
+      try {
+        await pool.query(
+          `UPDATE ${table} 
+           SET rate = ?, mrp = ?, effective_to = ?
+           WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
+          [rate, mrp, effective_to || null, centreId, fat, snf, effective_from]
+        );
+        updated++;
+      } catch (rowErr) {
+        errors.push({ row: rowNum, error: rowErr.message });
+        skipped++;
+      }
+    }
+
+    res.json({
+      message: `${updated} rate(s) updated, ${skipped} skipped.`,
+      updated,
+      skipped,
+      errors,
+    });
+  } catch (err) {
+    console.error("importUpdateRates error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };

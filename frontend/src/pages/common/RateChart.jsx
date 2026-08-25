@@ -32,6 +32,8 @@ import {
   BarChart3,
   FileText,
   FileSpreadsheet as FileExcel,
+  CalendarRange,
+  Eraser,
 } from "lucide-react";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -205,6 +207,13 @@ export default function RateChart() {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyStartDate, setCopyStartDate] = useState("");
   const [copyEndDate, setCopyEndDate] = useState("");
+  const [showRecomputeModal, setShowRecomputeModal] = useState(false);
+  const [recomputeFrom, setRecomputeFrom] = useState("");
+  const [recomputeTo, setRecomputeTo] = useState("");
+  const [recomputeDiffs, setRecomputeDiffs] = useState([]);
+  const [recomputeLoading, setRecomputeLoading] = useState(false);
+  const [recomputeApplying, setRecomputeApplying] = useState(false);
+  const [selectedDiffIds, setSelectedDiffIds] = useState([]);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genForm, setGenForm] = useState({
@@ -230,6 +239,15 @@ export default function RateChart() {
   const [rateImportResult, setRateImportResult] = useState(null);
   const [rateIsDragging, setRateIsDragging] = useState(false);
   const [importMode, setImportMode] = useState("add"); // "add" or "update"
+
+  // ── Delete by Date Range Modal ──
+  const [showDeleteRangeModal, setShowDeleteRangeModal] = useState(false);
+  const [deleteRangeFrom, setDeleteRangeFrom] = useState("");
+  const [deleteRangeTo, setDeleteRangeTo] = useState("");
+  const [deleteRangeLoading, setDeleteRangeLoading] = useState(false);
+  const [deleteRangeMilkType, setDeleteRangeMilkType] = useState("cow");
+  const [deleteRangePreview, setDeleteRangePreview] = useState([]);
+  const [deleteRangePreviewLoading, setDeleteRangePreviewLoading] = useState(false);
 
   // ── Export Modal ──
   const [showExportModal, setShowExportModal] = useState(false);
@@ -307,6 +325,83 @@ export default function RateChart() {
   useEffect(() => {
     fetchRates();
   }, [fetchRates]);
+
+  // ── Delete by Date Range Functions ──
+
+  // Preview rates in the date range
+  const previewDeleteRange = async () => {
+    if (!deleteRangeFrom || !deleteRangeTo) {
+      showFlash("error", "Please select both From and To dates.");
+      return;
+    }
+    if (deleteRangeTo < deleteRangeFrom) {
+      showFlash("error", "To date must be on or after From date.");
+      return;
+    }
+
+    setDeleteRangePreviewLoading(true);
+    try {
+      const { data } = await api.get("/rates/range", {
+        params: {
+          from_date: deleteRangeFrom,
+          to_date: deleteRangeTo,
+          milk_type: deleteRangeMilkType,
+        },
+      });
+      setDeleteRangePreview(data);
+    } catch (err) {
+      showFlash("error", err.response?.data?.message || "Failed to preview rates.");
+      setDeleteRangePreview([]);
+    } finally {
+      setDeleteRangePreviewLoading(false);
+    }
+  };
+
+  // Delete all rates in the date range
+  const performDeleteRange = async () => {
+    if (!deleteRangeFrom || !deleteRangeTo) {
+      showFlash("error", "Please select both From and To dates.");
+      return;
+    }
+    if (deleteRangeTo < deleteRangeFrom) {
+      showFlash("error", "To date must be on or after From date.");
+      return;
+    }
+    if (deleteRangePreview.length === 0) {
+      showFlash("error", "No rates found in this date range to delete.");
+      return;
+    }
+
+    setDeleteRangeLoading(true);
+    try {
+      const { data } = await api.delete("/rates/range", {
+        data: {
+          from_date: deleteRangeFrom,
+          to_date: deleteRangeTo,
+          milk_type: deleteRangeMilkType,
+        },
+      });
+      showFlash("success", data.message || "Rates deleted successfully.");
+      setShowDeleteRangeModal(false);
+      setDeleteRangeFrom("");
+      setDeleteRangeTo("");
+      setDeleteRangePreview([]);
+      // Refresh the current view
+      await fetchRates();
+    } catch (err) {
+      showFlash("error", err.response?.data?.message || "Failed to delete rates.");
+    } finally {
+      setDeleteRangeLoading(false);
+    }
+  };
+
+  const openDeleteRangeModal = () => {
+    setDeleteRangeFrom("");
+    setDeleteRangeTo("");
+    setDeleteRangePreview([]);
+    setDeleteRangeMilkType(filter);
+    setShowDeleteRangeModal(true);
+  };
 
   const startRateChartTour = () => {
     const driverObj = driver({
@@ -500,6 +595,53 @@ export default function RateChart() {
       setCopyingForward(false);
     }
   };
+
+  const runRecomputePreview = async () => {
+    if (!recomputeFrom || !recomputeTo) {
+      showFlash("error", "Please select both dates.");
+      return;
+    }
+    setRecomputeLoading(true);
+    try {
+      const { data } = await api.post("/rates/recompute-preview", {
+        from_date: recomputeFrom,
+        to_date: recomputeTo,
+        milk_type: filter,
+      });
+      setRecomputeDiffs(data.diffs);
+      setSelectedDiffIds(data.diffs.filter((d) => !d.needsManualReview).map((d) => d.entry_id));
+    } catch (err) {
+      showFlash("error", err.response?.data?.message || "Failed to preview corrections.");
+    } finally {
+      setRecomputeLoading(false);
+    }
+  };
+
+  const runRecomputeApply = async () => {
+    if (selectedDiffIds.length === 0) return;
+    setRecomputeApplying(true);
+    try {
+      const { data } = await api.post("/rates/recompute-apply", {
+        entry_ids: selectedDiffIds,
+        reason: `Rate corrected for ${recomputeFrom} to ${recomputeTo}`,
+      });
+      showFlash("success", data.message);
+      setShowRecomputeModal(false);
+      setRecomputeDiffs([]);
+      setSelectedDiffIds([]);
+      setRecomputeFrom("");
+      setRecomputeTo("");
+    } catch (err) {
+      showFlash("error", err.response?.data?.message || "Failed to apply corrections.");
+    } finally {
+      setRecomputeApplying(false);
+    }
+  };
+
+  const toggleDiffSelection = (id) =>
+    setSelectedDiffIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
 
   const openPremiumModal = async () => {
     setShowPremiumModal(true);
@@ -1357,6 +1499,19 @@ export default function RateChart() {
 
             <button
               onClick={() => {
+                setShowRecomputeModal(true);
+                setRecomputeFrom("");
+                setRecomputeTo("");
+                setRecomputeDiffs([]);
+                setSelectedDiffIds([]);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all duration-200"
+            >
+              <RefreshCw size={15} /> Recompute Past Rates
+            </button>
+
+            <button
+              onClick={() => {
                 setShowGenerateModal(true);
                 setGenPreview([]);
               }}
@@ -1385,6 +1540,15 @@ export default function RateChart() {
             >
               <Import size={15} /> {t("rateChart.import.button")}
             </button>
+
+            {isAdmin && (
+              <button
+                onClick={openDeleteRangeModal}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200"
+              >
+                <CalendarRange size={15} /> {t("rateChart.deleteByRange", "Delete by Date Range")}
+              </button>
+            )}
 
             <button
               onClick={openPremiumModal}
@@ -1860,6 +2024,180 @@ export default function RateChart() {
           </div>
         )}
 
+        {/* ── Delete by Date Range Modal ── */}
+        {showDeleteRangeModal && isAdmin && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-rose-50/50 to-white/50 rounded-xl">
+                <div>
+                  <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <Eraser size={15} className="text-rose-500" />
+                    {t("rateChart.deleteByRange", "Delete Rates by Date Range")}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {t("rateChart.deleteRangeDesc", "Delete all rates for a specific date range and milk type.")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDeleteRangeModal(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-6 flex flex-col gap-4 flex-1">
+                {/* Milk Type */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    {t("rateChart.milkType")} <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="flex gap-3">
+                    {["cow", "buffalo", "mixed"].map((type) => (
+                      <label
+                        key={type}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border cursor-pointer text-sm font-medium transition shadow-sm
+                          ${deleteRangeMilkType === type
+                            ? type === "cow"
+                              ? "bg-amber-50/80 border-amber-300/60 text-amber-800 shadow-amber-200/30"
+                              : type === "buffalo"
+                                ? "bg-blue-50/80 border-blue-300/60 text-blue-800 shadow-blue-200/30"
+                                : "bg-purple-50/80 border-purple-300/60 text-purple-800 shadow-purple-200/30"
+                            : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300/80"
+                          }`}
+                      >
+                        <input
+                          type="radio"
+                          name="delete_range_milk_type"
+                          value={type}
+                          checked={deleteRangeMilkType === type}
+                          onChange={(e) => setDeleteRangeMilkType(e.target.value)}
+                          className="hidden"
+                        />
+                        {milkTypeLabel(type, t)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Date Range */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      {t("rateChart.fromDate", "From Date")} <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={deleteRangeFrom}
+                      onChange={(e) => setDeleteRangeFrom(e.target.value)}
+                      className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      {t("rateChart.toDate", "To Date")} <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={deleteRangeTo}
+                      min={deleteRangeFrom || undefined}
+                      onChange={(e) => setDeleteRangeTo(e.target.value)}
+                      className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Preview Button */}
+                <button
+                  onClick={previewDeleteRange}
+                  disabled={deleteRangePreviewLoading || !deleteRangeFrom || !deleteRangeTo}
+                  className="self-start flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 shadow-lg shadow-gray-900/30 hover:shadow-xl transition disabled:opacity-50"
+                >
+                  {deleteRangePreviewLoading && <RefreshCw size={12} className="animate-spin" />}
+                  {deleteRangePreviewLoading ? "Loading..." : "Preview Rates"}
+                </button>
+
+                {/* Preview Results */}
+                {deleteRangePreview.length > 0 && (
+                  <div className="border border-gray-200/60 rounded-xl overflow-hidden max-h-64 overflow-y-auto shadow-sm">
+                    <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        {deleteRangePreview.length} {t("rateChart.ratePlural", "rate(s) found")}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {deleteRangeFrom} → {deleteRangeTo}
+                      </span>
+                    </div>
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50/50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase border-b border-gray-200/60">Date</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase border-b border-gray-200/60">FAT</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase border-b border-gray-200/60">SNF</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase border-b border-gray-200/60">Rate</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase border-b border-gray-200/60">MRP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deleteRangePreview.slice(0, 50).map((rate, idx) => (
+                          <tr key={idx} className="border-b border-gray-200/60 hover:bg-gray-50/30">
+                            <td className="px-3 py-2 text-gray-600 font-mono">{fmt(rate.effective_from)}</td>
+                            <td className="px-3 py-2 text-gray-700">{parseFloat(rate.fat).toFixed(1)}</td>
+                            <td className="px-3 py-2 text-gray-700">{parseFloat(rate.snf).toFixed(1)}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-gray-900">₹{parseFloat(rate.rate).toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-mono text-gray-500">{rate.mrp ? `₹${parseFloat(rate.mrp).toFixed(2)}` : "—"}</td>
+                          </tr>
+                        ))}
+                        {deleteRangePreview.length > 50 && (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-2 text-center text-gray-400 text-xs">
+                              + {deleteRangePreview.length - 50} more
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {deleteRangePreview.length === 0 && deleteRangeFrom && deleteRangeTo && !deleteRangePreviewLoading && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    {t("rateChart.noRatesInRange", "No rates found in this date range.")}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl">
+                <p className="text-xs text-rose-500 font-medium">
+                  {deleteRangePreview.length > 0 &&
+                    t("rateChart.deleteRangeWarning", {
+                      count: deleteRangePreview.length,
+                      defaultValue: `⚠️ This will permanently delete ${deleteRangePreview.length} rate(s). This action cannot be undone.`
+                    })}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDeleteRangeModal(false)}
+                    className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition"
+                  >
+                    {t("rateChart.cancel")}
+                  </button>
+                  <button
+                    onClick={performDeleteRange}
+                    disabled={deleteRangeLoading || deleteRangePreview.length === 0}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 disabled:opacity-50"
+                  >
+                    {deleteRangeLoading && <RefreshCw size={12} className="animate-spin" />}
+                    {deleteRangeLoading
+                      ? t("rateChart.deleting", "Deleting...")
+                      : t("rateChart.deleteRange", "Delete Range", { count: deleteRangePreview.length })}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Premium Rate Modal ── */}
         {showPremiumModal && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2232,6 +2570,115 @@ export default function RateChart() {
                     ? t("rateChart.copying")
                     : t("rateChart.carryForward")}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Recompute Rates Modal ── */}
+        {showRecomputeModal && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-gray-200/60 w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-orange-50/50 to-white/50 rounded-xl">
+                <div>
+                  <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <RefreshCw size={15} className="text-orange-500" /> Recompute Past Rates
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Re-checks milk entries against current rate tables and shows what changed. Nothing is saved until you confirm.
+                  </p>
+                </div>
+                <button onClick={() => setShowRecomputeModal(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-6 flex flex-col gap-4 flex-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">From Date</label>
+                    <input type="date" value={recomputeFrom} onChange={(e) => setRecomputeFrom(e.target.value)}
+                      className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">To Date</label>
+                    <input type="date" value={recomputeTo} min={recomputeFrom || undefined} onChange={(e) => setRecomputeTo(e.target.value)}
+                      className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+                  </div>
+                </div>
+
+                <button onClick={runRecomputePreview} disabled={recomputeLoading}
+                  className="self-start flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 shadow-lg shadow-gray-900/30 hover:shadow-xl transition disabled:opacity-50">
+                  {recomputeLoading && <RefreshCw size={12} className="animate-spin" />}
+                  {recomputeLoading ? "Checking…" : "Preview Changes"}
+                </button>
+
+                {recomputeDiffs.length > 0 && (
+                  <div className="border border-gray-200/60 rounded-xl overflow-hidden max-h-96 overflow-y-auto shadow-sm">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gradient-to-r from-gray-50/50 to-white/50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 border-b border-gray-200/60"></th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase border-b border-gray-200/60">Seller</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase border-b border-gray-200/60">Date</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase border-b border-gray-200/60">Old → New Rate</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase border-b border-gray-200/60">Delta</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase border-b border-gray-200/60">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recomputeDiffs.map((d) => (
+                          <tr key={d.entry_id} className={`border-b border-gray-200/60 ${d.needsManualReview ? "bg-amber-50/30" : "hover:bg-blue-50/30"}`}>
+                            <td className="px-3 py-2">
+                              {!d.needsManualReview && (
+                                <input type="checkbox" checked={selectedDiffIds.includes(d.entry_id)}
+                                  onChange={() => toggleDiffSelection(d.entry_id)} className="accent-orange-500" />
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">{d.seller_name} <span className="text-gray-400 font-mono">({d.seller_code})</span></td>
+                            <td className="px-3 py-2 text-gray-500 font-mono">{fmt(d.entry_date)} · {d.shift}</td>
+                            <td className="px-3 py-2 text-right font-mono">
+                              {d.needsManualReview ? <span className="text-amber-600">Premium rate</span> : `₹${d.old_rate.toFixed(2)} → ₹${d.new_rate.toFixed(2)}`}
+                            </td>
+                            <td className={`px-3 py-2 text-right font-bold ${d.delta > 0 ? "text-emerald-600" : d.delta < 0 ? "text-rose-600" : "text-gray-400"}`}>
+                              {d.needsManualReview ? "—" : `${d.delta > 0 ? "+" : ""}₹${d.delta.toFixed(2)}`}
+                            </td>
+                            <td className="px-3 py-2">
+                              {d.needsManualReview ? (
+                                <span className="text-amber-600 font-semibold">Needs manual review</span>
+                              ) : d.already_billed ? (
+                                <span className="text-blue-600 font-semibold">Already billed — will queue for next payment</span>
+                              ) : (
+                                <span className="text-emerald-600 font-semibold">Not yet billed — direct fix</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {recomputeDiffs.length === 0 && recomputeFrom && !recomputeLoading && (
+                  <p className="text-sm text-gray-400 text-center py-6">Click "Preview Changes" to check this date range.</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl">
+                <p className="text-xs text-gray-400">
+                  {selectedDiffIds.length > 0 ? `${selectedDiffIds.length} entries selected for correction` : "Select entries to correct"}
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowRecomputeModal(false)} className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition">
+                    Cancel
+                  </button>
+                  <button onClick={runRecomputeApply} disabled={recomputeApplying || selectedDiffIds.length === 0}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/30 hover:shadow-xl transition disabled:opacity-50">
+                    {recomputeApplying && <RefreshCw size={12} className="animate-spin" />}
+                    {recomputeApplying ? "Applying…" : `Apply Corrections (${selectedDiffIds.length})`}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2970,8 +3417,8 @@ export default function RateChart() {
                   <button
                     onClick={() => setImportMode("add")}
                     className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition ${importMode === "add"
-                        ? "bg-white text-gray-800 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white text-gray-800 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
                       }`}
                   >
                     {t("rateChart.import.addMode", "Add New Rates")}
@@ -2979,8 +3426,8 @@ export default function RateChart() {
                   <button
                     onClick={() => setImportMode("update")}
                     className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition ${importMode === "update"
-                        ? "bg-white text-gray-800 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white text-gray-800 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
                       }`}
                   >
                     {t("rateChart.import.updateMode", "Update Existing Rates")}
@@ -3068,8 +3515,8 @@ export default function RateChart() {
                         </span>
                       )}
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full backdrop-blur-sm shadow-sm border ${importMode === "add"
-                        ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
-                        : "bg-amber-50/80 text-amber-700 border-amber-200/60"
+                      ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
+                      : "bg-amber-50/80 text-amber-700 border-amber-200/60"
                       }`}>
                       {importMode === "add"
                         ? t("rateChart.import.addMode", "Add New")

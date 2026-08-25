@@ -246,6 +246,7 @@ export default function SellerRegister() {
     const flashClearTimer = useRef(null);
     const [showForm, setShowForm] = useState(false);
     const [filter, setFilter] = useState(() => sessionStorage.getItem('sellerRegister_filter') || "all");
+    const [sellerTypeFilter, setSellerTypeFilter] = useState(() => sessionStorage.getItem('sellerRegister_sellerTypeFilter') || "all_types");
     const [searchTerm, setSearchTerm] = useState(() => sessionStorage.getItem('sellerRegister_searchTerm') || "");
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(() => {
@@ -294,6 +295,7 @@ export default function SellerRegister() {
         flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
     };
     const handleFilterChange = (f) => { setFilter(f); setCurrentPage(1); };
+    const handleSellerTypeFilterChange = (f) => { setSellerTypeFilter(f); setCurrentPage(1); };
     const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
     const [showImportModal, setShowImportModal] = useState(false);
     const [importFile, setImportFile] = useState(null);
@@ -328,6 +330,11 @@ export default function SellerRegister() {
             result = result.filter((s) => s.milk_type === filter);
         }
 
+        // Apply seller type filter
+        if (sellerTypeFilter !== "all_types") {
+            result = result.filter((s) => s.seller_type === sellerTypeFilter);
+        }
+
         // Apply search filter (name or seller_code)
         if (searchTerm.trim() !== "") {
             const term = searchTerm.trim().toLowerCase();
@@ -346,7 +353,7 @@ export default function SellerRegister() {
         }
 
         return result;
-    }, [sellers, filter, searchTerm, codeSortDirection]);
+    }, [sellers, filter, sellerTypeFilter, searchTerm, codeSortDirection]);
 
     const totalPages = Math.ceil(filteredSellers.length / pageSize);
 
@@ -360,6 +367,10 @@ export default function SellerRegister() {
     useEffect(() => {
         sessionStorage.setItem('sellerRegister_filter', filter);
     }, [filter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('sellerRegister_sellerTypeFilter', sellerTypeFilter);
+    }, [sellerTypeFilter]);
 
     useEffect(() => {
         sessionStorage.setItem('sellerRegister_searchTerm', searchTerm);
@@ -1209,12 +1220,28 @@ export default function SellerRegister() {
                 {/* ── Filter Tabs and Search ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4" data-tour="filter-tabs">
                     <div className="flex items-center gap-2 flex-wrap">
+                        {/* Milk Type Filters */}
+                        <span className="text-xs text-gray-400 font-medium mr-1">Milk:</span>
                         {["all", "cow", "buffalo", "both"].map((f) => (
                             <button key={f} onClick={() => handleFilterChange(f)}
                                 className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
-                                    ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                    ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
                                 {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
                                 {f !== "all" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.milk_type === f).length}</span>}
+                            </button>
+                        ))}
+
+                        {/* Divider */}
+                        <span className="w-px h-6 bg-gray-200 mx-2"></span>
+
+                        {/* Seller Type Filters */}
+                        <span className="text-xs text-gray-400 font-medium mr-1">Type:</span>
+                        {["all_types", "Utpadak", "Gavali"].map((f) => (
+                            <button key={f} onClick={() => handleSellerTypeFilterChange(f)}
+                                className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
+                    ${sellerTypeFilter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                {f === "all_types" ? t('sellerRegister.all') : f === "Utpadak" ? t('sellerRegister.utpadak') : t('sellerRegister.gavali')}
+                                {f !== "all_types" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.seller_type === f).length}</span>}
                             </button>
                         ))}
                     </div>

@@ -52,7 +52,7 @@ function TinyInput({ className = "", ...props }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-2.5 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-2.5 py-2 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );

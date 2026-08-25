@@ -3,8 +3,7 @@ import { getPrintSettings } from "../utils/printSettings";
 import { getReceiptTemplate } from "../utils/receiptTemplate";
 import { renderReceiptHeader, renderReceiptFooter } from "../utils/receiptTemplateRenderer";
 
-export const printReceipt = (txn, t, appName, centreName) => {
-  const { printerType, paperWidthMm } = getPrintSettings();
+export const printReceipt = (txn, t, appName, centreName, { onStart, onReady, onDone } = {}) => {  const { printerType, paperWidthMm } = getPrintSettings();
   const tpl = getReceiptTemplate();
   const isThermal = printerType === "thermal";
   const displayAppName = appName || t('appName') || 'CATTLE FEED SALES';
@@ -243,10 +242,10 @@ export const printReceipt = (txn, t, appName, centreName) => {
       </div>` : ''}
 
       <!-- Seller Info -->
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; padding: 6px 4px 6px 0; font-size: ${tpl.sellerNameFontSize}px;">
-        <span style="font-weight: 600; color: #333;">${txn.seller_name || "—"}</span>
-        ${showSellerCode && txn.seller_code ? `<span style="font-size: ${tpl.sellerCodeFontSize}px; color: #666; font-weight: 500;">Farmer Code: ${txn.seller_code}</span>` : ''}
-      </div>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; padding: 6px 4px 6px 0; font-size: ${tpl.sellerNameFontSize}px;">
+  ${showSellerCode && txn.seller_code ? `<span style="font-size: ${tpl.sellerCodeFontSize}px; color: #000000; font-weight:700; ">Farmer Code: <span style="font-weight: 700;">${txn.seller_code}</span></span>` : ''}
+  <span style="font-weight: 700; color: #000000;">${txn.seller_name || "—"}</span>
+</div>
 
       <!-- Table -->
       <table>
@@ -285,6 +284,8 @@ export const printReceipt = (txn, t, appName, centreName) => {
   // no manual "download"/"print" click. The OS print dialog still
   // appears once (browsers won't skip that for security reasons),
   // but it opens immediately and defaults to the system default printer.
+  onStart?.();
+
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
@@ -302,10 +303,21 @@ export const printReceipt = (txn, t, appName, centreName) => {
   iframe.onload = () => {
     // small delay lets fonts/images settle before the print dialog opens
     setTimeout(() => {
+      onReady?.();
       iframe.contentWindow.focus();
+
+      // fires once the OS print dialog is dismissed (printed or cancelled)
+      const cleanup = () => {
+        onDone?.();
+        iframe.contentWindow.removeEventListener("afterprint", cleanup);
+        setTimeout(() => document.body.removeChild(iframe), 300);
+      };
+      iframe.contentWindow.addEventListener("afterprint", cleanup);
+
       iframe.contentWindow.print();
-      // clean up after the print dialog has been dismissed
-      setTimeout(() => document.body.removeChild(iframe), 1000);
+
+      // fallback in case afterprint doesn't fire on some browsers
+      setTimeout(cleanup, 8000);
     }, 300);
   };
 };

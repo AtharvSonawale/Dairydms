@@ -10,7 +10,10 @@ import {
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
+import { useAppConfig } from '../../context/AppConfigContext';
 import AccessDenied from '../../components/AccessDenied';
+import { printReceipt } from '../../components/ProductSalesReceipt';
+import { getPrintSettings } from '../../utils/printSettings';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
@@ -105,7 +108,7 @@ function TinyInput({ className = "", ...props }) {
 
 function TableCell({ children, className = "" }) {
     return (
-        <div className={`px-3 py-2.5 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
+        <div className={`px-1 py-2 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
         </div>
     );
@@ -567,6 +570,19 @@ function SpeedStripInForm({ onTap }) {
 export default function ProductSales() {
     const { t } = useTranslation();
     const { can, loading: permLoading } = usePermission();
+
+    const { appName } = useAppConfig();
+    const [centreName, setCentreName] = useState("");
+    const [productLabel, setProductLabel] = useState("");
+
+    useEffect(() => {
+        api.get('/settings/system-info')
+            .then(({ data }) => setCentreName(data?.centre?.centre_name || ""))
+            .catch(() => { });
+        api.get('/settings/receipt-template')
+            .then(({ data }) => setProductLabel(data?.productLabel || ""))
+            .catch(() => { });
+    }, []);
     const [form, setForm] = useState({
         seller_id: '',
         seller_code: '',
@@ -596,6 +612,7 @@ export default function ProductSales() {
     const [deletingId, setDeletingId] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [speedConfigOpen, setSpeedConfigOpen] = useState(false);
+    const [printStatus, setPrintStatus] = useState(null); // null | 'preparing' | 'printing'
     const sellerAnchorRef = useRef(null);
     const sellerCodeRef = useRef(null);
     const lineAnchorRefs = useRef({});
@@ -879,7 +896,7 @@ export default function ProductSales() {
         if (saving) return;
         setSaving(true);
         try {
-            await api.post("/product-sales", {
+            const { data: created } = await api.post("/product-sales", {
                 seller_id: Number(form.seller_id),
                 sale_date: selectedDate,
                 lines: validLines.map(l => ({
@@ -891,6 +908,28 @@ export default function ProductSales() {
             await fetchSales(selectedDate);
             await fetchProducts();
             showFlash("success", t('productSales.saveSuccess'));
+
+            // ── Auto-print the receipt immediately, no manual click ──
+            const { autoPrint } = getPrintSettings();
+            if (autoPrint && created?.items?.length) {
+                const txnForPrint = {
+                    transaction_id: created.transaction_id,
+                    seller_name: created.items[0].seller_name,
+                    seller_code: created.items[0].seller_code,
+                    sale_date: created.items[0].sale_date,
+                    created_at: created.items[0].created_at,
+                    items: created.items.map(item => ({
+                        sale_id: item.sale_id,
+                        product_name: item.product_name,
+                        unit: item.unit,
+                        quantity: item.quantity,
+                        rate: item.rate,
+                        total_amount: item.total_amount,
+                    })),
+                };
+                handlePrintReceipt(txnForPrint);
+            }
+
             setForm({ seller_id: "", seller_code: "" });
             setLines([{ ...EMPTY_LINE, _key: Date.now() }]);
             setLineProductSearch({});
@@ -1072,83 +1111,11 @@ export default function ProductSales() {
     };
 
     const handlePrintReceipt = (txn) => {
-        const dateStr = new Date(txn.sale_date).toLocaleDateString("en-IN", {
-            day: "2-digit", month: "long", year: "numeric"
+        printReceipt(txn, t, appName, centreName, {
+            onStart: () => setPrintStatus('preparing'),
+            onReady: () => setPrintStatus('printing'),
+            onDone: () => setPrintStatus(null),
         });
-
-        const itemRows = txn.items.map((item, i) => `
-        <tr>
-            <td>${i + 1}</td>
-            <td>${item.product_name || "—"}</td>
-            <td style="text-align:right">${parseFloat(item.quantity).toFixed(2)} ${item.unit || ""}</td>
-            <td style="text-align:right">₹${parseFloat(item.rate).toFixed(2)}</td>
-            <td style="text-align:right">₹${parseFloat(item.total_amount).toFixed(2)}</td>
-        </tr>
-    `).join("");
-
-        const grandTotal = txn.items.reduce((s, i) => s + parseFloat(i.total_amount || 0), 0);
-
-        const html = `
-        <!DOCTYPE html><html><head>
-        <meta charset="utf-8"/>
-        <title>Receipt_${txn.transaction_id}</title>
-        <style>
-            * { margin:0; padding:0; box-sizing:border-box; }
-            body { font-family:Arial,sans-serif; padding:24px; color:#111; max-width:480px; margin:0 auto; font-size:13px; }
-            .title { text-align:center; font-size:17px; font-weight:800; letter-spacing:1px; text-transform:uppercase; border-bottom:2px solid #111; padding-bottom:8px; margin-bottom:14px; }
-            .meta { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; margin-bottom:14px; font-size:12px; }
-            .meta .row { display:flex; gap:6px; }
-            .meta .lbl { color:#666; min-width:70px; }
-            .meta .val { font-weight:700; }
-            table { width:100%; border-collapse:collapse; margin-bottom:0; }
-            thead tr { background:#111; color:#fff; }
-            thead th { padding:7px 10px; font-size:11px; text-align:left; text-transform:uppercase; }
-            thead th:nth-child(n+3) { text-align:right; }
-            tbody tr { border-bottom:1px solid #e5e7eb; }
-            tbody td { padding:8px 10px; font-size:12px; }
-            tbody td:nth-child(n+3) { text-align:right; }
-            tfoot tr { border-top:2px solid #111; }
-            tfoot td { padding:9px 10px; font-size:13px; font-weight:800; }
-            tfoot td:last-child { text-align:right; }
-            .sign { display:flex; justify-content:flex-end; margin-top:36px; font-size:12px; color:#555; border-top:1px solid #111; padding-top:6px; width:120px; margin-left:auto; text-align:center; }
-            .txn-id { text-align:center; font-size:10px; color:#888; margin-bottom:10px; letter-spacing:0.05em; }
-            @media print { body { padding:12px; } }
-        </style>
-        </head><body>
-        <div class="title">Cash Memo</div>
-        <div class="txn-id">Transaction ID: ${txn.transaction_id}</div>
-        <div class="meta">
-            <div class="row"><span class="lbl">Date:</span><span class="val">${dateStr}</span></div>
-            <div class="row"><span class="lbl">Time:</span><span class="val">${new Date(txn.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span></div>
-            <div class="row"><span class="lbl">Cust No:</span><span class="val">${txn.seller_code || "—"}</span></div>
-            <div class="row"><span class="lbl">Cust Name:</span><span class="val">${txn.seller_name || "—"}</span></div>
-        </div>
-        <table>
-            <thead><tr>
-                <th style="width:32px">#</th>
-                <th>Item</th>
-                <th style="text-align:right">Qty</th>
-                <th style="text-align:right">Rate</th>
-                <th style="text-align:right">Amount</th>
-            </tr></thead>
-            <tbody>${itemRows}</tbody>
-            <tfoot><tr>
-                <td colspan="4">Grand Total</td>
-                <td>₹${grandTotal.toFixed(2)}</td>
-            </tr></tfoot>
-        </table>
-        <div class="sign">Authorised Signatory</div>
-        </body></html>`;
-
-        const blob = new Blob([html], { type: "text/html" });
-        const url = URL.createObjectURL(blob);
-        const win = window.open(url, "_blank");
-        if (win) {
-            win.onload = () => {
-                win.document.title = `Receipt_${txn.transaction_id}`;
-                setTimeout(() => { win.print(); URL.revokeObjectURL(url); }, 100);
-            };
-        }
     };
 
     // stats
@@ -1164,8 +1131,8 @@ export default function ProductSales() {
     const uniqueSellers = [...new Set(activeData.map((s) => s.seller_id))].length;
 
     // table
-    const COLS = [t('productSales.colSeller'), t('productSales.colProduct'), t('productSales.colQty'), t('productSales.colRate'), t('productSales.colTotal'), t('productSales.colTime'), ""];
-    const GRID = "1.4fr 1.6fr 80px 80px 100px 70px 100px";
+    const COLS = [t('productSales.colSeller'), productLabel ? t('productSales.colProduct') : t('productSales.colProduct'), t('productSales.colQty'), t('productSales.colRate'), t('productSales.colTotal'), t('productSales.colTime'), ""];
+    const GRID = "1.3fr 1fr 0.5fr 0.6fr 0.7fr 0.5fr 0.7fr";
 
     if (permLoading) return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
@@ -1176,6 +1143,12 @@ export default function ProductSales() {
     if (!can('product_sales', 'R')) return <AccessDenied />;
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            {printStatus && (
+                <div className="fixed top-4 right-4 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-900/95 backdrop-blur-sm text-white text-sm font-medium shadow-2xl shadow-gray-900/30">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                    {printStatus === 'preparing' ? 'Preparing receipt…' : 'Sending to printer…'}
+                </div>
+            )}
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
                 {/* ── Top Bar ── */}
@@ -1583,7 +1556,7 @@ export default function ProductSales() {
                     {/* Header */}
                     <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
+                            <div key={label} className="px-2.5 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
                             </div>
                         ))}
@@ -1602,9 +1575,8 @@ export default function ProductSales() {
                                     : t('productSales.noSalesRange')}
                             </p>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <div className="min-w-max">
+                        ) : (
+                            <div>
                                 {[...activeData].reverse().map((txn, i) => (
                                     <div key={txn.transaction_id || i}
                                         className="grid border-b border-gray-100/60 hover:bg-blue-50/30 transition-colors"
@@ -1704,7 +1676,6 @@ export default function ProductSales() {
                                         </TableCell>
                                     </div>
                                 ))}
-                            </div>
                         </div>
                     )}
 
@@ -1712,21 +1683,21 @@ export default function ProductSales() {
                     {activeData.length > 0 && (
                         <div className="grid border-t-2 border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50"
                             style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
+                            <div className="px-2.5 py-2 text-xs font-bold text-gray-600 border-r border-gray-200/60">
                                 {activeData.length} {activeData.length === 1 ? t('productSales.entry') : t('productSales.entries')}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-200/60 flex flex-col gap-0.5">
+                            <div className="px-2.5 py-2 border-r border-gray-200/60" />
+                            <div className="px-2.5 py-2 text-xs font-bold text-blue-600 border-r border-gray-200/60 flex flex-col gap-0.5">
                                 {qtyByUnitEntries.length === 0 ? "—"
                                     : qtyByUnitEntries.map(([u, q]) => (
                                         <span key={u}>{q.toFixed(2)} {u}</span>
                                     ))}
                             </div>
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-900 border-r border-gray-200/60">
+                            <div className="px-2.5 py-2 border-r border-gray-200/60" />
+                            <div className="px-2.5 py-2 text-xs font-bold text-gray-900 border-r border-gray-200/60">
                                 ₹{totalRevenue.toFixed(2)}
                             </div>
-                            <div className="px-3 py-2.5" />
+                            <div className="px-2.5 py-2" />
                         </div>
                     )}
                 </div>
