@@ -8,7 +8,7 @@ import {
     Clock, ChevronRight, BadgeCheck, Pencil, Trash2, Save,
     X, Banknote, Star, Vault, Droplet, Package, Lock,
     Percent, Receipt, Gift, Wheat, BarChart3, Home,
-    Sun, Moon
+    Sun, Moon, Image as ImageIcon
 } from "lucide-react";
 import {
     ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
@@ -84,6 +84,7 @@ const EMPTY_FORM = {
     cattle_feed_sale_enabled: 0,
     is_active: 1,
     password: "",
+    cheque: "",
 };
 
 const Field = ({ label, required, children }) => (
@@ -313,6 +314,434 @@ function FlashToast({ flash, phase, onClose }) {
     );
 }
 
+// ── Cheque Upload Component ──────────────────────────────────
+function ChequeUpload({ value, onChange, label = "Cheque Image" }) {
+    const [preview, setPreview] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+
+    // Initialize preview from value prop
+    useEffect(() => {
+        if (value && typeof value === 'string' && value.length > 0) {
+            setPreview(value);
+        } else {
+            setPreview(null);
+        }
+    }, [value]);
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file (JPEG, PNG, etc.)');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const base64 = event.target.result;
+                setPreview(base64);
+                onChange(base64);
+                setIsUploading(false);
+            };
+            reader.onerror = () => {
+                alert('Failed to read file');
+                setIsUploading(false);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            alert('Error uploading file');
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemove = () => {
+        setPreview(null);
+        onChange('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-2">
+            <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider">
+                {label}
+            </label>
+            <div className="flex items-center gap-3">
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                >
+                    <ImageIcon size={16} />
+                    {preview ? 'Change Image' : 'Upload Cheque'}
+                </button>
+                {preview && (
+                    <button
+                        type="button"
+                        onClick={handleRemove}
+                        className="text-rose-500 hover:text-rose-700 text-sm font-medium transition"
+                    >
+                        Remove
+                    </button>
+                )}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
+                {isUploading && (
+                    <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                )}
+            </div>
+            {preview && (
+                <div className="relative mt-2 w-32 h-32 rounded-xl overflow-hidden border border-gray-200/60 shadow-sm">
+                    <img
+                        src={preview}
+                        alt="Cheque"
+                        className="w-full h-full object-cover"
+                    />
+                    <button
+                        type="button"
+                        onClick={handleRemove}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition"
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Edit Form Modal ──────────────────────────────────────────
+function EditFormModal({ isOpen, onClose, form, setForm, seller, saving, onSave, onCancel, t, hasPassword }) {
+    if (!isOpen) return null;
+
+    const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (e.target.tagName !== "INPUT") return;
+        e.preventDefault();
+
+        const formEl = e.currentTarget;
+        const focusable = Array.from(
+            formEl.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
+        ).filter(el => el.offsetParent !== null);
+
+        const idx = focusable.indexOf(e.target);
+        if (idx > -1 && idx < focusable.length - 1) {
+            focusable[idx + 1].focus();
+        } else if (typeof formEl.requestSubmit === "function") {
+            formEl.requestSubmit();
+        } else {
+            onSave(e);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-800">{t('sellerProfile.editForm.title')}</h2>
+                        <p className="text-xs text-gray-500 mt-0.5">{t('sellerProfile.editForm.subtitle')}</p>
+                    </div>
+                    <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 overflow-y-auto flex-1">
+                    <form onSubmit={onSave} onKeyDown={handleFormKeyDown} className="space-y-5">
+                        {/* Row 1 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <Field label={t('sellerProfile.editForm.fullName')} required>
+                                <input value={form.name}
+                                    onChange={e => setForm(p => ({ ...p, name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.fullNamePlaceholder')} required maxLength={60}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.sellerCode')} required>
+                                <input value={form.seller_code}
+                                    onChange={e => setForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
+                                    placeholder={t('sellerProfile.editForm.sellerCodePlaceholder') || 'Seller Code'} maxLength={20}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.mobile')} required>
+                                <input value={form.mobile}
+                                    onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))}
+                                    placeholder={t('sellerProfile.editForm.mobilePlaceholder')} type="tel" required maxLength={13}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Row 1b — PAN & Seller ID Code */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('sellerProfile.editForm.panNumber') || "PAN Number"}>
+                                <input value={form.pan_number}
+                                    onChange={e => setForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
+                                    placeholder={t('sellerProfile.editForm.panPlaceholder') || "e.g. ABCDE1234F"} maxLength={12}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.sellerIdCode') || "Seller ID Code"}>
+                                <input value={form.seller_id_code}
+                                    onChange={e => setForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
+                                    placeholder={t('sellerProfile.editForm.sellerIdCodePlaceholder') || "Up to 18 digits"} maxLength={18} inputMode="numeric"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Row 2 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <Field label={t('sellerProfile.editForm.aadhaar')}>
+                                <input value={form.aadhaar}
+                                    onChange={e => setForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
+                                    placeholder={t('sellerProfile.editForm.aadhaarPlaceholder')} maxLength={12}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.sellerType')} required>
+                                <div className="flex gap-2">
+                                    {SELLER_TYPES.map(t => (
+                                        <label key={t} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.seller_type === t ? t === "Utpadak" ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-orange-50/80 border-orange-400 text-orange-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.seller_type === t}
+                                                onChange={() => setForm(p => ({ ...p, seller_type: t }))} className="hidden" />
+                                            {t}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.milkType')} required>
+                                <div className="flex gap-2">
+                                    {MILK_TYPES.map(mt => (
+                                        <label key={mt} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.milk_type === mt ? mt === "cow" ? "bg-amber-50/80 border-amber-400 text-amber-800" : mt === "buffalo" ? "bg-blue-50/80 border-blue-400 text-blue-800" : "bg-violet-50/80 border-violet-400 text-violet-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.milk_type === mt}
+                                                onChange={() => setForm(p => ({ ...p, milk_type: mt }))} className="hidden" />
+                                            {mt === "cow" ? t('sellerProfile.editForm.milkTypeCow') : mt === "buffalo" ? t('sellerProfile.editForm.milkTypeBuffalo') : t('sellerProfile.editForm.milkTypeCnB')}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        {/* Row 3 — Bank */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+                            <Field label={t('sellerProfile.editForm.jamin')}>
+                                <input value={form.jamin}
+                                    onChange={e => setForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.jaminPlaceholder')} maxLength={60}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.bankAccount')}>
+                                <input value={form.bank_account}
+                                    onChange={e => setForm(p => ({ ...p, bank_account: e.target.value.replace(/\D/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.bankAccountPlaceholder')} maxLength={20}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.confirmAccount')}>
+                                <input value={form.bank_account_confirm}
+                                    onChange={e => setForm(p => ({ ...p, bank_account_confirm: e.target.value.replace(/\D/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.confirmAccountPlaceholder')} maxLength={20}
+                                    className={`border rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition w-full
+                                        ${form.bank_account_confirm && form.bank_account !== form.bank_account_confirm ? "border-rose-300/60 bg-rose-50/50" : "border-gray-200/60 bg-white/50 focus:bg-white"}`} />
+                                {form.bank_account_confirm && form.bank_account !== form.bank_account_confirm &&
+                                    <p className="text-xs text-rose-500 font-medium mt-1">{t('sellerProfile.editForm.bankMismatch')}</p>}
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.accountHolder') || "Account Holder Name"}>
+                                <input value={form.account_holder_name}
+                                    onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.accountHolderPlaceholder') || "As per bank passbook"} maxLength={100}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <Field label={t('sellerProfile.editForm.bankName')}>
+                                <input value={form.bank_name}
+                                    onChange={e => setForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.bankNamePlaceholder')} maxLength={50}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.ifscCode')}>
+                                <input value={form.ifsc_code}
+                                    onChange={e => setForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
+                                    placeholder={t('sellerProfile.editForm.ifscCodePlaceholder')} maxLength={11}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.password') || "Password"}>
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        value={form.password}
+                                        onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                                        placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
+                                        maxLength={100}
+                                        autoComplete="new-password"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                    <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                </div>
+                                <p className={`text-[10px] mt-1 font-medium ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
+                                    {hasPassword ? (t('sellerProfile.editForm.passwordSetHint') || "Password is set. Enter a new one to change it.") : (t('sellerProfile.editForm.passwordNotSetHint') || "No password set yet for this seller.")}
+                                </p>
+                            </Field>
+                        </div>
+
+                        {/* Row 3b — Branch & Pincode */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('sellerProfile.editForm.branchName') || "Branch Name"}>
+                                <input value={form.branch_name}
+                                    onChange={e => setForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
+                                    placeholder={t('sellerProfile.editForm.branchNamePlaceholder') || "e.g. Pune Main Branch"} maxLength={100}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('sellerProfile.editForm.pincode') || "Pincode"}>
+                                <input value={form.pincode}
+                                    onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                                    placeholder={t('sellerProfile.editForm.pincodePlaceholder') || "e.g. 411001"} maxLength={6} inputMode="numeric"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Address */}
+                        <Field label={t('sellerProfile.editForm.address')}>
+                            <input value={form.address}
+                                onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                                placeholder={t('sellerProfile.editForm.addressPlaceholder')} maxLength={200}
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
+                        </Field>
+
+                        {/* Cheque Image */}
+                        <ChequeUpload
+                            value={form.cheque}
+                            onChange={(val) => setForm(p => ({ ...p, cheque: val }))}
+                            label="Cheque Image"
+                        />
+
+                        {/* Advance + Deposit + Product + Cattle Feed + Payment Term + Status */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('sellerProfile.editForm.cashAdvance')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.advance_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.advance_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, advance_enabled: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            {form.advance_enabled === 1 && (
+                                <Field label={t('sellerProfile.editForm.advanceRecovery')}>
+                                    <input value={form.advance_deduction}
+                                        onChange={e => setForm(p => ({ ...p, advance_deduction: e.target.value.replace(/[^0-9.]/g, "") }))}
+                                        placeholder={t('sellerProfile.editForm.advanceRecoveryPlaceholder')} inputMode="decimal" maxLength={10}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('sellerProfile.editForm.depositPerLitre')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.deposit_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.deposit_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, deposit_enabled: val, deposit_per_litre: val === 0 ? "" : p.deposit_per_litre }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            {form.deposit_enabled === 1 && (
+                                <Field label={t('sellerProfile.editForm.depositRate')}>
+                                    <input value={form.deposit_per_litre}
+                                        onChange={e => setForm(p => ({ ...p, deposit_per_litre: e.target.value.replace(/[^0-9.]/g, "") }))}
+                                        placeholder={t('sellerProfile.editForm.depositRatePlaceholder')} inputMode="decimal" maxLength={6}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('sellerProfile.editForm.productSale')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.product_sale_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.product_sale_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, product_sale_enabled: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+
+                            <Field label={t('sellerProfile.editForm.cattleFeedSale')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.cattle_feed_sale_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.cattle_feed_sale_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, cattle_feed_sale_enabled: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('sellerProfile.editForm.sellerStatus')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('sellerProfile.editForm.active'), val: 1 }, { label: t('sellerProfile.editForm.inactive'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${(form.is_active ?? 1) === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={(form.is_active ?? 1) === val}
+                                                onChange={() => setForm(p => ({ ...p, is_active: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-1">
+                            <button type="button" onClick={onCancel}
+                                className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition">{t('sellerProfile.editForm.cancel')}</button>
+                            <button type="submit" disabled={saving}
+                                className={`flex items-center gap-2 text-sm font-bold px-6 py-2.5 rounded-xl text-white shadow-lg transition-all duration-200
+                                    ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}>
+                                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                <Save size={14} />
+                                {saving ? t('sellerProfile.editForm.saving') : t('sellerProfile.editForm.updateSeller')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main ──────────────────────────────────────────────────────
 export default function SellerProfile() {
     const { t } = useTranslation();
@@ -460,41 +889,20 @@ export default function SellerProfile() {
             ifsc_code: seller.ifsc_code || "",
             address: seller.address || "",
             pincode: seller.pincode || "",
-            advance_enabled: seller.advance_enabled ?? 1,
+            advance_enabled: Number(seller.advance_enabled ?? 1) ? 1 : 0,
             advance_deduction: seller.advance_deduction || "",
-            deposit_enabled: seller.deposit_enabled ?? 0,
+            deposit_enabled: Number(seller.deposit_enabled ?? 0) ? 1 : 0,
             deposit_per_litre: seller.deposit_per_litre || "",
-            product_sale_enabled: seller.product_sale_enabled ?? 0,
+            product_sale_enabled: Number(seller.product_sale_enabled ?? 0) ? 1 : 0,
             product_sale_rate: seller.product_sale_rate || "",
-            cattle_feed_sale_enabled: seller.cattle_feed_sale_enabled ?? 0,
-            is_active: seller.is_active ?? 1,
+            cattle_feed_sale_enabled: Number(seller.cattle_feed_sale_enabled ?? 0) ? 1 : 0,
+            is_active: Number(seller.is_active ?? 1) ? 1 : 0,
             password: "",
+            cheque: seller.cheque || "",
         });
         setHasPassword(!!seller.has_password);
         setShowEdit(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    // Enter key moves focus to the next visible input in the edit form.
-    // Pressing Enter on the last input submits the form (same as clicking "Update Farmer").
-    const handleEditFormKeyDown = (e) => {
-        if (e.key !== "Enter") return;
-        if (e.target.tagName !== "INPUT") return; // let buttons behave normally
-        e.preventDefault();
-
-        const form = e.currentTarget;
-        const focusable = Array.from(
-            form.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
-        ).filter(el => el.offsetParent !== null); // skip hidden radio inputs etc.
-
-        const idx = focusable.indexOf(e.target);
-        if (idx > -1 && idx < focusable.length - 1) {
-            focusable[idx + 1].focus();
-        } else if (typeof form.requestSubmit === "function") {
-            form.requestSubmit();
-        } else {
-            handleSave(e);
-        }
     };
 
     const handleSave = async (e) => {
@@ -637,7 +1045,6 @@ export default function SellerProfile() {
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div className="flex items-center gap-3">
-                        {/* Back Button */}
                         <button
                             onClick={() => navigate(-1)}
                             className="w-10 h-10 rounded-xl bg-gray-50/80 border border-gray-200/60 flex items-center justify-center text-gray-600 hover:bg-gray-100/80 hover:border-gray-300/80 transition-all duration-200 shadow-sm hover:shadow-md shrink-0"
@@ -688,280 +1095,19 @@ export default function SellerProfile() {
                     </div>
                 </div>
 
-
-
-                {/* ── Edit Form ── */}
-                {showEdit && (
-                    <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50">
-                        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 relative z-10 bg-gradient-to-r from-gray-50/50 to-white/50">
-                            <div>
-                                <h2 className="font-bold text-gray-800">{t('sellerProfile.editForm.title')}</h2>
-                                <p className="text-xs text-gray-500 mt-0.5">{t('sellerProfile.editForm.subtitle')}</p>
-                            </div>
-                            <button onClick={() => { setShowEdit(false); setHasPassword(false); }}
-                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
-                                <X size={15} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSave} onKeyDown={handleEditFormKeyDown} className="p-6 space-y-5 relative z-10">
-                            {/* Row 1 */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                                <Field label={t('sellerProfile.editForm.fullName')} required>
-                                    <input value={editForm.name}
-                                        onChange={e => setEditForm(p => ({ ...p, name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.fullNamePlaceholder')} required maxLength={60}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.sellerCode')} required>
-                                    <input value={editForm.seller_code}
-                                        onChange={e => setEditForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
-                                        placeholder={t('sellerProfile.editForm.sellerCodePlaceholder') || 'Seller Code'} maxLength={20}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.mobile')} required>
-                                    <input value={editForm.mobile}
-                                        onChange={e => setEditForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))}
-                                        placeholder={t('sellerProfile.editForm.mobilePlaceholder')} type="tel" required maxLength={13}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                            </div>
-                            {/* Row 1b — PAN & Seller ID Code */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.panNumber') || "PAN Number"}>
-                                    <input value={editForm.pan_number}
-                                        onChange={e => setEditForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
-                                        placeholder={t('sellerProfile.editForm.panPlaceholder') || "e.g. ABCDE1234F"} maxLength={12}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.sellerIdCode') || "Seller ID Code"}>
-                                    <input value={editForm.seller_id_code}
-                                        onChange={e => setEditForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
-                                        placeholder={t('sellerProfile.editForm.sellerIdCodePlaceholder') || "Up to 18 digits"} maxLength={18} inputMode="numeric"
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                            </div>
-                            {/* Row 2 */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                                <Field label={t('sellerProfile.editForm.aadhaar')}>
-                                    <input value={editForm.aadhaar}
-                                        onChange={e => setEditForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
-                                        placeholder={t('sellerProfile.editForm.aadhaarPlaceholder')} maxLength={12}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.sellerType')} required>
-                                    <div className="flex gap-2">
-                                        {SELLER_TYPES.map(t => (
-                                            <label key={t} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.seller_type === t ? t === "Utpadak" ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-orange-50/80 border-orange-400 text-orange-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.seller_type === t}
-                                                    onChange={() => setEditForm(p => ({ ...p, seller_type: t }))} className="hidden" />
-                                                {t}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.milkType')} required>
-                                    <div className="flex gap-2">
-                                        {MILK_TYPES.map(mt => (
-                                            <label key={mt} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.milk_type === mt ? mt === "cow" ? "bg-amber-50/80 border-amber-400 text-amber-800" : mt === "buffalo" ? "bg-blue-50/80 border-blue-400 text-blue-800" : "bg-violet-50/80 border-violet-400 text-violet-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.milk_type === mt}
-                                                    onChange={() => setEditForm(p => ({ ...p, milk_type: mt }))} className="hidden" />
-                                                {mt === "cow" ? t('sellerProfile.editForm.milkTypeCow') : mt === "buffalo" ? t('sellerProfile.editForm.milkTypeBuffalo') : t('sellerProfile.editForm.milkTypeCnB')}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                            </div>
-                            {/* Row 3 — Bank */}
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
-                                <Field label={t('sellerProfile.editForm.jamin')}>
-                                    <input value={editForm.jamin}
-                                        onChange={e => setEditForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.jaminPlaceholder')} maxLength={60}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.bankAccount')}>
-                                    <input value={editForm.bank_account}
-                                        onChange={e => setEditForm(p => ({ ...p, bank_account: e.target.value.replace(/\D/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.bankAccountPlaceholder')} maxLength={20}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.confirmAccount')}>
-                                    <input value={editForm.bank_account_confirm}
-                                        onChange={e => setEditForm(p => ({ ...p, bank_account_confirm: e.target.value.replace(/\D/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.confirmAccountPlaceholder')} maxLength={20}
-                                        className={`border rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition w-full
-                                            ${editForm.bank_account_confirm && editForm.bank_account !== editForm.bank_account_confirm ? "border-rose-300/60 bg-rose-50/50" : "border-gray-200/60 bg-white/50 focus:bg-white"}`} />
-                                    {editForm.bank_account_confirm && editForm.bank_account !== editForm.bank_account_confirm &&
-                                        <p className="text-xs text-rose-500 font-medium mt-1">{t('sellerProfile.editForm.bankMismatch')}</p>}
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.accountHolder') || "Account Holder Name"}>
-                                    <input value={editForm.account_holder_name}
-                                        onChange={e => setEditForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.accountHolderPlaceholder') || "As per bank passbook"} maxLength={100}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                                <Field label={t('sellerProfile.editForm.bankName')}>
-                                    <input value={editForm.bank_name}
-                                        onChange={e => setEditForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.bankNamePlaceholder')} maxLength={50}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.ifscCode')}>
-                                    <input value={editForm.ifsc_code}
-                                        onChange={e => setEditForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
-                                        placeholder={t('sellerProfile.editForm.ifscCodePlaceholder')} maxLength={11}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.password') || "Password"}>
-                                    <div className="relative">
-                                        <input
-                                            type="password"
-                                            value={editForm.password}
-                                            onChange={e => setEditForm(p => ({ ...p, password: e.target.value }))}
-                                            placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
-                                            maxLength={100}
-                                            autoComplete="new-password"
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                        <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    </div>
-                                    <p className={`text-[10px] mt-1 font-medium ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
-                                        {hasPassword ? (t('sellerProfile.editForm.passwordSetHint') || "Password is set. Enter a new one to change it.") : (t('sellerProfile.editForm.passwordNotSetHint') || "No password set yet for this seller.")}
-                                    </p>
-                                </Field>
-                            </div>
-                            {/* Row 3b — Branch & Pincode */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.branchName') || "Branch Name"}>
-                                    <input value={editForm.branch_name}
-                                        onChange={e => setEditForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
-                                        placeholder={t('sellerProfile.editForm.branchNamePlaceholder') || "e.g. Pune Main Branch"} maxLength={100}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerProfile.editForm.pincode') || "Pincode"}>
-                                    <input value={editForm.pincode}
-                                        onChange={e => setEditForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
-                                        placeholder={t('sellerProfile.editForm.pincodePlaceholder') || "e.g. 411001"} maxLength={6} inputMode="numeric"
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                            </div>
-                            {/* Address */}
-                            <Field label={t('sellerProfile.editForm.address')}>
-                                <input value={editForm.address}
-                                    onChange={e => setEditForm(p => ({ ...p, address: e.target.value }))}
-                                    placeholder={t('sellerProfile.editForm.addressPlaceholder')} maxLength={200}
-                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                <p className="text-[10px] text-gray-400 mt-0.5 text-right">{editForm.address.length}/200</p>
-                            </Field>
-
-                            {/* Advance + Deposit + Product + Cattle Feed + Payment Term + Status */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.cashAdvance')}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.advance_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.advance_enabled === val}
-                                                    onChange={() => setEditForm(p => ({ ...p, advance_enabled: val }))} className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                                {editForm.advance_enabled === 1 && (
-                                    <Field label={t('sellerProfile.editForm.advanceRecovery')}>
-                                        <input value={editForm.advance_deduction}
-                                            onChange={e => setEditForm(p => ({ ...p, advance_deduction: e.target.value.replace(/[^0-9.]/g, "") }))}
-                                            placeholder={t('sellerProfile.editForm.advanceRecoveryPlaceholder')} inputMode="decimal" maxLength={10}
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                    </Field>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.depositPerLitre')}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.deposit_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.deposit_enabled === val}
-                                                    onChange={() => setEditForm(p => ({ ...p, deposit_enabled: val, deposit_per_litre: val === 0 ? "" : p.deposit_per_litre }))} className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                                {editForm.deposit_enabled === 1 && (
-                                    <Field label={t('sellerProfile.editForm.depositRate')}>
-                                        <input value={editForm.deposit_per_litre}
-                                            onChange={e => setEditForm(p => ({ ...p, deposit_per_litre: e.target.value.replace(/[^0-9.]/g, "") }))}
-                                            placeholder={t('sellerProfile.editForm.depositRatePlaceholder')} inputMode="decimal" maxLength={6}
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                    </Field>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.productSale')}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.product_sale_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.product_sale_enabled === val}
-                                                    onChange={() => setEditForm(p => ({ ...p, product_sale_enabled: val }))} className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-
-                                <Field label={t('sellerProfile.editForm.cattleFeedSale')}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerProfile.editForm.enabled'), val: 1 }, { label: t('sellerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${editForm.cattle_feed_sale_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={editForm.cattle_feed_sale_enabled === val}
-                                                    onChange={() => setEditForm(p => ({ ...p, cattle_feed_sale_enabled: val }))} className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <Field label={t('sellerProfile.editForm.sellerStatus')}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerProfile.editForm.active'), val: 1 }, { label: t('sellerProfile.editForm.inactive'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
-                                                ${(editForm.is_active ?? 1) === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
-                                                <input type="radio" checked={(editForm.is_active ?? 1) === val}
-                                                    onChange={() => setEditForm(p => ({ ...p, is_active: val }))} className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 pt-1">
-                                <button type="button" onClick={() => setShowEdit(false)}
-                                    className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition">{t('sellerProfile.editForm.cancel')}</button>
-                                <button type="submit" disabled={saving}
-                                    className={`flex items-center gap-2 text-sm font-bold px-6 py-2.5 rounded-xl text-white shadow-lg transition-all duration-200
-                                        ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}>
-                                    {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    <Save size={14} />
-                                    {saving ? t('sellerProfile.editForm.saving') : t('sellerProfile.editForm.updateSeller')}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
+                {/* ── Edit Form Modal ── */}
+                <EditFormModal
+                    isOpen={showEdit}
+                    onClose={() => { setShowEdit(false); setHasPassword(false); }}
+                    form={editForm}
+                    setForm={setEditForm}
+                    seller={seller}
+                    saving={saving}
+                    onSave={handleSave}
+                    onCancel={() => { setShowEdit(false); setHasPassword(false); }}
+                    t={t}
+                    hasPassword={hasPassword}
+                />
 
                 {/* ── Summary Stats ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -1021,6 +1167,20 @@ export default function SellerProfile() {
                                     {seller.milk_type}
                                 </span>
                                 : null
+                        } />
+                        {/* Cheque Image */}
+                        <InfoRow icon={<ImageIcon size={13} />} label="Cheque Image" badge={
+                            seller.cheque ? (
+                                <button
+                                    onClick={() => window.open(seller.cheque, '_blank')}
+                                    className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                                >
+                                    <ImageIcon size={14} />
+                                    View Cheque
+                                </button>
+                            ) : (
+                                <span className="text-xs text-gray-300 italic">No cheque uploaded</span>
+                            )
                         } />
                         <InfoRow icon={<Banknote size={13} />} label={t('sellerProfile.personalInfo.cashAdvance')} badge={
                             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm

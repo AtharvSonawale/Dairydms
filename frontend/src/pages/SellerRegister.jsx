@@ -8,7 +8,7 @@ import {
     Trash2, Hash, Building2, X, BadgeCheck, ExternalLink,
     Wallet, Banknote, Milk, Sprout, MapPinned, Lock,
     UploadCloud, FileSpreadsheet, CheckCircle2, XCircle, Download, RotateCcw, Import,
-    Home, Search, ArrowUp, ArrowDown, ArrowUpDown
+    Home, Search, ArrowUp, ArrowDown, ArrowUpDown, Image as ImageIcon
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -71,6 +71,9 @@ const columnMap = {
     'cattle feed enabled': 'cattle_feed_sale_enabled',
     'cattle_feed_sale_enabled': 'cattle_feed_sale_enabled',
     'password': 'password',
+    'cheque': 'cheque',
+    'cheque image': 'cheque',
+    'cheque_image': 'cheque',
 };
 
 // ── Sample farmers used to populate the downloadable import template ──────
@@ -159,6 +162,7 @@ const EMPTY_FORM = {
     product_sale_enabled: 0,
     cattle_feed_sale_enabled: 0,
     is_active: 1,
+    cheque: "",
 };
 
 const milkBadge = (t, translate) =>
@@ -228,6 +232,489 @@ function FlashToast({ flash, phase, onClose }) {
     );
 }
 
+// ── Cheque Upload Component ──────────────────────────────────
+function ChequeUpload({ value, onChange, label = "Cheque Image" }) {
+    const [preview, setPreview] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+
+    // Initialize preview from value prop
+    useEffect(() => {
+        if (value && typeof value === 'string' && value.length > 0) {
+            setPreview(value);
+        } else {
+            setPreview(null);
+        }
+    }, [value]);
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file (JPEG, PNG, etc.)');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const base64 = event.target.result;
+                setPreview(base64);
+                onChange(base64);
+                setIsUploading(false);
+            };
+            reader.onerror = () => {
+                alert('Failed to read file');
+                setIsUploading(false);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            alert('Error uploading file');
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemove = () => {
+        setPreview(null);
+        onChange('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {label}
+            </label>
+            <div className="flex items-center gap-3">
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                >
+                    <ImageIcon size={16} />
+                    {preview ? 'Change Image' : 'Upload Cheque'}
+                </button>
+                {preview && (
+                    <button
+                        type="button"
+                        onClick={handleRemove}
+                        className="text-rose-500 hover:text-rose-700 text-sm font-medium transition"
+                    >
+                        Remove
+                    </button>
+                )}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
+                {isUploading && (
+                    <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                )}
+            </div>
+            {preview && (
+                <div className="relative mt-2 w-32 h-32 rounded-xl overflow-hidden border border-gray-200/60 shadow-sm">
+                    <img
+                        src={preview}
+                        alt="Cheque"
+                        className="w-full h-full object-cover"
+                    />
+                    <button
+                        type="button"
+                        onClick={handleRemove}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition"
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Seller Form Modal ───────────────────────────────────────
+function SellerFormModal({ isOpen, onClose, form, setForm, editingId, saving, onSave, onCancel, t, hasPassword }) {
+    const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (e.target.tagName !== "INPUT") return;
+        e.preventDefault();
+
+        const formEl = e.currentTarget;
+        const focusable = Array.from(
+            formEl.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
+        ).filter(el => el.offsetParent !== null);
+
+        const idx = focusable.indexOf(e.target);
+        if (idx > -1 && idx < focusable.length - 1) {
+            focusable[idx + 1].focus();
+        } else if (typeof formEl.requestSubmit === "function") {
+            formEl.requestSubmit();
+        } else {
+            onSave(e);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-800">
+                            {editingId ? 'Edit Seller' : 'Register New Seller'}
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {editingId ? 'Update seller details' : 'Fill in the details to register a new seller'}
+                        </p>
+                    </div>
+                    <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 overflow-y-auto flex-1">
+                    <form onSubmit={onSave} onKeyDown={handleFormKeyDown} className="space-y-5">
+                        {/* Row 1 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Field label="Full Name" name="name" value={form.name} onChange={handleChange} placeholder="Enter full name" required t={t}>
+                                <input name="name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))} placeholder="Enter full name" required maxLength={60}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Seller Code" name="seller_code" value={form.seller_code} onChange={handleChange} placeholder="Auto-generated" required t={t}>
+                                <input name="seller_code" value={form.seller_code}
+                                    onChange={e => setForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
+                                    placeholder="Auto-generated" maxLength={20}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Mobile" name="mobile" value={form.mobile} onChange={handleChange} placeholder="+91XXXXXXXXXX" type="tel" required t={t}>
+                                <input name="mobile" value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))} placeholder="+91XXXXXXXXXX" type="tel" required maxLength={13}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Row 2 - Aadhaar, PAN, Seller ID Code */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Field label="Aadhaar" name="aadhaar" value={form.aadhaar} onChange={handleChange} placeholder="XXXX XXXX XXXX" t={t}>
+                                <input name="aadhaar" value={form.aadhaar}
+                                    onChange={e => setForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
+                                    placeholder="XXXX XXXX XXXX" maxLength={12}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+
+                            <Field label="PAN Number" name="pan_number" value={form.pan_number} onChange={handleChange} placeholder="e.g. ABCDE1234F" t={t}>
+                                <input name="pan_number" value={form.pan_number}
+                                    onChange={e => setForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
+                                    placeholder="e.g. ABCDE1234F" maxLength={12}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.pan_number.length}/12</p>
+                            </Field>
+
+                            <Field label="Seller ID Code" name="seller_id_code" value={form.seller_id_code} onChange={handleChange} placeholder="Up to 18 digits" t={t}>
+                                <input name="seller_id_code" value={form.seller_id_code}
+                                    onChange={e => setForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
+                                    placeholder="Up to 18 digits" maxLength={18} inputMode="numeric"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.seller_id_code.length}/18</p>
+                            </Field>
+                        </div>
+
+                        {/* Row 3 - Seller Type & Milk Type */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Field label="Seller Type" required t={t}>
+                                <div className="flex gap-2">
+                                    {SELLER_TYPES.map((type) => (
+                                        <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
+                                            ${form.seller_type === type
+                                                ? type === "Utpadak" ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-orange-50 to-orange-100/50 border-orange-200/60 text-orange-800"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input type="radio" name="seller_type" value={type} checked={form.seller_type === type} onChange={handleChange} className="hidden" />
+                                            {type === "Utpadak" ? "Utpadak" : "Gavali"}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+
+                            <Field label="Milk Type" required t={t}>
+                                <div className="flex gap-2">
+                                    {MILK_TYPES.map((type) => (
+                                        <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm                                                ${form.milk_type === type
+                                            ? type === "cow" ? "bg-gradient-to-br from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-800"
+                                                : type === "buffalo" ? "bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-800"
+                                                    : "bg-gradient-to-br from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-800"
+                                            : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input type="radio" name="milk_type" value={type} checked={form.milk_type === type} onChange={handleChange} className="hidden" />
+                                            {type === "cow" ? "Cow" : type === "buffalo" ? "Buffalo" : "Both"}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        {/* Row 4 - Jamin, Bank Account, Confirm Account */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Field label="Jamin" name="jamin" value={form.jamin} onChange={handleChange} placeholder="Enter jamin name" t={t}>
+                                <input name="jamin" value={form.jamin}
+                                    onChange={e => setForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder="Enter jamin name" maxLength={60}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Bank Account No" name="bank_account" value={form.bank_account} onChange={handleChange} placeholder="Enter bank account number" t={t}>
+                                <input name="bank_account" value={form.bank_account} onChange={e => setForm(p => ({ ...p, bank_account: e.target.value.replace(/\D/g, "") }))}
+                                    placeholder="Enter bank account number" maxLength={20}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Confirm Account No" name="bank_account_confirm" value={form.bank_account_confirm} onChange={handleChange} placeholder="Confirm bank account number" t={t}>
+                                <input name="bank_account_confirm" value={form.bank_account_confirm}
+                                    onChange={e => setForm(p => ({ ...p, bank_account_confirm: e.target.value.replace(/\D/g, "") }))}
+                                    placeholder="Confirm bank account number" maxLength={20}
+                                    className={`border rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition w-full
+                                        ${form.bank_account_confirm && form.bank_account !== form.bank_account_confirm ? "border-rose-300 bg-rose-50/50 focus:ring-rose-400" : "border-gray-200/60 bg-white/50 backdrop-blur-sm focus:bg-white"}`} />
+                                {form.bank_account_confirm && form.bank_account !== form.bank_account_confirm &&
+                                    <p className="text-xs text-rose-500 mt-1">Account numbers do not match</p>}
+                            </Field>
+                        </div>
+
+                        {/* Row 5 - Bank Name, IFSC, Account Holder, Branch */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                            <Field label="Bank Name" name="bank_name" value={form.bank_name} onChange={handleChange} placeholder="e.g. SBI, HDFC" t={t}>
+                                <input name="bank_name" value={form.bank_name}
+                                    onChange={e => setForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
+                                    placeholder="e.g. SBI, HDFC" maxLength={50}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="IFSC Code" name="ifsc_code" value={form.ifsc_code} onChange={handleChange} placeholder="e.g. SBIN0001234" t={t}>
+                                <input name="ifsc_code" value={form.ifsc_code}
+                                    onChange={e => setForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
+                                    placeholder="e.g. SBIN0001234" maxLength={11}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Account Holder Name" name="account_holder_name" value={form.account_holder_name} onChange={handleChange} placeholder="As per bank passbook" t={t}>
+                                <input name="account_holder_name" value={form.account_holder_name}
+                                    onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder="As per bank passbook" maxLength={100}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Branch Name" name="branch_name" value={form.branch_name} onChange={handleChange} placeholder="e.g. Pune Main Branch" t={t}>
+                                <input name="branch_name" value={form.branch_name}
+                                    onChange={e => setForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
+                                    placeholder="e.g. Pune Main Branch" maxLength={100}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Row 6 - Address, Pincode, Password */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Field label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Enter full address" t={t}>
+                                <input name="address" value={form.address} onChange={handleChange}
+                                    placeholder="Enter full address" minLength={10} maxLength={200}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
+                            </Field>
+                            <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 411001" t={t}>
+                                <input name="pincode" value={form.pincode}
+                                    onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                                    placeholder="e.g. 411001" maxLength={6} inputMode="numeric"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label="Password" name="password" value={form.password} onChange={handleChange}
+                                placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"} t={t}>
+                                <div className="relative">
+                                    <input name="password" type="password" value={form.password}
+                                        onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                                        placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
+                                        maxLength={100} autoComplete="new-password"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                    <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                </div>
+                                <p className={`text-[10px] mt-1 ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
+                                    {hasPassword ? "Password is set. Enter a new one to change it." : "No password set yet for this seller."}
+                                </p>
+                            </Field>
+                        </div>
+
+                        {/* Row 7 - Cheque Image */}
+                        <div className="grid grid-cols-1 gap-4">
+                            <ChequeUpload
+                                value={form.cheque}
+                                onChange={(val) => setForm(p => ({ ...p, cheque: val }))}
+                                label="Cheque Image"
+                            />
+                        </div>
+
+                        {/* Row 8 - Cash Advance */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Field label="Cash Advance" t={t}>
+                                <div className="flex gap-2">
+                                    {[{ label: "Enabled", val: 1 }, { label: "Disabled", val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm ${form.advance_enabled === val
+                                            ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                            : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input type="radio" name="advance_enabled" value={val}
+                                                checked={form.advance_enabled === val}
+                                                onChange={() => setForm((p) => ({ ...p, advance_enabled: val, advance_deduction: val === 0 ? "" : p.advance_deduction }))}
+                                                className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            {form.advance_enabled === 1 && (
+                                <Field label="Advance Recovery" name="advance_deduction" value={form.advance_deduction} onChange={handleChange} placeholder="Enter amount per litre" t={t}>
+                                    <input name="advance_deduction" value={form.advance_deduction}
+                                        onChange={e => setForm(p => ({ ...p, advance_deduction: e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") }))}
+                                        placeholder="Enter amount per litre" inputMode="decimal" maxLength={10}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                            )}
+                        </div>
+
+                        {/* Row 9 - Deposit per Litre */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Field label="Deposit per Litre" t={t}>
+                                <div className="flex gap-2">
+                                    {[{ label: "Enabled", val: 1 }, { label: "Disabled", val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
+                                        ${form.deposit_enabled === val
+                                                ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input type="radio" name="deposit_enabled" value={val}
+                                                checked={form.deposit_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, deposit_enabled: val, deposit_per_litre: val === 0 ? "" : p.deposit_per_litre }))}
+                                                className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            {form.deposit_enabled === 1 && (
+                                <Field label="Deposit Rate" t={t}>
+                                    <input
+                                        name="deposit_per_litre"
+                                        value={form.deposit_per_litre}
+                                        onChange={e => setForm(p => ({ ...p, deposit_per_litre: e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") }))}
+                                        placeholder="Enter amount per litre"
+                                        inputMode="decimal"
+                                        maxLength={6}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full"
+                                    />
+                                    {form.deposit_per_litre && (
+                                        <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                                            ₹{parseFloat(form.deposit_per_litre || 0).toFixed(2)} per litre collected
+                                        </p>
+                                    )}
+                                    {!form.deposit_per_litre && (
+                                        <p className="text-[10px] text-gray-400 mt-1">Enter the deposit amount per litre</p>
+                                    )}
+                                </Field>
+                            )}
+                        </div>
+
+                        {/* Row 10 - Product Sale & Cattle Feed Sale Toggles */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Field label="Product Sale" t={t}>
+                                <div className="flex gap-2">
+                                    {[{ label: "Enabled", val: 1 }, { label: "Disabled", val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
+                ${form.product_sale_enabled === val
+                                                ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input
+                                                type="radio"
+                                                name="product_sale_enabled"
+                                                value={val}
+                                                checked={form.product_sale_enabled === val}
+                                                onChange={() => setForm(p => ({
+                                                    ...p,
+                                                    product_sale_enabled: val,
+                                                }))}
+                                                className="hidden"
+                                            />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+
+                            <Field label="Cattle Feed Sale" t={t}>
+                                <div className="flex gap-2">
+                                    {[{ label: "Enabled", val: 1 }, { label: "Disabled", val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
+                                            ${form.cattle_feed_sale_enabled === val
+                                                ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input
+                                                type="radio"
+                                                name="cattle_feed_sale_enabled"
+                                                value={val}
+                                                checked={form.cattle_feed_sale_enabled === val}
+                                                onChange={() => setForm(p => ({
+                                                    ...p,
+                                                    cattle_feed_sale_enabled: val,
+                                                }))}
+                                                className="hidden"
+                                            />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        {/* Row 11 - Active Status */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <Field label="Seller Status" t={t}>
+                                <div className="flex gap-2">
+                                    {[{ label: "Active", val: 1 }, { label: "Inactive", val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
+                                            ${(form.is_active ?? 1) === val
+                                                ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
+                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
+                                            <input type="radio" name="is_active" value={val}
+                                                checked={(form.is_active ?? 1) === val}
+                                                onChange={() => setForm(p => ({ ...p, is_active: val }))}
+                                                className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100/60">
+                            <button type="button" onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
+                                Cancel
+                            </button>
+                            <button type="submit" disabled={saving}
+                                className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
+                                {saving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                <Save size={14} />
+                                {saving ? "Saving..." : editingId ? "Update Seller" : "Register Seller"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main ──────────────────────────────────────────────────────
 export default function SellerRegister() {
     const { t } = useTranslation();
@@ -253,8 +740,9 @@ export default function SellerRegister() {
         const saved = sessionStorage.getItem('sellerRegister_currentPage');
         const n = saved ? parseInt(saved, 10) : 1;
         return Number.isNaN(n) || n < 1 ? 1 : n;
-    });    const [hasPassword, setHasPassword] = useState(false);
-    const [codeSortDirection, setCodeSortDirection] = useState('asc'); // null | 'asc' | 'desc'
+    });
+    const [hasPassword, setHasPassword] = useState(false);
+    const [codeSortDirection, setCodeSortDirection] = useState('asc');
 
     // Cycles: none -> ascending -> descending -> none
     const toggleCodeSort = () => {
@@ -306,7 +794,7 @@ export default function SellerRegister() {
     const [importResult, setImportResult] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [missingRequiredColumns, setMissingRequiredColumns] = useState(false);
-    const [importMode, setImportMode] = useState('add'); // 'add' | 'update'
+    const [importMode, setImportMode] = useState('add');
     const [deleteMissingOnUpdate, setDeleteMissingOnUpdate] = useState(false);
 
     // ── Search Function ──
@@ -597,7 +1085,6 @@ export default function SellerRegister() {
                 setImportErrors([]);
             }
 
-// AFTER
             setImportResult({
                 added: importMode === 'update' ? (updated + (inserted || 0)) : added,
                 updated: importMode === 'update' ? updated : undefined,
@@ -630,15 +1117,15 @@ export default function SellerRegister() {
             steps: [
                 {
                     element: '[data-tour="add-seller-btn"]',
-                    popover: { title: t('sellerRegister.addSeller'), description: t('sellerRegister.tourAddSellerDesc') || 'Click here to register a new seller.' },
+                    popover: { title: 'Add Seller', description: 'Click here to register a new seller.' },
                 },
                 {
                     element: '[data-tour="seller-stats"]',
-                    popover: { title: t('sellerRegister.totalSellers'), description: t('sellerRegister.tourStatsDesc') || 'See your total sellers, broken down by milk type.' },
+                    popover: { title: 'Total Sellers', description: 'See your total sellers, broken down by milk type.' },
                 },
                 {
                     element: '[data-tour="filter-tabs"]',
-                    popover: { title: t('sellerRegister.all'), description: t('sellerRegister.tourFilterDesc') || 'Filter the seller list by cow, buffalo, or both milk type.' },
+                    popover: { title: 'Filter', description: 'Filter the seller list by cow, buffalo, or both milk type.' },
                 },
                 {
                     element: '[data-tour="search-input"]',
@@ -646,7 +1133,7 @@ export default function SellerRegister() {
                 },
                 {
                     element: '[data-tour="seller-table"]',
-                    popover: { title: t('sellerRegister.actions'), description: t('sellerRegister.tourTableDesc') || 'Click a seller\'s name to view their profile, or use Edit/Delete here.' },
+                    popover: { title: 'Actions', description: 'Click a seller\'s name to view their profile, or use Edit/Delete here.' },
                 },
             ],
         });
@@ -710,13 +1197,14 @@ export default function SellerRegister() {
             address: s.address || "",
             pincode: s.pincode || "",
             password: "",
-            advance_enabled: s.advance_enabled ?? 1,
+            advance_enabled: Number(s.advance_enabled ?? 1) ? 1 : 0,
             advance_deduction: s.advance_deduction || "",
-            deposit_enabled: s.deposit_enabled ?? 0,
+            deposit_enabled: Number(s.deposit_enabled ?? 0) ? 1 : 0,
             deposit_per_litre: s.deposit_per_litre || "",
-            product_sale_enabled: s.product_sale_enabled ?? 0,
-            cattle_feed_sale_enabled: s.cattle_feed_sale_enabled ?? 0,
-            is_active: s.is_active ?? 1,
+            product_sale_enabled: Number(s.product_sale_enabled ?? 0) ? 1 : 0,
+            cattle_feed_sale_enabled: Number(s.cattle_feed_sale_enabled ?? 0) ? 1 : 0,
+            is_active: Number(s.is_active ?? 1) ? 1 : 0,
+            cheque: s.cheque || "",
         });
         setEditingId(s.seller_id);
         setHasPassword(!!s.has_password);
@@ -726,20 +1214,20 @@ export default function SellerRegister() {
 
     const handleSave = async (e) => {
         e.preventDefault();
-        if (!form.seller_code || !form.seller_code.trim()) { showFlash("error", t('sellerRegister.sellerCodeRequired') || "Seller code is required."); return; }
+        if (!form.seller_code || !form.seller_code.trim()) { showFlash("error", "Seller code is required."); return; }
         const nameParts = form.name.trim().split(/\s+/);
-        if (!form.name || nameParts.length < 2) { showFlash("error", t('sellerRegister.nameFullNameError')); return; }
-        if (/\d/.test(form.name)) { showFlash("error", t('sellerRegister.nameNoNumbersError')); return; }
+        if (!form.name || nameParts.length < 2) { showFlash("error", "Please enter the full name (first and last name)."); return; }
+        if (/\d/.test(form.name)) { showFlash("error", "Name should not contain numbers."); return; }
         const mobileClean = form.mobile.replace(/^\+/, "");
-        if (!/^\d{10,12}$/.test(mobileClean)) { showFlash("error", t('sellerRegister.mobileInvalidError')); return; }
-        if (form.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(form.pan_number)) { showFlash("error", t('sellerRegister.panInvalidError') || "PAN number must be alphanumeric and up to 12 characters."); return; }
-        if (form.seller_id_code && !/^\d{1,18}$/.test(form.seller_id_code)) { showFlash("error", t('sellerRegister.sellerIdCodeInvalidError') || "Seller ID Code must be numeric and up to 18 digits."); return; }
-        if (form.bank_account && form.bank_account.length < 10) { showFlash("error", t('sellerRegister.bankAccountMinError')); return; }
-        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", t('sellerRegister.bankAccountMismatchError')); return; }
-        if (form.address && form.address.length < 10) { showFlash("error", t('sellerRegister.addressMinError')); return; }
-        if (form.address && form.address.length > 200) { showFlash("error", t('sellerRegister.addressMaxError')); return; }
-        if (form.pincode && !/^\d{6}$/.test(form.pincode)) { showFlash("error", t('sellerRegister.pincodeInvalidError') || "Pincode must be a valid 6-digit number."); return; }
-        if (form.password && form.password.length < 6) { showFlash("error", t('sellerRegister.passwordMinError') || "Password must be at least 6 characters."); return; }
+        if (!/^\d{10,12}$/.test(mobileClean)) { showFlash("error", "Please enter a valid mobile number (10-12 digits)."); return; }
+        if (form.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(form.pan_number)) { showFlash("error", "PAN number must be alphanumeric and up to 12 characters."); return; }
+        if (form.seller_id_code && !/^\d{1,18}$/.test(form.seller_id_code)) { showFlash("error", "Seller ID Code must be numeric and up to 18 digits."); return; }
+        if (form.bank_account && form.bank_account.length < 10) { showFlash("error", "Bank account number must be at least 10 digits."); return; }
+        if (form.bank_account && form.bank_account !== form.bank_account_confirm) { showFlash("error", "Bank account numbers do not match."); return; }
+        if (form.address && form.address.length < 10) { showFlash("error", "Address must be at least 10 characters."); return; }
+        if (form.address && form.address.length > 200) { showFlash("error", "Address cannot exceed 200 characters."); return; }
+        if (form.pincode && !/^\d{6}$/.test(form.pincode)) { showFlash("error", "Pincode must be a valid 6-digit number."); return; }
+        if (form.password && form.password.length < 6) { showFlash("error", "Password must be at least 6 characters."); return; }
 
         // Check for duplicates (max 2 allowed)
         if (form.bank_account) {
@@ -770,68 +1258,47 @@ export default function SellerRegister() {
         try {
             const payload = { ...form };
             if (!payload.password) delete payload.password;
-            if (editingId) { await api.put(`/sellers/${editingId}`, payload); showFlash("success", t('sellerRegister.updateSuccess')); }
-            else { await api.post("/sellers", payload); showFlash("success", t('sellerRegister.createSuccess')); }
+            if (editingId) { await api.put(`/sellers/${editingId}`, payload); showFlash("success", "Seller updated successfully."); }
+            else { await api.post("/sellers", payload); showFlash("success", "Seller registered successfully."); }
             await fetchSellers(true);
             closeForm();
         } catch (err) {
-            showFlash("error", err.response?.data?.error || err.response?.data?.message || t('sellerRegister.saveError'));
+            showFlash("error", err.response?.data?.error || err.response?.data?.message || "Failed to save seller.");
         } finally { setSaving(false); }
     };
 
     const handleDelete = async () => {
-        try { await api.delete(`/sellers/${deleteId}`); await fetchSellers(true); showFlash("success", t('sellerRegister.deleteSuccess')); }
-        catch (err) { showFlash("error", err.response?.data?.error || t('sellerRegister.deleteError')); }
+        try { await api.delete(`/sellers/${deleteId}`); await fetchSellers(true); showFlash("success", "Seller deleted successfully."); }
+        catch (err) { showFlash("error", err.response?.data?.error || "Failed to delete seller."); }
         finally { setDeleteId(null); }
     };
 
-    // Enter key moves focus to the next visible input in the register form.
-    // Pressing Enter on the last input submits the form (same as clicking Save/Update).
-    const handleFormKeyDown = (e) => {
-        if (e.key !== "Enter") return;
-        if (e.target.tagName !== "INPUT") return; // let buttons behave normally
-        e.preventDefault();
-
-        const form = e.currentTarget;
-        const focusable = Array.from(
-            form.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
-        ).filter(el => el.offsetParent !== null); // skip hidden radio inputs etc.
-
-        const idx = focusable.indexOf(e.target);
-        if (idx > -1 && idx < focusable.length - 1) {
-            focusable[idx + 1].focus();
-        } else if (typeof form.requestSubmit === "function") {
-            form.requestSubmit();
-        } else {
-            handleSave(e);
-        }
-    };
-
     const TABLE_COLS = [
-        { label: t('sellerRegister.seller'), icon: <User size={11} /> },
-        { label: t('sellerRegister.code'), icon: <Hash size={11} />, sortKey: 'seller_code' },
-        { label: t('sellerRegister.mobile'), icon: <Phone size={11} /> },
-        { label: t('sellerRegister.aadhaar'), icon: <CreditCard size={11} /> },
+        { label: 'Seller', icon: <User size={11} /> },
+        { label: 'Code', icon: <Hash size={11} />, sortKey: 'seller_code' },
+        { label: 'Mobile', icon: <Phone size={11} /> },
+        { label: 'Aadhaar', icon: <CreditCard size={11} /> },
         { label: 'PAN', icon: <CreditCard size={11} /> },
         { label: 'Seller ID Code', icon: <Hash size={11} /> },
-        { label: t('sellerRegister.type'), icon: <ChevronDown size={11} /> },
-        { label: t('sellerRegister.milk'), icon: <ChevronDown size={11} /> },
-        { label: t('sellerRegister.jamin'), icon: <User size={11} /> },
-        { label: t('sellerRegister.bankAccount'), icon: <Landmark size={11} /> },
+        { label: 'Type', icon: <ChevronDown size={11} /> },
+        { label: 'Milk', icon: <ChevronDown size={11} /> },
+        { label: 'Jamin', icon: <User size={11} /> },
+        { label: 'Bank Account', icon: <Landmark size={11} /> },
         { label: 'Acc. Holder', icon: <User size={11} /> },
-        { label: t('sellerRegister.bankIfsc'), icon: <Building2 size={11} /> },
+        { label: 'Bank IFSC', icon: <Building2 size={11} /> },
         { label: 'Branch', icon: <Building2 size={11} /> },
-        { label: t('sellerRegister.address'), icon: <MapPin size={11} /> },
+        { label: 'Address', icon: <MapPin size={11} /> },
         { label: 'Pincode', icon: <MapPinned size={11} /> },
-        { label: t('sellerRegister.advance'), icon: <Wallet size={11} /> },
-        { label: t('sellerRegister.advRecovery'), icon: <Banknote size={11} /> },
-        { label: t('sellerRegister.depPerL'), icon: <Banknote size={11} /> },
-        { label: t('sellerRegister.status'), icon: <Settings size={11} /> },
-        { label: t('sellerRegister.registered'), icon: <Calendar size={11} /> },
-        { label: t('sellerRegister.actions'), icon: <Settings size={11} /> },
+        { label: 'Cheque', icon: <ImageIcon size={11} /> },
+        { label: 'Advance', icon: <Wallet size={11} /> },
+        { label: 'Adv Recovery', icon: <Banknote size={11} /> },
+        { label: 'Dep/L', icon: <Banknote size={11} /> },
+        { label: 'Status', icon: <Settings size={11} /> },
+        { label: 'Registered', icon: <Calendar size={11} /> },
+        { label: 'Actions', icon: <Settings size={11} /> },
     ];
 
-    const GRID = "210px 100px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 65px 95px 75px 75px 85px 100px";
+    const GRID = "210px 100px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 80px 65px 95px 75px 75px 85px 100px";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
@@ -842,33 +1309,33 @@ export default function SellerRegister() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                            {t('sellerRegister.pageTitle')}
+                            Seller Register
                         </h1>
                         <p className="text-xs text-gray-500 mt-0.5">
-                            {t('sellerRegister.pageSubtitle')} —{" "}
+                            Manage your sellers —{" "}
                             {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={startSellerRegisterTour}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
-                            <BadgeCheck size={15} /> {t('sellerRegister.startTour') || 'Take a Tour'}
+                            <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <button onClick={openAdd} data-tour="add-seller-btn"
                             className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
-                            <span className="text-base leading-none">+</span> {t('sellerRegister.addSeller')}
+                            <span className="text-base leading-none">+</span> Add Seller
                         </button>
                         <button onClick={() => { setImportMode('add'); setShowImportModal(true); }}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
-                            <Import size={16} /> {t('sellerRegister.importFarmers') || 'Import Farmers'}
+                            <Import size={16} /> Import Farmers
                         </button>
                         <button onClick={() => { setImportMode('update'); setShowImportModal(true); }}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
-                            <RotateCcw size={16} /> {t('sellerRegister.updateFarmers') || 'Update Farmers'}
+                            <RotateCcw size={16} /> Update Farmers
                         </button>
                         <button onClick={handleExportData}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm">
-                            <Download size={16} /> {t('sellerRegister.exportFarmers') || 'Export Farmer Data'}
+                            <Download size={16} /> Export Farmer Data
                         </button>
                     </div>
                 </div>
@@ -876,10 +1343,10 @@ export default function SellerRegister() {
                 {/* ── Stats ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6" data-tour="seller-stats">
                     {[
-                        { label: t('sellerRegister.totalSellers'), value: sellers.length, icon: <Users size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
-                        { label: t('sellerRegister.cowSellers'), value: sellers.filter((s) => s.milk_type === "cow").length, icon: <Milk size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" },
-                        { label: t('sellerRegister.buffaloSellers'), value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <Milk size={16} />, color: "from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700" },
-                        { label: t('sellerRegister.bothSellers'), value: sellers.filter((s) => s.milk_type === "both").length, icon: <Milk size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
+                        { label: 'Total Sellers', value: sellers.length, icon: <Users size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
+                        { label: 'Cow Sellers', value: sellers.filter((s) => s.milk_type === "cow").length, icon: <Milk size={16} />, color: "from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700" },
+                        { label: 'Buffalo Sellers', value: sellers.filter((s) => s.milk_type === "buffalo").length, icon: <Milk size={16} />, color: "from-indigo-50 to-indigo-100/50 border-indigo-200/60 text-indigo-700" },
+                        { label: 'Both Sellers', value: sellers.filter((s) => s.milk_type === "both").length, icon: <Milk size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
                     ].map(({ label, value, icon, color }) => (
                         <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
                             <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
@@ -892,331 +1359,6 @@ export default function SellerRegister() {
                     ))}
                 </div>
 
-
-                {/* ── Form ── */}
-                {showForm && (
-                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden mb-6">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
-                            <div>
-                                <h2 className="text-sm font-bold text-gray-800">{editingId ? t('sellerRegister.editSeller') : t('sellerRegister.registerNewSeller')}</h2>
-                                <p className="text-xs text-gray-500 mt-0.5">{editingId ? t('sellerRegister.editDesc') : t('sellerRegister.registerDesc')}</p>
-                            </div>
-                            <button onClick={closeForm} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSave} onKeyDown={handleFormKeyDown} className="p-6 space-y-5">
-                            {/* Row 1 */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <Field label={t('sellerRegister.fullName')} name="name" value={form.name} onChange={handleChange} placeholder={t('sellerRegister.namePlaceholder')} required t={t}>
-                                    <input name="name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))} placeholder={t('sellerRegister.namePlaceholder')} required maxLength={60}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerRegister.sellerCode')} name="seller_code" value={form.seller_code} onChange={handleChange} placeholder={t('sellerRegister.codeAutoGenerated')} required t={t}>
-                                    <input name="seller_code" value={form.seller_code}
-                                        onChange={e => setForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
-                                        placeholder={t('sellerRegister.codeAutoGenerated')} maxLength={20}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerRegister.mobile')} name="mobile" value={form.mobile} onChange={handleChange} placeholder="+91XXXXXXXXXX" type="tel" required t={t}>
-                                    <input name="mobile" value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))} placeholder="+91XXXXXXXXXX" type="tel" required maxLength={13}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                            </div>
-
-                            {/* Row 2 - Aadhaar, PAN, Seller ID Code */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <Field label={t('sellerRegister.aadhaar')} name="aadhaar" value={form.aadhaar} onChange={handleChange} placeholder="XXXX XXXX XXXX" t={t}>
-                                    <input name="aadhaar" value={form.aadhaar}
-                                        onChange={e => setForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
-                                        placeholder="XXXX XXXX XXXX" maxLength={12}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-
-                                <Field label="PAN Number" name="pan_number" value={form.pan_number} onChange={handleChange} placeholder="e.g. ABCDE1234F" t={t}>
-                                    <input name="pan_number" value={form.pan_number}
-                                        onChange={e => setForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
-                                        placeholder="e.g. ABCDE1234F" maxLength={12}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.pan_number.length}/12</p>
-                                </Field>
-
-                                <Field label="Seller ID Code" name="seller_id_code" value={form.seller_id_code} onChange={handleChange} placeholder="Up to 18 digits" t={t}>
-                                    <input name="seller_id_code" value={form.seller_id_code}
-                                        onChange={e => setForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
-                                        placeholder="Up to 18 digits" maxLength={18} inputMode="numeric"
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.seller_id_code.length}/18</p>
-                                </Field>
-                            </div>
-
-                            {/* Row 3 - Seller Type & Milk Type */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label={t('sellerRegister.sellerType')} required t={t}>
-                                    <div className="flex gap-2">
-                                        {SELLER_TYPES.map((type) => (
-                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
-                                                ${form.seller_type === type
-                                                    ? type === "Utpadak" ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-orange-50 to-orange-100/50 border-orange-200/60 text-orange-800"
-                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input type="radio" name="seller_type" value={type} checked={form.seller_type === type} onChange={handleChange} className="hidden" />
-                                                {type === "Utpadak" ? t('sellerRegister.utpadak') : t('sellerRegister.gavali')}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-
-                                <Field label={t('sellerRegister.milkType')} required t={t}>
-                                    <div className="flex gap-2">
-                                        {MILK_TYPES.map((type) => (
-                                            <label key={type} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm                                                ${form.milk_type === type
-                                                ? type === "cow" ? "bg-gradient-to-br from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-800"
-                                                    : type === "buffalo" ? "bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-800"
-                                                        : "bg-gradient-to-br from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-800"
-                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input type="radio" name="milk_type" value={type} checked={form.milk_type === type} onChange={handleChange} className="hidden" />
-                                                {type === "cow" ? t('sellerRegister.cow') : type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                            </div>
-
-                            {/* Row 4 - Jamin, Bank Account, Confirm Account */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <Field label={t('sellerRegister.jamin')} name="jamin" value={form.jamin} onChange={handleChange} placeholder={t('sellerRegister.jaminPlaceholder')} t={t}>
-                                    <input name="jamin" value={form.jamin}
-                                        onChange={e => setForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
-                                        placeholder={t('sellerRegister.jaminPlaceholder')} maxLength={60}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerRegister.bankAccountNo')} name="bank_account" value={form.bank_account} onChange={handleChange} placeholder={t('sellerRegister.bankAccountPlaceholder')} t={t}>
-                                    <input name="bank_account" value={form.bank_account} onChange={e => setForm(p => ({ ...p, bank_account: e.target.value.replace(/\D/g, "") }))}
-                                        placeholder={t('sellerRegister.bankAccountPlaceholder')} maxLength={20}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerRegister.confirmAccountNo')} name="bank_account_confirm" value={form.bank_account_confirm} onChange={handleChange} placeholder={t('sellerRegister.confirmAccountPlaceholder')} t={t}>
-                                    <input name="bank_account_confirm" value={form.bank_account_confirm}
-                                        onChange={e => setForm(p => ({ ...p, bank_account_confirm: e.target.value.replace(/\D/g, "") }))}
-                                        placeholder={t('sellerRegister.confirmAccountPlaceholder')} maxLength={20}
-                                        className={`border rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition w-full
-                                        ${form.bank_account_confirm && form.bank_account !== form.bank_account_confirm ? "border-rose-300 bg-rose-50/50 focus:ring-rose-400" : "border-gray-200/60 bg-white/50 backdrop-blur-sm focus:bg-white"}`} />
-                                    {form.bank_account_confirm && form.bank_account !== form.bank_account_confirm &&
-                                        <p className="text-xs text-rose-500 mt-1">{t('sellerRegister.accountMismatch')}</p>}
-                                </Field>
-                            </div>
-
-                            {/* Row 5 - Bank Name, IFSC, Account Holder, Branch */}
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                                <Field label={t('sellerRegister.bankName')} name="bank_name" value={form.bank_name} onChange={handleChange} placeholder="e.g. SBI, HDFC" t={t}>
-                                    <input name="bank_name" value={form.bank_name}
-                                        onChange={e => setForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
-                                        placeholder="e.g. SBI, HDFC" maxLength={50}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label={t('sellerRegister.ifscCode')} name="ifsc_code" value={form.ifsc_code} onChange={handleChange} placeholder="e.g. SBIN0001234" t={t}>
-                                    <input name="ifsc_code" value={form.ifsc_code}
-                                        onChange={e => setForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
-                                        placeholder="e.g. SBIN0001234" maxLength={11}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label="Account Holder Name" name="account_holder_name" value={form.account_holder_name} onChange={handleChange} placeholder="As per bank passbook" t={t}>
-                                    <input name="account_holder_name" value={form.account_holder_name}
-                                        onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
-                                        placeholder="As per bank passbook" maxLength={100}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label="Branch Name" name="branch_name" value={form.branch_name} onChange={handleChange} placeholder="e.g. Pune Main Branch" t={t}>
-                                    <input name="branch_name" value={form.branch_name}
-                                        onChange={e => setForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
-                                        placeholder="e.g. Pune Main Branch" maxLength={100}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                            </div>
-
-                            {/* Row 6 - Address, Pincode, Password */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <Field label={t('sellerRegister.address')} name="address" value={form.address} onChange={handleChange} placeholder={t('sellerRegister.addressPlaceholder')} t={t}>
-                                    <input name="address" value={form.address} onChange={handleChange}
-                                        placeholder={t('sellerRegister.addressPlaceholder')} minLength={10} maxLength={200}
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                    <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
-                                </Field>
-                                <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 411001" t={t}>
-                                    <input name="pincode" value={form.pincode}
-                                        onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
-                                        placeholder="e.g. 411001" maxLength={6} inputMode="numeric"
-                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                </Field>
-                                <Field label="Password" name="password" value={form.password} onChange={handleChange}
-                                    placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"} t={t}>
-                                    <div className="relative">
-                                        <input name="password" type="password" value={form.password}
-                                            onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                                            placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
-                                            maxLength={100} autoComplete="new-password"
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                        <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    </div>
-                                    <p className={`text-[10px] mt-1 ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
-                                        {hasPassword ? "Password is set. Enter a new one to change it." : "No password set yet for this seller."}
-                                    </p>
-                                </Field>
-                            </div>
-
-                            {/* Row 7 - Cash Advance */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label={t('sellerRegister.cashAdvance')} t={t}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm ${form.advance_enabled === val
-                                                ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
-                                                : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input type="radio" name="advance_enabled" value={val}
-                                                    checked={form.advance_enabled === val}
-                                                    onChange={() => setForm((p) => ({ ...p, advance_enabled: val, advance_deduction: val === 0 ? "" : p.advance_deduction }))}
-                                                    className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                                {form.advance_enabled === 1 && (
-                                    <Field label={t('sellerRegister.advanceRecovery')} name="advance_deduction" value={form.advance_deduction} onChange={handleChange} placeholder={t('sellerRegister.advanceRecoveryPlaceholder')} t={t}>
-                                        <input name="advance_deduction" value={form.advance_deduction}
-                                            onChange={e => setForm(p => ({ ...p, advance_deduction: e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") }))}
-                                            placeholder={t('sellerRegister.advanceRecoveryPlaceholder')} inputMode="decimal" maxLength={10}
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
-                                    </Field>
-                                )}
-                            </div>
-
-                            {/* Row 8 - Deposit per Litre */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label={t('sellerRegister.depositPerLitre')} t={t}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
-                                            ${form.deposit_enabled === val
-                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
-                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input type="radio" name="deposit_enabled" value={val}
-                                                    checked={form.deposit_enabled === val}
-                                                    onChange={() => setForm(p => ({ ...p, deposit_enabled: val, deposit_per_litre: val === 0 ? "" : p.deposit_per_litre }))}
-                                                    className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                                {form.deposit_enabled === 1 && (
-                                    <Field label={t('sellerRegister.depositRate')} t={t}>
-                                        <input
-                                            name="deposit_per_litre"
-                                            value={form.deposit_per_litre}
-                                            onChange={e => setForm(p => ({ ...p, deposit_per_litre: e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") }))}
-                                            placeholder={t('sellerRegister.depositRatePlaceholder')}
-                                            inputMode="decimal"
-                                            maxLength={6}
-                                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full"
-                                        />
-                                        {form.deposit_per_litre && (
-                                            <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-                                                {t('sellerRegister.depositPreview')} ₹{parseFloat(form.deposit_per_litre || 0).toFixed(2)} {t('sellerRegister.depositPerLitreCollected')}
-                                            </p>
-                                        )}
-                                        {!form.deposit_per_litre && (
-                                            <p className="text-[10px] text-gray-400 mt-1">{t('sellerRegister.depositHint')}</p>
-                                        )}
-                                    </Field>
-                                )}
-                            </div>
-
-                            {/* Row 9 - Product Sale & Cattle Feed Sale Toggles */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label={t('sellerRegister.productSale')} t={t}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
-                    ${form.product_sale_enabled === val
-                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
-                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="product_sale_enabled"
-                                                    value={val}
-                                                    checked={form.product_sale_enabled === val}
-                                                    onChange={() => setForm(p => ({
-                                                        ...p,
-                                                        product_sale_enabled: val,
-                                                    }))}
-                                                    className="hidden"
-                                                />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-
-                                <Field label={t('sellerRegister.cattleFeedSale') || "Cattle Feed Sale"} t={t}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerRegister.enabled'), val: 1 }, { label: t('sellerRegister.disabled'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
-                                                ${form.cattle_feed_sale_enabled === val
-                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
-                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="cattle_feed_sale_enabled"
-                                                    value={val}
-                                                    checked={form.cattle_feed_sale_enabled === val}
-                                                    onChange={() => setForm(p => ({
-                                                        ...p,
-                                                        cattle_feed_sale_enabled: val,
-                                                    }))}
-                                                    className="hidden"
-                                                />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                            </div>
-
-                            {/* Row 10 - Active Status */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label={t('sellerRegister.sellerStatus')} t={t}>
-                                    <div className="flex gap-2">
-                                        {[{ label: t('sellerRegister.active'), val: 1 }, { label: t('sellerRegister.inactive'), val: 0 }].map(({ label, val }) => (
-                                            <label key={val} className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border cursor-pointer text-xs font-semibold transition shadow-sm
-                                                ${(form.is_active ?? 1) === val
-                                                    ? val === 1 ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-800" : "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60 text-rose-700"
-                                                    : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                                <input type="radio" name="is_active" value={val}
-                                                    checked={(form.is_active ?? 1) === val}
-                                                    onChange={() => setForm(p => ({ ...p, is_active: val }))}
-                                                    className="hidden" />
-                                                {label}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </Field>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 pt-1 border-t border-gray-100/60">
-                                <button type="button" onClick={closeForm} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">{t('sellerRegister.cancel')}</button>
-                                <button type="submit" disabled={saving}
-                                    className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
-                                    {saving && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    <Save size={14} />
-                                    {saving ? t('sellerRegister.saving') : editingId ? t('sellerRegister.updateSeller') : t('sellerRegister.registerSeller')}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
                 {/* ── Filter Tabs and Search ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4" data-tour="filter-tabs">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1226,7 +1368,7 @@ export default function SellerRegister() {
                             <button key={f} onClick={() => handleFilterChange(f)}
                                 className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
                     ${filter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                {f === "all" ? t('sellerRegister.all') : f === "cow" ? t('sellerRegister.cow') : f === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
+                                {f === "all" ? "All" : f === "cow" ? "Cow" : f === "buffalo" ? "Buffalo" : "Both"}
                                 {f !== "all" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.milk_type === f).length}</span>}
                             </button>
                         ))}
@@ -1240,7 +1382,7 @@ export default function SellerRegister() {
                             <button key={f} onClick={() => handleSellerTypeFilterChange(f)}
                                 className={`text-xs font-semibold px-4 py-1.5 rounded-full transition border shadow-sm
                     ${sellerTypeFilter === f ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50/50"}`}>
-                                {f === "all_types" ? t('sellerRegister.all') : f === "Utpadak" ? t('sellerRegister.utpadak') : t('sellerRegister.gavali')}
+                                {f === "all_types" ? "All" : f === "Utpadak" ? "Utpadak" : "Gavali"}
                                 {f !== "all_types" && <span className="ml-1.5 opacity-60">{sellers.filter((s) => s.seller_type === f).length}</span>}
                             </button>
                         ))}
@@ -1254,7 +1396,7 @@ export default function SellerRegister() {
                                 type="text"
                                 value={searchTerm}
                                 onChange={handleSearch}
-                                placeholder={t('sellerRegister.searchPlaceholder') || "Search by name or code..."}
+                                placeholder="Search by name or code..."
                                 className="w-full pl-9 pr-8 py-1.5 rounded-full border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                             {searchTerm && (
@@ -1267,14 +1409,14 @@ export default function SellerRegister() {
                             )}
                         </div>
                         <span className="text-xs text-gray-400 whitespace-nowrap">
-                            {filteredSellers.length} {t('sellerRegister.sellers')}
+                            {filteredSellers.length} sellers
                         </span>
                     </div>
                 </div>
 
                 {/* ── Table ── */}
                 <div className="w-full overflow-x-auto rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur-sm" data-tour="seller-table">
-                    <div className="min-w-[1670px]">
+                    <div className="min-w-[1760px]">
                         <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                             {TABLE_COLS.map(({ label, icon, sortKey }) => (
                                 <div key={label} className="px-3 py-3 flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
@@ -1284,7 +1426,7 @@ export default function SellerRegister() {
                                             {icon}{label}
                                             {codeSortDirection === 'asc' ? <ArrowUp size={11} />
                                                 : codeSortDirection === 'desc' ? <ArrowDown size={11} />
-                                                : <ArrowUpDown size={11} className="opacity-40" />}
+                                                    : <ArrowUpDown size={11} className="opacity-40" />}
                                         </button>
                                     ) : (
                                         <>{icon}{label}</>
@@ -1309,20 +1451,20 @@ export default function SellerRegister() {
                             </div>
                             <p className="text-gray-500 text-sm font-medium">
                                 {searchTerm.trim() !== ""
-                                    ? t('sellerRegister.noSearchResults') || `No sellers found matching "${searchTerm}"`
-                                    : t('sellerRegister.noSellersFound')}
+                                    ? `No sellers found matching "${searchTerm}"`
+                                    : "No sellers found"}
                             </p>
                             <p className="text-gray-400 text-xs mt-1">
                                 {searchTerm.trim() !== ""
-                                    ? t('sellerRegister.tryDifferentSearch') || "Try a different search term"
-                                    : t('sellerRegister.addFirstSeller')}
+                                    ? "Try a different search term"
+                                    : "Add your first seller"}
                             </p>
                             {searchTerm.trim() !== "" && (
                                 <button
                                     onClick={clearSearch}
                                     className="mt-3 text-xs text-blue-600 hover:text-blue-800 font-medium transition"
                                 >
-                                    {t('sellerRegister.clearSearch') || "Clear search"}
+                                    Clear search
                                 </button>
                             )}
                         </div>
@@ -1359,15 +1501,15 @@ export default function SellerRegister() {
                                     <TableCell>
                                         {s.seller_type
                                             ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sellerTypeBadge(s.seller_type)}`}>
-                                                {s.seller_type === "Utpadak" ? t('sellerRegister.utpadak') : t('sellerRegister.gavali')}
+                                                {s.seller_type === "Utpadak" ? "Utpadak" : "Gavali"}
                                             </span>
                                             : "—"}
                                     </TableCell>
 
                                     <TableCell>
                                         {s.milk_type
-                                            ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${milkBadge(s.milk_type, t)}`}>
-                                                {s.milk_type === "cow" ? t('sellerRegister.cow') : s.milk_type === "buffalo" ? t('sellerRegister.buffalo') : t('sellerRegister.both')}
+                                            ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${milkBadge(s.milk_type)}`}>
+                                                {s.milk_type === "cow" ? "Cow" : s.milk_type === "buffalo" ? "Buffalo" : "Both"}
                                             </span>
                                             : "—"}
                                     </TableCell>
@@ -1396,12 +1538,28 @@ export default function SellerRegister() {
                                         <span className="truncate block max-w-[100px]" title={s.address || ""}>{s.address || "—"}</span>
                                     </TableCell>
                                     <TableCell className="text-gray-500 font-mono text-xs">{s.pincode || "—"}</TableCell>
+
+                                    {/* Cheque Column */}
+                                    <TableCell>
+                                        {s.cheque ? (
+                                            <button
+                                                onClick={() => window.open(s.cheque, '_blank')}
+                                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition"
+                                            >
+                                                <ImageIcon size={14} />
+                                                <span>View</span>
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-300 text-xs">—</span>
+                                        )}
+                                    </TableCell>
+
                                     <TableCell>
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border backdrop-blur-sm
                                             ${s.advance_enabled === 0 || s.advance_enabled === false
                                                 ? "bg-rose-50/80 text-rose-600 border-rose-200/60"
                                                 : "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"}`}>
-                                            {s.advance_enabled === 0 || s.advance_enabled === false ? t('sellerRegister.off') : t('sellerRegister.on')}
+                                            {s.advance_enabled === 0 || s.advance_enabled === false ? "Off" : "On"}
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-amber-700 font-mono text-xs">
@@ -1416,19 +1574,19 @@ export default function SellerRegister() {
                                     <TableCell>
                                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border backdrop-blur-sm
                                             ${s.is_active ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-gray-50/80 text-gray-400 border-gray-200/60"}`}>
-                                            {s.is_active ? t('sellerRegister.active') : t('sellerRegister.inactive')}
+                                            {s.is_active ? "Active" : "Inactive"}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-gray-400 font-mono text-xs">{fmt(s.created_at, t)}</TableCell>
+                                    <TableCell className="text-gray-400 font-mono text-xs">{fmt(s.created_at)}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
                                             <button onClick={() => openEdit(s)}
                                                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-600 text-xs font-semibold transition border border-blue-200/60 backdrop-blur-sm shadow-sm">
-                                                <Pencil size={12} /> {t('sellerRegister.edit')}
+                                                <Pencil size={12} /> Edit
                                             </button>
                                             <button onClick={() => setDeleteId(s.seller_id)}
                                                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50/80 hover:bg-rose-100/80 text-rose-500 text-xs font-semibold transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
-                                                <Trash2 size={12} /> {t('sellerRegister.del')}
+                                                <Trash2 size={12} /> Del
                                             </button>
                                         </div>
                                     </TableCell>
@@ -1445,7 +1603,7 @@ export default function SellerRegister() {
                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
-                            {t('sellerRegister.prev')}
+                            Prev
                         </button>
                         <div className="flex items-center gap-1">
                             {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -1469,16 +1627,16 @@ export default function SellerRegister() {
                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages || totalPages === 0}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 disabled:opacity-40 transition shadow-sm">
-                            {t('sellerRegister.next')}
+                            Next
                         </button>
                         <span className="text-xs text-gray-400 ml-1">
-                            {filteredSellers.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredSellers.length)}`} {t('sellerRegister.of')} {filteredSellers.length}
+                            {filteredSellers.length === 0 ? "0" : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredSellers.length)}`} of {filteredSellers.length}
                         </span>
                     </div>
 
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{t('sellerRegister.rowsPerPage')}</span>
+                            <span className="text-xs text-gray-400">Rows per page</span>
                             <input
                                 type="number" min={1} max={filteredSellers.length || 1}
                                 value={pageSize}
@@ -1491,20 +1649,34 @@ export default function SellerRegister() {
                             />
                         </div>
                         <div className="flex flex-wrap gap-3 text-xs text-gray-400">
-                            <span>• <strong className="text-gray-600">{sellers.length}</strong> {sellers.length === 1 ? t('sellerRegister.seller') : t('sellerRegister.sellers')}</span>
-                            <span>• {t('sellerRegister.clickNameTip')}</span>
+                            <span>• <strong className="text-gray-600">{sellers.length}</strong> {sellers.length === 1 ? 'seller' : 'sellers'}</span>
+                            <span>• Click name for profile</span>
                         </div>
                     </div>
                 </div>
 
                 {/* ── Footer ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-6 mt-4 border-t border-gray-200/40">
-                    <span>· {t('sellerRegister.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.admin')}</strong></span>
-                    <span>· {t('sellerRegister.footerTotal', { defaultValue: 'Total sellers' })}: <strong className="text-gray-600">{sellers.length}</strong></span>
-                    <span>· {t('sellerRegister.footerActive', { defaultValue: 'Active' })}: <strong className="text-emerald-600">{sellers.filter(s => s.is_active).length}</strong></span>
+                    <span>· Role: <strong className="text-gray-600">Admin</strong></span>
+                    <span>· Total sellers: <strong className="text-gray-600">{sellers.length}</strong></span>
+                    <span>· Active: <strong className="text-emerald-600">{sellers.filter(s => s.is_active).length}</strong></span>
                 </div>
 
             </main>
+
+            {/* ── Seller Form Modal ── */}
+            <SellerFormModal
+                isOpen={showForm}
+                onClose={closeForm}
+                form={form}
+                setForm={setForm}
+                editingId={editingId}
+                saving={saving}
+                onSave={handleSave}
+                onCancel={closeForm}
+                t={t}
+                hasPassword={hasPassword}
+            />
 
             {/* ── Delete Modal ── */}
             {deleteId && (
@@ -1514,16 +1686,16 @@ export default function SellerRegister() {
                             <div className="w-14 h-14 rounded-full bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
                                 <Trash2 size={24} className="text-rose-500" />
                             </div>
-                            <h2 className="text-gray-800 font-bold text-base">{t('sellerRegister.deleteModalTitle')}</h2>
+                            <h2 className="text-gray-800 font-bold text-base">Delete Seller</h2>
                             <p className="text-gray-400 text-xs leading-relaxed">
-                                {t('sellerRegister.deleteModalWarning')}
+                                Are you sure you want to delete this seller? This action cannot be undone.
                             </p>
                         </div>
                         <div className="flex gap-2 mt-1">
                             <button onClick={() => setDeleteId(null)}
-                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">{t('sellerRegister.cancel')}</button>
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">Cancel</button>
                             <button onClick={handleDelete}
-                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 active:scale-95">{t('sellerRegister.yesDelete')}</button>
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200 active:scale-95">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -1540,12 +1712,12 @@ export default function SellerRegister() {
                                 </div>
                                 <div>
                                     <h2 className="text-sm font-bold text-gray-800">
-                                        {importMode === 'update' ? (t('sellerRegister.updateFarmers') || 'Update Farmers') : (t('sellerRegister.importFarmers') || 'Import Farmers')}
+                                        {importMode === 'update' ? 'Update Farmers' : 'Import Farmers'}
                                     </h2>
                                     <p className="text-xs text-gray-500 mt-0.5">
                                         {importMode === 'update'
-                                            ? (t('sellerRegister.updateDescription') || 'Bulk-update existing sellers — match rows by Seller Code')
-                                            : (t('sellerRegister.importDescription') || 'Bulk-add sellers from an Excel or CSV file')}
+                                            ? 'Bulk-update existing sellers — match rows by Seller Code'
+                                            : 'Bulk-add sellers from an Excel or CSV file'}
                                     </p>
                                 </div>
                             </div>
@@ -1557,8 +1729,8 @@ export default function SellerRegister() {
 
                         <div className="p-6 overflow-y-auto flex-1">
                             <div className="flex gap-2 mb-4">
-                                {[{ key: 'add', label: t('sellerRegister.addNew') || 'Add New Sellers' },
-                                  { key: 'update', label: t('sellerRegister.updateExisting') || 'Update Existing Sellers' }].map(({ key, label }) => (
+                                {[{ key: 'add', label: 'Add New Sellers' },
+                                { key: 'update', label: 'Update Existing Sellers' }].map(({ key, label }) => (
                                     <button key={key} type="button"
                                         onClick={() => { setImportMode(key); resetImport(); }}
                                         className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition shadow-sm
@@ -1598,9 +1770,9 @@ export default function SellerRegister() {
                                     </div>
                                     <div className="text-center">
                                         <p className="text-sm font-semibold text-gray-700">
-                                            {isDragging ? t('sellerRegister.dropFileHere') || "Drop the file here" : t('sellerRegister.dragDropPrompt') || "Drag & drop your file here"}
+                                            {isDragging ? "Drop the file here" : "Drag & drop your file here"}
                                         </p>
-                                        <p className="text-xs text-gray-400 mt-0.5">{t('sellerRegister.browsePrompt') || "or click to browse — .xlsx, .xls, or .csv"}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">or click to browse — .xlsx, .xls, or .csv</p>
                                     </div>
                                     <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
                                 </label>
@@ -1619,7 +1791,7 @@ export default function SellerRegister() {
                                     )}
                                     <button onClick={resetImport}
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/60 backdrop-blur-sm hover:bg-gray-100/80 text-gray-500 text-xs font-medium transition border border-gray-200/60 shadow-sm shrink-0">
-                                        <RotateCcw size={12} /> {t('sellerRegister.replaceFile') || 'Replace'}
+                                        <RotateCcw size={12} /> Replace
                                     </button>
                                 </div>
                             )}
@@ -1628,16 +1800,16 @@ export default function SellerRegister() {
                             {importData.length > 0 && (
                                 <div className="flex items-center gap-2 mb-4 flex-wrap">
                                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100/80 text-gray-600 border border-gray-200/60 backdrop-blur-sm shadow-sm">
-                                        {importData.length} {t('sellerRegister.rowsFound') || 'row(s) found'}
+                                        {importData.length} row(s) found
                                     </span>
                                     <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50/80 text-emerald-700 border border-emerald-200/60 backdrop-blur-sm shadow-sm">
                                         <CheckCircle2 size={11} />
-                                        {importData.filter(r => r._valid).length} {t('sellerRegister.valid') || 'valid'}
+                                        {importData.filter(r => r._valid).length} valid
                                     </span>
                                     {importData.filter(r => !r._valid).length > 0 && (
                                         <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-rose-50/80 text-rose-600 border border-rose-200/60 backdrop-blur-sm shadow-sm">
                                             <XCircle size={11} />
-                                            {importData.filter(r => !r._valid).length} {t('sellerRegister.invalid') || 'invalid'}
+                                            {importData.filter(r => !r._valid).length} invalid
                                         </span>
                                     )}
                                 </div>
@@ -1661,7 +1833,7 @@ export default function SellerRegister() {
                                                         {key}
                                                     </th>
                                                 ))}
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200/60">{t('sellerRegister.status') || 'Status'}</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200/60">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1676,8 +1848,8 @@ export default function SellerRegister() {
                                                         ))}
                                                         <td className="px-3 py-2">
                                                             {valid
-                                                                ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> {t('sellerRegister.valid') || 'Valid'}</span>
-                                                                : <span className="flex items-center gap-1 text-rose-500 font-semibold"><XCircle size={12} /> {t('sellerRegister.invalid') || 'Invalid'}</span>}
+                                                                ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle2 size={12} /> Valid</span>
+                                                                : <span className="flex items-center gap-1 text-rose-500 font-semibold"><XCircle size={12} /> Invalid</span>}
                                                         </td>
                                                     </tr>
                                                 );
@@ -1691,20 +1863,20 @@ export default function SellerRegister() {
                         <div className="flex items-center rounded-xl justify-between gap-3 px-6 py-4 border-t border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
                             <button onClick={downloadTemplate}
                                 className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition">
-                                <Download size={12} /> {t('sellerRegister.downloadTemplate') || 'Download sample template'}
+                                <Download size={12} /> Download sample template
                             </button>
                             <div className="flex items-center gap-3">
                                 <button onClick={() => { setShowImportModal(false); resetImport(); }}
                                     className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 transition">
-                                    {t('sellerRegister.cancel')}
+                                    Cancel
                                 </button>
                                 <button onClick={handleImportSave} disabled={importLoading || importData.length === 0 || missingRequiredColumns || importData.filter(r => r._valid).length === 0}
                                     className="flex items-center gap-2 text-sm font-semibold px-6 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50">
                                     {importLoading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     <Save size={14} />
                                     {importMode === 'update'
-                                        ? (importLoading ? (t('sellerRegister.updating') || 'Updating...') : (t('sellerRegister.updateAll') || 'Update All'))
-                                        : (importLoading ? (t('sellerRegister.saving') || 'Saving...') : (t('sellerRegister.saveAll') || 'Save All'))}
+                                        ? (importLoading ? 'Updating...' : 'Update All')
+                                        : (importLoading ? 'Saving...' : 'Save All')}
                                 </button>
                             </div>
                         </div>
@@ -1725,19 +1897,19 @@ export default function SellerRegister() {
                                     ? <BadgeCheck size={24} className="text-emerald-500" />
                                     : <AlertTriangle size={24} className="text-amber-500" />}
                             </div>
-                            <h2 className="text-gray-800 font-bold text-base">{t('sellerRegister.importComplete') || 'Import Complete'}</h2>
+                            <h2 className="text-gray-800 font-bold text-base">Import Complete</h2>
                             <p className="text-gray-500 text-sm leading-relaxed">
-                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {importResult.mode === 'update' ? (t('sellerRegister.importResultsUpdated') || 'seller(s) added/updated') : (t('sellerRegister.importResultsAdded') || 'seller(s) added')}
+                                <span className="font-semibold text-emerald-600">{importResult.added}</span> {importResult.mode === 'update' ? 'seller(s) added/updated' : 'seller(s) added'}
                                 {importResult.deleted > 0 && (
                                     <>, <span className="font-semibold text-rose-600">{importResult.deleted}</span> removed (not in file)</>
                                 )}
                                 {importResult.skipped > 0 && (
-                                    <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> {t('sellerRegister.importResultsSkipped') || 'skipped'}</>
+                                    <>, <span className="font-semibold text-amber-600">{importResult.skipped}</span> skipped</>
                                 )}
                                 .
                             </p>
                             {importResult.skipped > 0 && (
-                                <p className="text-xs text-gray-400">{t('sellerRegister.importResultsDetails') || 'See the details in the import window for why.'}</p>
+                                <p className="text-xs text-gray-400">See the details in the import window for why.</p>
                             )}
                         </div>
                         <button onClick={() => setImportResult(null)}

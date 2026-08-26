@@ -17,6 +17,7 @@ exports.listSellers = async (req, res) => {
                 is_active, created_at,
                 deposit_enabled, deposit_per_litre,
                 operator_id,
+                cheque,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
             FROM sellers
             WHERE centre_id = ?
@@ -49,6 +50,7 @@ exports.listCentreSellers = async (req, res) => {
                 s.address, s.pincode, s.advance_enabled, s.advance_deduction, s.product_sale_enabled,
                 s.is_active, s.created_at,
                 s.deposit_enabled, s.deposit_per_litre,
+                s.cheque,
                 o.name AS operator_name, o.operator_id
             FROM sellers s
             JOIN operators o ON o.operator_id = s.operator_id
@@ -94,7 +96,8 @@ exports.listSellersByOperator = async (req, res) => {
                 bank_account, bank_name, account_holder_name, branch_name, ifsc_code,
                 address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                 is_active, created_at,
-                deposit_enabled, deposit_per_litre
+                deposit_enabled, deposit_per_litre,
+                cheque
             FROM sellers
             WHERE operator_id = ? AND centre_id = ?
             ORDER BY created_at DESC
@@ -115,8 +118,6 @@ exports.getSellerById = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-        // Access is centre-wide for both admin and operator, matching listSellers
-        // (which already shows every seller in the centre to any logged-in user).
         const query = `
             SELECT
                 seller_id, seller_code, name, mobile, aadhaar,
@@ -129,6 +130,7 @@ exports.getSellerById = async (req, res) => {
                 is_active, created_at,
                 deposit_enabled, deposit_per_litre,
                 operator_id,
+                cheque,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
             FROM sellers
             WHERE seller_id = ? AND centre_id = ?
@@ -156,9 +158,8 @@ exports.getSellerSummary = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -239,9 +240,8 @@ exports.getSellerEntries = async (req, res) => {
         const operatorId = req.user.id;
         const { month, from, to } = req.query;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -284,9 +284,8 @@ exports.getSellerAdvance = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -322,9 +321,8 @@ exports.getSellerDeposits = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -353,9 +351,8 @@ exports.getSellerProducts = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -386,9 +383,8 @@ exports.getSellerPremium = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -423,7 +419,8 @@ exports.createSeller = async (req, res) => {
             bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled, product_sale_rate,
             deposit_enabled, deposit_per_litre, password,
-            cattle_feed_sale_enabled
+            cattle_feed_sale_enabled,
+            cheque
         } = req.body;
 
         if (!name || !mobile) {
@@ -512,7 +509,8 @@ exports.createSeller = async (req, res) => {
                 advance_enabled, advance_deduction, product_sale_enabled, product_sale_rate,
                 deposit_enabled, deposit_per_litre,
                 cattle_feed_sale_enabled,
-                password_hash, must_change_password
+                password_hash, must_change_password,
+                cheque
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                       ?, ?,
                       ?, ?, ?,
@@ -520,7 +518,8 @@ exports.createSeller = async (req, res) => {
                       ?, ?, ?, ?,
                       ?, ?,
                       ?,
-                      ?, ?)`,
+                      ?, ?,
+                      ?)`,
             [
                 operator_id,
                 created_by_admin_id,
@@ -550,7 +549,8 @@ exports.createSeller = async (req, res) => {
                 deposit_per_litre || null,
                 cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                 password_hash,
-                password_hash ? 0 : 1
+                password_hash ? 0 : 1,
+                cheque || null
             ]
         );
 
@@ -584,7 +584,8 @@ exports.updateSeller = async (req, res) => {
             bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
             advance_enabled, advance_deduction, product_sale_enabled,
             deposit_enabled, deposit_per_litre, password, is_active,
-            cattle_feed_sale_enabled
+            cattle_feed_sale_enabled,
+            cheque
         } = req.body;
 
         const operatorId = req.user.id;
@@ -691,7 +692,8 @@ exports.updateSeller = async (req, res) => {
                 cattle_feed_sale_enabled = ?,
                 is_active            = ?,
                 password_hash        = COALESCE(?, password_hash),
-                must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
+                must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END,
+                cheque               = ?
             WHERE seller_id = ? AND centre_id = ?`,
             [
                 cleanSellerCode || null,
@@ -719,6 +721,7 @@ exports.updateSeller = async (req, res) => {
                 is_active !== undefined ? is_active : 1,
                 password_hash,
                 password_hash,
+                cheque || null,
                 req.params.id,
                 centreId
             ]
@@ -739,6 +742,7 @@ exports.updateSeller = async (req, res) => {
                 deposit_enabled, deposit_per_litre,
                 cattle_feed_sale_enabled,
                 is_active, created_at, operator_id,
+                cheque,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
              FROM sellers
              WHERE seller_id = ? AND centre_id = ?`,
@@ -816,9 +820,8 @@ exports.getSellerDepositBalance = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
 
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
@@ -861,6 +864,7 @@ exports.getActiveSellers = async (req, res) => {
                 cattle_feed_sale_enabled,
                 deposit_enabled, deposit_per_litre,
                 operator_id,
+                cheque,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
              FROM sellers
              WHERE centre_id = ? AND is_active = 1
@@ -916,23 +920,17 @@ exports.importSellers = async (req, res) => {
                 bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
                 advance_enabled, advance_deduction, product_sale_enabled,
                 deposit_enabled, deposit_per_litre, password,
-                cattle_feed_sale_enabled
+                cattle_feed_sale_enabled,
+                cheque
             } = row;
 
-            // Validation removed — only clean the mobile number for storage.
-            // NOTE: `mobile` is NOT NULL and `seller_code` has a UNIQUE(centre_id, seller_code)
-            // constraint at the DB level, so rows missing mobile or reusing a seller_code
-            // will still fail at INSERT time and land in results.errors via the catch block below.
             const mobileClean = mobile ? String(mobile).replace(/[^\d]/g, "") : "";
 
-            // Strip any leading zeros from a supplied seller code (e.g. "01" -> "1"),
-            // but leave a lone "0" untouched.
             let finalSellerCode = seller_code ? String(seller_code).trim() : '';
             if (finalSellerCode && /^0+[0-9]+$/.test(finalSellerCode)) {
                 finalSellerCode = finalSellerCode.replace(/^0+/, '');
             }
 
-            // Generate seller_code if not provided
             if (!finalSellerCode) {
                 const [codes] = await conn.query(
                     `SELECT seller_code FROM sellers WHERE centre_id = ? AND seller_code REGEXP '^[0-9]+$'`,
@@ -942,13 +940,11 @@ exports.importSellers = async (req, res) => {
                 const next = numCodes.length > 0 ? Math.max(...numCodes) + 1 : 1;
                 finalSellerCode = String(next);
 
-                // Check if the generated code conflicts
                 const [codeCheck] = await conn.query(
                     `SELECT seller_id FROM sellers WHERE seller_code = ? AND centre_id = ?`,
                     [finalSellerCode, centreId]
                 );
                 if (codeCheck.length > 0) {
-                    // If conflict, find next available
                     let counter = parseInt(finalSellerCode, 10);
                     let found = false;
                     while (!found) {
@@ -966,7 +962,6 @@ exports.importSellers = async (req, res) => {
                 }
             }
 
-            // Hash password if provided
             const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
             try {
@@ -979,7 +974,8 @@ exports.importSellers = async (req, res) => {
                         advance_enabled, advance_deduction, product_sale_enabled,
                         deposit_enabled, deposit_per_litre,
                         cattle_feed_sale_enabled,
-                        password_hash, must_change_password
+                        password_hash, must_change_password,
+                        cheque
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                               ?, ?,
                               ?, ?, ?,
@@ -987,7 +983,8 @@ exports.importSellers = async (req, res) => {
                               ?, ?, ?,
                               ?, ?,
                               ?,
-                              ?, ?)`,
+                              ?, ?,
+                              ?)`,
                     [
                         operator_id,
                         created_by_admin_id,
@@ -1016,7 +1013,8 @@ exports.importSellers = async (req, res) => {
                         deposit_per_litre || null,
                         cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                         password_hash,
-                        password_hash ? 0 : 1
+                        password_hash ? 0 : 1,
+                        cheque || null
                     ]
                 );
                 results.added++;
@@ -1069,9 +1067,6 @@ exports.updateSellersBulk = async (req, res) => {
 
         const results = { updated: 0, inserted: 0, deleted: 0, skipped: 0, errors: [] };
 
-        // ── Full-sync delete: remove any centre seller whose code is NOT in this file ──
-        // Same cascade order as deleteSeller() — irreversible, so this only runs
-        // when the caller explicitly opts in via deleteMissing.
         if (deleteMissing) {
             const incomingCodes = new Set(
                 sellers
@@ -1114,12 +1109,10 @@ exports.updateSellersBulk = async (req, res) => {
                 bank_account, bank_name, account_holder_name, branch_name, ifsc_code, address, pincode,
                 advance_enabled, advance_deduction, product_sale_enabled,
                 deposit_enabled, deposit_per_litre, password,
-                cattle_feed_sale_enabled
+                cattle_feed_sale_enabled,
+                cheque
             } = row;
 
-            // Field-level validation removed. Seller Code lookup is kept because
-            // an update has nothing to update without a matching row — this is a
-            // lookup, not a data-quality check.
             if (!seller_code) {
                 results.skipped++;
                 results.errors.push({ row: i + 1, error: 'Seller Code is required to match an existing seller.' });
@@ -1136,7 +1129,6 @@ exports.updateSellersBulk = async (req, res) => {
             const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
             if (existing) {
-                // Seller code matches an existing seller — update it.
                 const sellerId = existing.seller_id;
                 try {
                     await conn.query(
@@ -1148,7 +1140,8 @@ exports.updateSellersBulk = async (req, res) => {
                             advance_enabled = ?, advance_deduction = ?, product_sale_enabled = ?,
                             deposit_enabled = ?, deposit_per_litre = ?, cattle_feed_sale_enabled = ?,
                             password_hash = COALESCE(?, password_hash),
-                            must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END
+                            must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END,
+                            cheque = ?
                         WHERE seller_id = ? AND centre_id = ?`,
                         [
                             name, mobileClean, aadhaar || null, pan_number || null, seller_id_code || null,
@@ -1163,6 +1156,7 @@ exports.updateSellersBulk = async (req, res) => {
                             cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                             password_hash,
                             password_hash,
+                            cheque || null,
                             sellerId, centreId
                         ]
                     );
@@ -1172,7 +1166,6 @@ exports.updateSellersBulk = async (req, res) => {
                     results.errors.push({ row: i + 1, error: err.message });
                 }
             } else {
-                // No seller with this code yet — insert it as a new seller using the given code.
                 try {
                     await conn.query(
                         `INSERT INTO sellers (
@@ -1183,7 +1176,8 @@ exports.updateSellersBulk = async (req, res) => {
                             advance_enabled, advance_deduction, product_sale_enabled,
                             deposit_enabled, deposit_per_litre,
                             cattle_feed_sale_enabled,
-                            password_hash, must_change_password
+                            password_hash, must_change_password,
+                            cheque
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                                   ?, ?,
                                   ?, ?, ?,
@@ -1191,7 +1185,8 @@ exports.updateSellersBulk = async (req, res) => {
                                   ?, ?, ?,
                                   ?, ?,
                                   ?,
-                                  ?, ?)`,
+                                  ?, ?,
+                                  ?)`,
                         [
                             operator_id,
                             created_by_admin_id,
@@ -1220,7 +1215,8 @@ exports.updateSellersBulk = async (req, res) => {
                             deposit_per_litre || null,
                             cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                             password_hash,
-                            password_hash ? 0 : 1
+                            password_hash ? 0 : 1,
+                            cheque || null
                         ]
                     );
                     results.inserted++;
@@ -1297,9 +1293,8 @@ exports.getSellerBills = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
@@ -1330,9 +1325,8 @@ exports.getSellerBonus = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
@@ -1373,9 +1367,8 @@ exports.getSellerCattleFeed = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
 
-                // Centre-wide access, matching listSellers.
         const accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-        const accessParams = [id, centreId];   // or [req.params.id, centreId] in updateSeller/deleteSeller
+        const accessParams = [id, centreId];
         const [accessCheck] = await pool.query(accessQuery, accessParams);
         if (!accessCheck.length) {
             return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
