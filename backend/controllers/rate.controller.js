@@ -738,8 +738,6 @@ exports.deletePremiumRate = async (req, res) => {
 exports.generateRates = async (req, res) => {
   try {
     const { milk_type, rate_date, rates } = req.body;
-    // operator_id has a FK to `operators` — admins don't have a row there,
-    // so only pass a real operator's id; otherwise store NULL.
     const operatorId = req.user.role === "admin" ? null : req.user.id;
     const centreId = req.user.centre_id;
 
@@ -755,43 +753,65 @@ exports.generateRates = async (req, res) => {
 
     const table = tbl(milk_type);
 
-    let inserted = 0;
-    let skipped = 0;
+    const parsedRows = rates.map((row) => ({
+      fat: parseFloat(row.fat),
+      snf: parseFloat(row.snf),
+      rate: parseFloat(row.rate),
+      mrp: row.mrp ? parseFloat(row.mrp) : null,
+    }));
+
+    // ── Bulk overlap check for "mixed" — ONE query instead of one per row ──
     let overlapSkipped = 0;
-
-    for (const row of rates) {
-      const fat = parseFloat(row.fat);
-      const snf = parseFloat(row.snf);
-      const rate = parseFloat(row.rate);
-      const mrp = row.mrp ? parseFloat(row.mrp) : null;
-
-      // For mixed rates, skip any FAT/SNF combo already covered by cow or buffalo
-      if (milk_type === "mixed" && (await existsInCowOrBuffalo(centreId, fat, snf, rate_date))) {
-        overlapSkipped++;
-        skipped++;
-        continue;
-      }
-
-      // 1. insert into cow/buffalo_milk_rates (skip if duplicate)
-      const [dup] = await pool.query(
-        `SELECT rate_id FROM ${table} WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
-        [centreId, fat, snf, rate_date],
+    let rowsToInsert = parsedRows;
+    if (milk_type === "mixed") {
+      const [existingCowBuf] = await pool.query(
+        `SELECT fat, snf FROM cow_milk_rates WHERE centre_id = ? AND effective_from = ?
+         UNION ALL
+         SELECT fat, snf FROM buffalo_milk_rates WHERE centre_id = ? AND effective_from = ?`,
+        [centreId, rate_date, centreId, rate_date],
       );
-      if (dup.length > 0) {
-        skipped++;
-      } else {
-        await pool.query(
-          `INSERT INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to)
-                     VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-          [centreId, fat, snf, rate, mrp, rate_date],
-        );
-        inserted++;
-      }
-      // 2. always insert into generated_rates with centre_id
+      const overlapSet = new Set(
+        existingCowBuf.map((r) => `${parseFloat(r.fat)}_${parseFloat(r.snf)}`),
+      );
+      rowsToInsert = parsedRows.filter((r) => !overlapSet.has(`${r.fat}_${r.snf}`));
+      overlapSkipped = parsedRows.length - rowsToInsert.length;
+    }
+
+    // ── Bulk duplicate check against the target table — ONE query instead of one per row ──
+    const [existingInTable] = await pool.query(
+      `SELECT fat, snf FROM ${table} WHERE centre_id = ? AND effective_from = ?`,
+      [centreId, rate_date],
+    );
+    const existingSet = new Set(
+      existingInTable.map((r) => `${parseFloat(r.fat)}_${parseFloat(r.snf)}`),
+    );
+    const newRows = rowsToInsert.filter((r) => !existingSet.has(`${r.fat}_${r.snf}`));
+    const dupSkipped = rowsToInsert.length - newRows.length;
+    const skipped = overlapSkipped + dupSkipped;
+
+    // ── Bulk insert in chunks (same pattern as copyForward) ──
+    const CHUNK_SIZE = 2000;
+    let inserted = 0;
+
+    for (let i = 0; i < newRows.length; i += CHUNK_SIZE) {
+      const chunk = newRows.slice(i, i + CHUNK_SIZE);
+      const values = chunk.map((r) => [centreId, r.fat, r.snf, r.rate, r.mrp, rate_date, null]);
+      const [result] = await pool.query(
+        `INSERT IGNORE INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to) VALUES ?`,
+        [values],
+      );
+      inserted += result.affectedRows;
+    }
+
+    // ── Log every generated row to generated_rates, in bulk ──
+    for (let i = 0; i < rowsToInsert.length; i += CHUNK_SIZE) {
+      const chunk = rowsToInsert.slice(i, i + CHUNK_SIZE);
+      const values = chunk.map((r) => [
+        milk_type, r.fat, r.snf, r.rate, r.mrp, rate_date, operatorId, centreId,
+      ]);
       await pool.query(
-        `INSERT INTO generated_rates (milk_type, fat, snf, rate, mrp, rate_date, operator_id, centre_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [milk_type, fat, snf, rate, mrp, rate_date, operatorId, centreId],
+        `INSERT INTO generated_rates (milk_type, fat, snf, rate, mrp, rate_date, operator_id, centre_id) VALUES ?`,
+        [values],
       );
     }
 

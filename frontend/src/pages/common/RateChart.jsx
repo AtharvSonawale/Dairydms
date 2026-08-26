@@ -282,6 +282,7 @@ export default function RateChart() {
 
   const [matrixSaving, setMatrixSaving] = useState(false);
   const [matrixError, setMatrixError] = useState("");
+  const [matrixSaveProgress, setMatrixSaveProgress] = useState(0);
 
   // ── Confirm modal ──
   const [confirmState, setConfirmState] = useState({
@@ -1152,18 +1153,37 @@ export default function RateChart() {
     }
     setMatrixSaving(true);
     setMatrixError("");
+    setMatrixSaveProgress(0);
+
+    const payloadRows = matrixPreview.rows.map((r) => ({
+      fat: r.fat,
+      snf: r.snf,
+      rate: r.rate,
+      mrp: r.mrp,
+    }));
+
+    // Send in chunks so the UI can show real progress instead of one long spinner.
+    const CHUNK_SIZE = 300;
+    const chunks = [];
+    for (let i = 0; i < payloadRows.length; i += CHUNK_SIZE) {
+      chunks.push(payloadRows.slice(i, i + CHUNK_SIZE));
+    }
+
+    let totalInserted = 0;
+    let totalSkipped = 0;
+
     try {
-      const payloadRows = matrixPreview.rows.map((r) => ({
-        fat: r.fat,
-        snf: r.snf,
-        rate: r.rate,
-        mrp: r.mrp,
-      }));
-      const { data } = await api.post("/rates/generate", {
-        milk_type: matrixMilkType,
-        rate_date: selectedDate,
-        rates: payloadRows,
-      });
+      for (let i = 0; i < chunks.length; i++) {
+        const { data } = await api.post("/rates/generate", {
+          milk_type: matrixMilkType,
+          rate_date: selectedDate,
+          rates: chunks[i],
+        });
+        totalInserted += data.inserted || 0;
+        totalSkipped += data.skipped || 0;
+        setMatrixSaveProgress(Math.round(((i + 1) / chunks.length) * 100));
+      }
+
       const dateStr = new Date(selectedDate).toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
@@ -1172,10 +1192,10 @@ export default function RateChart() {
       showFlash(
         "success",
         t("rateChart.matrixGen.saveSuccess", {
-          count: data.inserted || 0,
+          count: totalInserted,
           date: dateStr,
           milkType: milkLabel,
-          defaultValue: `${data.inserted || 0} rate(s) saved for ${dateStr} (${milkLabel}).`,
+          defaultValue: `${totalInserted} rate(s) saved for ${dateStr} (${milkLabel}).`,
         }),
       );
       setShowMatrixModal(false);
@@ -1187,6 +1207,7 @@ export default function RateChart() {
       );
     } finally {
       setMatrixSaving(false);
+      setMatrixSaveProgress(0);
     }
   };
 
@@ -3343,17 +3364,33 @@ export default function RateChart() {
               </div>
 
               <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl shrink-0">
-                <p className="text-xs text-gray-400">
-                  {matrixPreview.rows.length > 0
-                    ? `${matrixPreview.rows.length} ${t(
-                      "rateChart.matrixGen.willBeSaved",
-                      {
-                        milkType: milkTypeLabel(matrixMilkType, t),
-                        defaultValue: `rate(s) will be saved for ${milkTypeLabel(matrixMilkType, t)} only`,
-                      },
-                    )}`
-                    : t("rateChart.fillAllFieldsToPreview")}
-                </p>
+                <div className="flex-1 min-w-0 pr-4">
+                  {matrixSaving ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 rounded-full bg-gray-200/60 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 transition-all duration-200"
+                          style={{ width: `${matrixSaveProgress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 shrink-0">
+                        {matrixSaveProgress}%
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      {matrixPreview.rows.length > 0
+                        ? `${matrixPreview.rows.length} ${t(
+                          "rateChart.matrixGen.willBeSaved",
+                          {
+                            milkType: milkTypeLabel(matrixMilkType, t),
+                            defaultValue: `rate(s) will be saved for ${milkTypeLabel(matrixMilkType, t)} only`,
+                          },
+                        )}`
+                        : t("rateChart.fillAllFieldsToPreview")}
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
