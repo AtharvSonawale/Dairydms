@@ -127,8 +127,7 @@ function MilkTypeCard({ label, accentIcon, data, onChange, preview, onPreviewCha
 }
 
 const OVERRIDE_EMPTY_FORM = {
-    seller_id: "", milk_type: "cow", base_fat: "", base_snf: "",
-    base_commission: "0", fat_step_cut: "0", snf_step_cut: "0",
+    seller_id: "", commission_rate: "0",
     reason: "", effective_from: new Date().toISOString().split("T")[0], effective_to: "",
 };
 
@@ -173,9 +172,8 @@ function SellerCommissionOverrides({ t, canWrite, onClose }) {
 
     const openEdit = (o) => {
         setForm({
-            seller_id: o.seller_id, milk_type: o.milk_type,
-            base_fat: o.base_fat, base_snf: o.base_snf,
-            base_commission: o.base_commission, fat_step_cut: o.fat_step_cut, snf_step_cut: o.snf_step_cut,
+            seller_id: o.seller_id,
+            commission_rate: o.commission_rate,
             reason: o.reason || "",
             effective_from: o.effective_from?.split("T")[0] || "",
             effective_to: o.effective_to?.split("T")[0] || "",
@@ -196,7 +194,7 @@ function SellerCommissionOverrides({ t, canWrite, onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.seller_id) { setFormError("Select a Gavali seller."); return; }
-        if (form.base_fat === "" || form.base_snf === "") { setFormError("Base Fat and Base SNF are required."); return; }
+        if (form.commission_rate === "" || form.commission_rate === null) { setFormError("Commission rate is required."); return; }
         if (!form.effective_from) { setFormError("Effective From date is required."); return; }
 
         setSaving(true); setFormError("");
@@ -303,41 +301,11 @@ function SellerCommissionOverrides({ t, canWrite, onClose }) {
                             </div>
 
                             <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-400 uppercase">Milk Type *</label>
-                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-semibold bg-white">
-                                    {["cow", "buffalo"].map(v => (
-                                        <button key={v} type="button" onClick={() => set("milk_type", v)}
-                                            className={`flex-1 px-4 py-2.5 ${form.milk_type === v ? "bg-gray-900 text-white" : "text-gray-400"}`}>
-                                            {v === "cow" ? "Cow" : "Buffalo"}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-400 uppercase">Base Fat % *</label>
-                                <input type="number" step="0.01" value={form.base_fat} onChange={e => set("base_fat", e.target.value)}
+                                <label className="text-xs font-semibold text-gray-400 uppercase">Commission Rate ₹/L *</label>
+                                <input type="number" step="0.01" value={form.commission_rate} onChange={e => set("commission_rate", e.target.value)}
+                                    placeholder="e.g. 2.00"
                                     className="border border-gray-200/60 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-400 uppercase">Base SNF *</label>
-                                <input type="number" step="0.01" value={form.base_snf} onChange={e => set("base_snf", e.target.value)}
-                                    className="border border-gray-200/60 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-400 uppercase">Base Commission ₹/L</label>
-                                <input type="number" step="0.01" value={form.base_commission} onChange={e => set("base_commission", e.target.value)}
-                                    className="border border-gray-200/60 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-400 uppercase">Fat Step Cut</label>
-                                <input type="number" step="0.01" value={form.fat_step_cut} onChange={e => set("fat_step_cut", e.target.value)}
-                                    className="border border-gray-200/60 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs font-semibold text-gray-400 uppercase">SNF Step Cut</label>
-                                <input type="number" step="0.01" value={form.snf_step_cut} onChange={e => set("snf_step_cut", e.target.value)}
-                                    className="border border-gray-200/60 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm" />
+                                <p className="text-[10px] text-gray-400">Added to the milk rate per litre for every collection (cow & buffalo) from this seller.</p>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-gray-400 uppercase">Effective From *</label>
@@ -376,8 +344,8 @@ function SellerCommissionOverrides({ t, canWrite, onClose }) {
 
                 <div className="overflow-x-auto">
                     <div className="grid bg-gray-50/80 border-b border-gray-200/60 rounded-t-xl min-w-max"
-                        style={{ gridTemplateColumns: "1.5fr 100px 110px 120px 100px 120px 120px 110px" }}>
-                        {["Seller", "Milk", "Base F/S", "Commission", "Fat Cut", "From", "To", "Actions"].map(h => (
+                        style={{ gridTemplateColumns: "2fr 140px 140px 140px 110px" }}>
+                        {["Seller", "Commission ₹/L", "From", "To", "Actions"].map(h => (
                             <div key={h} className="px-3 py-3 text-xs font-semibold text-gray-400 uppercase">{h}</div>
                         ))}
                     </div>
@@ -389,12 +357,9 @@ function SellerCommissionOverrides({ t, canWrite, onClose }) {
                         </div>
                     ) : overrides.map(o => (
                         <div key={o.id} className="grid border-b border-gray-100 min-w-max items-center"
-                            style={{ gridTemplateColumns: "1.5fr 100px 110px 120px 100px 120px 120px 110px" }}>
+                            style={{ gridTemplateColumns: "2fr 140px 140px 140px 110px" }}>
                             <div className="px-3 py-3 text-sm font-semibold text-gray-800">{o.seller_name} <span className="text-gray-400 font-mono text-xs">({o.seller_code})</span></div>
-                            <div className="px-3 py-3 text-sm capitalize">{o.milk_type}</div>
-                            <div className="px-3 py-3 text-sm text-gray-500">{o.base_fat}/{o.base_snf}</div>
-                            <div className="px-3 py-3 text-sm font-bold text-emerald-600">₹{parseFloat(o.base_commission).toFixed(2)}</div>
-                            <div className="px-3 py-3 text-sm text-gray-500">{o.fat_step_cut}</div>
+                            <div className="px-3 py-3 text-sm font-bold text-emerald-600">₹{parseFloat(o.commission_rate).toFixed(2)}</div>
                             <div className="px-3 py-3 text-sm text-gray-500">{o.effective_from?.split("T")[0]}</div>
                             <div className="px-3 py-3 text-sm text-gray-500">{o.effective_to ? o.effective_to.split("T")[0] : "Ongoing"}</div>
                             <div className="px-3 py-3 flex gap-2">

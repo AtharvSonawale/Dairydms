@@ -73,6 +73,9 @@ import UtpadakMilkEntry from './pages/UtpadakMilkEntry';
 import GavaliMilkEntry from './pages/GavaliMilkEntry';
 import MyProfile from './pages/admin/MyProfile';
 import AllMilkEntries from './pages/AllMilkEntries';
+import ProductSalesReport from './pages/ProductSalesReport';
+import CattleFeedSalesReport from './pages/CattleFeedSalesReport';
+
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -169,6 +172,9 @@ function AppRoutes() {
         <Route path="/utpadak-milk-entry" element={<ProtectedRoute><UtpadakMilkEntry /></ProtectedRoute>} />
         <Route path="/gavali-milk-entry" element={<ProtectedRoute><GavaliMilkEntry /></ProtectedRoute>} />
         <Route path="/admin/profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
+        <Route path="/product-sales/report" element={<ProtectedRoute><ProductSalesReport /></ProtectedRoute>} />
+        <Route path="/cattle-feed-sales/report" element={<ProtectedRoute><CattleFeedSalesReport /></ProtectedRoute>} />
+
       </Route>
 
       {/* ── Fallback ── */}

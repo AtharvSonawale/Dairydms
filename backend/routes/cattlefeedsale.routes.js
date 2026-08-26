@@ -1,34 +1,35 @@
+// ── Combined routes file (cattle-feed-sales.js) ──────────────
 const router = require('express').Router();
 const protect = require('../middleware/auth');
-const ctrl = require('../controllers/cattlefeedsales.controller');
 
-// ── Cattle Feed Sales (stock OUT to seller) ──────────────────
-// GET  /api/cattle-feed-sales?date=YYYY-MM-DD  → sales for that date (operator-scoped)
-// POST /api/cattle-feed-sales                  → record sale + decrement stock
+// Import controllers
+const salesCtrl = require('../controllers/cattlefeedsales.controller');
+const reportCtrl = require('../controllers/cattleFeedSalesReport.controller');
 
-// ── Transactions & grouped views ─────────────────────────────
-router.get('/transactions', protect, ctrl.getTransactions);
+// ── Main Cattle Feed Sales (CRUD) ──────────────────────────
+router.get('/transactions', protect, salesCtrl.getTransactions);
+router.get('/', protect, salesCtrl.getSales);
+router.post('/', protect, salesCtrl.createSale);
+router.put('/:id', protect, salesCtrl.updateSale);
+router.put('/transaction/:transaction_id', protect, salesCtrl.updateTransaction);
+router.delete('/:id', protect, salesCtrl.deleteSale);
 
-// ── Speed feeds (quick‑tap strip) ────────────────────────────
-router.get('/speed-feeds', protect, ctrl.getSpeedFeeds);
-router.post('/speed-feeds', protect, ctrl.createSpeedFeed);
-router.put('/speed-feeds/:id', protect, ctrl.updateSpeedFeed);
-router.delete('/speed-feeds/:id', protect, ctrl.deleteSpeedFeed);
+// ── Speed Feeds ─────────────────────────────────────────────
+router.get('/speed-feeds', protect, salesCtrl.getSpeedFeeds);
+router.post('/speed-feeds', protect, salesCtrl.createSpeedFeed);
+router.put('/speed-feeds/:id', protect, salesCtrl.updateSpeedFeed);
+router.delete('/speed-feeds/:id', protect, salesCtrl.deleteSpeedFeed);
 
-// ── Main sales endpoints ──────────────────────────────────────
-router.get('/', protect, ctrl.getSales);
-router.post('/', protect, ctrl.createSale);
+// ── Named Buyers ────────────────────────────────────────────
+router.get('/named-buyers', protect, salesCtrl.getFeedNamedBuyers);
+router.post('/named-buyers', protect, salesCtrl.createFeedNamedBuyer);
 
-// ── Update a single sale line ────────────────────────────────
-router.put('/:id', protect, ctrl.updateSale);
+// ── Report Routes ────────────────────────────────────────────
+router.get('/report', protect, reportCtrl.getSalesReport);
+router.get('/report/summary', protect, reportCtrl.getReportSummary);
+router.get('/report/export', protect, reportCtrl.exportReport);
 
-// ── Update all lines in a transaction ────────────────────────
-router.put('/transaction/:transaction_id', protect, ctrl.updateTransaction);
-
-// ── Delete a single sale line ────────────────────────────────
-router.delete('/:id', protect, ctrl.deleteSale);
-
-// ── Admin summary (optional) ──────────────────────────────────
-router.get('/summary', protect, ctrl.getSalesSummary);
+// ── Admin summary ────────────────────────────────────────────
+router.get('/summary', protect, salesCtrl.getSalesSummary);
 
 module.exports = router;

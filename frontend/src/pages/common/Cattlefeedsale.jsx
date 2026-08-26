@@ -6,7 +6,7 @@ import {
     BadgeCheck, RefreshCw, X, TrendingUp,
     ShoppingCart, Layers, Banknote, Users, FileDown,
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
-    Home
+    Home, Tag, UserCircle2
 } from "lucide-react";
 // AFTER
 import api from "../../api/axios";
@@ -554,7 +554,18 @@ export default function CattleFeedSales() {
             .then(({ data }) => setProductLabel(data?.productLabel || ""))
             .catch(() => { });
     }, []);
-    const [form, setForm] = useState({ seller_id: "", seller_code: "" });
+    const BUYER_MODES = [
+    { val: "seller", label: t('cattleFeedSales.form.sellerBuys') || 'Seller', icon: <Users size={18} /> },
+    { val: "named", label: t('cattleFeedSales.form.named') || 'Named', icon: <Tag size={18} /> },
+    { val: "anon", label: t('cattleFeedSales.form.anon') || 'Anonymous', icon: <UserCircle2 size={18} /> },
+];
+
+const [form, setForm] = useState({ buyer_mode: "seller", seller_id: "", seller_code: "" });
+const [namedBuyers, setNamedBuyers] = useState([]);
+const [namedBuyerSearch, setNamedBuyerSearch] = useState("");
+const [namedBuyerId, setNamedBuyerId] = useState("");
+const [namedBuyerDropdownOpen, setNamedBuyerDropdownOpen] = useState(false);
+const [namedBuyerHighlight, setNamedBuyerHighlight] = useState(-1);
     const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
@@ -691,21 +702,55 @@ export default function CattleFeedSales() {
         }
     };
 
+    const setEditLine = (key, k, v) =>
+        setEditingSale(prev => ({
+            ...prev,
+            items: prev.items.map(l => l._key === key ? { ...l, [k]: v } : l),
+        }));
+
+    const addEditLine = () =>
+        setEditingSale(prev => ({
+            ...prev,
+            items: [...prev.items, { feed_id: "", quantity: "", rate: "", _key: `new-${Date.now()}` }],
+        }));
+
+    const removeEditLine = (key) =>
+        setEditingSale(prev => ({
+            ...prev,
+            items: prev.items.length > 1 ? prev.items.filter(l => l._key !== key) : prev.items,
+        }));
+
+    const isEditFormReady = () => {
+        if (!editingSale) return false;
+        if (editingSale.buyer_mode === "seller" && !editingSale.seller_id) return false;
+        if (editingSale.buyer_mode === "named" && !editingSale.buyer_id && !editBuyerSearch.trim()) return false;
+        const valid = editingSale.items.filter(l => l.feed_id && l.quantity && l.rate);
+        return valid.length > 0;
+    };
+
     const handleEditSave = async () => {
-        if (!editingSale) return;
+        if (!editingSale || !isEditFormReady()) return;
         setEditSaving(true);
         try {
             await api.put(`/cattle-feed-sales/transaction/${editingSale.transaction_id}`, {
-                items: editingSale.items.map(item => ({
-                    sale_id: item.sale_id,
-                    quantity: parseFloat(item.quantity),
-                    rate: parseFloat(item.rate),
-                })),
+                buyer_mode: editingSale.buyer_mode,
+                seller_id: editingSale.buyer_mode === "seller" ? Number(editingSale.seller_id) : null,
+                buyer_id: editingSale.buyer_mode === "named" ? (editingSale.buyer_id || null) : null,
+                buyer_name: editingSale.buyer_mode === "named" ? editBuyerSearch.trim() : null,
                 sale_date: editingSale.sale_date,
+                items: editingSale.items
+                    .filter(l => l.feed_id && l.quantity && l.rate)
+                    .map(item => ({
+                        sale_id: item.sale_id || undefined,
+                        feed_id: Number(item.feed_id),
+                        quantity: parseFloat(item.quantity),
+                        rate: parseFloat(item.rate),
+                    })),
             });
             await Promise.all([
                 fetchSales(selectedDate),
                 fetchFeeds(),
+                fetchNamedBuyers(),
                 fetchRangeEntries(fromDate, toDate),
             ]);
             setEditingSale(null);
@@ -771,7 +816,29 @@ export default function CattleFeedSales() {
         }
     };
 
-    useEffect(() => { fetchSellers(); fetchFeeds(); }, []);
+    const fetchNamedBuyers = async () => {
+    try {
+        const { data } = await api.get("/cattle-feed-sales/named-buyers");
+        setNamedBuyers(data);
+    } catch { /* silent */ }
+};
+
+const saveFeedNamedBuyer = async (name) => {
+    try {
+        const { data } = await api.post("/cattle-feed-sales/named-buyers", { name: name.trim() });
+        await fetchNamedBuyers();
+        return data;
+    } catch (err) {
+        if (err.response?.status === 409) {
+            const existing = namedBuyers.find(b => b.name.toLowerCase() === name.toLowerCase());
+            if (existing) return existing;
+        }
+        showFlash('error', 'Failed to register buyer');
+        return null;
+    }
+};
+
+useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
     // ── FIXED: Seller filtering - search by name OR code (partial match) ──
@@ -851,7 +918,8 @@ export default function CattleFeedSales() {
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 
     const handleSave = async () => {
-        if (!form.seller_id) { showFlash("error", t('cattleFeedSales.form.selectSeller')); return; }
+        if (form.buyer_mode === "seller" && !form.seller_id) { showFlash("error", t('cattleFeedSales.form.selectSeller')); return; }
+        if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) { showFlash("error", "Buyer name is required."); return; }
 
         const validLines = lines.filter(l => l.feed_id && l.quantity && l.rate);
         if (validLines.length === 0) {
@@ -875,7 +943,10 @@ export default function CattleFeedSales() {
         setSaving(true);
         try {
             const { data: created } = await api.post("/cattle-feed-sales", {
-                seller_id: Number(form.seller_id),
+                buyer_mode: form.buyer_mode,
+                seller_id: form.buyer_mode === "seller" ? Number(form.seller_id) : null,
+                buyer_id: form.buyer_mode === "named" ? (namedBuyerId || null) : null,
+                buyer_name: form.buyer_mode === "named" ? namedBuyerSearch.trim() : null,
                 sale_date: selectedDate,
                 lines: validLines.map(l => ({
                     feed_id: Number(l.feed_id),
@@ -909,13 +980,15 @@ export default function CattleFeedSales() {
                 handlePrintReceipt(txnForPrint);
             }
 
-            setForm({ seller_id: "", seller_code: "" });
+            setForm({ buyer_mode: form.buyer_mode, seller_id: "", seller_code: "" });
             setLines([{ ...EMPTY_LINE, _key: Date.now() }]);
             setLineFeedSearch({});
             setShowFeedDrop({});
             setSellerSearch("");
             setSellerCodeInput("");
-            sellerCodeRef.current?.focus();
+            setNamedBuyerId("");
+            setNamedBuyerSearch("");
+            if (form.buyer_mode === "seller") sellerCodeRef.current?.focus();
         } catch (err) {
             const msg = err.response?.data?.error || err.response?.data?.message || t('cattleFeedSales.form.saveFailed');
             showFlash("error", msg);
@@ -925,7 +998,8 @@ export default function CattleFeedSales() {
     };
 
     const isFormReady = () => {
-        if (!form.seller_id) return false;
+        if (form.buyer_mode === "seller" && !form.seller_id) return false;
+        if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) return false;
         const validLines = lines.filter(l => l.feed_id && l.quantity && l.rate);
         if (validLines.length === 0) return false;
         for (const l of validLines) {
@@ -1152,9 +1226,34 @@ export default function CattleFeedSales() {
                         data-tour="sales-form"
                     >
                         <div data-entry-form onKeyDown={handleFormKeyDown}>
-                            {/* ── FIXED: Seller row with Code and Name fields ── */}
-                            <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
-                                <Field label={t('cattleFeedSales.form.sellerCode')} icon={<User size={12} />}>
+                            {/* ── Buyer mode selector ── */}
+                            <div className="flex gap-2 mb-4">
+                                {BUYER_MODES.map(({ val, label, icon }) => (
+                                    <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => {
+                                            set("buyer_mode", val);
+                                            set("seller_id", "");
+                                            setSellerSearch("");
+                                            setSellerCodeInput("");
+                                            setNamedBuyerId("");
+                                            setNamedBuyerSearch("");
+                                        }}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-semibold transition
+                    ${form.buyer_mode === val
+                                                ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
+                                                : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
+                                    >
+                                        {icon}<span>{label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* ── Seller row with Code and Name fields (seller mode only) ── */}
+                            {form.buyer_mode === "seller" && (
+                                <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                                    <Field label={t('cattleFeedSales.form.sellerCode')} icon={<User size={12} />}>
                                     <TinyInput
                                         ref={sellerCodeRef}
                                         value={sellerCodeInput}
@@ -1236,12 +1335,77 @@ export default function CattleFeedSales() {
                                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
                                                 <X size={12} />
                                             </button>
-                                        )}
-                                    </div>
-                                </Field>
-                            </div>
+                        )}
+                                </div>
+                </Field>
+                    </div>
+                )}
 
-                            {/* Speed strip */}
+                {form.buyer_mode === "named" && (
+                    <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                        <Field label="Buyer Name" icon={<User size={12} />}>
+                            <div className="relative" style={{ width: "220px" }}>
+                                <TinyInput
+                                    value={namedBuyerSearch}
+                                    onFocus={() => { setNamedBuyerDropdownOpen(true); setNamedBuyerHighlight(-1); }}
+                                    onBlur={() => setTimeout(() => setNamedBuyerDropdownOpen(false), 150)}
+                                    onChange={(e) => {
+                                        setNamedBuyerSearch(e.target.value);
+                                        setNamedBuyerId("");
+                                        setNamedBuyerDropdownOpen(true);
+                                    }}
+                                    placeholder="Search or add buyer..."
+                                    className="pr-7 w-full"
+                                />
+                                {namedBuyerDropdownOpen && (() => {
+                                    const filtered = namedBuyerSearch
+                                        ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
+                                        : namedBuyers.slice(0, 5);
+                                    const showRegister = namedBuyerSearch.trim() &&
+                                        !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
+                                    return (filtered.length > 0 || showRegister) ? (
+                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                            {filtered.map((b) => (
+                                                <button key={b.buyer_id} type="button"
+                                                    onClick={() => { setNamedBuyerId(b.buyer_id); setNamedBuyerSearch(b.name); setNamedBuyerDropdownOpen(false); }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
+                                                    <div className="w-6 h-6 rounded-full bg-gray-100/80 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                                        {b.name?.charAt(0)?.toUpperCase()}
+                                                    </div>
+                                                    <span className="font-medium text-gray-800 text-xs">{b.name}</span>
+                                                </button>
+                                            ))}
+                                            {showRegister && (
+                                                <button type="button"
+                                                    onClick={async () => {
+                                                        const nb = await saveFeedNamedBuyer(namedBuyerSearch.trim());
+                                                        if (nb) { setNamedBuyerId(nb.buyer_id); setNamedBuyerSearch(nb.name); }
+                                                        setNamedBuyerDropdownOpen(false);
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 hover:bg-emerald-50 transition">
+                                                    <Plus size={12} className="text-emerald-600" />
+                                                    <span className="font-medium text-emerald-700 text-xs">Register "{namedBuyerSearch}"</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </div>
+                        </Field>
+                    </div>
+                )}
+
+                {form.buyer_mode === "anon" && (
+                    <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                        <Field label="Buyer" icon={<UserCircle2 size={12} />}>
+                            <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
+                                <UserCircle2 size={14} /> Anonymous
+                            </div>
+                        </Field>
+                    </div>
+                )}
+
+                {/* Speed strip */}
                             <SpeedStripInForm onTap={(sp) => handleAddSpeedLines([{
                                 feed_id: String(sp.feed_id),
                                 quantity: "1",
@@ -1446,13 +1610,26 @@ export default function CattleFeedSales() {
 
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
-                                                    {(txn.seller_name || "?").charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <span className="text-gray-800 font-medium text-xs truncate">{txn.seller_name}</span>
-                                                    {txn.seller_code && <span className="text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>}
-                                                </div>
+                                                {(() => {
+                                                    const displayName = txn.buyer_type === 'seller' ? txn.seller_name
+                                                        : txn.buyer_type === 'named' ? (txn.registered_buyer_name || txn.buyer_name)
+                                                            : 'Anonymous';
+                                                    return (
+                                                        <>
+                                                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
+                                                                {(displayName || "?").charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className={`font-medium text-xs truncate ${txn.buyer_type === 'anon' ? 'text-gray-400 italic' : 'text-gray-800'}`}>
+                                                                    {displayName}
+                                                                </span>
+                                                                {txn.buyer_type === 'seller' && txn.seller_code && (
+                                                                    <span className="text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </TableCell>
 
@@ -1502,17 +1679,27 @@ export default function CattleFeedSales() {
                                                 </button>
                                                 {can('cattle_feed_sales', 'U') && (
                                                     <button
-                                                        onClick={() => setEditingSale({
-                                                            transaction_id: txn.transaction_id,
-                                                            seller_name: txn.seller_name,
-                                                            items: txn.items.map(item => ({
-                                                                sale_id: item.sale_id,
-                                                                feed_name: item.feed_name,
-                                                                quantity: String(item.quantity),
-                                                                rate: String(item.rate),
-                                                            })),
-                                                            sale_date: txn.sale_date,
-                                                        })}
+                                                        onClick={() => {
+                                                            const mode = txn.buyer_type || 'seller';
+                                                            setEditingSale({
+                                                                transaction_id: txn.transaction_id,
+                                                                buyer_mode: mode,
+                                                                seller_id: mode === 'seller' ? String(txn.seller_id || '') : '',
+                                                                buyer_id: mode === 'named' ? String(txn.buyer_id || '') : '',
+                                                                sale_date: txn.sale_date,
+                                                                items: txn.items.map(item => ({
+                                                                    sale_id: item.sale_id,
+                                                                    feed_id: String(item.feed_id),
+                                                                    quantity: String(item.quantity),
+                                                                    rate: String(item.rate),
+                                                                    _key: `existing-${item.sale_id}`,
+                                                                })),
+                                                            });
+                                                            setEditSellerSearch(mode === 'seller' ? (txn.seller_name || '') : '');
+                                                            setEditBuyerSearch(mode === 'named' ? (txn.registered_buyer_name || txn.buyer_name || '') : '');
+                                                            setEditSellerDrop(false);
+                                                            setEditBuyerDrop(false);
+                                                        }}
                                                         className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50/80 hover:bg-blue-100/80 text-blue-500 transition shadow-sm"
                                                         title={t('cattleFeedSales.table.edit')}>
                                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -1580,10 +1767,10 @@ export default function CattleFeedSales() {
                 showFlash={showFlash}
             />
 
-            {/* ── Edit Sale Modal ── */}
+            {/* ── Edit Sale Modal (fully editable) ── */}
             {editingSale && can('cattle_feed_sales', 'U') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[500px] flex flex-col gap-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[560px] max-h-[88vh] overflow-y-auto flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-gray-800 font-semibold text-base">{t('cattleFeedSales.editModal.title')}</h2>
@@ -1596,52 +1783,169 @@ export default function CattleFeedSales() {
                             </button>
                         </div>
 
-                        <div className="px-3 py-2 rounded-xl bg-gray-50/80 border border-gray-200/60">
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">{t('cattleFeedSales.editModal.seller')}</p>
-                            <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
-                                {editingSale.seller_name}
-                            </p>
+                        {/* Date */}
+                        <Field label="Sale Date">
+                            <TinyInput
+                                type="date"
+                                value={editingSale.sale_date}
+                                onChange={(e) => setEditingSale(prev => ({ ...prev, sale_date: e.target.value }))}
+                                className="w-40"
+                            />
+                        </Field>
+
+                        {/* Buyer mode selector */}
+                        <div className="flex gap-2">
+                            {["seller", "named", "anon"].map((mode) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingSale(prev => ({ ...prev, buyer_mode: mode, seller_id: "", buyer_id: "" }));
+                                        setEditSellerSearch("");
+                                        setEditBuyerSearch("");
+                                    }}
+                                    className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition
+                            ${editingSale.buyer_mode === mode
+                                            ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-sm"
+                                            : "bg-white/60 text-gray-500 border-gray-200/60 hover:border-gray-400"}`}
+                                >
+                                    {mode === "seller" ? "Seller" : mode === "named" ? "Named" : "Anonymous"}
+                                </button>
+                            ))}
                         </div>
 
+                        {/* Seller picker */}
+                        {editingSale.buyer_mode === "seller" && (
+                            <Field label="Seller">
+                                <div className="relative w-full">
+                                    <TinyInput
+                                        value={editSellerSearch}
+                                        onFocus={() => setEditSellerDrop(true)}
+                                        onBlur={() => setTimeout(() => setEditSellerDrop(false), 150)}
+                                        onChange={(e) => {
+                                            setEditSellerSearch(e.target.value);
+                                            setEditSellerDrop(true);
+                                            setEditingSale(prev => ({ ...prev, seller_id: "" }));
+                                        }}
+                                        placeholder="Search seller..."
+                                        className="w-full"
+                                    />
+                                    {editSellerDrop && (
+                                        <div className="absolute top-full left-0 mt-1 w-full bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto">
+                                            {sellers
+                                                .filter(s => s.cattle_feed_sale_enabled == 1)
+                                                .filter(s => !editSellerSearch.trim() ||
+                                                    s.name.toLowerCase().includes(editSellerSearch.toLowerCase()) ||
+                                                    (s.seller_code || "").toLowerCase().includes(editSellerSearch.toLowerCase()))
+                                                .slice(0, 10)
+                                                .map(s => (
+                                                    <button key={s.seller_id} type="button"
+                                                        onMouseDown={() => {
+                                                            setEditingSale(prev => ({ ...prev, seller_id: String(s.seller_id) }));
+                                                            setEditSellerSearch(s.name);
+                                                            setEditSellerDrop(false);
+                                                        }}
+                                                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
+                                                        <span className="font-medium text-gray-800 text-xs">{s.name}</span>
+                                                        <span className="text-[10px] text-gray-400 font-mono">{s.seller_code}</span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </Field>
+                        )}
+
+                        {/* Named buyer picker */}
+                        {editingSale.buyer_mode === "named" && (
+                            <Field label="Buyer Name">
+                                <div className="relative w-full">
+                                    <TinyInput
+                                        value={editBuyerSearch}
+                                        onFocus={() => setEditBuyerDrop(true)}
+                                        onBlur={() => setTimeout(() => setEditBuyerDrop(false), 150)}
+                                        onChange={(e) => {
+                                            setEditBuyerSearch(e.target.value);
+                                            setEditBuyerDrop(true);
+                                            setEditingSale(prev => ({ ...prev, buyer_id: "" }));
+                                        }}
+                                        placeholder="Search or add buyer..."
+                                        className="w-full"
+                                    />
+                                    {editBuyerDrop && (
+                                        <div className="absolute top-full left-0 mt-1 w-full bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto">
+                                            {namedBuyers
+                                                .filter(b => !editBuyerSearch.trim() || b.name.toLowerCase().includes(editBuyerSearch.toLowerCase()))
+                                                .slice(0, 10)
+                                                .map(b => (
+                                                    <button key={b.buyer_id} type="button"
+                                                        onMouseDown={() => {
+                                                            setEditingSale(prev => ({ ...prev, buyer_id: String(b.buyer_id) }));
+                                                            setEditBuyerSearch(b.name);
+                                                            setEditBuyerDrop(false);
+                                                        }}
+                                                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
+                                                        <span className="font-medium text-gray-800 text-xs">{b.name}</span>
+                                                    </button>
+                                                ))}
+                                            {editBuyerSearch.trim() && !namedBuyers.find(b => b.name.toLowerCase() === editBuyerSearch.toLowerCase()) && (
+                                                <div className="px-3 py-2 text-[11px] text-emerald-600 border-t border-gray-100">
+                                                    Will register "{editBuyerSearch}" as a new buyer on save
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </Field>
+                        )}
+
+                        {editingSale.buyer_mode === "anon" && (
+                            <div className="h-[35px] px-3 flex items-center rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium w-fit">
+                                Anonymous buyer
+                            </div>
+                        )}
+
+                        {/* Line items — fully editable */}
                         <div className="flex flex-col gap-2">
-                            {editingSale.items.map((item, index) => (
-                                <div key={item.sale_id} className="grid grid-cols-3 gap-2 items-center">
-                                    <div className="px-3 py-2 rounded-xl bg-gray-50/80 border border-gray-200/60">
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">{t('cattleFeedSales.editModal.feed')}</p>
-                                        <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
-                                            {item.feed_name}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('cattleFeedSales.editModal.qty')}</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={item.quantity}
-                                            onChange={(e) => {
-                                                const newItems = [...editingSale.items];
-                                                newItems[index].quantity = e.target.value;
-                                                setEditingSale({ ...editingSale, items: newItems });
-                                            }}
-                                            className="border border-blue-200/60 bg-blue-50/80 rounded-xl px-3 py-2 text-sm text-blue-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('cattleFeedSales.editModal.rate')}</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={item.rate}
-                                            onChange={(e) => {
-                                                const newItems = [...editingSale.items];
-                                                newItems[index].rate = e.target.value;
-                                                setEditingSale({ ...editingSale, items: newItems });
-                                            }}
-                                            className="border border-amber-200/60 bg-amber-50/80 rounded-xl px-3 py-2 text-sm text-amber-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
-                                        />
-                                    </div>
+                            <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
+                                style={{ gridTemplateColumns: "1fr 90px 90px 28px" }}>
+                                <span>Feed</span><span>Qty</span><span>Rate</span><span />
+                            </div>
+                            {editingSale.items.map((item) => (
+                                <div key={item._key} className="grid gap-2 items-center" style={{ gridTemplateColumns: "1fr 90px 90px 28px" }}>
+                                    <select
+                                        value={item.feed_id}
+                                        onChange={(e) => setEditLine(item._key, "feed_id", e.target.value)}
+                                        className="border border-gray-200/60 bg-white/50 rounded-xl px-2.5 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                                    >
+                                        <option value="">Select feed…</option>
+                                        {feeds.map(f => (
+                                            <option key={f.feed_id} value={f.feed_id}>
+                                                {f.feed_name} (stock: {parseFloat(f.current_stock).toFixed(1)} {f.unit})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <TinyInput
+                                        type="number" step="0.01" value={item.quantity}
+                                        onChange={(e) => setEditLine(item._key, "quantity", e.target.value)}
+                                        className="bg-blue-50/80 border-blue-200/60 text-blue-700"
+                                    />
+                                    <TinyInput
+                                        type="number" step="0.01" value={item.rate}
+                                        onChange={(e) => setEditLine(item._key, "rate", e.target.value)}
+                                        className="bg-amber-50/80 border-amber-200/60 text-amber-700"
+                                    />
+                                    <button type="button" onClick={() => removeEditLine(item._key)}
+                                        disabled={editingSale.items.length === 1}
+                                        className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition">
+                                        <X size={12} />
+                                    </button>
                                 </div>
                             ))}
+                            <button type="button" onClick={addEditLine}
+                                className="self-start flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
+                                <Plus size={12} /> Add Line
+                            </button>
                         </div>
 
                         <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/60">
@@ -1655,7 +1959,7 @@ export default function CattleFeedSales() {
                             <button onClick={() => setEditingSale(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200/60 bg-white/60 backdrop-blur-sm hover:bg-gray-50/80 transition shadow-sm">
                                 {t('cattleFeedSales.editModal.cancel')}
                             </button>
-                            <button onClick={handleEditSave} disabled={editSaving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 disabled:opacity-50 transition shadow-sm">
+                            <button onClick={handleEditSave} disabled={editSaving || !isEditFormReady()} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-gray-900 to-gray-800 hover:shadow-lg hover:shadow-gray-900/30 disabled:opacity-50 transition shadow-sm">
                                 {editSaving ? t('cattleFeedSales.editModal.saving') : t('cattleFeedSales.editModal.saveChanges')}
                             </button>
                         </div>

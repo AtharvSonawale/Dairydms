@@ -88,14 +88,16 @@ exports.getSales = async (req, res) => {
                 s.name        AS seller_name,
                 s.seller_code AS seller_code,
                 s.seller_type AS seller_type,
+                nb.name       AS registered_buyer_name,
                 o.name        AS operator_name
             FROM cattle_feed_sales cfs
-            JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
-            JOIN sellers     s ON s.seller_id  = cfs.seller_id
-            JOIN operators   o ON o.operator_id = cfs.operator_id
-            WHERE cfs.centre_id = ?
-            ${dateCondition}
-            ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
+JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
+LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
+JOIN operators   o ON o.operator_id = cfs.operator_id
+WHERE cfs.centre_id = ?
+${dateCondition}
+ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
         `;
         const params = [centreId, ...dateParams];
         const [rows] = await pool.query(query, params);
@@ -133,14 +135,16 @@ exports.getTransactions = async (req, res) => {
                 s.name        AS seller_name,
                 s.seller_code AS seller_code,
                 s.seller_type AS seller_type,
+                nb.name       AS registered_buyer_name,
                 o.name        AS operator_name
             FROM cattle_feed_sales cfs
-            JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
-            JOIN sellers     s ON s.seller_id  = cfs.seller_id
-            JOIN operators   o ON o.operator_id = cfs.operator_id
-            WHERE cfs.centre_id = ?
-            ${dateCondition}
-            ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
+JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
+LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
+JOIN operators   o ON o.operator_id = cfs.operator_id
+WHERE cfs.centre_id = ?
+${dateCondition}
+ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
         `;
         const params = [centreId, ...dateParams];
         const [rows] = await pool.query(query, params);
@@ -156,6 +160,10 @@ exports.getTransactions = async (req, res) => {
                     seller_name: row.seller_name,
                     seller_code: row.seller_code,
                     seller_type: row.seller_type,
+                    buyer_id: row.buyer_id,
+                    buyer_name: row.buyer_name,
+                    buyer_type: row.buyer_type,
+                    registered_buyer_name: row.registered_buyer_name,
                     sale_date: row.sale_date,
                     created_at: row.created_at,
                     operator_id: row.operator_id,
@@ -226,12 +234,17 @@ exports.createSale = async (req, res) => {
             effectiveOperatorId = userId;
         }
 
-        const { seller_id, sale_date, lines } = req.body;
+        const { seller_id, buyer_mode, buyer_id, buyer_name, sale_date, lines } = req.body;
+        const mode = buyer_mode || 'seller'; // default keeps old clients working
 
         // ── top-level validation ──
-        if (!seller_id) {
+        if (mode === 'seller' && !seller_id) {
             await conn.rollback();
             return res.status(400).json({ error: 'Seller is required.' });
+        }
+        if (mode === 'named' && !buyer_id && !(buyer_name && buyer_name.trim())) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Buyer name is required.' });
         }
         if (!sale_date) {
             await conn.rollback();
@@ -242,14 +255,36 @@ exports.createSale = async (req, res) => {
             return res.status(400).json({ error: 'At least one feed line is required.' });
         }
 
-        // ── verify seller belongs to centre ──
-        const [seller] = await conn.query(
-            `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`,
-            [seller_id, centreId]
-        );
-        if (!seller.length) {
-            await conn.rollback();
-            return res.status(404).json({ error: 'Seller not found in your centre.' });
+        // ── resolve buyer/seller depending on mode ──
+        let resolvedBuyerId = null;
+        if (mode === 'seller') {
+            const [seller] = await conn.query(
+                `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`,
+                [seller_id, centreId]
+            );
+            if (!seller.length) {
+                await conn.rollback();
+                return res.status(404).json({ error: 'Seller not found in your centre.' });
+            }
+        } else if (mode === 'named') {
+            if (buyer_id) {
+                const [buyer] = await conn.query(
+                    `SELECT buyer_id FROM cattle_feed_named_buyers WHERE buyer_id = ? AND centre_id = ?`,
+                    [buyer_id, centreId]
+                );
+                if (!buyer.length) {
+                    await conn.rollback();
+                    return res.status(404).json({ error: 'Buyer not found in your centre.' });
+                }
+                resolvedBuyerId = buyer_id;
+            } else {
+                const [result] = await conn.query(
+                    `INSERT INTO cattle_feed_named_buyers (operator_id, centre_id, name)
+             VALUES (?, ?, ?)`,
+                    [isAdmin ? null : userId, centreId, buyer_name.trim()]
+                );
+                resolvedBuyerId = result.insertId;
+            }
         }
 
         // ── validate & stock-check every line up front ──
@@ -298,11 +333,18 @@ exports.createSale = async (req, res) => {
 
             const [result] = await conn.query(
                 `INSERT INTO cattle_feed_sales
-                    (transaction_id, feed_id, seller_id, operator_id, centre_id, 
-                     quantity, rate, total_amount, sale_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [transaction_id, Number(feed_id), Number(seller_id), effectiveOperatorId, centreId,
-                    saleQty, saleRate, saleTotal, sale_date]
+        (transaction_id, feed_id, seller_id, buyer_id, buyer_name, buyer_type,
+         operator_id, centre_id, quantity, rate, total_amount, sale_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    transaction_id, Number(feed_id),
+                    mode === 'seller' ? Number(seller_id) : null,
+                    mode === 'named' ? resolvedBuyerId : null,
+                    mode === 'anon' ? 'ANON' : null,
+                    mode,
+                    effectiveOperatorId, centreId,
+                    saleQty, saleRate, saleTotal, sale_date,
+                ]
             );
             insertedIds.push(result.insertId);
 
@@ -318,15 +360,17 @@ exports.createSale = async (req, res) => {
         // ── return all inserted rows with joins ──
         const [newRows] = await pool.query(
             `SELECT
-                cfs.*,
-                cf.feed_name, cf.unit,
-                s.name AS seller_name, s.seller_code, s.seller_type,
-                o.name AS operator_name
-             FROM cattle_feed_sales cfs
-             JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
-             JOIN sellers     s ON s.seller_id  = cfs.seller_id
-             JOIN operators   o ON o.operator_id = cfs.operator_id
-             WHERE cfs.sale_id IN (?) AND cfs.centre_id = ?`,
+        cfs.*,
+        cf.feed_name, cf.unit,
+        s.name AS seller_name, s.seller_code, s.seller_type,
+        nb.name AS registered_buyer_name,
+        o.name AS operator_name
+     FROM cattle_feed_sales cfs
+     JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+     LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
+     LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
+     JOIN operators   o ON o.operator_id = cfs.operator_id
+     WHERE cfs.sale_id IN (?) AND cfs.centre_id = ?`,
             [insertedIds, centreId]
         );
         res.status(201).json({ transaction_id, items: newRows });
@@ -485,12 +529,12 @@ exports.updateTransaction = async (req, res) => {
     try {
         await conn.beginTransaction();
         const { transaction_id } = req.params;
-        const { items, sale_date } = req.body;
+        const { buyer_mode, seller_id, buyer_id, buyer_name, sale_date, items } = req.body;
+        const mode = buyer_mode || 'seller';
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        // Fetch all existing sales in the transaction
         const [existingSales] = await conn.query(
             `SELECT * FROM cattle_feed_sales WHERE transaction_id = ? AND centre_id = ?`,
             [transaction_id, centreId]
@@ -500,53 +544,169 @@ exports.updateTransaction = async (req, res) => {
             return res.status(404).json({ error: 'Transaction not found in your centre.' });
         }
 
-        // Check ownership
         if (!isAdmin) {
             const ownedByOperator = existingSales.every(s => s.operator_id === operatorId);
             if (!ownedByOperator) {
                 await conn.rollback();
-                return res.status(403).json({
-                    error: 'Access denied. You can only update your own transactions.'
-                });
+                return res.status(403).json({ error: 'Access denied. You can only update your own transactions.' });
             }
         }
 
-        // Process each item
-        for (const item of items) {
-            const { sale_id, quantity, rate } = item;
-            const existingSale = existingSales.find(s => s.sale_id === sale_id);
-            if (!existingSale) {
+        if (!Array.isArray(items) || items.length === 0) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'At least one feed line is required.' });
+        }
+
+        // ── resolve buyer/seller depending on mode ──
+        let resolvedBuyerId = null;
+        if (mode === 'seller') {
+            if (!seller_id) {
                 await conn.rollback();
-                return res.status(404).json({ error: `Sale ${sale_id} not found in transaction.` });
+                return res.status(400).json({ error: 'Seller is required.' });
             }
-
-            const qtyDiff = parseFloat(quantity) - parseFloat(existingSale.quantity);
-            const newTotal = (parseFloat(quantity) * parseFloat(rate)).toFixed(2);
-
-            if (qtyDiff > 0) {
-                const [feed] = await conn.query(
-                    `SELECT current_stock FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
-                    [existingSale.feed_id, centreId]
+            const [seller] = await conn.query(
+                `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`,
+                [seller_id, centreId]
+            );
+            if (!seller.length) {
+                await conn.rollback();
+                return res.status(404).json({ error: 'Seller not found in your centre.' });
+            }
+        } else if (mode === 'named') {
+            if (buyer_id) {
+                const [buyer] = await conn.query(
+                    `SELECT buyer_id FROM cattle_feed_named_buyers WHERE buyer_id = ? AND centre_id = ?`,
+                    [buyer_id, centreId]
                 );
-                if (qtyDiff > parseFloat(feed[0].current_stock)) {
+                if (!buyer.length) {
                     await conn.rollback();
-                    return res.status(400).json({
-                        error: `Insufficient stock for feed ${existingSale.feed_id}. Only ${parseFloat(feed[0].current_stock).toFixed(2)} units available.`,
-                    });
+                    return res.status(404).json({ error: 'Buyer not found in your centre.' });
                 }
+                resolvedBuyerId = buyer_id;
+            } else if (buyer_name && buyer_name.trim()) {
+                const [result] = await conn.query(
+                    `INSERT INTO cattle_feed_named_buyers (operator_id, centre_id, name) VALUES (?, ?, ?)`,
+                    [isAdmin ? null : operatorId, centreId, buyer_name.trim()]
+                );
+                resolvedBuyerId = result.insertId;
+            } else {
+                await conn.rollback();
+                return res.status(400).json({ error: 'Buyer name is required.' });
             }
+        }
 
-            await conn.query(
-                `UPDATE cattle_feed_sales SET quantity = ?, rate = ?, total_amount = ?, sale_date = ? 
-                 WHERE sale_id = ? AND centre_id = ?`,
-                [parseFloat(quantity), parseFloat(rate), parseFloat(newTotal), sale_date, sale_id, centreId]
-            );
+        // ── validate every incoming line up front ──
+        for (const [i, item] of items.entries()) {
+            const { feed_id, quantity, rate } = item;
+            if (!feed_id) { await conn.rollback(); return res.status(400).json({ error: `Line ${i + 1}: feed is required.` }); }
+            if (!quantity || parseFloat(quantity) <= 0) { await conn.rollback(); return res.status(400).json({ error: `Line ${i + 1}: quantity must be > 0.` }); }
+            if (!rate || parseFloat(rate) <= 0) { await conn.rollback(); return res.status(400).json({ error: `Line ${i + 1}: rate must be > 0.` }); }
+        }
 
-            await conn.query(
-                `UPDATE cattle_feeds SET current_stock = current_stock - ? 
-                 WHERE feed_id = ? AND centre_id = ?`,
-                [qtyDiff, existingSale.feed_id, centreId]
-            );
+        const existingById = new Map(existingSales.map(s => [s.sale_id, s]));
+        const keepIds = new Set();
+
+        for (const item of items) {
+            const { sale_id, feed_id, quantity, rate } = item;
+            const saleQty = parseFloat(quantity);
+            const saleRate = parseFloat(rate);
+            const saleTotal = parseFloat((saleQty * saleRate).toFixed(2));
+
+            if (sale_id && existingById.has(sale_id)) {
+                const existing = existingById.get(sale_id);
+                keepIds.add(sale_id);
+
+                if (Number(existing.feed_id) === Number(feed_id)) {
+                    const qtyDiff = saleQty - parseFloat(existing.quantity);
+                    if (qtyDiff > 0) {
+                        const [feedRow] = await conn.query(
+                            `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
+                            [feed_id, centreId]
+                        );
+                        if (!feedRow.length || qtyDiff > parseFloat(feedRow[0].current_stock)) {
+                            await conn.rollback();
+                            return res.status(400).json({ error: `Insufficient stock for "${feedRow[0]?.feed_name || 'feed'}".` });
+                        }
+                    }
+                    await conn.query(
+                        `UPDATE cattle_feeds SET current_stock = current_stock - ? WHERE feed_id = ? AND centre_id = ?`,
+                        [qtyDiff, feed_id, centreId]
+                    );
+                } else {
+                    await conn.query(
+                        `UPDATE cattle_feeds SET current_stock = current_stock + ? WHERE feed_id = ? AND centre_id = ?`,
+                        [parseFloat(existing.quantity), existing.feed_id, centreId]
+                    );
+                    const [newFeed] = await conn.query(
+                        `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
+                        [feed_id, centreId]
+                    );
+                    if (!newFeed.length) { await conn.rollback(); return res.status(404).json({ error: 'Feed not found in your centre.' }); }
+                    if (saleQty > parseFloat(newFeed[0].current_stock)) {
+                        await conn.rollback();
+                        return res.status(400).json({ error: `Insufficient stock for "${newFeed[0].feed_name}".` });
+                    }
+                    await conn.query(
+                        `UPDATE cattle_feeds SET current_stock = current_stock - ? WHERE feed_id = ? AND centre_id = ?`,
+                        [saleQty, feed_id, centreId]
+                    );
+                }
+
+                await conn.query(
+                    `UPDATE cattle_feed_sales
+                     SET feed_id = ?, seller_id = ?, buyer_id = ?, buyer_name = ?, buyer_type = ?,
+                         quantity = ?, rate = ?, total_amount = ?, sale_date = ?
+                     WHERE sale_id = ? AND centre_id = ?`,
+                    [
+                        Number(feed_id),
+                        mode === 'seller' ? Number(seller_id) : null,
+                        mode === 'named' ? resolvedBuyerId : null,
+                        mode === 'anon' ? 'ANON' : null,
+                        mode, saleQty, saleRate, saleTotal, sale_date, sale_id, centreId,
+                    ]
+                );
+            } else {
+                const [feedRow] = await conn.query(
+                    `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
+                    [feed_id, centreId]
+                );
+                if (!feedRow.length) { await conn.rollback(); return res.status(404).json({ error: 'Feed not found in your centre.' }); }
+                if (saleQty > parseFloat(feedRow[0].current_stock)) {
+                    await conn.rollback();
+                    return res.status(400).json({ error: `Insufficient stock for "${feedRow[0].feed_name}".` });
+                }
+
+                await conn.query(
+                    `INSERT INTO cattle_feed_sales
+                        (transaction_id, feed_id, seller_id, buyer_id, buyer_name, buyer_type,
+                         operator_id, centre_id, quantity, rate, total_amount, sale_date)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        transaction_id, Number(feed_id),
+                        mode === 'seller' ? Number(seller_id) : null,
+                        mode === 'named' ? resolvedBuyerId : null,
+                        mode === 'anon' ? 'ANON' : null,
+                        mode, existingSales[0].operator_id, centreId,
+                        saleQty, saleRate, saleTotal, sale_date,
+                    ]
+                );
+
+                await conn.query(
+                    `UPDATE cattle_feeds SET current_stock = current_stock - ? WHERE feed_id = ? AND centre_id = ?`,
+                    [saleQty, feed_id, centreId]
+                );
+            }
+        }
+
+        // ── delete lines removed in the edit form, restore their stock ──
+        for (const existing of existingSales) {
+            if (!keepIds.has(existing.sale_id)) {
+                await conn.query(`DELETE FROM cattle_feed_sales WHERE sale_id = ? AND centre_id = ?`, [existing.sale_id, centreId]);
+                await conn.query(
+                    `UPDATE cattle_feeds SET current_stock = current_stock + ? WHERE feed_id = ? AND centre_id = ?`,
+                    [parseFloat(existing.quantity), existing.feed_id, centreId]
+                );
+            }
         }
 
         await conn.commit();
@@ -698,6 +858,46 @@ exports.deleteSpeedFeed = async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('deleteSpeedFeed error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// ── GET /api/cattle-feed-sales/named-buyers ──────────────────
+exports.getFeedNamedBuyers = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const [rows] = await pool.query(
+            `SELECT * FROM cattle_feed_named_buyers WHERE centre_id = ? AND is_active = 1 ORDER BY name`,
+            [centreId]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('getFeedNamedBuyers error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// ── POST /api/cattle-feed-sales/named-buyers ─────────────────
+exports.createFeedNamedBuyer = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const { name, mobile, address } = req.body;
+        if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required.' });
+
+        const [result] = await pool.query(
+            `INSERT INTO cattle_feed_named_buyers (operator_id, centre_id, name, mobile, address)
+             VALUES (?, ?, ?, ?, ?)`,
+            [operatorId, centreId, name.trim(), mobile || null, address || null]
+        );
+        const [row] = await pool.query(
+            `SELECT * FROM cattle_feed_named_buyers WHERE buyer_id = ?`, [result.insertId]
+        );
+        res.status(201).json(row[0]);
+    } catch (err) {
+        console.error('createFeedNamedBuyer error:', err);
+        if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Buyer already exists' });
         res.status(500).json({ error: 'Server error' });
     }
 };

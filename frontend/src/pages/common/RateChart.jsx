@@ -1614,14 +1614,16 @@ export default function RateChart() {
                   <span className="text-rose-400">*</span>
                 </label>
                 <div className="flex gap-3">
-                  {["cow", "buffalo"].map((type) => (
+                  {["cow", "buffalo", "mixed"].map((type) => (
                     <label
                       key={type}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border cursor-pointer text-sm font-medium transition shadow-sm
                                                 ${form.milk_type === type
                           ? type === "cow"
                             ? "bg-amber-50/80 border-amber-300/60 text-amber-800 shadow-amber-200/30"
-                            : "bg-blue-50/80 border-blue-300/60 text-blue-800 shadow-blue-200/30"
+                            : type === "buffalo"
+                              ? "bg-blue-50/80 border-blue-300/60 text-blue-800 shadow-blue-200/30"
+                              : "bg-purple-50/80 border-purple-300/60 text-purple-800 shadow-purple-200/30"
                           : "bg-white/50 backdrop-blur-sm border-gray-200/60 text-gray-500 hover:border-gray-300/80"
                         }`}
                     >
@@ -1633,9 +1635,7 @@ export default function RateChart() {
                         onChange={handleChange}
                         className="hidden"
                       />
-                      {type === "cow"
-                        ? t("rateChart.cow")
-                        : t("rateChart.buffalo")}
+                      {milkTypeLabel(type, t)}
                     </label>
                   ))}
                 </div>

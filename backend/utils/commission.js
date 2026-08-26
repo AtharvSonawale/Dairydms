@@ -26,10 +26,9 @@ function computeCommissionAmount(setting, fat, snf) {
 // settingsMap: { cow: {...}, buffalo: {...} }
 
 // ── NEW: pick the override that applies to this milk_type + date, if any ──
-function findActiveOverride(overrides, milkType, entryDate) {
+function findActiveOverride(overrides, entryDate) {
     if (!overrides || !overrides.length || !entryDate) return null;
     return overrides.find(o =>
-        o.milk_type === milkType &&
         o.is_active &&
         o.effective_from <= entryDate &&
         (!o.effective_to || o.effective_to >= entryDate)
@@ -39,8 +38,7 @@ function findActiveOverride(overrides, milkType, entryDate) {
 // ── NEW: fetch a single Gavali seller's active overrides (all milk types) ──
 async function getSellerCommissionOverrides(dbHandle, centreId, sellerId) {
     const [rows] = await dbHandle.query(
-        `SELECT milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut,
-                effective_from, effective_to, is_active
+        `SELECT commission_rate, effective_from, effective_to, is_active
          FROM seller_commission_overrides
          WHERE centre_id = ? AND seller_id = ? AND is_active = 1`,
         [centreId, sellerId]
@@ -58,8 +56,7 @@ async function getSellerCommissionOverridesMap(dbHandle, centreId, sellerIds) {
     if (!sellerIds || !sellerIds.length) return {};
     const placeholders = sellerIds.map(() => '?').join(',');
     const [rows] = await dbHandle.query(
-        `SELECT seller_id, milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut,
-                effective_from, effective_to, is_active
+        `SELECT seller_id, commission_rate, effective_from, effective_to, is_active
          FROM seller_commission_overrides
          WHERE centre_id = ? AND seller_id IN (${placeholders}) AND is_active = 1`,
         [centreId, ...sellerIds]
@@ -92,11 +89,11 @@ function applyCommissionToEntries(entries, sellerType, settingsMap, sellerOverri
                 ? (e.entry_date.toISOString ? e.entry_date.toISOString().split('T')[0] : e.entry_date)
                 : null;
 
-            // CHANGED: override wins; regular commission_settings is used ONLY when no override applies
-            const override = findActiveOverride(sellerOverrides, e.milk_type, entryDate);
-            const setting = override || settingsMap[e.milk_type];
-
-            commissionPerLitre = computeCommissionAmount(setting, e.fat, e.snf);
+            // Flat seller override (applies to every milk_type) wins over standard fat/snf-based commission
+            const override = findActiveOverride(sellerOverrides, entryDate);
+            commissionPerLitre = override
+                ? round2(parseFloat(override.commission_rate) || 0)
+                : computeCommissionAmount(settingsMap[e.milk_type], e.fat, e.snf);
         }
 
         const effectiveRate = round2(baseRate + commissionPerLitre);

@@ -130,19 +130,14 @@ exports.assignSellerCommission = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
         const {
-            seller_id, milk_type, base_fat, base_snf,
-            base_commission = 0, fat_step_cut = 0, snf_step_cut = 0,
+            seller_id, commission_rate,
             reason, effective_from, effective_to,
         } = req.body;
 
-        if (!seller_id || !milk_type || base_fat === undefined || base_fat === '' ||
-            base_snf === undefined || base_snf === '' || !effective_from)
+        if (!seller_id || commission_rate === undefined || commission_rate === '' || !effective_from)
             return res.status(400).json({
-                message: 'seller_id, milk_type, base_fat, base_snf and effective_from are required.',
+                message: 'seller_id, commission_rate and effective_from are required.',
             });
-
-        if (!['cow', 'buffalo'].includes(milk_type))
-            return res.status(400).json({ message: "milk_type must be 'cow' or 'buffalo'." });
 
         // Verify seller belongs to centre AND is a Gavali seller
         const [sellerRows] = await pool.query(
@@ -156,9 +151,9 @@ exports.assignSellerCommission = async (req, res) => {
 
         await pool.query(
             `INSERT INTO seller_commission_overrides
-               (seller_id, centre_id, milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut, reason, effective_from, effective_to)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [seller_id, centreId, milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut, reason || null, effective_from, effective_to || null]
+               (seller_id, centre_id, commission_rate, reason, effective_from, effective_to)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [seller_id, centreId, commission_rate, reason || null, effective_from, effective_to || null]
         );
 
         res.status(201).json({ message: 'Custom commission assigned to seller.' });
@@ -174,14 +169,13 @@ exports.updateSellerCommission = async (req, res) => {
         const { id } = req.params;
         const centreId = req.user.centre_id;
         const {
-            seller_id, milk_type, base_fat, base_snf,
-            base_commission = 0, fat_step_cut = 0, snf_step_cut = 0,
+            seller_id, commission_rate,
             reason, effective_from, effective_to,
         } = req.body;
 
-        if (!seller_id || !milk_type || base_fat === undefined || base_snf === undefined || !effective_from)
+        if (!seller_id || commission_rate === undefined || commission_rate === '' || !effective_from)
             return res.status(400).json({
-                message: 'seller_id, milk_type, base_fat, base_snf and effective_from are required.',
+                message: 'seller_id, commission_rate and effective_from are required.',
             });
 
         const [existing] = await pool.query(
@@ -193,12 +187,10 @@ exports.updateSellerCommission = async (req, res) => {
 
         await pool.query(
             `UPDATE seller_commission_overrides
-             SET seller_id = ?, milk_type = ?, base_fat = ?, base_snf = ?,
-                 base_commission = ?, fat_step_cut = ?, snf_step_cut = ?,
+             SET seller_id = ?, commission_rate = ?,
                  reason = ?, effective_from = ?, effective_to = ?
              WHERE id = ? AND centre_id = ?`,
-            [seller_id, milk_type, base_fat, base_snf, base_commission, fat_step_cut, snf_step_cut,
-                reason || null, effective_from, effective_to || null, id, centreId]
+            [seller_id, commission_rate, reason || null, effective_from, effective_to || null, id, centreId]
         );
 
         const [updated] = await pool.query(

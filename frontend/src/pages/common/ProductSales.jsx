@@ -6,7 +6,7 @@ import {
     BadgeCheck, RefreshCw, X, TrendingUp,
     ShoppingCart, Layers, Banknote, Users, FileDown,
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
-    Home
+    Home, Tag, UserCircle2
 } from "lucide-react";
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
@@ -583,10 +583,22 @@ export default function ProductSales() {
             .then(({ data }) => setProductLabel(data?.productLabel || ""))
             .catch(() => { });
     }, []);
+    const BUYER_MODES = [
+        { val: "seller", label: "Seller", icon: <Users size={18} /> },
+        { val: "named", label: "Named", icon: <Tag size={18} /> },
+        { val: "anon", label: "Anonymous", icon: <UserCircle2 size={18} /> },
+    ];
+
     const [form, setForm] = useState({
+        buyer_mode: 'seller',
         seller_id: '',
         seller_code: '',
     });
+    const [namedBuyers, setNamedBuyers] = useState([]);
+    const [namedBuyerSearch, setNamedBuyerSearch] = useState("");
+    const [namedBuyerId, setNamedBuyerId] = useState("");
+    const [namedBuyerDropdownOpen, setNamedBuyerDropdownOpen] = useState(false);
+    const namedBuyerAnchorRef = useRef(null);
     const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
@@ -794,7 +806,29 @@ export default function ProductSales() {
         }
     };
 
-    useEffect(() => { fetchSellers(); fetchProducts(); }, []);
+    const fetchNamedBuyers = async () => {
+    try {
+        const { data } = await api.get("/product-sales/named-buyers");
+        setNamedBuyers(data);
+    } catch { /* silent */ }
+};
+
+const saveProductNamedBuyer = async (name) => {
+    try {
+        const { data } = await api.post("/product-sales/named-buyers", { name: name.trim() });
+        await fetchNamedBuyers();
+        return data;
+    } catch (err) {
+        if (err.response?.status === 409) {
+            const existing = namedBuyers.find(b => b.name.toLowerCase() === name.toLowerCase());
+            if (existing) return existing;
+        }
+        showFlash('error', 'Failed to register buyer');
+        return null;
+    }
+};
+
+useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
     // ── FIXED: Seller filtering - search by name OR code (partial match) ──
@@ -874,7 +908,8 @@ export default function ProductSales() {
     const selectedSeller = sellers.find((s) => String(s.seller_id) === String(form.seller_id));
 
     const handleSave = async () => {
-        if (!form.seller_id) { showFlash("error", t('productSales.selectSellerError')); return; }
+        if (form.buyer_mode === "seller" && !form.seller_id) { showFlash("error", t('productSales.selectSellerError')); return; }
+        if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) { showFlash("error", "Buyer name is required."); return; }
 
         const validLines = lines.filter(l => l.product_id && l.quantity && l.rate);
         if (validLines.length === 0) {
@@ -897,7 +932,10 @@ export default function ProductSales() {
         setSaving(true);
         try {
             const { data: created } = await api.post("/product-sales", {
-                seller_id: Number(form.seller_id),
+                buyer_mode: form.buyer_mode,
+                seller_id: form.buyer_mode === "seller" ? Number(form.seller_id) : null,
+                buyer_id: form.buyer_mode === "named" ? (namedBuyerId || null) : null,
+                buyer_name: form.buyer_mode === "named" ? namedBuyerSearch.trim() : null,
                 sale_date: selectedDate,
                 lines: validLines.map(l => ({
                     product_id: Number(l.product_id),
@@ -930,13 +968,15 @@ export default function ProductSales() {
                 handlePrintReceipt(txnForPrint);
             }
 
-            setForm({ seller_id: "", seller_code: "" });
+            setForm({ buyer_mode: form.buyer_mode, seller_id: "", seller_code: "" });
             setLines([{ ...EMPTY_LINE, _key: Date.now() }]);
             setLineProductSearch({});
             setShowProductDrop({});
             setSellerSearch("");
             setSellerCodeInput("");
-            sellerCodeRef.current?.focus();
+            setNamedBuyerId("");
+            setNamedBuyerSearch("");
+            if (form.buyer_mode === "seller") sellerCodeRef.current?.focus();
         } catch (err) {
             const msg = err.response?.data?.error || err.response?.data?.message || t('productSales.saveError');
             showFlash("error", msg);
@@ -946,7 +986,8 @@ export default function ProductSales() {
     };
 
     const isFormReady = () => {
-        if (!form.seller_id) return false;
+        if (form.buyer_mode === "seller" && !form.seller_id) return false;
+        if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) return false;
         const validLines = lines.filter(l => l.product_id && l.quantity && l.rate);
         if (validLines.length === 0) return false;
         for (const l of validLines) {
@@ -1019,12 +1060,12 @@ export default function ProductSales() {
             <td style="padding:4px 6px;border:1px solid #999;font-size:9px;font-weight:600;color:#000">
                 <div style="display:flex;align-items:center;gap:4px">
                     <span style="background:#000;color:#fff;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0">
-                        ${(txn.seller_name || "?").charAt(0).toUpperCase()}
-                    </span>
-                    <div>
-                        <div>${txn.seller_name || `ID:${txn.seller_id}`}</div>
-                        <div style="font-size:8px;color:#555;font-family:monospace">${txn.seller_code || "—"}</div>
-                    </div>
+    ${((txn.buyer_type === 'seller' ? txn.seller_name : (txn.registered_buyer_name || txn.buyer_name || 'Anonymous')) || "?").charAt(0).toUpperCase()}
+</span>
+<div>
+    <div>${txn.buyer_type === 'seller' ? (txn.seller_name || `ID:${txn.seller_id}`) : (txn.registered_buyer_name || txn.buyer_name || 'Anonymous')}</div>
+    <div style="font-size:8px;color:#555;font-family:monospace">${txn.buyer_type === 'seller' ? (txn.seller_code || "—") : (txn.buyer_type === 'named' ? 'Named' : 'Anon')}</div>
+</div>
                 </div>
             </td>
             <td style="padding:4px 6px;border:1px solid #999;font-size:9px;color:#000">${productsHtml}</td>
@@ -1275,10 +1316,36 @@ export default function ProductSales() {
                         </p>
 
                         {/* Seller row */}
-                        <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
-                            {/* ── FIXED: Added Seller Code and Seller Name fields ── */}
-                            <div className="flex items-start gap-2">
-                                <Field label={t('productSales.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
+                        {/* Buyer mode selector */}
+                        <div className="flex gap-2 mb-4 relative z-10">
+                            {BUYER_MODES.map(({ val, label, icon }) => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => {
+                                        set("buyer_mode", val);
+                                        set("seller_id", "");
+                                        setSellerSearch("");
+                                        setSellerCodeInput("");
+                                        setNamedBuyerId("");
+                                        setNamedBuyerSearch("");
+                                    }}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-semibold transition
+                ${form.buyer_mode === val
+                                            ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
+                                            : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
+                                >
+                                    {icon}<span>{label}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Seller row (seller mode only) */}
+                        {form.buyer_mode === "seller" && (
+                            <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
+                                {/* ── FIXED: Added Seller Code and Seller Name fields ── */}
+                                <div className="flex items-start gap-2">
+                                    <Field label={t('productSales.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
                                     <TinyInput
                                         ref={sellerCodeRef}
                                         value={sellerCodeInput}
@@ -1366,16 +1433,83 @@ export default function ProductSales() {
                                             </button>
                                         )}
                                     </div>
-                                </Field>
-                            </div>
-                            {selectedSeller && (
-                                <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                                    {selectedSeller.seller_type || "—"}
-                                </p>
-                            )}
+                                                            </Field>
                         </div>
+                        {selectedSeller && (
+                            <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                                {selectedSeller.seller_type || "—"}
+                            </p>
+                        )}
+                    </div>
+                    )}
 
-                        {/* ── Speed product quick-tap strip ─────────────────────── */}
+                    {form.buyer_mode === "named" && (
+                        <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
+                            <Field label="Buyer Name" icon={<User size={12} />}>
+                                <div className="relative" style={{ width: "220px" }} ref={namedBuyerAnchorRef}>
+                                    <TinyInput
+                                        value={namedBuyerSearch}
+                                        onFocus={() => setNamedBuyerDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setNamedBuyerDropdownOpen(false), 150)}
+                                        onChange={(e) => {
+                                            setNamedBuyerSearch(e.target.value);
+                                            setNamedBuyerId("");
+                                            setNamedBuyerDropdownOpen(true);
+                                        }}
+                                        placeholder="Search or add buyer..."
+                                        className="pr-7 w-full"
+                                    />
+                                    <DropdownPortal anchorRef={namedBuyerAnchorRef} open={namedBuyerDropdownOpen} width={256}>
+                                        {(() => {
+                                            const filtered = namedBuyerSearch
+                                                ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
+                                                : namedBuyers.slice(0, 5);
+                                            const showRegister = namedBuyerSearch.trim() &&
+                                                !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
+                                            return (filtered.length > 0 || showRegister) ? (
+                                                <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
+                                                    {filtered.map((b) => (
+                                                        <button key={b.buyer_id} type="button"
+                                                            onClick={() => { setNamedBuyerId(b.buyer_id); setNamedBuyerSearch(b.name); setNamedBuyerDropdownOpen(false); }}
+                                                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
+                                                            <div className="w-6 h-6 rounded-full bg-gray-100/80 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                                                {b.name?.charAt(0)?.toUpperCase()}
+                                                            </div>
+                                                            <span className="font-medium text-gray-800 text-xs">{b.name}</span>
+                                                        </button>
+                                                    ))}
+                                                    {showRegister && (
+                                                        <button type="button"
+                                                            onClick={async () => {
+                                                                const nb = await saveProductNamedBuyer(namedBuyerSearch.trim());
+                                                                if (nb) { setNamedBuyerId(nb.buyer_id); setNamedBuyerSearch(nb.name); }
+                                                                setNamedBuyerDropdownOpen(false);
+                                                            }}
+                                                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 hover:bg-emerald-50 transition">
+                                                            <Plus size={12} className="text-emerald-600" />
+                                                            <span className="font-medium text-emerald-700 text-xs">Register "{namedBuyerSearch}"</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                    </DropdownPortal>
+                                </div>
+                            </Field>
+                        </div>
+                    )}
+
+                    {form.buyer_mode === "anon" && (
+                        <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
+                            <Field label="Buyer" icon={<UserCircle2 size={12} />}>
+                                <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
+                                    <UserCircle2 size={14} /> Anonymous
+                                </div>
+                            </Field>
+                        </div>
+                    )}
+
+                    {/* ── Speed product quick-tap strip ─────────────────────── */}
                         <SpeedStripInForm products={products} onTap={(sp) => handleAddSpeedLines([{
                             product_id: String(sp.product_id),
                             quantity: "1",
@@ -1583,15 +1717,29 @@ export default function ProductSales() {
                                         style={{ gridTemplateColumns: GRID }}>
 
                                         {/* Seller */}
+                                        {/* Seller / Buyer */}
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                                                    {(txn.seller_name || "?").charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <span className="text-gray-800 font-medium text-xs truncate">{txn.seller_name}</span>
-                                                    {txn.seller_code && <span className="text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>}
-                                                </div>
+                                                {(() => {
+                                                    const displayName = txn.buyer_type === 'seller' ? txn.seller_name
+                                                        : txn.buyer_type === 'named' ? (txn.registered_buyer_name || txn.buyer_name)
+                                                            : 'Anonymous';
+                                                    return (
+                                                        <>
+                                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-900 to-gray-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                                                                {(displayName || "?").charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className={`font-medium text-xs truncate ${txn.buyer_type === 'anon' ? 'text-gray-400 italic' : 'text-gray-800'}`}>
+                                                                    {displayName}
+                                                                </span>
+                                                                {txn.buyer_type === 'seller' && txn.seller_code && (
+                                                                    <span className="text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </TableCell>
 

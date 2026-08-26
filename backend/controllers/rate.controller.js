@@ -7,6 +7,22 @@ const tbl = (milk_type) => {
   return "cow_milk_rates";
 };
 
+// ── helper — for "mixed" rates only: checks whether a FAT/SNF combo on a
+// given date is already covered by a cow or buffalo rate. Mixed rates
+// should only ever fill in combos that neither cow nor buffalo defines —
+// otherwise milk-entry lookups can pick either row ambiguously.
+async function existsInCowOrBuffalo(centreId, fat, snf, date) {
+  const [rows] = await pool.query(
+    `SELECT rate_id FROM cow_milk_rates
+       WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?
+     UNION ALL
+     SELECT rate_id FROM buffalo_milk_rates
+       WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
+    [centreId, fat, snf, date, centreId, fat, snf, date],
+  );
+  return rows.length > 0;
+}
+
 // ── GET /api/rates?date=YYYY-MM-DD&milk_type=cow|buffalo ─────
 // Returns rates only for the EXACT selected date (effective_from = date).
 // Rates saved for 2026-05-01 will NOT appear on 2026-05-02 unless copied.
@@ -164,8 +180,27 @@ exports.createRate = async (req, res) => {
       targetDates.push(effective_from);
     }
 
+    // For "mixed" rates, skip any date where this exact FAT/SNF combo is
+    // already covered by a cow or buffalo rate — mixed should only fill
+    // gaps, never overlap cow/buffalo.
+    let overlapSkipped = 0;
+    let datesToInsert = targetDates;
+    if (milk_type === "mixed") {
+      const checks = await Promise.all(
+        targetDates.map((date) => existsInCowOrBuffalo(centreId, fatNum, snfNum, date)),
+      );
+      datesToInsert = targetDates.filter((_, idx) => !checks[idx]);
+      overlapSkipped = targetDates.length - datesToInsert.length;
+    }
+
+    if (datesToInsert.length === 0) {
+      return res.status(409).json({
+        message: `FAT ${fatNum}, SNF ${snfNum} is already covered by a cow or buffalo rate on ${targetDates.length > 1 ? "every date in this range" : effective_from}. Mixed rates can only be added for FAT/SNF combinations not already defined for cow or buffalo.`,
+      });
+    }
+
     // one row per date, mirroring how copyForward stores rows
-    const values = targetDates.map((date) => [
+    const values = datesToInsert.map((date) => [
       centreId,
       fatNum,
       snfNum,
@@ -183,15 +218,20 @@ exports.createRate = async (req, res) => {
     const [newRow] = await pool.query(
       `SELECT *, '${milk_type}' AS milk_type FROM ${table}
              WHERE centre_id = ? AND fat = ? AND snf = ? AND effective_from = ?`,
-      [centreId, fatNum, snfNum, effective_from],
+      [centreId, fatNum, snfNum, datesToInsert.includes(effective_from) ? effective_from : datesToInsert[0]],
     );
+
+    const messageParts = [];
+    if (targetDates.length > 1) {
+      messageParts.push(`Rate saved for ${result.affectedRows} of ${targetDates.length} day(s) from ${effective_from} to ${effective_to}.`);
+    }
+    if (overlapSkipped > 0) {
+      messageParts.push(`${overlapSkipped} date(s) skipped — FAT ${fatNum}/SNF ${snfNum} already exists in cow or buffalo rates on those date(s).`);
+    }
 
     res.status(201).json({
       ...newRow[0],
-      message:
-        targetDates.length > 1
-          ? `Rate saved for ${result.affectedRows} of ${targetDates.length} day(s) from ${effective_from} to ${effective_to}.`
-          : undefined,
+      message: messageParts.length > 0 ? messageParts.join(" ") : undefined,
     });
   } catch (err) {
     console.error("createRate error:", err);
@@ -456,14 +496,18 @@ exports.lookupRate = async (req, res) => {
     const fatNum = parseFloat(fat);
     const snfNum = parseFloat(snf);
 
+    // priority ensures the seller's own milk-type table (cow/buffalo) always
+    // wins over "mixed" when both have an equally-close (or exact) match —
+    // mixed_milk_rates is always listed last in tablesToSearch, so it always
+    // gets the higher (lower-priority) number here.
     const unionQuery = tablesToSearch
       .map(
-        () => `
-          SELECT *, ABS(fat - ?) + ABS(snf - ?) AS diff
+        (_, idx) => `
+          SELECT *, ABS(fat - ?) + ABS(snf - ?) AS diff, ${idx} AS priority
           FROM ??
           WHERE centre_id = ? AND effective_from = ?`,
       )
-      .join(" UNION ALL ");
+      .join(" UNION ALL");
 
     const params = tablesToSearch.flatMap((table) => [
       fatNum,
@@ -474,7 +518,7 @@ exports.lookupRate = async (req, res) => {
     ]);
 
     const [rows] = await pool.query(
-      `${unionQuery} ORDER BY diff ASC LIMIT 1`,
+      `${unionQuery} ORDER BY diff ASC, priority ASC LIMIT 1`,
       params,
     );
 
@@ -713,12 +757,20 @@ exports.generateRates = async (req, res) => {
 
     let inserted = 0;
     let skipped = 0;
+    let overlapSkipped = 0;
 
     for (const row of rates) {
       const fat = parseFloat(row.fat);
       const snf = parseFloat(row.snf);
       const rate = parseFloat(row.rate);
       const mrp = row.mrp ? parseFloat(row.mrp) : null;
+
+      // For mixed rates, skip any FAT/SNF combo already covered by cow or buffalo
+      if (milk_type === "mixed" && (await existsInCowOrBuffalo(centreId, fat, snf, rate_date))) {
+        overlapSkipped++;
+        skipped++;
+        continue;
+      }
 
       // 1. insert into cow/buffalo_milk_rates (skip if duplicate)
       const [dup] = await pool.query(
@@ -744,9 +796,10 @@ exports.generateRates = async (req, res) => {
     }
 
     res.json({
-      message: `${inserted} rate(s) inserted, ${skipped} skipped (already exist) for ${rate_date}.`,
+      message: `${inserted} rate(s) inserted, ${skipped} skipped${overlapSkipped > 0 ? ` (${overlapSkipped} overlapping cow/buffalo, rest already existed)` : " (already exist)"} for ${rate_date}.`,
       inserted,
       skipped,
+      overlapSkipped,
       total: rates.length,
     });
   } catch (err) {
@@ -876,7 +929,26 @@ exports.importRates = async (req, res) => {
         targetDates.push(effective_from);
       }
 
-      const values = targetDates.map((date) => [
+      // For "mixed" rates, skip any date already covered by a cow or buffalo rate
+      let datesToInsert = targetDates;
+      if (milk_type === "mixed") {
+        const checks = await Promise.all(
+          targetDates.map((date) => existsInCowOrBuffalo(centreId, fat, snf, date)),
+        );
+        datesToInsert = targetDates.filter((_, idx) => !checks[idx]);
+        const overlapCount = targetDates.length - datesToInsert.length;
+        if (overlapCount > 0) {
+          errors.push({
+            row: rowNum,
+            error: `${overlapCount} date(s) skipped — FAT ${fat}/SNF ${snf} already exists in cow or buffalo rates on those date(s).`,
+          });
+          skipped += overlapCount;
+        }
+      }
+
+      if (datesToInsert.length === 0) continue;
+
+      const values = datesToInsert.map((date) => [
         centreId,
         fat,
         snf,
@@ -892,10 +964,10 @@ exports.importRates = async (req, res) => {
           [values],
         );
         added += result.affectedRows;
-        skipped += targetDates.length - result.affectedRows;
+        skipped += datesToInsert.length - result.affectedRows;
       } catch (rowErr) {
         errors.push({ row: rowNum, error: rowErr.message });
-        skipped += targetDates.length;
+        skipped += datesToInsert.length;
       }
     }
 

@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
-const { applyCommissionToEntries, getCommissionSettingsMap } = require('../utils/commission');
+const { applyCommissionToEntries, getCommissionSettingsMap, getSellerCommissionOverridesMap, getSellerCommissionOverrides } = require('../utils/commission');
 
 const round2 = (n) => Math.round((parseFloat(n || 0) + Number.EPSILON) * 100) / 100;
 /*
@@ -61,6 +61,10 @@ exports.getSellerSummary = async (req, res) => {
 
         // 1b. Fetch commission settings for this centre (used only for Gavali sellers)
         const commissionSettingsMap = await getCommissionSettingsMap(pool, centreId);
+
+        // 1c. Fetch flat seller-specific commission overrides (Gavali only) for all sellers in one go
+        const gavaliSellerIds = sellers.filter(s => s.seller_type === 'Gavali').map(s => s.seller_id);
+        const sellerOverridesMap = await getSellerCommissionOverridesMap(pool, centreId, gavaliSellerIds);
 
         // 2. Fetch total advance given per seller
         const [advances] = await pool.query(
@@ -226,7 +230,7 @@ exports.getSellerSummary = async (req, res) => {
 
             // Apply Gavali commission (no-op for Utpadak sellers) — recomputes rate_applied/total_amount
             const { entries: adjustedEntries, milkAmount: computedMilkAmount, totalCommission } =
-                applyCommissionToEntries(entries, s.seller_type, commissionSettingsMap);
+                applyCommissionToEntries(entries, s.seller_type, commissionSettingsMap, sellerOverridesMap[s.seller_id] || []);
             entries = adjustedEntries;
 
             // If already paid, return frozen data — pulled from the bill snapshot so it
@@ -365,15 +369,16 @@ exports.markPaid = async (req, res) => {
 
         // 2. Fetch commission settings & raw milk entries, apply commission (Gavali only)
         const commissionSettingsMap = await getCommissionSettingsMap(conn, centreId);
+        const sellerOverrides = await getSellerCommissionOverrides(conn, centreId, seller_id);
         const [rawMilkEntries] = await conn.query(
-            `SELECT quantity, fat, snf, milk_type, rate_applied
+            `SELECT quantity, fat, snf, milk_type, rate_applied, entry_date
              FROM milk_entries
              WHERE seller_id = ? AND centre_id = ? AND entry_date BETWEEN ? AND ?`,
             [seller_id, centreId, from_date, to_date]
         );
         const totalMilkQty = rawMilkEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
         let { milkAmount, totalCommission: commissionAmount } = applyCommissionToEntries(
-            rawMilkEntries, seller.seller_type, commissionSettingsMap
+            rawMilkEntries, seller.seller_type, commissionSettingsMap, sellerOverrides
         );
         milkAmount = round2(milkAmount);
         commissionAmount = round2(commissionAmount);
@@ -493,6 +498,7 @@ exports.markPaid = async (req, res) => {
                 depositPerLitre,
                 sellerType: seller.seller_type,
                 commissionSettingsMap,
+                sellerOverrides,
             });
         } catch (snapshotErr) {
             await conn.rollback();
@@ -574,6 +580,7 @@ async function createBillSnapshot(conn, data) {
         depositPerLitre,
         sellerType,
         commissionSettingsMap,
+        sellerOverrides = [],
     } = data;
 
     // 1. Fetch milk entries for the period and apply commission (Gavali only) so the
@@ -584,7 +591,7 @@ async function createBillSnapshot(conn, data) {
          ORDER BY entry_date ASC, shift ASC`,
         [seller_id, centreId, from_date, to_date]
     );
-    const { entries } = applyCommissionToEntries(rawEntries, sellerType, commissionSettingsMap);
+    const { entries } = applyCommissionToEntries(rawEntries, sellerType, commissionSettingsMap, sellerOverrides);
 
     // 2. Insert / update bill_master (tds_amount = 0)
     await conn.query(
