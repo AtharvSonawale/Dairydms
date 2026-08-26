@@ -335,6 +335,85 @@ function ExcelConfigModal({ open, onClose, showFlash }) {
     );
 }
 
+function CustomCutModal({ open, onClose, seller, advGiven, autoCut, currentOverride, onSave, onReset }) {
+    const [value, setValue] = useState(currentOverride ?? "");
+
+    useEffect(() => {
+        setValue(currentOverride ?? "");
+    }, [seller, currentOverride, open]);
+
+    if (!open || !seller) return null;
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-sm">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 bg-gradient-to-r from-violet-50/50 to-white/50 rounded-t-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                            <Pencil size={15} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">Customize Advance Cut</h2>
+                            <p className="text-[10px] text-gray-500">{seller.name} · {seller.seller_code}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={16} />
+                    </button>
+                </div>
+
+                <div className="px-6 py-5 flex flex-col gap-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-gray-200/60 bg-violet-50/60 px-4 py-3">
+                            <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider">Advance Pending</p>
+                            <p className="text-sm font-bold text-violet-700 mt-0.5">₹{parseFloat(advGiven || 0).toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200/60 bg-gray-50/60 px-4 py-3">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Auto Cut</p>
+                            <p className="text-sm font-bold text-gray-700 mt-0.5">₹{parseFloat(autoCut || 0).toFixed(2)}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                            Custom Cut Amount (₹)
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={advGiven}
+                            step="0.01"
+                            autoFocus
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                            placeholder={parseFloat(autoCut || 0).toFixed(2)}
+                            className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm
+                                focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white transition shadow-sm"
+                        />
+                        <p className="text-[10px] text-gray-400">
+                            Leave blank to use the auto-calculated cut. Max ₹{parseFloat(advGiven || 0).toFixed(2)}.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex justify-between gap-2 px-6 py-4 border-t border-gray-200/60 bg-gray-50/60 rounded-b-2xl">
+                    <button
+                        onClick={() => { onReset(); onClose(); }}
+                        className="px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 transition shadow-sm">
+                        Reset to Auto
+                    </button>
+                    <button
+                        onClick={() => { onSave(value); onClose(); }}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200">
+                        <BadgeCheck size={12} /> Save Custom Cut
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function SellerPayments() {
     const { t } = useTranslation();
@@ -358,7 +437,19 @@ export default function SellerPayments() {
     const [expanded, setExpanded] = useState({});
     const [paying, setPaying] = useState(null);
     const [customCutOverrides, setCustomCutOverrides] = useState({});
-    const [editingCutSellerId, setEditingCutSellerId] = useState(null);
+    const [customCutModalSellerId, setCustomCutModalSellerId] = useState(null);
+
+const handleSaveCustomCut = (sellerId, value) => {
+    setCustomCutOverrides(prev => ({ ...prev, [sellerId]: value }));
+};
+
+const handleResetCustomCut = (sellerId) => {
+    setCustomCutOverrides(prev => {
+        const next = { ...prev };
+        delete next[sellerId];
+        return next;
+    });
+};
     const [flash, setFlash] = useState(null);
     const [search, setSearch] = useState("");
     const [filterPaid, setFilterPaid] = useState("all");
@@ -522,7 +613,7 @@ export default function SellerPayments() {
 
     useEffect(() => {
         setCustomCutOverrides({});
-        setEditingCutSellerId(null);
+        setCustomCutModalSellerId(null);
     }, [customFrom, customTo]);
 
     const generatePreviewBillNo = (sellerId, fromDate, toDate) => {
@@ -2305,7 +2396,7 @@ export default function SellerPayments() {
                                 className={`bg-white/80 backdrop-blur-sm rounded-2xl border transition-all shadow-lg shadow-gray-200/50 hover:shadow-xl print-break
                                     ${isPaid ? "border-emerald-200/60" : "border-gray-200/60"}`}>
 
-                                <div className="flex items-center gap-3 px-5 py-4 cursor-pointer"
+                                <div className="flex items-center flex-wrap gap-3 px-5 py-4 cursor-pointer"
                                     onClick={() => toggleExpand(seller.seller_id)}>
 
                                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${isPaid ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
@@ -2389,49 +2480,63 @@ export default function SellerPayments() {
                                         </div>
                                     </div>
 
-                                    {isPaid && seller.bill_no && can('seller_payments', 'W') && (
-                                        <button
-                                            onClick={(e) => handleUndo(e, seller)}
-                                            disabled={undoing === seller.seller_id}
-                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition disabled:opacity-50 shadow-lg shadow-rose-500/20">
-                                            {undoing === seller.seller_id
-                                                ? <RefreshCw size={11} className="animate-spin" />
-                                                : <RefreshCw size={11} />}
-                                            {t('sellerPayments.undo')}
-                                        </button>
-                                    )}
-                                    {isPaid && (
-                                        <button
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                await downloadReceiptPDF({
-                                                    ...seller,
-                                                    bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
-                                                });
-                                            }}
-                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition shadow-lg shadow-gray-800/20">
-                                            <Printer size={11} />
-                                            {t('sellerPayments.pdf')}
-                                        </button>
-                                    )}
-                                    {!isPaid && can('seller_payments', 'W') && (
-                                        <button
-                                            onClick={(e) => handleMarkPaid(e, seller.seller_id)}
-                                            disabled={paying === seller.seller_id || !isTodayPaymentDay(customFrom, customTo)}
-                                            title={!isTodayPaymentDay(customFrom, customTo)
-                                                ? `Payment only allowed on ${fmtDate(customTo)}`
-                                                : undefined}
-                                            className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl 
-                                                bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition 
-                                                disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20">
-                                            {paying === seller.seller_id
-                                                ? <RefreshCw size={11} className="animate-spin" />
-                                                : <CheckCircle2 size={11} />}
-                                            {isTodayPaymentDay(customFrom, customTo)
-                                                ? `${t('sellerPayments.pay')} ₹${finalPayable.toFixed(0)}`
-                                                : `Pay on ${fmtDate(customTo)}`}
-                                        </button>
-                                    )}
+                                    <div className="flex items-center flex-wrap justify-end gap-2 shrink-0 ml-auto sm:ml-0">
+                                        {isPaid && seller.bill_no && can('seller_payments', 'W') && (
+                                            <button
+                                                onClick={(e) => handleUndo(e, seller)}
+                                                disabled={undoing === seller.seller_id}
+                                                className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition disabled:opacity-50 shadow-lg shadow-rose-500/20">
+                                                {undoing === seller.seller_id
+                                                    ? <RefreshCw size={11} className="animate-spin" />
+                                                    : <RefreshCw size={11} />}
+                                                {t('sellerPayments.undo')}
+                                            </button>
+                                        )}
+                                        {isPaid && (
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    await downloadReceiptPDF({
+                                                        ...seller,
+                                                        bill_no: seller.bill_no || generatePreviewBillNo(seller.seller_id, cycle.from, cycle.to),
+                                                    });
+                                                }}
+                                                className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition shadow-lg shadow-gray-800/20">
+                                                <Printer size={11} />
+                                                {t('sellerPayments.pdf')}
+                                            </button>
+                                        )}
+                                        {!isPaid && advGiven > 0 && can('seller_payments', 'W') && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setCustomCutModalSellerId(seller.seller_id); }}
+                                                title={hasCutOverride ? `Custom cut: ₹${effectiveInstallmentCut.toFixed(0)}` : "Customize advance cut for this cycle"}
+                                                className={`shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition shadow-sm border
+                ${hasCutOverride
+                                                        ? "bg-violet-100 border-violet-300 text-violet-700 hover:bg-violet-200"
+                                                        : "bg-white/70 border-violet-200/60 text-violet-500 hover:bg-violet-50"}`}>
+                                                <Pencil size={11} />
+                                                Cut Adv
+                                            </button>
+                                        )}
+                                        {!isPaid && can('seller_payments', 'W') && (
+                                            <button
+                                                onClick={(e) => handleMarkPaid(e, seller.seller_id)}
+                                                disabled={paying === seller.seller_id || !isTodayPaymentDay(customFrom, customTo)}
+                                                title={!isTodayPaymentDay(customFrom, customTo)
+                                                    ? `Payment only allowed on ${fmtDate(customTo)}`
+                                                    : undefined}
+                                                className="shrink-0 no-print flex items-center gap-1.5 px-3 py-1.5 rounded-xl 
+                                                    bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition 
+                                                    disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20">
+                                                {paying === seller.seller_id
+                                                    ? <RefreshCw size={11} className="animate-spin" />
+                                                    : <CheckCircle2 size={11} />}
+                                                {isTodayPaymentDay(customFrom, customTo)
+                                                    ? `${t('sellerPayments.pay')} ₹${finalPayable.toFixed(0)}`
+                                                    : `Pay on ${fmtDate(customTo)}`}
+                                            </button>
+                                        )}
+                                    </div>
 
                                     <div className="shrink-0 text-gray-300">
                                         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -2554,40 +2659,11 @@ export default function SellerPayments() {
                                             )}
                                             {!isPaid && advGiven > 0 && can('seller_payments', 'W') && (
                                                 <div className="flex items-center gap-2 pt-1">
-                                                    {editingCutSellerId === seller.seller_id ? (
-                                                        <>
-                                                            <span className="text-[10px] text-gray-400">Cut ₹</span>
-                                                            <input
-                                                                type="number" min={0} max={advGiven} step="0.01" autoFocus
-                                                                value={customCutOverrides[seller.seller_id] ?? ""}
-                                                                onChange={(e) => setCustomCutOverrides(prev => ({ ...prev, [seller.seller_id]: e.target.value }))}
-                                                                placeholder={parseFloat(seller.installment_cut || 0).toFixed(2)}
-                                                                className="w-24 px-2 py-1 text-xs border border-violet-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
-                                                            />
-                                                            <button onClick={() => setEditingCutSellerId(null)}
-                                                                className="text-[10px] font-semibold text-emerald-600 hover:text-emerald-700">
-                                                                Done
-                                                            </button>
-                                                            {hasCutOverride && (
-                                                                <button onClick={() => {
-                                                                    setCustomCutOverrides(prev => {
-                                                                        const next = { ...prev };
-                                                                        delete next[seller.seller_id];
-                                                                        return next;
-                                                                    });
-                                                                    setEditingCutSellerId(null);
-                                                                }} className="text-[10px] font-semibold text-gray-400 hover:text-gray-600">
-                                                                    Reset to auto
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <button onClick={() => setEditingCutSellerId(seller.seller_id)}
-                                                            className="flex items-center gap-1 text-[10px] font-semibold text-violet-500 hover:text-violet-700">
-                                                            <Pencil size={9} />
-                                                            {hasCutOverride ? "Edit custom cut" : "Customize cut for this cycle"}
-                                                        </button>
-                                                    )}
+                                                    <button onClick={() => setCustomCutModalSellerId(seller.seller_id)}
+                                                        className="flex items-center gap-1 text-[10px] font-semibold text-violet-500 hover:text-violet-700">
+                                                        <Pencil size={9} />
+                                                        {hasCutOverride ? "Edit custom cut" : "Customize cut for this cycle"}
+                                                    </button>
                                                 </div>
                                             )}
                                             {parseFloat(seller.deposit_amount || 0) > 0 && (
@@ -3232,31 +3308,15 @@ export default function SellerPayments() {
                 onClose={() => setExcelConfigOpen(false)}
                 showFlash={showFlash}
             />
-            <CycleConfigModal
-                open={cycleConfigOpen}
-                onClose={() => setCycleConfigOpen(false)}
-                onSave={async (seed, days) => {
-                    try {
-                        await api.post('/payments/cycle-config', {
-                            seed_from: seed,
-                            days_per_cycle: days,
-                        });
-                        setCycleSeedFrom(seed);
-                        setCycleDaysPerCycle(days);
-                        const active = getActiveCycle(seed, days);
-                        if (active) {
-                            setCustomFrom(active.from);
-                            setCustomTo(active.to);
-                        }
-                        setCycleConfigOpen(false);
-                        showFlash("success", "Cycle configuration saved!");
-                    } catch (err) {
-                        showFlash("error", "Failed to save cycle config.");
-                    }
-                }}
-                initialSeed={cycleSeedFrom}
-                initialDays={cycleDaysPerCycle}
-                computeCycles={computeCycles}
+            <CustomCutModal
+                open={!!customCutModalSellerId}
+                onClose={() => setCustomCutModalSellerId(null)}
+                seller={sellers.find(s => s.seller_id === customCutModalSellerId)}
+                advGiven={sellers.find(s => s.seller_id === customCutModalSellerId)?.advance_given}
+                autoCut={sellers.find(s => s.seller_id === customCutModalSellerId)?.installment_cut}
+                currentOverride={customCutOverrides[customCutModalSellerId]}
+                onSave={(value) => handleSaveCustomCut(customCutModalSellerId, value)}
+                onReset={() => handleResetCustomCut(customCutModalSellerId)}
             />
         </div>
     );

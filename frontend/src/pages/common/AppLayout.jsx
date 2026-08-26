@@ -167,7 +167,9 @@ const SHARED_NAV = (isAdmin, t) => {
                 { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales', pageKey: pk('product_sales') },
                 // ─── Bill Payments – admin only ───────────────────
                 ...(isAdmin ? [
-                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments', pageKey: 'admin_product_purchase_payment' }
+                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments', pageKey: 'admin_product_purchase_payment' },
+                    // ─── Product Sales Report – admin only ──────
+                    { label: t('nav.productSalesReport', { defaultValue: 'Product Sales Report' }), icon: <BarChart2 size={14} />, to: '/product-sales/report', pageKey: 'admin_product_sales_report' },
                 ] : []),
             ],
         },
@@ -184,7 +186,9 @@ const SHARED_NAV = (isAdmin, t) => {
                 { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales', pageKey: pk('cattle_feed_sales') },
                 // ─── Bill Payments – admin only ───────────────────
                 ...(isAdmin ? [
-                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments', pageKey: 'admin_cattle_feed_purchase_payment' }
+                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments', pageKey: 'admin_cattle_feed_purchase_payment' },
+                    // ─── Cattle Feed Sales Report – admin only ──
+                    { label: t('nav.cattleFeedSalesReport', { defaultValue: 'Cattle Feed Sales Report' }), icon: <BarChart2 size={14} />, to: '/cattle-feed-sales/report', pageKey: 'admin_cattle_feed_sales_report' },
                 ] : []),
             ],
         },
