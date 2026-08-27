@@ -22,42 +22,41 @@ import {
     ArrowLeftRight,
     ShoppingBasket,
     Percent,
-    UserCircle, Droplets
+    UserCircle, Droplets, User
 } from 'lucide-react';
 
 /**
- * SHARED_NAV is a function so it re-evaluates whenever `t` or `isAdmin`
- * changes — this means nav labels update instantly when language switches.
- * It conditionally includes admin‑only items based on the `isAdmin` flag.
+ * SHARED_NAV - All pages that are common between Admin and Operator.
+ * Individual pages like Settings and Profile have role-specific routes.
+ * Visibility is controlled via the Page Visibility settings in Admin Settings.
  */
 const SHARED_NAV = (isAdmin, t) => {
-    // Resolves a base key (e.g. 'milk_entry') to the role-scoped key that
-    // Settings.jsx's page-visibility toggles actually save under, so each
-    // role's toggle is fully independent of the other's.
-    const pk = (key) => (isAdmin ? `admin_${key}` : `operator_${key}`);
+    const getRoute = (path) => (isAdmin ? `/admin${path}` : `/operator${path}`);
+    const getPageKey = (key) => (isAdmin ? `admin_${key}` : `operator_${key}`);
 
-    // Base nav structure – we'll push admin‑only items conditionally
     const nav = [
-        // ── Dashboard ────────────────────────────────────────────────
         {
             label: t('nav.dashboard'),
             icon: <LayoutDashboard size={16} />,
-            to: isAdmin ? '/admin/dashboard' : '/operator/dashboard',
+            to: getRoute('/dashboard'),
             tourId: 'nav-dashboard',
-            pageKey: pk('dashboard'),
+            pageKey: getPageKey('dashboard'),
+        },
+        {
+            label: t('nav.myProfile', { defaultValue: 'My Profile' }),
+            icon: <UserCircle size={16} />,
+            to: getRoute('/profile'),
+            tourId: 'nav-my-profile',
+            pageKey: getPageKey('profile'),
+        },
+        {
+            label: t('nav.settings'),
+            icon: <Settings size={16} />,
+            to: getRoute('/settings'),
+            tourId: 'nav-settings',
+            pageKey: getPageKey('settings'),
         },
 
-        // ── My Profile – admin only ─────────────────────────────────
-        ...(isAdmin ? [
-            {
-                label: t('nav.myProfile', { defaultValue: 'My Profile' }),
-                icon: <UserCircle size={16} />,
-                to: '/admin/profile',
-                tourId: 'nav-my-profile',
-            },
-        ] : []),
-
-        // ── Admin Only ───────────────────────────────────────────────
         ...(isAdmin ? [
             {
                 label: t('nav.administration'),
@@ -78,154 +77,112 @@ const SHARED_NAV = (isAdmin, t) => {
             },
         ] : []),
 
-        // ── Operator Only ────────────────────────────────────────────
-        ...(!isAdmin ? [
-            {
-                label: t('nav.settings'),
-                icon: <Settings size={16} />,
-                to: '/operator/settings',
-                tourId: 'nav-settings',
-                pageKey: 'operator_settings',
-            },
-        ] : []),
-
-        // ── Sellers & Milk ───────────────────────────────────────────
         {
             label: t('nav.sellers'),
             icon: <Users size={16} />,
             to: null,
             tourId: 'nav-sellers',
             children: [
-                { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister', pageKey: pk('seller_register') },
-                { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates', pageKey: pk('rate_chart') },
-                { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments', pageKey: pk('seller_payments') },
+                { label: t('nav.sellers'), icon: <Users size={14} />, to: '/sellerregister', pageKey: getPageKey('seller_register') },
+                { label: t('nav.rateChart'), icon: <BarChart2 size={14} />, to: '/rates', pageKey: getPageKey('rate_chart') },
+                { label: t('nav.sellerPayments'), icon: <Users2 size={14} />, to: '/sellerpayments', pageKey: getPageKey('seller_payments') },
             ],
         },
 
-        // ── Milk Collection ──────────────────────────────────────────
         {
             label: t('nav.milkCollection'),
             icon: <Milk size={16} />,
             to: null,
             tourId: 'nav-milk-collection',
             children: [
-                { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries', pageKey: pk('milk_entry') },
-                { label: t('nav.utpadakMilkEntry', { defaultValue: 'Utpadak Milk Entry' }), icon: <Milk size={14} />, to: '/utpadak-milk-entry', pageKey: pk('utpadak_milk_entry') },
-                { label: t('nav.gavaliMilkEntry', { defaultValue: 'Gavali Milk Entry' }), icon: <Milk size={14} />, to: '/gavali-milk-entry', pageKey: pk('gavali_milk_entry') },
-                { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage', pageKey: pk('owner_usage') },
-                { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch', pageKey: pk('tank_dispatch') },
-                // ─── All Milk Entries – admin only ────────────────────
+                { label: t('nav.milkEntry'), icon: <Milk size={14} />, to: '/milkentries', pageKey: getPageKey('milk_entry') },
+                { label: t('nav.utpadakMilkEntry', { defaultValue: 'Utpadak Milk Entry' }), icon: <Milk size={14} />, to: '/utpadak-milk-entry', pageKey: getPageKey('utpadak_milk_entry') },
+                { label: t('nav.gavaliMilkEntry', { defaultValue: 'Gavali Milk Entry' }), icon: <Milk size={14} />, to: '/gavali-milk-entry', pageKey: getPageKey('gavali_milk_entry') },
+                { label: t('nav.ownerUsage'), icon: <Home size={14} />, to: '/ownerusage', pageKey: getPageKey('owner_usage') },
+                { label: t('nav.tankDispatch'), icon: <Truck size={14} />, to: '/tankdispatch', pageKey: getPageKey('tank_dispatch') },
                 ...(isAdmin ? [
                     { label: t('nav.allMilkEntries', { defaultValue: 'All Milk Entries' }), icon: <ClipboardList size={14} />, to: '/all-milk-entries', pageKey: 'admin_all_milk_entries' }
                 ] : []),
             ],
         },
 
-        // ── Walk-in Sales ────────────────────────────────────────────
         {
             label: t('nav.walkinSales'),
             icon: <ShoppingCart size={16} />,
             to: null,
             tourId: 'nav-walkin-sales',
             children: [
-                { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales', pageKey: pk('walkin_sales') },
-                { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments', pageKey: pk('walkin_payments') },
-                { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers', pageKey: pk('named_buyers') },
-                // ─── Report links – admin only ────────────────────
+                { label: t('nav.walkinSale'), icon: <ShoppingCart size={14} />, to: '/walkinsales', pageKey: getPageKey('walkin_sales') },
+                { label: t('nav.walkinPayments'), icon: <ShoppingCart size={14} />, to: '/walkinpayments', pageKey: getPageKey('walkin_payments') },
+                { label: t('nav.namedBuyers'), icon: <User2Icon size={14} />, to: '/namedbuyers', pageKey: getPageKey('named_buyers') },
                 ...(isAdmin ? [
-                    {
-                        label: t('nav.sellerReport'),
-                        icon: <Users2 size={14} />,
-                        to: '/walkinsellersreport',
-                        pageKey: 'admin_walkin_seller_report',
-                    },
-                    {
-                        label: t('nav.namedBuyerReports'),
-                        icon: <User2Icon size={14} />,
-                        to: '/walkinnamedbuyersreports',
-                        pageKey: 'admin_walkin_named_buyer_reports',
-                    },
-                    {
-                        label: t('nav.anonReports'),
-                        icon: <FileText size={14} />,
-                        to: '/walkinanonymousreports',
-                        pageKey: 'admin_walkin_anon_reports',
-                    },
+                    { label: t('nav.sellerReport'), icon: <Users2 size={14} />, to: '/walkinsellersreport', pageKey: 'admin_walkin_seller_report' },
+                    { label: t('nav.namedBuyerReports'), icon: <User2Icon size={14} />, to: '/walkinnamedbuyersreports', pageKey: 'admin_walkin_named_buyer_reports' },
+                    { label: t('nav.anonReports'), icon: <FileText size={14} />, to: '/walkinanonymousreports', pageKey: 'admin_walkin_anon_reports' },
                 ] : []),
             ],
         },
 
-        // ── Products ─────────────────────────────────────────────────
         {
             label: t('nav.products'),
             icon: <Package size={16} />,
             to: null,
             tourId: 'nav-products',
             children: [
-                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products', pageKey: pk('products') },
-                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase', pageKey: pk('product_purchases') },
-                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales', pageKey: pk('product_sales') },
-                // ─── Bill Payments – admin only ───────────────────
+                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/products', pageKey: getPageKey('products') },
+                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/productpurchase', pageKey: getPageKey('product_purchases') },
+                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/productsales', pageKey: getPageKey('product_sales') },
                 ...(isAdmin ? [
-                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: 'product-purchase-payments', pageKey: 'admin_product_purchase_payment' },
-                    // ─── Product Sales Report – admin only ──────
+                    { label: t('nav.productPurchasePayment'), icon: <ShoppingBasket size={16} />, to: '/product-purchase-payments', pageKey: 'admin_product_purchase_payment' },
                     { label: t('nav.productSalesReport', { defaultValue: 'Product Sales Report' }), icon: <BarChart2 size={14} />, to: '/product-sales/report', pageKey: 'admin_product_sales_report' },
                 ] : []),
             ],
         },
 
-        // ── Cattle Feed ─────────────────────────────────────────────
         {
             label: t('nav.cattleFeed'),
             icon: <Package size={16} />,
             to: null,
             tourId: 'nav-cattle-feed',
             children: [
-                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue', pageKey: pk('cattle_feed_catalogue') },
-                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase', pageKey: pk('cattle_feed_purchase') },
-                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales', pageKey: pk('cattle_feed_sales') },
-                // ─── Bill Payments – admin only ───────────────────
+                { label: t('nav.catalogue'), icon: <Archive size={14} />, to: '/cattlefeed-catalogue', pageKey: getPageKey('cattle_feed_catalogue') },
+                { label: t('nav.purchase'), icon: <ShoppingBag size={14} />, to: '/cattlefeed-purchase', pageKey: getPageKey('cattle_feed_purchase') },
+                { label: t('nav.sales'), icon: <ShoppingCart size={14} />, to: '/cattlefeed-sales', pageKey: getPageKey('cattle_feed_sales') },
                 ...(isAdmin ? [
-                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: 'cattlefeed-purchase-payments', pageKey: 'admin_cattle_feed_purchase_payment' },
-                    // ─── Cattle Feed Sales Report – admin only ──
+                    { label: t('nav.cattlefeedPurchasePayment'), icon: <Wheat size={16} />, to: '/cattlefeed-purchase-payments', pageKey: 'admin_cattle_feed_purchase_payment' },
                     { label: t('nav.cattleFeedSalesReport', { defaultValue: 'Cattle Feed Sales Report' }), icon: <BarChart2 size={14} />, to: '/cattle-feed-sales/report', pageKey: 'admin_cattle_feed_sales_report' },
                 ] : []),
             ],
         },
 
-        // ── Finance ──────────────────────────────────────────────────
         {
             label: t('nav.finance'),
             icon: <Wallet size={16} />,
             to: null,
             tourId: 'nav-finance',
             children: [
-                { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance', pageKey: pk('cash_advance') },
-                { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit', pageKey: pk('cash_deposit') },
+                { label: t('nav.cashAdvance'), icon: <Wallet size={14} />, to: '/cashadvance', pageKey: getPageKey('cash_advance') },
+                { label: t('nav.cashDeposit'), icon: <Wallet size={14} />, to: '/cashdeposit', pageKey: getPageKey('cash_deposit') },
             ],
         },
 
-        // ── Bonus Registers ──────────────────────────────────────────
         {
             label: t('nav.bonusRegister'),
             icon: <Star size={16} />,
             to: null,
             tourId: 'nav-bonus-register',
             children: [
-                { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister', pageKey: pk('utpadak_bonus_register') },
-                { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister', pageKey: pk('gavali_bonus_register') },
+                { label: t('nav.utpadakBonus'), icon: <Star size={14} />, to: '/utpadakbonusregister', pageKey: getPageKey('utpadak_bonus_register') },
+                { label: t('nav.gavaliBonus'), icon: <Star size={14} />, to: '/gavalibonusregister', pageKey: getPageKey('gavali_bonus_register') },
             ],
         },
 
-        // ── Reports (top level) ──────────────────────────────────────
-        { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report', pageKey: pk('sum_report') },
+        { label: t('nav.sumReport'), icon: <ClipboardList size={16} />, to: '/sumreport', tourId: 'nav-sum-report', pageKey: getPageKey('sum_report') },
 
-        // ── Farmer Ledger – admin only ─────────────────────────────
         ...(isAdmin ? [
             { label: t('nav.farmerLedger'), icon: <ArrowLeftRight size={16} />, to: '/farmer-ledger', tourId: 'nav-farmer-ledger', pageKey: 'admin_farmer_ledger' }
         ] : []),
 
-        // ── Expenses – admin only ───────────────────────────────────
         ...(isAdmin ? [
             {
                 label: t('nav.expenses'),
@@ -234,21 +191,41 @@ const SHARED_NAV = (isAdmin, t) => {
                 tourId: 'nav-expenses',
                 children: [
                     { label: t('nav.expenses'), icon: <BanknoteArrowDown size={16} />, to: '/expenses', pageKey: 'admin_expenses' },
-                    { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: 'expensesreport', pageKey: 'admin_expenses_report' },
+                    { label: t('nav.expensesReport'), icon: <HandCoins size={16} />, to: '/expensesreport', pageKey: 'admin_expenses_report' },
                 ]
             }
         ] : []),
+
+        {
+            label: t('nav.premiumRates'),
+            icon: <Star size={16} />,
+            to: '/admin/premiumrates',
+            tourId: 'nav-premium-rates',
+            pageKey: getPageKey('premium_rates'),
+        },
+
+        {
+            label: t('nav.bonusReports', { defaultValue: 'Bonus Reports' }),
+            icon: <FileText size={16} />,
+            to: null,
+            tourId: 'nav-bonus-reports',
+            children: [
+                { label: t('nav.utpadakBonusReport'), icon: <FileText size={14} />, to: '/utpadakbonusreport', pageKey: getPageKey('utpadak_bonus_report') },
+                { label: t('nav.gavaliBonusReport'), icon: <FileText size={14} />, to: '/gavalibonusreport', pageKey: getPageKey('gavali_bonus_report') },
+            ],
+        },
+        // NOTE: the separate "Walk-in Reports" admin section was a duplicate of the
+        // report links already added under Walk-in Sales above (with the same
+        // /admin-prefixed bug) — removed rather than fixed, to avoid two nav
+        // entries pointing at the same three pages.
     ];
 
     return nav;
 };
 
 /**
- * FARMER_NAV is intentionally NOT built on top of SHARED_NAV — a farmer
- * only ever sees their own records, so none of the centre-wide
- * sellers/products/finance/bonus sections apply. Keep this list separate
- * rather than filtering SHARED_NAV down, so admin/operator nav changes
- * can't accidentally leak a farmer-inappropriate item in here later.
+ * FARMER_NAV - Farmer only sees their own records.
+ * Settings and Profile are separate for Farmer.
  */
 const FARMER_NAV = (t) => [
     {
@@ -257,6 +234,13 @@ const FARMER_NAV = (t) => [
         to: '/farmer/dashboard',
         tourId: 'nav-dashboard',
         pageKey: 'farmer_dashboard',
+    },
+    {
+        label: t('nav.myProfile', { defaultValue: 'My Profile' }),
+        icon: <User size={16} />,
+        to: '/farmer/profile',
+        tourId: 'nav-my-profile',
+        pageKey: 'farmer_profile',
     },
     {
         label: t('nav.settings'),
@@ -329,7 +313,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
         <div className="flex flex-col h-full">
 
             {/* Logo / App Identity */}
-            <div className={`flex items-center gap-3 px-4 py-4 border-b ${isAdmin ? 'border-gray-800' : 'border-emerald-700'}`}>
+            <div className={`flex items-center gap-3 px-4 py-4 border-b ${isAdmin ? 'border-gray-800' : isFarmer ? 'border-emerald-700' : 'border-emerald-700'}`}>
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md overflow-hidden
                     ${isAdmin ? 'bg-white text-gray-900' : 'bg-white text-emerald-700'}`}>
                     {logoUrl
@@ -343,7 +327,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                             {appName}
                         </p>
                         <p className={`text-[11px] mt-0.5 whitespace-nowrap font-medium
-                             ${isAdmin ? 'text-gray-500' : 'text-emerald-400'}`}>
+                             ${isAdmin ? 'text-gray-500' : isFarmer ? 'text-emerald-400' : 'text-emerald-400'}`}>
                             {isAdmin
                                 ? t('adminPortal')
                                 : isFarmer
@@ -363,7 +347,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                                 onClick={() => setExpanded(p => ({ ...p, [item.label]: !(p[item.label] ?? true) }))}
                                 title={collapsed && !mobile ? item.label : undefined}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150
-                                    ${isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'}`}
+                                    ${isAdmin ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : isFarmer ? 'text-emerald-200 hover:bg-emerald-700 hover:text-white' : 'text-emerald-200 hover:bg-emerald-700 hover:text-white'}`}
                             >
                                 <span className="w-5 h-5 flex items-center justify-center shrink-0">{item.icon}</span>
                                 {(!collapsed || mobile) && (
@@ -482,7 +466,7 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                 )}
             </nav>
 
-            {/* Bottom Avatar - Updated to match Dashboard glass-morphism style */}
+            {/* Bottom Avatar */}
             <div className={`border-t p-3 ${isAdmin ? 'border-gray-800' : 'border-emerald-700'}`}>
                 <div className={`flex items-center gap-3 px-2 py-2 rounded-xl transition
                     ${isAdmin ? 'hover:bg-gray-800/50' : 'hover:bg-emerald-700/50'}`}>
@@ -502,8 +486,12 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                                 </div>
                             )}
                         </button>
-                    ) : (
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                    ) : isFarmer ? (
+                        <button
+                            onClick={() => navigate('/farmer/profile')}
+                            title={t('nav.myProfile', { defaultValue: 'My Profile' })}
+                            className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                        >
                             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gradient-to-br from-emerald-300 to-emerald-400 text-emerald-900 shadow-lg shadow-emerald-400/20">
                                 {initials(user?.name)}
                             </div>
@@ -511,13 +499,29 @@ function SidebarContent({ mobile = false, collapsed, expanded, setExpanded, navI
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-white truncate leading-none">{user?.name}</p>
                                     <p className="text-xs mt-0.5 capitalize text-emerald-300">
-                                        {user?.role === 'seller'
-                                            ? t('status.farmer', { defaultValue: 'Farmer' })
-                                            : t('status.operator')}
+                                        {t('status.farmer', { defaultValue: 'Farmer' })}
                                     </p>
                                 </div>
                             )}
-                        </div>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => navigate('/operator/profile')}
+                            title={t('nav.myProfile', { defaultValue: 'My Profile' })}
+                            className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                        >
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gradient-to-br from-emerald-300 to-emerald-400 text-emerald-900 shadow-lg shadow-emerald-400/20">
+                                {initials(user?.name)}
+                            </div>
+                            {(!collapsed || mobile) && (
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-white truncate leading-none">{user?.name}</p>
+                                    <p className="text-xs mt-0.5 capitalize text-emerald-300">
+                                        {t('status.operator')}
+                                    </p>
+                                </div>
+                            )}
+                        </button>
                     )}
                     {(!collapsed || mobile) && (
                         <button onClick={handleLogout} title={t('actions.logout')}
@@ -556,14 +560,13 @@ export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [favorites, setFavorites] = useState([]); // [{ id, nav_path, nav_label }]
+    const [favorites, setFavorites] = useState([]);
 
     // Fetch the logged-in user's saved favourites once on mount
     useEffect(() => {
         if (!user) return;
         api.get('/favourites')
             .then(({ data }) => {
-                console.log('[favourites] loaded', data);
                 setFavorites(data);
             })
             .catch((err) => {
@@ -571,15 +574,13 @@ export default function AppLayout() {
             });
     }, [user]);
 
-    const [pageVisibility, setPageVisibility] = useState(null); // null = not loaded yet
+    const [pageVisibility, setPageVisibility] = useState(null);
 
-    // Fetch page-visibility once per session. Filtering waits for this to
-    // resolve (see rawNavItems below) so we never briefly flash pages the
-    // admin has disabled.
+    // Fetch page-visibility once per session.
     useEffect(() => {
         api.get('/settings/page-visibility')
             .then(({ data }) => setPageVisibility(data))
-            .catch(() => setPageVisibility({})); // fail open: nothing hidden
+            .catch(() => setPageVisibility({}));
     }, []);
 
     const rawNavItems = useMemo(
@@ -588,14 +589,12 @@ export default function AppLayout() {
     );
 
     // Recursively drop any item (or child) whose pageKey has been toggled
-    // off for the "web" platform. Items with no pageKey (e.g. group
-    // headers with a null `to`) are always kept, and a group with zero
-    // remaining visible children is dropped entirely.
+    // off for the "web" platform.
     const filterVisible = (items) => {
-        if (!pageVisibility) return items; // not loaded yet — show nothing hidden prematurely is worse than a flash, so keep as-is until loaded
+        if (!pageVisibility) return items;
         return items.reduce((acc, item) => {
             if (item.pageKey && pageVisibility[item.pageKey]?.web === false) {
-                return acc; // explicitly hidden
+                return acc;
             }
             if (item.children) {
                 const visibleChildren = filterVisible(item.children);
@@ -613,8 +612,7 @@ export default function AppLayout() {
         [rawNavItems, pageVisibility]
     );
 
-    // Flatten leaf nav items (top-level + children) so favourites can borrow
-    // their icon/label by matching on path, without persisting icons in the DB.
+    // Flatten leaf nav items
     const flatNavItems = useMemo(() => {
         const flat = [];
         navItems.forEach(item => {
@@ -633,9 +631,6 @@ export default function AppLayout() {
         }),
         [favorites, flatNavItems]);
 
-    // Synthetic "Favourites" group — reuses the same collapsible-group
-    // rendering path as every other nav section, so no extra JSX is needed.
-    // Only shown when the user actually has favourites.
     const displayNavItems = useMemo(() => {
         if (favoriteNavItems.length === 0) return navItems;
         return [
@@ -655,23 +650,20 @@ export default function AppLayout() {
     const toggleFavorite = async (e, item) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[favourites] toggle clicked for', item.to);
         const existing = favorites.find(f => f.nav_path === item.to);
         try {
             if (existing) {
                 await api.delete(`/favourites/${existing.id}`);
                 setFavorites(prev => prev.filter(f => f.id !== existing.id));
-                console.log('[favourites] removed', item.to);
             } else {
                 const { data } = await api.post('/favourites', { nav_path: item.to, nav_label: item.label });
                 setFavorites(prev => [...prev, data]);
-                console.log('[favourites] added', data);
             }
         } catch (err) {
             console.error('[favourites] toggle failed:', err.response?.status, err.response?.data || err.message);
         }
     };
-    // Expand all collapsible nav sections by default
+
     const [expanded, setExpanded] = useState(() =>
         navItems.reduce((acc, item) => {
             if (item.children) acc[item.label] = true;
@@ -679,9 +671,6 @@ export default function AppLayout() {
         }, {})
     );
 
-    // Keep sections expanded if navItems changes (e.g. admin/operator switch,
-    // or language change renaming labels) — merges in any new group keys
-    // without collapsing ones the user may have manually toggled closed.
     useEffect(() => {
         setExpanded(prev => {
             const next = { ...prev };
@@ -699,18 +688,9 @@ export default function AppLayout() {
         const notSeenYet = user?.has_seen_tour === 0;
         if (!(isAdmin && user && notSeenYet)) return;
 
-        // Wait for Outlet content (Dashboard) + sidebar to paint before
-        // querying the DOM or starting the tour — both must happen inside
-        // the same delayed callback, or an early DOM check can wrongly
-        // conclude there's nothing to show.
-        // Make sure the sidebar is expanded (not icon-only) before the tour
-        // tries to highlight labelled nav groups.
         setCollapsed(false);
 
         const timeoutId = setTimeout(() => {
-            // Pick whichever sidebar is actually visible — desktop and mobile
-            // both render the same data-tour attributes, and a plain
-            // querySelector would always grab the (possibly hidden) first one.
             const visibleSidebar = ['[data-sidebar="desktop"]', '[data-sidebar="tablet"]', '[data-sidebar="mobile"]']
                 .map(sel => document.querySelector(sel))
                 .find(el => el && el.offsetParent !== null);
@@ -742,7 +722,7 @@ export default function AppLayout() {
             const dashboardSteps = [
                 {
                     element: '[data-tour="dashboard-title"]',
-                    popover: { title: 'Welcome!', description: 'This is your admin dashboard — your home base for everything.' },
+                    popover: { title: 'Welcome!', description: 'This is your dashboard — your home base for everything.' },
                 },
                 {
                     element: '[data-tour="period-toggle"]',
@@ -763,8 +743,6 @@ export default function AppLayout() {
 
             const steps = [...dashboardSteps, ...navSteps];
 
-            console.log('[tour] dashboardSteps:', dashboardSteps.length, '| navSteps:', navSteps.length, '| visibleSidebar:', visibleSidebar?.dataset?.sidebar);
-
             if (steps.length === 0) return;
 
             const tourObj = driver({
@@ -781,22 +759,16 @@ export default function AppLayout() {
         }, 300);
 
         return () => clearTimeout(timeoutId);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin, user]);
+    }, [isAdmin, user, t, navItems, markTourSeen]);
 
-    // ── Server heartbeat: if the app server goes down, force a real
-    // navigation attempt so the browser shows its native "can't be
-    // reached" page instead of a stale in-memory SPA with broken data.
+    // ── Server heartbeat ─────────────────────────────────────────
     useEffect(() => {
-        const HEARTBEAT_INTERVAL = 30000; // 30s — was 0, which fired near-continuously and exhausted the browser's connection pool
+        const HEARTBEAT_INTERVAL = 30000;
 
         const checkServer = async () => {
             try {
-                // same-origin, no-cors so opaque responses still count as "reachable"
                 await fetch(window.location.origin, { method: 'HEAD', cache: 'no-store', mode: 'no-cors' });
             } catch {
-                // fetch failed to even connect — server is down.
-                // Reload forces a real navigation; browser shows its native error page.
                 window.location.reload();
             }
         };
@@ -811,7 +783,6 @@ export default function AppLayout() {
         navigate(isAdmin ? '/' : isFarmer ? '/seller/login' : '/operator/login');
     };
 
-    // Updated main container background to match Dashboard
     return (
         <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100/50"
             style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -828,7 +799,7 @@ export default function AppLayout() {
                     onClick={() => setMobileOpen(false)} />
             )}
 
-            {/* Mobile sidebar — off-canvas overlay, phones only (< md) */}
+            {/* Mobile sidebar */}
             <aside data-sidebar="mobile" className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] flex flex-col transition-transform duration-300 md:hidden
                 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
                 ${isAdmin ? 'bg-gray-900' : 'bg-emerald-800'}`}>
@@ -840,7 +811,7 @@ export default function AppLayout() {
                 />
             </aside>
 
-            {/* Tablet sidebar — persistent, icon-only, no manual collapse (md–lg) */}
+            {/* Tablet sidebar */}
             <aside data-sidebar="tablet" className={`hidden md:flex lg:hidden flex-col shrink-0 w-[68px]
                 ${isAdmin
                     ? 'bg-gradient-to-b from-gray-900 to-gray-800'
@@ -853,7 +824,7 @@ export default function AppLayout() {
                 />
             </aside>
 
-            {/* Desktop sidebar - Updated with glass-morphism effect (lg+) */}
+            {/* Desktop sidebar */}
             <aside data-sidebar="desktop" className={`relative hidden lg:flex flex-col shrink-0 transition-all duration-300
                 ${collapsed ? 'w-[68px]' : 'w-56'}
                 ${isAdmin
@@ -870,7 +841,7 @@ export default function AppLayout() {
 
             {/* Main content */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* Mobile top bar - Updated with glass-morphism */}
+                {/* Mobile top bar */}
                 <header className="md:hidden flex items-center gap-3 px-4 py-3 border-b bg-white/80 backdrop-blur-sm border-gray-200/60 shadow-lg shadow-gray-200/50">
                     <button onClick={() => setMobileOpen(true)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-gray-200/80 transition text-gray-600 shadow-sm shrink-0">

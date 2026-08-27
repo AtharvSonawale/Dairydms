@@ -20,18 +20,22 @@ const ALL_PAGES = [
     {
         groupKey: 'dashboard',
         pages: [
-            { key: 'operator_dashboard', ops: ['C', 'R', 'U', 'D'] }
+            { key: 'dashboard', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'profile', ops: ['R', 'U'] },
         ]
     },
     {
         groupKey: 'milkCollection',
         pages: [
             { key: 'milk_entry', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'utpadak_milk_entry', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'gavali_milk_entry', ops: ['C', 'R', 'U', 'D'] },
             { key: 'walkin_sales', ops: ['C', 'R', 'U', 'D'] },
             { key: 'walkin_payments', ops: ['C', 'R', 'U', 'D'] },
             { key: 'named_buyers', ops: ['C', 'R', 'U', 'D'] },
             { key: 'tank_dispatch', ops: ['C', 'R', 'U', 'D'] },
             { key: 'owner_usage', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'all_milk_entries', ops: ['R'] },
         ],
     },
     {
@@ -49,15 +53,32 @@ const ALL_PAGES = [
             { key: 'products', ops: ['C', 'R', 'U', 'D'] },
             { key: 'product_purchases', ops: ['C', 'R', 'U', 'D'] },
             { key: 'product_sales', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'product_purchase_payment', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'product_sales_report', ops: ['R'] },
+        ],
+    },
+    {
+        groupKey: 'cattleFeed',
+        pages: [
+            { key: 'cattle_feed_catalogue', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'cattle_feed_purchase', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'cattle_feed_sales', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'cattle_feed_purchase_payment', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'cattle_feed_sales_report', ops: ['R'] },
         ],
     },
     {
         groupKey: 'reportsAnalytics',
         pages: [
             { key: 'sum_report', ops: ['R'] },
-            { key: 'daily_collection', ops: ['R'] },
+            { key: 'farmer_ledger', ops: ['R'] },
             { key: 'utpadak_bonus_register', ops: ['C', 'R', 'U', 'D'] },
             { key: 'gavali_bonus_register', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'utpadak_bonus_report', ops: ['R'] },
+            { key: 'gavali_bonus_report', ops: ['R'] },
+            { key: 'walkin_seller_report', ops: ['R'] },
+            { key: 'walkin_named_buyer_reports', ops: ['R'] },
+            { key: 'walkin_anon_reports', ops: ['R'] },
         ],
     },
     {
@@ -67,13 +88,33 @@ const ALL_PAGES = [
             { key: 'premium_rates', ops: ['C', 'R', 'U', 'D'] },
         ],
     },
+    {
+        groupKey: 'expenses',
+        pages: [
+            { key: 'expenses', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'expenses_report', ops: ['R'] },
+        ],
+    },
+    {
+        groupKey: 'administration',
+        pages: [
+            { key: 'settings', ops: ['R', 'U'] },
+            { key: 'centres', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'premium_rates', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'operators', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'admin_list', ops: ['R'] },
+            { key: 'port_settings', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'commission_settings', ops: ['C', 'R', 'U', 'D'] },
+            { key: 'clear_data', ops: ['D'] },
+        ],
+    },
 ];
 
 const buildDefaultAccess = () => {
     const acc = {};
     ALL_PAGES.forEach(group => {
         group.pages.forEach(page => {
-            if (page.key === 'milk_entry') {
+            if (page.key === 'milk_entry' || page.key === 'dashboard' || page.key === 'settings' || page.key === 'profile') {
                 acc[page.key] = { C: true, R: true, U: false, D: false };
             } else {
                 const obj = {};
@@ -104,24 +145,22 @@ const LANGUAGES = [
     { key: 'hi', label: 'Hindi', native: 'हिंदी' },
 ];
 
-// Pages that can be hidden per-platform, independent of CRUD role permissions.
-// Every role gets its OWN key, even for pages that look identical across
-// roles (e.g. Milk Entry) — this is what makes toggling a page off for
-// Operators independent from toggling it off for Admins. Keys here must
-// match the page_key values AppLayout.dart / SellerDashboardPage.dart use.
+// Pages that can be hidden per-platform - Role-based sections
+// Admin pages appear once, Operator pages appear once, Farmer pages appear once
 const VISIBILITY_SECTIONS = [
-    // ══════════════════════════ ADMIN ══════════════════════════
+    // ══════════════════════════ ADMIN PAGES ══════════════════════════
     {
         groupKey: 'adminDashboard',
-        label: 'Dashboard',
+        label: 'Dashboard (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_dashboard', label: 'Dashboard' },
+            { key: 'admin_profile', label: 'My Profile' },
         ],
     },
     {
-        groupKey: 'administration',
-        label: 'Administration',
+        groupKey: 'adminAdministration',
+        label: 'Administration (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_settings', label: 'Settings' },
@@ -135,8 +174,8 @@ const VISIBILITY_SECTIONS = [
         ],
     },
     {
-        groupKey: 'adminSellersPayments',
-        label: 'Sellers & Rates',
+        groupKey: 'adminSellersAndRates',
+        label: 'Sellers & Rates (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_seller_register', label: 'Sellers' },
@@ -146,7 +185,7 @@ const VISIBILITY_SECTIONS = [
     },
     {
         groupKey: 'adminMilkCollection',
-        label: 'Milk Collection',
+        label: 'Milk Collection (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_milk_entry', label: 'Milk Entry' },
@@ -154,11 +193,12 @@ const VISIBILITY_SECTIONS = [
             { key: 'admin_gavali_milk_entry', label: 'Gavali Milk Entry' },
             { key: 'admin_owner_usage', label: 'Owner Usage' },
             { key: 'admin_tank_dispatch', label: 'Tank Dispatch' },
+            { key: 'admin_all_milk_entries', label: 'All Milk Entries' },
         ],
     },
     {
         groupKey: 'adminWalkinSales',
-        label: 'Walk-in Sales',
+        label: 'Walk-in Sales (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_walkin_sales', label: 'Walk-in Sale' },
@@ -171,29 +211,31 @@ const VISIBILITY_SECTIONS = [
     },
     {
         groupKey: 'adminProducts',
-        label: 'Products',
+        label: 'Products (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_products', label: 'Catalogue' },
             { key: 'admin_product_purchases', label: 'Purchase' },
             { key: 'admin_product_sales', label: 'Sales' },
             { key: 'admin_product_purchase_payment', label: 'Product Purchase Payment' },
+            { key: 'admin_product_sales_report', label: 'Product Sales Report' },
         ],
     },
     {
         groupKey: 'adminCattleFeed',
-        label: 'Cattle Feed',
+        label: 'Cattle Feed (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_cattle_feed_catalogue', label: 'Catalogue' },
             { key: 'admin_cattle_feed_purchase', label: 'Purchase' },
             { key: 'admin_cattle_feed_sales', label: 'Sales' },
             { key: 'admin_cattle_feed_purchase_payment', label: 'Cattlefeed Purchase Payment' },
+            { key: 'admin_cattle_feed_sales_report', label: 'Cattle Feed Sales Report' },
         ],
     },
     {
         groupKey: 'adminFinance',
-        label: 'Finance',
+        label: 'Finance (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_cash_advance', label: 'Cash Advance' },
@@ -202,7 +244,7 @@ const VISIBILITY_SECTIONS = [
     },
     {
         groupKey: 'adminBonusRegister',
-        label: 'Bonus Register',
+        label: 'Bonus Register (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_utpadak_bonus_register', label: 'Utpadak Bonus' },
@@ -211,16 +253,18 @@ const VISIBILITY_SECTIONS = [
     },
     {
         groupKey: 'adminReports',
-        label: 'Reports',
+        label: 'Reports (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_sum_report', label: 'Summary Report' },
             { key: 'admin_farmer_ledger', label: 'Farmer Ledger' },
+            { key: 'admin_utpadak_bonus_report', label: 'Utpadak Bonus Report' },
+            { key: 'admin_gavali_bonus_report', label: 'Gavali Bonus Report' },
         ],
     },
     {
         groupKey: 'adminExpenses',
-        label: 'Expenses',
+        label: 'Expenses (Admin)',
         role: 'Admin',
         pages: [
             { key: 'admin_expenses', label: 'Expenses' },
@@ -228,46 +272,50 @@ const VISIBILITY_SECTIONS = [
         ],
     },
 
-    // ══════════════════════════ OPERATOR ══════════════════════════
+    // ══════════════════════════ OPERATOR PAGES ══════════════════════════
     {
         groupKey: 'operatorDashboard',
-        label: 'Dashboard',
+        label: 'Dashboard (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_dashboard', label: 'Dashboard' },
+            { key: 'operator_profile', label: 'My Profile' },
         ],
     },
     {
         groupKey: 'operatorSettings',
-        label: 'Settings',
+        label: 'Settings (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_settings', label: 'Settings' },
         ],
     },
     {
-        groupKey: 'operatorSellersPayments',
-        label: 'Sellers & Rates',
+        groupKey: 'operatorSellersAndRates',
+        label: 'Sellers & Rates (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_seller_register', label: 'Sellers' },
             { key: 'operator_rate_chart', label: 'Rate Chart' },
             { key: 'operator_seller_payments', label: 'Seller Payments' },
+            { key: 'operator_premium_rates', label: 'Premium Rates' },
         ],
     },
     {
         groupKey: 'operatorMilkCollection',
-        label: 'Milk Collection',
+        label: 'Milk Collection (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_milk_entry', label: 'Milk Entry' },
+            { key: 'operator_utpadak_milk_entry', label: 'Utpadak Milk Entry' },
+            { key: 'operator_gavali_milk_entry', label: 'Gavali Milk Entry' },
             { key: 'operator_owner_usage', label: 'Owner Usage' },
             { key: 'operator_tank_dispatch', label: 'Tank Dispatch' },
         ],
     },
     {
         groupKey: 'operatorWalkinSales',
-        label: 'Walk-in Sales',
+        label: 'Walk-in Sales (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_walkin_sales', label: 'Walk-in Sale' },
@@ -277,7 +325,7 @@ const VISIBILITY_SECTIONS = [
     },
     {
         groupKey: 'operatorProducts',
-        label: 'Products',
+        label: 'Products (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_products', label: 'Catalogue' },
@@ -286,8 +334,18 @@ const VISIBILITY_SECTIONS = [
         ],
     },
     {
+        groupKey: 'operatorCattleFeed',
+        label: 'Cattle Feed (Operator)',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_cattle_feed_catalogue', label: 'Catalogue' },
+            { key: 'operator_cattle_feed_purchase', label: 'Purchase' },
+            { key: 'operator_cattle_feed_sales', label: 'Sales' },
+        ],
+    },
+    {
         groupKey: 'operatorFinance',
-        label: 'Finance',
+        label: 'Finance (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_cash_advance', label: 'Cash Advance' },
@@ -295,15 +353,26 @@ const VISIBILITY_SECTIONS = [
         ],
     },
     {
+        groupKey: 'operatorBonusRegister',
+        label: 'Bonus Register (Operator)',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_utpadak_bonus_register', label: 'Utpadak Bonus' },
+            { key: 'operator_gavali_bonus_register', label: 'Gavali Bonus' },
+        ],
+    },
+    {
         groupKey: 'operatorReports',
-        label: 'Reports',
+        label: 'Reports (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_sum_report', label: 'Summary Report' },
+            { key: 'operator_utpadak_bonus_report', label: 'Utpadak Bonus Report' },
+            { key: 'operator_gavali_bonus_report', label: 'Gavali Bonus Report' },
         ],
     },
 
-    // ══════════════════════════ FARMER ══════════════════════════
+    // ══════════════════════════ FARMER PAGES ══════════════════════════
     {
         groupKey: 'farmerPortal',
         label: 'Farmer Portal',
@@ -316,12 +385,12 @@ const VISIBILITY_SECTIONS = [
             { key: 'farmer_milk_entries', label: 'My Milk Entries' },
             { key: 'farmer_cattle_feed', label: 'My Cattle Feed' },
             { key: 'farmer_product_purchases', label: 'My Product Purchases' },
+            { key: 'farmer_profile', label: 'My Profile' },
         ],
     },
 ];
 
-// Flattened lookup used for loading/saving, since the API deals in a flat
-// { page_key: { web, flutter } } map regardless of section grouping.
+// Flattened lookup used for loading/saving
 const VISIBILITY_PAGES = VISIBILITY_SECTIONS.flatMap(section => section.pages);
 
 // ── Saved-state defaults ──────────────────────────────────────
@@ -502,17 +571,20 @@ export default function AdminSettings() {
 
     // ── Load print (receipt) settings ─────────────────────────
     useEffect(() => {
-        fetchPrintSettings().then(({ printerType, paperWidthMm, autoPrint }) => {
-            setPrinterType(printerType);
-            setPaperWidthMm(paperWidthMm);
-            setAutoPrint(autoPrint ?? true);
-        });
+        fetchPrintSettings()
+            .then(({ printerType, paperWidthMm, autoPrint } = {}) => {
+                setPrinterType(printerType ?? DEFAULT_PRINT_SETTINGS.printerType);
+                setPaperWidthMm(paperWidthMm ?? DEFAULT_PRINT_SETTINGS.paperWidthMm);
+                setAutoPrint(autoPrint ?? true);
+            })
+            .catch((err) => console.error('fetchPrintSettings failed:', err));
     }, []);
 
-    // ── Load receipt template (was missing — meant font sizes and
-    // every other receipt field silently reset to defaults on load) ──
+    // ── Load receipt template ────────────────────────────────
     useEffect(() => {
-        fetchReceiptTemplate().then(setReceiptTpl);
+        fetchReceiptTemplate()
+            .then((tpl) => setReceiptTpl(tpl || DEFAULT_RECEIPT_TEMPLATE))
+            .catch((err) => console.error('fetchReceiptTemplate failed:', err));
     }, []);
 
     // ── Load permissions for selected operator ──────────────
@@ -1041,7 +1113,7 @@ export default function AdminSettings() {
                                 </p>
                             </div>
 
-                           <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center justify-between gap-3">
                                 <label className="text-sm text-gray-700">Show top symbol (e.g. श्री)</label>
                                 <div className="flex items-center gap-3">
                                     {receiptTpl.showTopSymbol && (
@@ -1318,17 +1390,16 @@ export default function AdminSettings() {
                     )}
                 </SectionCard>
 
-                {/* ── Page Visibility (Flutter/Web, grouped by portal/role) ── */}
+                {/* ── Page Visibility (Role-based sections) ── */}
                 <SectionCard
                     title="Page Visibility"
                     icon={<Eye size={16} className="text-white" />}
                     data-tour="page-visibility"
                 >
                     <p className="text-[11px] text-gray-400 mb-5">
-                        Turn a page off here and it disappears for every user in that role — regardless of
-                        individual operator permissions. The "Flutter" toggle controls the mobile app; the
-                        "Web" toggle controls this dashboard. Sections below match the sidebar groups shown
-                        to each portal.
+                        Turn a page off here and it disappears for ALL users in that role.
+                        The "Flutter" toggle controls the mobile app; the "Web" toggle controls this dashboard.
+                        Each role (Admin, Operator, Farmer) has its own independent visibility controls.
                     </p>
                     {loadingVisibility ? (
                         <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -1343,12 +1414,12 @@ export default function AdminSettings() {
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                             {section.label}
                                         </p>
-                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-md
+                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-md shadow-sm
                                             ${section.role === 'Admin'
-                                                ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm'
+                                                ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white'
                                                 : section.role === 'Farmer'
-                                                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm'
-                                                    : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm'}`}>
+                                                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
+                                                    : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'}`}>
                                             {section.role}
                                         </span>
                                     </div>

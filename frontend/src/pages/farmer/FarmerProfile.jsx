@@ -1,0 +1,1992 @@
+// pages/farmer/FarmerProfile.jsx
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import {
+    ArrowLeft, User, Phone, CreditCard, MapPin, Landmark,
+    Building2, Hash, Calendar, RefreshCw, AlertTriangle,
+    FlaskConical, Milk, TrendingUp, Wallet, ShoppingBag,
+    Clock, ChevronRight, BadgeCheck, Pencil, Trash2, Save,
+    X, Banknote, Star, Vault, Droplet, Package, Lock,
+    Percent, Receipt, Gift, Wheat, BarChart3, Home,
+    Sun, Moon, Image as ImageIcon, Store, Truck, Factory
+} from "lucide-react";
+import {
+    ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+    CartesianGrid, Tooltip as RechartsTooltip,
+    LineChart, Line, Legend
+} from "recharts";
+import api from "../../api/axios";
+import { useAuth } from '../../context/AuthContext';
+import { usePermission } from '../../context/PermissionContext';
+import AccessDenied from '../../components/AccessDenied';
+
+// ── helpers ───────────────────────────────────────────────────
+const fmt = (d) =>
+    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
+
+const fmtDateTime = (d) =>
+    d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
+
+// ── groups raw milk entries by entry_date and computes per-day aggregates ──
+const buildMilkChartData = (entries) => {
+    const map = {};
+    entries.forEach((e) => {
+        const key = e.entry_date ? String(e.entry_date).slice(0, 10) : "unknown";
+        if (!map[key]) {
+            map[key] = { date: key, quantity: 0, amount: 0, fatSum: 0, snfSum: 0, cowQty: 0, bufQty: 0, count: 0 };
+        }
+        const qty = parseFloat(e.quantity || 0);
+        map[key].quantity += qty;
+        map[key].amount += parseFloat(e.total_amount || 0);
+        map[key].fatSum += parseFloat(e.fat || 0);
+        map[key].snfSum += parseFloat(e.snf || 0);
+        if ((e.milk_type || "").toLowerCase() === "cow") map[key].cowQty += qty;
+        if ((e.milk_type || "").toLowerCase() === "buffalo") map[key].bufQty += qty;
+        map[key].count += 1;
+    });
+    return Object.values(map)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .map((d) => ({
+            ...d,
+            label: fmt(d.date) || d.date,
+            quantity: parseFloat(d.quantity.toFixed(2)),
+            amount: parseFloat(d.amount.toFixed(2)),
+            avgFat: (d.fatSum / d.count).toFixed(2),
+            avgSnf: (d.snfSum / d.count).toFixed(2),
+        }));
+};
+
+const milkIcon = (t, iconMap) => {
+    if (!iconMap) return null;
+    return t === "cow" ? iconMap.cow : t === "buffalo" ? iconMap.buffalo : iconMap.mixed;
+};
+
+const milkBadge = (t) =>
+    t === "cow" ? "bg-amber-50/80 text-amber-700 border-amber-200/60"
+        : t === "buffalo" ? "bg-blue-50/80 text-blue-700 border-blue-200/60"
+            : "bg-violet-50/80 text-violet-700 border-violet-200/60";
+
+const farmerTypeBadge = (t) =>
+    t === "Utpadak"
+        ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
+        : "bg-orange-50/80 text-orange-700 border-orange-200/60";
+
+const FARMER_TYPES = ["Utpadak", "Gavali"];
+const MILK_TYPES = ["cow", "buffalo"];
+
+const EMPTY_FORM = {
+    seller_code: "", name: "", mobile: "", aadhaar: "",
+    pan_number: "", seller_id_code: "",
+    seller_type: "Utpadak", milk_type: "cow", jamin: "",
+    bank_account: "", bank_name: "", account_holder_name: "", branch_name: "",
+    ifsc_code: "", address: "", pincode: "",
+    advance_enabled: 1, advance_deduction: "", deposit_enabled: 0,
+    deposit_per_litre: "", bank_account_confirm: "",
+    product_sale_enabled: 0, product_sale_rate: "",
+    cattle_feed_sale_enabled: 0,
+    is_active: 1,
+    password: "",
+    cheque: "",
+    profile_image: "",
+};
+
+const Field = ({ label, required, children }) => (
+    <div className="flex flex-col gap-1.5">
+        <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
+        </label>
+        {children}
+    </div>
+);
+
+// ── InfoRow ───────────────────────────────────────────────────
+function InfoRow({ icon, label, value, mono = false, badge = null }) {
+    return (
+        <div className="flex items-start gap-3 py-3 border-b border-gray-100/60 last:border-0 hover:bg-gray-50/30 -mx-1 px-1 rounded-lg transition">
+            <div className="w-7 h-7 rounded-lg bg-gray-50/80 border border-gray-200/60 flex items-center justify-center text-gray-400 shrink-0 mt-0.5 backdrop-blur-sm">
+                {icon}
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+                {badge ?? (
+                    value
+                        ? <p className={`text-sm text-gray-800 ${mono ? "font-mono" : "font-medium"} break-all`}>{value}</p>
+                        : <p className="text-sm text-gray-300 italic">No data</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Section ───────────────────────────────────────────────────
+function Section({ title, icon, children }) {
+    return (
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50">
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+            <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 relative z-10">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                    {icon}
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+            </div>
+            <div className="px-5 py-1 relative z-10">{children}</div>
+        </div>
+    );
+}
+
+// ── StatCard ─────────────────────────────────────────────────
+function StatCard({ label, value, sub, color, icon }) {
+    return (
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex flex-col`}>
+            <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
+            <div className="relative z-10 flex items-start justify-between">
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60 leading-none">{label}</p>
+                    <p className="text-xl font-bold text-gray-900 leading-tight mt-1">{value ?? <span className="text-gray-300 text-sm font-normal">No data</span>}</p>
+                    {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+                </div>
+                {icon && <div className="opacity-30">{icon}</div>}
+            </div>
+        </div>
+    );
+}
+
+// ── EmptyState ────────────────────────────────────────────────
+function EmptyState({ icon, msg }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-gray-400">
+            <div className="p-4 rounded-full bg-gray-100/50">{icon}</div>
+            <p className="text-sm font-medium">{msg}</p>
+        </div>
+    );
+}
+
+// ── FilterBar ─────────────────────────────────────────────────
+function FilterBar({ filter, setFilter, from, setFrom, to, setTo, onReset, t }) {
+    const presets = ["all", "day", "week", "month", "year", "custom"];
+    const labels = {
+        all: t('farmerProfile.filterBar.all'),
+        day: t('farmerProfile.filterBar.day'),
+        week: t('farmerProfile.filterBar.week'),
+        month: t('farmerProfile.filterBar.month'),
+        year: t('farmerProfile.filterBar.year'),
+        custom: t('farmerProfile.filterBar.custom'),
+    };
+    return (
+        <div className="flex flex-wrap items-center gap-2 py-2 pb-3 border-b border-gray-200/60">
+            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
+                {presets.map(p => (
+                    <button key={p} onClick={() => { setFilter(p); onReset(); }}
+                        className={`px-3.5 py-2 transition-all duration-200
+                            ${filter === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
+                        {labels[p]}
+                    </button>
+                ))}
+            </div>
+            {filter === "custom" && (
+                <div className="flex items-center gap-2">
+                    <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                    <span className="text-gray-400 text-xs">→</span>
+                    <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── MilkChartTooltip ──────────────────────────────────────────
+function MilkChartTooltip({ active, payload, label }) {
+    if (!active || !payload || !payload.length) return null;
+    const d = payload[0].payload;
+    return (
+        <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg px-3.5 py-3 text-xs min-w-[170px]">
+            <p className="font-bold text-gray-800 mb-2">{label}</p>
+            <div className="space-y-1.5">
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Quantity</span>
+                    <span className="font-mono font-semibold text-blue-600">{d.quantity.toFixed(2)} L</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Entries</span>
+                    <span className="font-mono font-semibold text-gray-700">{d.count}</span>
+                </div>
+                {d.cowQty > 0 && (
+                    <div className="flex justify-between gap-4">
+                        <span className="text-gray-400">Cow</span>
+                        <span className="font-mono font-semibold text-amber-600">{d.cowQty.toFixed(2)} L</span>
+                    </div>
+                )}
+                {d.bufQty > 0 && (
+                    <div className="flex justify-between gap-4">
+                        <span className="text-gray-400">Buffalo</span>
+                        <span className="font-mono font-semibold text-blue-500">{d.bufQty.toFixed(2)} L</span>
+                    </div>
+                )}
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Avg Fat</span>
+                    <span className="font-mono font-semibold text-amber-600">{d.avgFat}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Avg SNF</span>
+                    <span className="font-mono font-semibold text-emerald-600">{d.avgSnf}</span>
+                </div>
+                <div className="flex justify-between gap-4 pt-1.5 border-t border-gray-200/60">
+                    <span className="text-gray-400">Amount</span>
+                    <span className="font-mono font-bold text-gray-900">₹{d.amount.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Paginator ─────────────────────────────────────────────────
+function Paginator({ total, page, setPage, pageSize, setPageSize, t }) {
+    const totalPages = Math.ceil(total / pageSize);
+    if (total === 0) return null;
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 mt-1 border-t border-gray-200/60">
+            <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
+                    {t('farmerProfile.paginator.prev')}
+                </button>
+                <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                        .reduce((acc, p, idx, arr) => {
+                            if (idx > 0 && p - arr[idx - 1] > 1) acc.push("...");
+                            acc.push(p);
+                            return acc;
+                        }, [])
+                        .map((p, i) => p === "..."
+                            ? <span key={`d${i}`} className="px-1 text-xs text-gray-400">…</span>
+                            : <button key={p} onClick={() => setPage(p)}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold transition border shadow-sm
+                                    ${page === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-500 border-gray-200/60 hover:border-gray-300/80 hover:bg-gray-50/50"}`}>
+                                {p}
+                            </button>
+                        )}
+                </div>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200/60 bg-white/50 text-gray-500 hover:bg-gray-50/50 disabled:opacity-40 transition shadow-sm">
+                    {t('farmerProfile.paginator.next')}
+                </button>
+                <span className="text-xs text-gray-400 ml-1">
+                    {total === 0 ? "0" : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}`} {t('farmerProfile.paginator.of')} {total}
+                </span>
+            </div>
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">{t('farmerProfile.paginator.rows')}</span>
+                <input type="number" min={1} max={total || 1} value={pageSize}
+                    onChange={e => { setPageSize(Math.max(1, parseInt(e.target.value) || 1)); setPage(1); }}
+                    className="w-14 border border-gray-200/60 rounded-lg px-2 py-1 text-xs text-center text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm" />
+            </div>
+        </div>
+    );
+}
+
+// ── flash / toast timing ────────────────────────────────────────
+const FLASH_DURATION = 3500;
+const FLASH_ANIM_MS = 420;
+
+// ── Sliding toast alert ──────────────────────────────────────
+function FlashToast({ flash, phase, onClose }) {
+    if (!flash) return null;
+    const isVisible = phase === "visible";
+    return (
+        <div
+            className="fixed top-4 right-4 z-[9999] pointer-events-none"
+            style={{ maxWidth: "min(92vw, 420px)" }}
+        >
+            <div
+                className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl text-base font-semibold shadow-2xl backdrop-blur-sm border
+                    ${flash.type === "success" ? "bg-emerald-50/95 border-emerald-200/70 text-emerald-700" : "bg-rose-50/95 border-rose-200/70 text-rose-600"}`}
+                style={{
+                    transform: isVisible ? "translateX(0)" : "translateX(150%)",
+                    opacity: isVisible ? 1 : 0,
+                    transition: `transform ${FLASH_ANIM_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${FLASH_ANIM_MS}ms ease`,
+                }}
+            >
+                {flash.type === "error" && <AlertTriangle size={18} className="shrink-0" />}
+                {flash.type === "success" && <BadgeCheck size={18} className="shrink-0" />}
+                <span className="flex-1">{flash.msg}</span>
+                <button onClick={onClose} className="opacity-50 hover:opacity-100 transition shrink-0">
+                    <X size={16} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Image View Modal ──────────────────────────────────────────
+function ImageViewModal({ image, onClose }) {
+    if (!image) return null;
+    return (
+        <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={onClose}
+        >
+            <div
+                className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200/60 shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 truncate pr-2">{image.title}</h3>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <a
+                            href={image.url}
+                            download={`${(image.title || "image").replace(/\s+/g, "_")}.png`}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
+                        >
+                            Download
+                        </a>
+                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 p-4">
+                    <img src={image.url} alt={image.title} className="max-w-full max-h-full object-contain rounded-lg" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Cheque Upload Component ──────────────────────────────────
+function ChequeUpload({ value, onChange, label = "Cheque Image" }) {
+    const [preview, setPreview] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        if (value && typeof value === 'string' && value.length > 0) {
+            setPreview(value);
+        } else {
+            setPreview(null);
+        }
+    }, [value]);
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file (JPEG, PNG, etc.)');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const base64 = event.target.result;
+                setPreview(base64);
+                onChange(base64);
+                setIsUploading(false);
+            };
+            reader.onerror = () => {
+                alert('Failed to read file');
+                setIsUploading(false);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            alert('Error uploading file');
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemove = () => {
+        setPreview(null);
+        onChange('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-2">
+            <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider">
+                {label}
+            </label>
+            <div className="flex items-center gap-3">
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                >
+                    <ImageIcon size={16} />
+                    {preview ? 'Change Image' : 'Upload Cheque'}
+                </button>
+                {preview && (
+                    <button
+                        type="button"
+                        onClick={handleRemove}
+                        className="text-rose-500 hover:text-rose-700 text-sm font-medium transition"
+                    >
+                        Remove
+                    </button>
+                )}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
+                {isUploading && (
+                    <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                )}
+            </div>
+            {preview && (
+                <div className="relative mt-2 w-32 h-32 rounded-xl overflow-hidden border border-gray-200/60 shadow-sm">
+                    <img
+                        src={preview}
+                        alt="Cheque"
+                        className="w-full h-full object-cover"
+                    />
+                    <button
+                        type="button"
+                        onClick={handleRemove}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition"
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Edit Form Modal ──────────────────────────────────────────
+function EditFormModal({ isOpen, onClose, form, setForm, farmer, saving, onSave, onCancel, t, hasPassword }) {
+    if (!isOpen) return null;
+
+    const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+    const handleFormKeyDown = (e) => {
+        if (e.key !== "Enter") return;
+        if (e.target.tagName !== "INPUT") return;
+        e.preventDefault();
+
+        const formEl = e.currentTarget;
+        const focusable = Array.from(
+            formEl.querySelectorAll('input:not([type="hidden"]):not(:disabled)')
+        ).filter(el => el.offsetParent !== null);
+
+        const idx = focusable.indexOf(e.target);
+        if (idx > -1 && idx < focusable.length - 1) {
+            focusable[idx + 1].focus();
+        } else if (typeof formEl.requestSubmit === "function") {
+            formEl.requestSubmit();
+        } else {
+            onSave(e);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0 bg-gradient-to-r from-gray-50/50 to-white/50">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-800">{t('farmerProfile.editForm.title')}</h2>
+                        <p className="text-xs text-gray-500 mt-0.5">{t('farmerProfile.editForm.subtitle')}</p>
+                    </div>
+                    <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition backdrop-blur-sm">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 overflow-y-auto flex-1">
+                    <form onSubmit={onSave} onKeyDown={handleFormKeyDown} className="space-y-5">
+                        {/* Row 1 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <Field label={t('farmerProfile.editForm.fullName')} required>
+                                <input value={form.name}
+                                    onChange={e => setForm(p => ({ ...p, name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.fullNamePlaceholder')} required maxLength={60}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.farmerCode')} required>
+                                <input value={form.seller_code}
+                                    onChange={e => setForm(p => ({ ...p, seller_code: e.target.value.replace(/\s/g, "").toUpperCase() }))}
+                                    placeholder={t('farmerProfile.editForm.farmerCodePlaceholder')} maxLength={20}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.mobile')} required>
+                                <input value={form.mobile}
+                                    onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/(?!^\+)[^\d]/g, "").slice(0, 13) }))}
+                                    placeholder={t('farmerProfile.editForm.mobilePlaceholder')} type="tel" required maxLength={13}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Row 1b — PAN & Seller ID Code */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('farmerProfile.editForm.panNumber')}>
+                                <input value={form.pan_number}
+                                    onChange={e => setForm(p => ({ ...p, pan_number: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase() }))}
+                                    placeholder={t('farmerProfile.editForm.panPlaceholder')} maxLength={12}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.farmerIdCode')}>
+                                <input value={form.seller_id_code}
+                                    onChange={e => setForm(p => ({ ...p, seller_id_code: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
+                                    placeholder={t('farmerProfile.editForm.farmerIdCodePlaceholder')} maxLength={18} inputMode="numeric"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Row 2 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <Field label={t('farmerProfile.editForm.aadhaar')}>
+                                <input value={form.aadhaar}
+                                    onChange={e => setForm(p => ({ ...p, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
+                                    placeholder={t('farmerProfile.editForm.aadhaarPlaceholder')} maxLength={12}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.farmerType')} required>
+                                <div className="flex gap-2">
+                                    {FARMER_TYPES.map(t => (
+                                        <label key={t} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.seller_type === t ? t === "Utpadak" ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-orange-50/80 border-orange-400 text-orange-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.seller_type === t}
+                                                onChange={() => setForm(p => ({ ...p, seller_type: t }))} className="hidden" />
+                                            {t}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.milkType')} required>
+                                <div className="flex gap-2">
+                                    {MILK_TYPES.map(mt => (
+                                        <label key={mt} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.milk_type === mt ? mt === "cow" ? "bg-amber-50/80 border-amber-400 text-amber-800" : mt === "buffalo" ? "bg-blue-50/80 border-blue-400 text-blue-800" : "bg-violet-50/80 border-violet-400 text-violet-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.milk_type === mt}
+                                                onChange={() => setForm(p => ({ ...p, milk_type: mt }))} className="hidden" />
+                                            {mt === "cow" ? t('farmerProfile.editForm.milkTypeCow') : t('farmerProfile.editForm.milkTypeBuffalo')}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        {/* Row 3 — Bank */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+                            <Field label={t('farmerProfile.editForm.jamin')}>
+                                <input value={form.jamin}
+                                    onChange={e => setForm(p => ({ ...p, jamin: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.jaminPlaceholder')} maxLength={60}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.bankAccount')}>
+                                <input value={form.bank_account}
+                                    onChange={e => setForm(p => ({ ...p, bank_account: e.target.value.replace(/\D/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.bankAccountPlaceholder')} maxLength={20}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.confirmAccount')}>
+                                <input value={form.bank_account_confirm}
+                                    onChange={e => setForm(p => ({ ...p, bank_account_confirm: e.target.value.replace(/\D/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.confirmAccountPlaceholder')} maxLength={20}
+                                    className={`border rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition w-full
+                                        ${form.bank_account_confirm && form.bank_account !== form.bank_account_confirm ? "border-rose-300/60 bg-rose-50/50" : "border-gray-200/60 bg-white/50 focus:bg-white"}`} />
+                                {form.bank_account_confirm && form.bank_account !== form.bank_account_confirm &&
+                                    <p className="text-xs text-rose-500 font-medium mt-1">{t('farmerProfile.editForm.bankMismatch')}</p>}
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.accountHolder')}>
+                                <input value={form.account_holder_name}
+                                    onChange={e => setForm(p => ({ ...p, account_holder_name: e.target.value.replace(/[^a-zA-Z\u0900-\u097F\s]/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.accountHolderPlaceholder')} maxLength={100}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            <Field label={t('farmerProfile.editForm.bankName')}>
+                                <input value={form.bank_name}
+                                    onChange={e => setForm(p => ({ ...p, bank_name: e.target.value.replace(/[^a-zA-Z\s.]/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.bankNamePlaceholder')} maxLength={50}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.ifscCode')}>
+                                <input value={form.ifsc_code}
+                                    onChange={e => setForm(p => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
+                                    placeholder={t('farmerProfile.editForm.ifscCodePlaceholder')} maxLength={11}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.password')}>
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        value={form.password}
+                                        onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                                        placeholder={hasPassword ? "••••••• (already set — leave blank to keep)" : "Password not set yet"}
+                                        maxLength={100}
+                                        autoComplete="new-password"
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                    <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                </div>
+                                <p className={`text-[10px] mt-1 font-medium ${hasPassword ? "text-emerald-600" : "text-amber-600"}`}>
+                                    {hasPassword ? (t('farmerProfile.editForm.passwordSetHint') || "Password is set. Enter a new one to change it.") : (t('farmerProfile.editForm.passwordNotSetHint') || "No password set yet for this farmer.")}
+                                </p>
+                            </Field>
+                        </div>
+
+                        {/* Row 3b — Branch & Pincode */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('farmerProfile.editForm.branchName')}>
+                                <input value={form.branch_name}
+                                    onChange={e => setForm(p => ({ ...p, branch_name: e.target.value.replace(/[^a-zA-Z0-9\s.]/g, "") }))}
+                                    placeholder={t('farmerProfile.editForm.branchNamePlaceholder')} maxLength={100}
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                            <Field label={t('farmerProfile.editForm.pincode')}>
+                                <input value={form.pincode}
+                                    onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                                    placeholder={t('farmerProfile.editForm.pincodePlaceholder')} maxLength={6} inputMode="numeric"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            </Field>
+                        </div>
+
+                        {/* Address */}
+                        <Field label={t('farmerProfile.editForm.address')}>
+                            <input value={form.address}
+                                onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                                placeholder={t('farmerProfile.editForm.addressPlaceholder')} maxLength={200}
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                            <p className="text-[10px] text-gray-400 mt-0.5 text-right">{form.address.length}/200</p>
+                        </Field>
+
+                        {/* Cheque Image */}
+                        <ChequeUpload
+                            value={form.cheque}
+                            onChange={(val) => setForm(p => ({ ...p, cheque: val }))}
+                            label="Cheque Image"
+                        />
+
+                        {/* Profile Image */}
+                        <ChequeUpload
+                            value={form.profile_image}
+                            onChange={(val) => setForm(p => ({ ...p, profile_image: val }))}
+                            label="Profile Image"
+                        />
+
+                        {/* Advance + Deposit + Product + Cattle Feed + Status */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('farmerProfile.editForm.cashAdvance')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('farmerProfile.editForm.enabled'), val: 1 }, { label: t('farmerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.advance_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.advance_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, advance_enabled: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            {form.advance_enabled === 1 && (
+                                <Field label={t('farmerProfile.editForm.advanceRecovery')}>
+                                    <input value={form.advance_deduction}
+                                        onChange={e => setForm(p => ({ ...p, advance_deduction: e.target.value.replace(/[^0-9.]/g, "") }))}
+                                        placeholder={t('farmerProfile.editForm.advanceRecoveryPlaceholder')} inputMode="decimal" maxLength={10}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('farmerProfile.editForm.depositPerLitre')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('farmerProfile.editForm.enabled'), val: 1 }, { label: t('farmerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.deposit_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.deposit_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, deposit_enabled: val, deposit_per_litre: val === 0 ? "" : p.deposit_per_litre }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                            {form.deposit_enabled === 1 && (
+                                <Field label={t('farmerProfile.editForm.depositRate')}>
+                                    <input value={form.deposit_per_litre}
+                                        onChange={e => setForm(p => ({ ...p, deposit_per_litre: e.target.value.replace(/[^0-9.]/g, "") }))}
+                                        placeholder={t('farmerProfile.editForm.depositRatePlaceholder')} inputMode="decimal" maxLength={6}
+                                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm font-mono text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-full" />
+                                </Field>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('farmerProfile.editForm.productSale')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('farmerProfile.editForm.enabled'), val: 1 }, { label: t('farmerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.product_sale_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.product_sale_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, product_sale_enabled: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+
+                            <Field label={t('farmerProfile.editForm.cattleFeedSale')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('farmerProfile.editForm.enabled'), val: 1 }, { label: t('farmerProfile.editForm.disabled'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${form.cattle_feed_sale_enabled === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={form.cattle_feed_sale_enabled === val}
+                                                onChange={() => setForm(p => ({ ...p, cattle_feed_sale_enabled: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Field label={t('farmerProfile.editForm.farmerStatus')}>
+                                <div className="flex gap-2">
+                                    {[{ label: t('farmerProfile.editForm.active'), val: 1 }, { label: t('farmerProfile.editForm.inactive'), val: 0 }].map(({ label, val }) => (
+                                        <label key={val} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border-2 cursor-pointer text-xs font-bold transition
+                                            ${(form.is_active ?? 1) === val ? val === 1 ? "bg-emerald-50/80 border-emerald-400 text-emerald-800" : "bg-rose-50/80 border-rose-400 text-rose-800" : "bg-white/50 border-gray-200/60 text-gray-500 hover:border-gray-300"}`}>
+                                            <input type="radio" checked={(form.is_active ?? 1) === val}
+                                                onChange={() => setForm(p => ({ ...p, is_active: val }))} className="hidden" />
+                                            {label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-1">
+                            <button type="button" onClick={onCancel}
+                                className="text-sm font-medium text-gray-500 hover:text-gray-700 px-4 py-2 transition">{t('farmerProfile.editForm.cancel')}</button>
+                            <button type="submit" disabled={saving}
+                                className={`flex items-center gap-2 text-sm font-bold px-6 py-2.5 rounded-xl text-white shadow-lg transition-all duration-200
+                                    ${saving ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30" : "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 active:scale-95"}`}>
+                                {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                <Save size={14} />
+                                {saving ? t('farmerProfile.editForm.saving') : t('farmerProfile.editForm.updateFarmer')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Main ──────────────────────────────────────────────────────
+export default function FarmerProfile() {
+    const { t } = useTranslation();
+    const { farmer_id: id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    // ── FIX: Determine which farmer ID to use ──
+    // If URL has farmer_id, use that (admin viewing specific farmer)
+    // Otherwise use the logged-in user's ID (farmer viewing own profile)
+    const farmerId = id || user?.id;
+
+    const [farmer, setFarmer] = useState(null);
+    const [milkEntries, setMilkEntries] = useState([]);
+    const [premiumRates, setPremiumRates] = useState([]);
+    const [cashAdvances, setCashAdvances] = useState([]);
+    const [cashDeposits, setCashDeposits] = useState([]);
+    const [depositBalance, setDepositBalance] = useState(null);
+    const [productSales, setProductSales] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [showEdit, setShowEdit] = useState(false);
+    const [editForm, setEditForm] = useState(EMPTY_FORM);
+    const [saving, setSaving] = useState(false);
+    const [hasPassword, setHasPassword] = useState(false);
+    const [showDelete, setShowDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [viewImage, setViewImage] = useState(null);
+    const [flash, setFlash] = useState(null);
+    const [flashPhase, setFlashPhase] = useState("idle");
+    const flashHideTimer = useRef(null);
+    const flashClearTimer = useRef(null);
+
+    // ── Filter & Pagination State ──────────────────────────────
+    const [milkFilter, setMilkFilter] = useState("all");
+    const [milkFrom, setMilkFrom] = useState("");
+    const [milkTo, setMilkTo] = useState("");
+    const [milkPage, setMilkPage] = useState(1);
+    const [milkPageSize, setMilkPageSize] = useState(10);
+
+    const [chartFilter, setChartFilter] = useState("month");
+    const [chartFrom, setChartFrom] = useState("");
+    const [chartTo, setChartTo] = useState("");
+
+    const [advFilter, setAdvFilter] = useState("all");
+    const [advFrom, setAdvFrom] = useState("");
+    const [advTo, setAdvTo] = useState("");
+    const [advPage, setAdvPage] = useState(1);
+    const [advPageSize, setAdvPageSize] = useState(10);
+
+    const [depFilter, setDepFilter] = useState("all");
+    const [depFrom, setDepFrom] = useState("");
+    const [depTo, setDepTo] = useState("");
+    const [depPage, setDepPage] = useState(1);
+    const [depPageSize, setDepPageSize] = useState(10);
+
+    const [prodFilter, setProdFilter] = useState("all");
+    const [prodFrom, setProdFrom] = useState("");
+    const [prodTo, setProdTo] = useState("");
+    const [prodPage, setProdPage] = useState(1);
+    const [prodPageSize, setProdPageSize] = useState(10);
+
+    const [premPage, setPremPage] = useState(1);
+    const [premPageSize, setPremPageSize] = useState(10);
+
+    const [commissionData, setCommissionData] = useState(null);
+    const [bills, setBills] = useState([]);
+    const [billFilter, setBillFilter] = useState("all");
+    const [billFrom, setBillFrom] = useState("");
+    const [billTo, setBillTo] = useState("");
+    const [billPage, setBillPage] = useState(1);
+    const [billPageSize, setBillPageSize] = useState(10);
+
+    const [bonusData, setBonusData] = useState({ bonus: [], gavaliBonus: [] });
+    const [bonusPage, setBonusPage] = useState(1);
+    const [bonusPageSize, setBonusPageSize] = useState(10);
+
+    const [cattleFeedSales, setCattleFeedSales] = useState([]);
+    const [cfFilter, setCfFilter] = useState("all");
+    const [cfFrom, setCfFrom] = useState("");
+    const [cfTo, setCfTo] = useState("");
+    const [cfPage, setCfPage] = useState(1);
+    const [cfPageSize, setCfPageSize] = useState(10);
+
+    const applyDateFilter = (entries, filter, customFrom, customTo, dateField = "entry_date") => {
+        const now = new Date();
+        let from, to;
+        if (filter === "custom") {
+            from = customFrom ? new Date(customFrom) : null;
+            to = customTo ? new Date(customTo + "T23:59:59") : null;
+        } else if (filter === "day") {
+            from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        } else if (filter === "week") {
+            const day = now.getDay();
+            from = new Date(now);
+            from.setDate(now.getDate() - day);
+            from.setHours(0, 0, 0, 0);
+            to = new Date(now);
+            to.setHours(23, 59, 59, 999);
+        } else if (filter === "month") {
+            from = new Date(now.getFullYear(), now.getMonth(), 1);
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        } else if (filter === "year") {
+            from = new Date(now.getFullYear(), 0, 1);
+            to = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+        } else {
+            return entries;
+        }
+        return entries.filter(e => {
+            const raw = e[dateField];
+            const d = raw && raw.length === 10
+                ? new Date(raw + "T12:00:00")
+                : new Date(raw);
+            return (!from || d >= from) && (!to || d <= to);
+        });
+    };
+
+    const showFlash = (type, msg) => {
+        clearTimeout(flashHideTimer.current);
+        clearTimeout(flashClearTimer.current);
+        setFlash({ type, msg });
+        setFlashPhase("idle");
+        requestAnimationFrame(() => requestAnimationFrame(() => setFlashPhase("visible")));
+        flashHideTimer.current = setTimeout(() => {
+            setFlashPhase("idle");
+            flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
+        }, FLASH_DURATION);
+    };
+
+    const dismissFlash = () => {
+        clearTimeout(flashHideTimer.current);
+        clearTimeout(flashClearTimer.current);
+        setFlashPhase("idle");
+        flashClearTimer.current = setTimeout(() => setFlash(null), FLASH_ANIM_MS);
+    };
+
+    const openEdit = () => {
+        setEditForm({
+            seller_code: farmer.seller_code || "",
+            name: farmer.name || "",
+            mobile: farmer.mobile || "",
+            aadhaar: farmer.aadhaar || "",
+            pan_number: farmer.pan_number || "",
+            seller_id_code: farmer.seller_id_code || "",
+            seller_type: farmer.seller_type || "Utpadak",
+            milk_type: farmer.milk_type || "cow",
+            jamin: farmer.jamin || "",
+            bank_account: farmer.bank_account || "",
+            bank_account_confirm: farmer.bank_account || "",
+            bank_name: farmer.bank_name || "",
+            account_holder_name: farmer.account_holder_name || "",
+            branch_name: farmer.branch_name || "",
+            ifsc_code: farmer.ifsc_code || "",
+            address: farmer.address || "",
+            pincode: farmer.pincode || "",
+            advance_enabled: Number(farmer.advance_enabled ?? 1) ? 1 : 0,
+            advance_deduction: farmer.advance_deduction || "",
+            deposit_enabled: Number(farmer.deposit_enabled ?? 0) ? 1 : 0,
+            deposit_per_litre: farmer.deposit_per_litre || "",
+            product_sale_enabled: Number(farmer.product_sale_enabled ?? 0) ? 1 : 0,
+            product_sale_rate: farmer.product_sale_rate || "",
+            cattle_feed_sale_enabled: Number(farmer.cattle_feed_sale_enabled ?? 0) ? 1 : 0,
+            is_active: Number(farmer.is_active ?? 1) ? 1 : 0,
+            password: "",
+            cheque: farmer.cheque || "",
+            profile_image: farmer.profile_image || "",
+        });
+        setHasPassword(!!farmer.has_password);
+        setShowEdit(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        const nameParts = editForm.name.trim().split(/\s+/);
+        if (!editForm.seller_code || !editForm.seller_code.trim()) {
+            showFlash("error", t('farmerProfile.editForm.farmerCodeRequired') || "Farmer code is required.");
+            return;
+        }
+        if (!editForm.name || nameParts.length < 2) {
+            showFlash("error", t('farmerProfile.editForm.nameRequired'));
+            return;
+        }
+        if (/\d/.test(editForm.name)) {
+            showFlash("error", t('farmerProfile.editForm.nameNoNumbers'));
+            return;
+        }
+        const mobileClean = editForm.mobile.replace(/^\+/, "");
+        if (!/^\d{10,12}$/.test(mobileClean)) {
+            showFlash("error", t('farmerProfile.editForm.mobileInvalid'));
+            return;
+        }
+        if (editForm.pan_number && !/^[a-zA-Z0-9]{1,12}$/.test(editForm.pan_number)) {
+            showFlash("error", t('farmerProfile.editForm.panInvalid') || "PAN number must be alphanumeric and up to 12 characters.");
+            return;
+        }
+        if (editForm.seller_id_code && !/^\d{1,18}$/.test(editForm.seller_id_code)) {
+            showFlash("error", t('farmerProfile.editForm.farmerIdCodeInvalid') || "Farmer ID Code must be numeric and up to 18 digits.");
+            return;
+        }
+        if (editForm.pincode && !/^\d{6}$/.test(editForm.pincode)) {
+            showFlash("error", t('farmerProfile.editForm.pincodeInvalid') || "Pincode must be a valid 6-digit number.");
+            return;
+        }
+        if (editForm.bank_account && editForm.bank_account !== editForm.bank_account_confirm) {
+            showFlash("error", t('farmerProfile.editForm.bankMismatch'));
+            return;
+        }
+        if (editForm.password && editForm.password.length < 6) {
+            showFlash("error", t('farmerProfile.editForm.passwordMinError') || "Password must be at least 6 characters.");
+            return;
+        }
+        setSaving(true);
+        try {
+            const payload = { ...editForm };
+            if (!payload.password) delete payload.password;
+            await api.put(`/sellers/${farmerId}`, payload);
+            showFlash("success", t('farmerProfile.editForm.saveSuccess'));
+            setShowEdit(false);
+            await fetchAll(true);
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t('farmerProfile.editForm.saveError'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        setDeleting(true);
+        try {
+            await api.delete(`/sellers/${farmerId}`);
+            navigate("/sellerregister");
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t('farmerProfile.deleteModal.deleteError'));
+            setDeleting(false);
+            setShowDelete(false);
+        }
+    };
+
+    const fetchAll = async (silent = false) => {
+        if (!farmerId) {
+            setError("No farmer ID found");
+            setLoading(false);
+            return;
+        }
+        if (!silent) setLoading(true);
+        setError(null);
+        try {
+            const [farmerRes, entriesRes, premiumRes, cashRes, depRes, productsRes, depBalRes,
+                commissionRes, billsRes, bonusRes, cattleFeedRes] = await Promise.allSettled([
+                    api.get(`/sellers/${farmerId}`),
+                    api.get(`/sellers/${farmerId}/entries`),
+                    api.get(`/sellers/${farmerId}/premium`),
+                    api.get(`/sellers/${farmerId}/advance`),
+                    api.get(`/sellers/${farmerId}/deposit`),
+                    api.get(`/sellers/${farmerId}/products`),
+                    api.get(`/sellers/${farmerId}/deposit-balance`),
+                    api.get(`/sellers/${farmerId}/commission`),
+                    api.get(`/sellers/${farmerId}/bills`),
+                    api.get(`/sellers/${farmerId}/bonus`),
+                    api.get(`/sellers/${farmerId}/cattle-feed`),
+                ]);
+
+            if (farmerRes.status === "fulfilled") setFarmer(farmerRes.value.data);
+            else {
+                setError(t('farmerProfile.flash.notFound'));
+                setLoading(false);
+                return;
+            }
+
+            if (entriesRes.status === "fulfilled") setMilkEntries(entriesRes.value.data);
+            if (premiumRes.status === "fulfilled") setPremiumRates(premiumRes.value.data);
+            if (cashRes.status === "fulfilled") setCashAdvances(cashRes.value.data);
+            if (depRes.status === "fulfilled") setCashDeposits(depRes.value.data);
+            if (productsRes.status === "fulfilled") setProductSales(productsRes.value.data);
+            if (depBalRes.status === "fulfilled") setDepositBalance(depBalRes.value.data);
+            if (commissionRes.status === "fulfilled") setCommissionData(commissionRes.value.data);
+            if (billsRes.status === "fulfilled") setBills(billsRes.value.data);
+            if (bonusRes.status === "fulfilled") setBonusData(bonusRes.value.data);
+            if (cattleFeedRes.status === "fulfilled") setCattleFeedSales(cattleFeedRes.value.data);
+        } catch (err) {
+            setError(t('farmerProfile.flash.loadError'));
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (farmerId) fetchAll();
+    }, [farmerId]);
+
+    // ── derived stats ──
+    const totalMilk = milkEntries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
+    const totalEarned = milkEntries.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0);
+    const avgFat = milkEntries.length ? (milkEntries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / milkEntries.length).toFixed(2) : null;
+    const avgSnf = milkEntries.length ? (milkEntries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / milkEntries.length).toFixed(2) : null;
+    const totalAdvance = cashAdvances.filter(c => c.type === "given").reduce((a, c) => a + parseFloat(c.amount || 0), 0);
+    const totalRepaid = cashAdvances.filter(c => c.type === "received").reduce((a, c) => a + parseFloat(c.amount || 0), 0);
+    const totalProducts = productSales.reduce((a, p) => a + parseFloat(p.total_amount || 0), 0);
+    const depositNet = depositBalance?.net_balance ??
+        (cashDeposits.filter(d => d.type === "credit").reduce((a, d) => a + parseFloat(d.amount || 0), 0) -
+            cashDeposits.filter(d => d.type === "debit").reduce((a, d) => a + parseFloat(d.amount || 0), 0));
+
+    // Show loading state
+    if (loading) return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+        </div>
+    );
+
+    // Show error state
+    if (error) return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex flex-col items-center justify-center gap-4">
+            <AlertTriangle size={32} className="text-rose-400" />
+            <p className="text-gray-600 font-medium">{error}</p>
+            <button onClick={() => navigate(-1)} className="text-sm text-gray-500 underline">Go back</button>
+        </div>
+    );
+
+    // Show not found state
+    if (!farmer) return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex flex-col items-center justify-center gap-4">
+            <AlertTriangle size={32} className="text-amber-400" />
+            <p className="text-gray-600 font-medium">Farmer not found</p>
+            <button onClick={() => navigate('/farmer/dashboard')} className="text-sm text-blue-500 underline">Go to Dashboard</button>
+        </div>
+    );
+
+    const milkTypeIcons = {
+        cow: <Milk className="w-3 h-3 text-amber-600" />,
+        buffalo: <Milk className="w-3 h-3 text-blue-600" />,
+        mixed: <Milk className="w-3 h-3 text-violet-600" />,
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+            <FlashToast flash={flash} phase={flashPhase} onClose={dismissFlash} />
+            <main className="max-w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+                {/* ── Top Bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="w-10 h-10 rounded-xl bg-gray-50/80 border border-gray-200/60 flex items-center justify-center text-gray-600 hover:bg-gray-100/80 hover:border-gray-300/80 transition-all duration-200 shadow-sm hover:shadow-md shrink-0"
+                            aria-label="Go back"
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-gray-900/20 shrink-0">
+                                {farmer?.profile_image
+                                    ? <img src={farmer.profile_image} alt={farmer.name} className="w-full h-full object-cover" />
+                                    : farmer?.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">{farmer?.name}</h1>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {farmer?.seller_type && (
+                                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm ${farmerTypeBadge(farmer.seller_type)}`}>
+                                            {farmer.seller_type}
+                                        </span>
+                                    )}
+                                    {farmer?.milk_type && (
+                                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm ${milkBadge(farmer.milk_type)}`}>
+                                            {farmer.milk_type}
+                                        </span>
+                                    )}
+                                    <span className="text-xs text-gray-400 font-mono">
+                                        {t('farmerProfile.farmerCode', { code: farmer?.seller_code || "—" })}
+                                    </span>
+                                    {farmer?.created_at && (
+                                        <span className="text-xs text-gray-400">
+                                            · {t('farmerProfile.registeredOn', { date: fmt(farmer.created_at) })}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={openEdit}
+                            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-xs font-bold shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200">
+                            <Pencil size={14} /> {t('farmerProfile.editFarmer')}
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── Edit Form Modal ── */}
+                <EditFormModal
+                    isOpen={showEdit}
+                    onClose={() => { setShowEdit(false); setHasPassword(false); }}
+                    form={editForm}
+                    setForm={setEditForm}
+                    farmer={farmer}
+                    saving={saving}
+                    onSave={handleSave}
+                    onCancel={() => { setShowEdit(false); setHasPassword(false); }}
+                    t={t}
+                    hasPassword={hasPassword}
+                />
+
+                {/* ── Summary Stats ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <StatCard
+                        label={t('farmerProfile.stats.totalMilk')}
+                        value={milkEntries.length ? `${totalMilk.toFixed(1)} L` : null}
+                        sub={t('farmerProfile.stats.totalMilkSub', { count: milkEntries.length })}
+                        color="from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700"
+                        icon={<Milk size={18} />}
+                    />
+                    <StatCard
+                        label={t('farmerProfile.stats.totalEarned')}
+                        value={totalEarned ? `₹${totalEarned.toFixed(2)}` : null}
+                        sub={t('farmerProfile.stats.totalEarnedSub')}
+                        color="from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700"
+                        icon={<TrendingUp size={18} />}
+                    />
+                    <StatCard
+                        label={t('farmerProfile.stats.depositBalance')}
+                        value={`₹${parseFloat(depositNet || 0).toFixed(2)}`}
+                        sub={t('farmerProfile.stats.depositBalanceSub')}
+                        color="from-sky-50 to-sky-100/50 border-sky-200/60 text-sky-700"
+                        icon={<Vault size={18} />}
+                    />
+                    <StatCard
+                        label={t('farmerProfile.stats.cashAdvance')}
+                        value={totalAdvance ? `₹${totalAdvance.toFixed(2)}` : null}
+                        sub={t('farmerProfile.stats.cashAdvanceSub', { amount: totalRepaid.toFixed(2) })}
+                        color="from-amber-50 to-amber-100/50 border-amber-200/60 text-amber-700"
+                        icon={<Wallet size={18} />}
+                    />
+                    <StatCard
+                        label={t('farmerProfile.stats.productsBought')}
+                        value={totalProducts ? `₹${totalProducts.toFixed(2)}` : null}
+                        sub={t('farmerProfile.stats.productsBoughtSub', { count: productSales.length })}
+                        color="from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700"
+                        icon={<ShoppingBag size={18} />}
+                    />
+                </div>
+
+                {/* ── Two-column layout ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    {/* Personal Info */}
+                    <Section title={t('farmerProfile.personalInfo.title')} icon={<User size={16} className="text-white" />}>
+                        <InfoRow icon={<Phone size={13} />} label={t('farmerProfile.personalInfo.mobile')} value={farmer.mobile} mono />
+                        <InfoRow icon={<CreditCard size={13} />} label={t('farmerProfile.personalInfo.aadhaar')} value={farmer.aadhaar} mono />
+                        <InfoRow icon={<CreditCard size={13} />} label={t('farmerProfile.personalInfo.panNumber')} value={farmer.pan_number} mono />
+                        <InfoRow icon={<Hash size={13} />} label={t('farmerProfile.personalInfo.farmerIdCode')} value={farmer.seller_id_code} mono />
+                        <InfoRow icon={<User size={13} />} label={t('farmerProfile.personalInfo.jamin')} value={farmer.jamin} />
+                        <InfoRow icon={<MapPin size={13} />} label={t('farmerProfile.personalInfo.address')} value={farmer.address} />
+                        <InfoRow icon={<MapPin size={13} />} label={t('farmerProfile.personalInfo.pincode')} value={farmer.pincode} mono />
+                        <InfoRow icon={<Calendar size={13} />} label={t('farmerProfile.personalInfo.registeredOn')} value={fmtDateTime(farmer.created_at)} />
+                        <InfoRow icon={<User size={13} />} label={t('farmerProfile.personalInfo.farmerType')} badge={
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm ${farmerTypeBadge(farmer.seller_type)}`}>
+                                {farmer.seller_type || "—"}
+                            </span>
+                        } />
+                        <InfoRow icon={<Milk size={13} />} label={t('farmerProfile.personalInfo.milkType')} badge={
+                            farmer.milk_type
+                                ? <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm ${milkBadge(farmer.milk_type)}`}>
+                                    {farmer.milk_type}
+                                </span>
+                                : null
+                        } />
+                        <InfoRow icon={<ImageIcon size={13} />} label="Cheque Image" badge={
+                            farmer.cheque ? (
+                                <button
+                                    onClick={() => setViewImage({ url: farmer.cheque, title: `${farmer.name} — Cheque` })}
+                                    className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                                >
+                                    <ImageIcon size={14} />
+                                    View Cheque
+                                </button>
+                            ) : (
+                                <span className="text-xs text-gray-300 italic">No cheque uploaded</span>
+                            )
+                        } />
+                        <InfoRow icon={<ImageIcon size={13} />} label="Profile Image" badge={
+                            farmer.profile_image ? (
+                                <button
+                                    onClick={() => setViewImage({ url: farmer.profile_image, title: `${farmer.name} — Profile Photo` })}
+                                    className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                                >
+                                    <ImageIcon size={14} />
+                                    View Photo
+                                </button>
+                            ) : (
+                                <span className="text-xs text-gray-300 italic">No photo uploaded</span>
+                            )
+                        } />
+                        <InfoRow icon={<Banknote size={13} />} label={t('farmerProfile.personalInfo.cashAdvance')} badge={
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm
+                                ${farmer.advance_enabled ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-rose-50/80 text-rose-600 border-rose-200/60"}`}>
+                                {farmer.advance_enabled ? t('farmerProfile.status.enabled') : t('farmerProfile.status.disabled')}
+                            </span>
+                        } />
+                        {farmer.advance_deduction && parseFloat(farmer.advance_deduction) > 0 && (
+                            <InfoRow icon={<Banknote size={13} />} label={t('farmerProfile.personalInfo.advanceRecovery')}
+                                value={`₹${parseFloat(farmer.advance_deduction).toFixed(2)}`} mono />
+                        )}
+                        {Boolean(farmer.deposit_enabled) && farmer.deposit_per_litre && (
+                            <InfoRow
+                                icon={<Banknote size={13} />}
+                                label={t('farmerProfile.personalInfo.depositPerLitre')}
+                                value={`₹${parseFloat(farmer.deposit_per_litre).toFixed(2)} / L`}
+                                mono
+                            />
+                        )}
+                        <InfoRow icon={<Star size={13} />} label={t('farmerProfile.personalInfo.status')} badge={
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm
+                                ${farmer.is_active ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-gray-100/80 text-gray-400 border-gray-200/60"}`}>
+                                {farmer.is_active ? t('farmerProfile.status.active') : t('farmerProfile.status.inactive')}
+                            </span>
+                        } />
+                        <InfoRow icon={<ShoppingBag size={13} />} label={t('farmerProfile.personalInfo.productSale')} badge={
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm
+                                ${farmer.product_sale_enabled ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-rose-50/80 text-rose-600 border-rose-200/60"}`}>
+                                {farmer.product_sale_enabled ? t('farmerProfile.status.enabled') : t('farmerProfile.status.disabled')}
+                            </span>
+                        } />
+                        <InfoRow icon={<Wheat size={13} />} label={t('farmerProfile.personalInfo.cattleFeedSale')} badge={
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm
+                                ${farmer.cattle_feed_sale_enabled ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-rose-50/80 text-rose-600 border-rose-200/60"}`}>
+                                {farmer.cattle_feed_sale_enabled ? t('farmerProfile.status.enabled') : t('farmerProfile.status.disabled')}
+                            </span>
+                        } />
+                    </Section>
+
+                    {/* Bank Info */}
+                    <Section title={t('farmerProfile.bankDetails.title')} icon={<Landmark size={16} className="text-white" />}>
+                        <InfoRow icon={<Hash size={13} />} label={t('farmerProfile.bankDetails.accountNumber')} value={farmer.bank_account} mono />
+                        <InfoRow icon={<User size={13} />} label={t('farmerProfile.bankDetails.accountHolder')} value={farmer.account_holder_name} />
+                        <InfoRow icon={<Building2 size={13} />} label={t('farmerProfile.bankDetails.bankName')} value={farmer.bank_name} />
+                        <InfoRow icon={<Building2 size={13} />} label={t('farmerProfile.bankDetails.branchName')} value={farmer.branch_name} />
+                        <InfoRow icon={<BadgeCheck size={13} />} label={t('farmerProfile.bankDetails.ifscCode')} value={farmer.ifsc_code} mono />
+                    </Section>
+                </div>
+
+                {/* ── Milk Entry Chart ── */}
+                {(() => {
+                    const chartFiltered = applyDateFilter(milkEntries, chartFilter, chartFrom, chartTo, "entry_date");
+                    const chartData = buildMilkChartData(chartFiltered);
+                    const chartTotalQty = chartData.reduce((a, d) => a + d.quantity, 0);
+                    const chartTotalAmt = chartData.reduce((a, d) => a + d.amount, 0);
+                    return (
+                        <Section title="Milk Collection Trend" icon={<BarChart3 size={16} className="text-white" />}>
+                            <FilterBar filter={chartFilter} setFilter={setChartFilter}
+                                from={chartFrom} setFrom={setChartFrom}
+                                to={chartTo} setTo={setChartTo}
+                                onReset={() => { }}
+                                t={t} />
+                            {chartData.length > 0 && (
+                                <div className="flex flex-wrap gap-2 py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-blue-50/80 border border-blue-200/60 text-blue-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {chartData.length} day{chartData.length !== 1 ? "s" : ""} plotted
+                                    </span>
+                                    <span className="text-xs bg-gray-50/80 border border-gray-200/60 text-gray-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        Total: {chartTotalQty.toFixed(2)} L
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        Amount: ₹{chartTotalAmt.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {chartData.length === 0 ? (
+                                <EmptyState icon={<Milk size={32} />} msg={t('farmerProfile.milkEntries.noEntries')} />
+                            ) : (
+                                <div className="py-4" style={{ width: "100%", height: 360 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 10, right: 24, left: 4, bottom: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                            <XAxis
+                                                dataKey="label"
+                                                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                                                axisLine={{ stroke: "#e5e7eb" }}
+                                                tickLine={false}
+                                                interval={chartData.length > 20 ? Math.floor(chartData.length / 15) : 0}
+                                                angle={chartData.length > 10 ? -35 : 0}
+                                                textAnchor={chartData.length > 10 ? "end" : "middle"}
+                                                height={chartData.length > 10 ? 55 : 30}
+                                                label={{ value: "Date", position: "insideBottom", offset: -2, fontSize: 11, fill: "#9ca3af" }}
+                                            />
+                                            <YAxis
+                                                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                                                axisLine={{ stroke: "#e5e7eb" }}
+                                                tickLine={false}
+                                                width={55}
+                                                label={{ value: "Quantity (L)", angle: -90, position: "insideLeft", fontSize: 11, fill: "#9ca3af" }}
+                                            />
+                                            <RechartsTooltip content={<MilkChartTooltip />} cursor={{ fill: "#f8fafc" }} />
+                                            <Bar dataKey="quantity" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={42} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Milk Entries ── */}
+                {(() => {
+                    const filtered = applyDateFilter(milkEntries, milkFilter, milkFrom, milkTo, "entry_date");
+                    const paginated = filtered.slice((milkPage - 1) * milkPageSize, milkPage * milkPageSize);
+                    const fAvgFat = filtered.length ? (filtered.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / filtered.length).toFixed(2) : null;
+                    const fAvgSnf = filtered.length ? (filtered.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / filtered.length).toFixed(2) : null;
+                    return (
+                        <Section title={t('farmerProfile.milkEntries.title')} icon={<Milk size={16} className="text-white" />}>
+                            <FilterBar filter={milkFilter} setFilter={setMilkFilter}
+                                from={milkFrom} setFrom={setMilkFrom}
+                                to={milkTo} setTo={setMilkTo}
+                                onReset={() => setMilkPage(1)}
+                                t={t} />
+                            {filtered.length > 0 && (() => {
+                                const fTotalQty = filtered.reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2);
+                                const fTotalAmt = filtered.reduce((a, e) => a + parseFloat(e.total_amount || 0), 0).toFixed(2);
+                                const fCowQty = filtered.filter(e => (e.milk_type || "").toLowerCase() === "cow").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2);
+                                const fBufQty = filtered.filter(e => (e.milk_type || "").toLowerCase() === "buffalo").reduce((a, e) => a + parseFloat(e.quantity || 0), 0).toFixed(2);
+                                return (
+                                    <div className="flex flex-wrap gap-2 py-3 border-b border-gray-200/60">
+                                        <span className="text-xs bg-blue-50/80 border border-blue-200/60 text-blue-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                            {t('farmerProfile.milkEntries.stats.avgFat', { value: fAvgFat })}
+                                        </span>
+                                        <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                            {t('farmerProfile.milkEntries.stats.avgSnf', { value: fAvgSnf })}
+                                        </span>
+                                        <span className="text-xs bg-violet-50/80 border border-violet-200/60 text-violet-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                            {t('farmerProfile.milkEntries.stats.records', { count: filtered.length })}
+                                        </span>
+                                        <span className="text-xs bg-gray-50/80 border border-gray-200/60 text-gray-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                            {t('farmerProfile.milkEntries.stats.total', { qty: fTotalQty })}
+                                        </span>
+                                        {parseFloat(fCowQty) > 0 && (
+                                            <span className="text-xs bg-amber-50/80 border border-amber-200/60 text-amber-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                                {t('farmerProfile.milkEntries.stats.cow', { qty: fCowQty })}
+                                            </span>
+                                        )}
+                                        {parseFloat(fBufQty) > 0 && (
+                                            <span className="text-xs bg-blue-50/80 border border-blue-200/60 text-blue-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                                {t('farmerProfile.milkEntries.stats.buffalo', { qty: fBufQty })}
+                                            </span>
+                                        )}
+                                        <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                            {t('farmerProfile.milkEntries.stats.amount', { amount: fTotalAmt })}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Droplet size={32} />} msg={t('farmerProfile.milkEntries.noEntries')} />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[420px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {[
+                                                        t('farmerProfile.milkEntries.tableHeaders.date'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.shift'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.milk'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.qty'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.fat'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.snf'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.water'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.rate'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.amount'),
+                                                        t('farmerProfile.milkEntries.tableHeaders.premium'),
+                                                    ].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map((e) => (
+                                                    <tr key={e.entry_id} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 text-xs text-gray-600 font-mono whitespace-nowrap border-r border-gray-200/60">{fmt(e.entry_date) || "—"}</td>
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${e.shift === "morning" ? "bg-amber-50/80 text-amber-700 border-amber-200/60" : "bg-indigo-50/80 text-indigo-600 border-indigo-200/60"}`}>
+                                                                {e.shift === "morning" ? <Sun size={10} className="inline mr-1" /> : <Moon size={10} className="inline mr-1" />}
+                                                                {e.shift === "morning" ? t('farmerProfile.milkEntries.shiftMorning') : t('farmerProfile.milkEntries.shiftEvening')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            {e.milk_type ? (
+                                                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${milkBadge(e.milk_type)}`}>
+                                                                    {milkIcon(e.milk_type, milkTypeIcons)} {e.milk_type}
+                                                                </span>
+                                                            ) : "—"}
+                                                        </td>
+                                                        <td className="px-4 py-2.5 font-mono text-blue-600 font-semibold border-r border-gray-200/60">{e.quantity ?? "—"}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-amber-600 border-r border-gray-200/60">{e.fat ?? "—"}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-violet-600 border-r border-gray-200/60">{e.snf ?? "—"}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-500 border-r border-gray-200/60">{e.water ?? "—"}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">₹{parseFloat(e.rate_applied || 0).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900 border-r border-gray-200/60">₹{parseFloat(e.total_amount || 0).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5">
+                                                            {e.is_premium
+                                                                ? <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50/80 text-amber-700 border border-amber-200/60 backdrop-blur-sm">Premium</span>
+                                                                : <span className="text-gray-300 text-xs">—</span>}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={milkPage} setPage={setMilkPage}
+                                pageSize={milkPageSize} setPageSize={setMilkPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Premium Rates ── */}
+                {(() => {
+                    const paginated = premiumRates.slice((premPage - 1) * premPageSize, premPage * premPageSize);
+                    return (
+                        <Section title={t('farmerProfile.premiumRates.title')} icon={<FlaskConical size={16} className="text-white" />}>
+                            {premiumRates.length === 0 ? (
+                                <EmptyState icon={<Star size={32} />} msg={t('farmerProfile.premiumRates.noRates')} />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {[
+                                                        t('farmerProfile.premiumRates.tableHeaders.milkType'),
+                                                        t('farmerProfile.premiumRates.tableHeaders.rate'),
+                                                        t('farmerProfile.premiumRates.tableHeaders.from'),
+                                                        t('farmerProfile.premiumRates.tableHeaders.to'),
+                                                        t('farmerProfile.premiumRates.tableHeaders.reason'),
+                                                        t('farmerProfile.premiumRates.tableHeaders.status'),
+                                                    ].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map((r) => (
+                                                    <tr key={r.id} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${milkBadge(r.milk_type)}`}>
+                                                                {milkIcon(r.milk_type, milkTypeIcons)} {r.milk_type}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900 font-mono border-r border-gray-200/60">₹{parseFloat(r.rate_per_liter).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 font-mono border-r border-gray-200/60">{fmt(r.effective_from) || "—"}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 font-mono border-r border-gray-200/60">{fmt(r.effective_to) || <span className="text-emerald-600 font-bold">Active</span>}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 max-w-xs truncate border-r border-gray-200/60">{r.reason || "—"}</td>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${r.is_active ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-gray-100/80 text-gray-400 border-gray-200/60"}`}>
+                                                                {r.is_active ? t('farmerProfile.premiumRates.active') : t('farmerProfile.premiumRates.inactive')}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={premiumRates.length} page={premPage} setPage={setPremPage}
+                                pageSize={premPageSize} setPageSize={setPremPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Cash Advances ── */}
+                {(() => {
+                    const filtered = applyDateFilter(cashAdvances, advFilter, advFrom, advTo, "transaction_date");
+                    const paginated = filtered.slice((advPage - 1) * advPageSize, advPage * advPageSize);
+                    const fGiven = filtered.filter(c => c.type === "given").reduce((a, c) => a + parseFloat(c.amount || 0), 0);
+                    const fReceived = filtered.filter(c => c.type === "received").reduce((a, c) => a + parseFloat(c.amount || 0), 0);
+                    return (
+                        <Section title={t('farmerProfile.cashAdvances.title')} icon={<Wallet size={16} className="text-white" />}>
+                            <FilterBar filter={advFilter} setFilter={setAdvFilter}
+                                from={advFrom} setFrom={setAdvFrom}
+                                to={advTo} setTo={setAdvTo}
+                                onReset={() => setAdvPage(1)}
+                                t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 flex-wrap py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-rose-50/80 border border-rose-200/60 text-rose-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.cashAdvances.stats.given', { amount: fGiven.toFixed(2) })}
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.cashAdvances.stats.received', { amount: fReceived.toFixed(2) })}
+                                    </span>
+                                    <span className="text-xs bg-amber-50/80 border border-amber-200/60 text-amber-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.cashAdvances.stats.balance', { amount: (fGiven - fReceived).toFixed(2) })}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Wallet size={32} />} msg={t('farmerProfile.cashAdvances.noRecords')} />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {[
+                                                        t('farmerProfile.cashAdvances.tableHeaders.date'),
+                                                        t('farmerProfile.cashAdvances.tableHeaders.type'),
+                                                        t('farmerProfile.cashAdvances.tableHeaders.amount'),
+                                                        t('farmerProfile.cashAdvances.tableHeaders.remarks'),
+                                                    ].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map((c) => (
+                                                    <tr key={c.id} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 text-xs text-gray-600 font-mono border-r border-gray-200/60">{fmt(c.transaction_date) || "—"}</td>
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${c.type === "given" ? "bg-rose-50/80 text-rose-700 border-rose-200/60" : "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"}`}>
+                                                                {c.type === "given" ? t('farmerProfile.cashAdvances.given') : t('farmerProfile.cashAdvances.received')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 font-bold font-mono text-gray-900 border-r border-gray-200/60">₹{parseFloat(c.amount).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500">{c.remarks || "—"}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={advPage} setPage={setAdvPage}
+                                pageSize={advPageSize} setPageSize={setAdvPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Cash Deposits ── */}
+                {(() => {
+                    const filtered = applyDateFilter(cashDeposits, depFilter, depFrom, depTo, "transaction_date");
+                    const paginated = filtered.slice((depPage - 1) * depPageSize, depPage * depPageSize);
+                    const fCredit = filtered.filter(c => c.type === "credit").reduce((a, c) => a + parseFloat(c.amount || 0), 0);
+                    const fDebit = filtered.filter(c => c.type === "debit").reduce((a, c) => a + parseFloat(c.amount || 0), 0);
+                    const fNet = fCredit - fDebit;
+                    return (
+                        <Section title={t('farmerProfile.cashDeposits.title')} icon={<Vault size={16} className="text-white" />}>
+                            <FilterBar filter={depFilter} setFilter={setDepFilter} from={depFrom} setFrom={setDepFrom} to={depTo} setTo={setDepTo} onReset={() => setDepPage(1)} t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 flex-wrap py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-violet-50/80 border border-violet-200/60 text-violet-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.cashDeposits.stats.records', { count: filtered.length })}
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.cashDeposits.stats.credited', { amount: fCredit.toFixed(2) })}
+                                    </span>
+                                    <span className="text-xs bg-rose-50/80 border border-rose-200/60 text-rose-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.cashDeposits.stats.debited', { amount: fDebit.toFixed(2) })}
+                                    </span>
+                                    <span className={`text-xs px-3 py-1 rounded-full font-bold border backdrop-blur-sm ${fNet >= 0 ? "bg-blue-50/80 border-blue-200/60 text-blue-700" : "bg-amber-50/80 border-amber-200/60 text-amber-700"}`}>
+                                        {t('farmerProfile.cashDeposits.stats.net', { amount: fNet.toFixed(2) })}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Landmark size={32} />} msg={t('farmerProfile.cashDeposits.noRecords')} />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {[
+                                                        t('farmerProfile.cashDeposits.tableHeaders.date'),
+                                                        t('farmerProfile.cashDeposits.tableHeaders.type'),
+                                                        t('farmerProfile.cashDeposits.tableHeaders.amount'),
+                                                        t('farmerProfile.cashDeposits.tableHeaders.remarks'),
+                                                    ].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map((c) => (
+                                                    <tr key={c.id} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 text-xs text-gray-600 font-mono border-r border-gray-200/60">{fmt(c.transaction_date) || "—"}</td>
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${c.type === "credit" ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-rose-50/80 text-rose-700 border-rose-200/60"}`}>
+                                                                {c.type === "credit" ? t('farmerProfile.cashDeposits.credit') : t('farmerProfile.cashDeposits.debit')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 font-bold font-mono text-gray-900 border-r border-gray-200/60">₹{parseFloat(c.amount).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500">{c.remarks || "—"}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={depPage} setPage={setDepPage}
+                                pageSize={depPageSize} setPageSize={setDepPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Product Sales ── */}
+                {(() => {
+                    const filtered = applyDateFilter(productSales, prodFilter, prodFrom, prodTo, "sale_date");
+                    const paginated = filtered.slice((prodPage - 1) * prodPageSize, prodPage * prodPageSize);
+                    const fTotal = filtered.reduce((a, p) => a + parseFloat(p.total_amount || 0), 0);
+                    return (
+                        <Section title={t('farmerProfile.productsPurchased.title')} icon={<ShoppingBag size={16} className="text-white" />}>
+                            <FilterBar filter={prodFilter} setFilter={setProdFilter}
+                                from={prodFrom} setFrom={setProdFrom}
+                                to={prodTo} setTo={setProdTo}
+                                onReset={() => setProdPage(1)}
+                                t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 flex-wrap py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-violet-50/80 border border-violet-200/60 text-violet-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.productsPurchased.stats.transactions', { count: filtered.length })}
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {t('farmerProfile.productsPurchased.stats.total', { amount: fTotal.toFixed(2) })}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Package size={32} />} msg={t('farmerProfile.productsPurchased.noRecords')} />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {[
+                                                        t('farmerProfile.productsPurchased.tableHeaders.date'),
+                                                        t('farmerProfile.productsPurchased.tableHeaders.product'),
+                                                        t('farmerProfile.productsPurchased.tableHeaders.qty'),
+                                                        t('farmerProfile.productsPurchased.tableHeaders.rate'),
+                                                        t('farmerProfile.productsPurchased.tableHeaders.amount'),
+                                                    ].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map((p) => (
+                                                    <tr key={p.sale_id} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 text-xs text-gray-600 font-mono border-r border-gray-200/60">{fmt(p.sale_date) || "—"}</td>
+                                                        <td className="px-4 py-2.5 font-medium text-gray-800 border-r border-gray-200/60">{p.product_name || p.product_id || "—"}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">{p.quantity} {p.unit || ""}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">₹{parseFloat(p.rate).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900">₹{parseFloat(p.total_amount).toFixed(2)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={prodPage} setPage={setProdPage}
+                                pageSize={prodPageSize} setPageSize={setProdPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Commission ── */}
+                {farmer.seller_type === 'Gavali' && commissionData && (
+                    <Section title={t('farmerProfile.commission.title')} icon={<Percent size={16} className="text-white" />}>
+                        <div className="flex flex-wrap gap-2 py-3 border-b border-gray-200/60">
+                            <span className="text-xs bg-fuchsia-50/80 border border-fuchsia-200/60 text-fuchsia-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                Total earned: ₹{parseFloat(commissionData.total_commission_earned || 0).toFixed(2)}
+                            </span>
+                        </div>
+                        {commissionData.settings.length === 0 ? (
+                            <EmptyState icon={<Percent size={32} />} msg="No commission settings configured" />
+                        ) : (
+                            <div className="overflow-x-auto -mx-1">
+                                <table className="w-full text-sm min-w-max">
+                                    <thead className="bg-gradient-to-r from-gray-50/50 to-white/50">
+                                        <tr className="border-b border-gray-200/60">
+                                            {["Milk Type", "Base Fat", "Base SNF", "Base Commission", "Fat Step Cut", "SNF Step Cut", "Status"].map(h => (
+                                                <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100/60">
+                                        {commissionData.settings.map(s => (
+                                            <tr key={s.id} className="hover:bg-gray-50/30 transition">
+                                                <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${milkBadge(s.milk_type)}`}>{s.milk_type}</span>
+                                                </td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">{s.base_fat}</td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">{s.base_snf}</td>
+                                                <td className="px-4 py-2.5 font-bold text-gray-900 font-mono border-r border-gray-200/60">₹{parseFloat(s.base_commission).toFixed(2)}</td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-500 border-r border-gray-200/60">{s.fat_step_cut}</td>
+                                                <td className="px-4 py-2.5 font-mono text-gray-500 border-r border-gray-200/60">{s.snf_step_cut}</td>
+                                                <td className="px-4 py-2.5">
+                                                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${s.is_active ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-gray-100/80 text-gray-400 border-gray-200/60"}`}>
+                                                        {s.is_active ? "Active" : "Inactive"}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </Section>
+                )}
+
+                {/* ── Bills ── */}
+                {(() => {
+                    const filtered = applyDateFilter(bills, billFilter, billFrom, billTo, "paid_at");
+                    const paginated = filtered.slice((billPage - 1) * billPageSize, billPage * billPageSize);
+                    const fTotal = filtered.reduce((a, b) => a + parseFloat(b.final_payable || b.cash_paid || 0), 0);
+                    return (
+                        <Section title={t('farmerProfile.bills.title')} icon={<Receipt size={16} className="text-white" />}>
+                            <FilterBar filter={billFilter} setFilter={setBillFilter}
+                                from={billFrom} setFrom={setBillFrom}
+                                to={billTo} setTo={setBillTo}
+                                onReset={() => setBillPage(1)} t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 flex-wrap py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-violet-50/80 border border-violet-200/60 text-violet-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {filtered.length} bills
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        Total paid: ₹{fTotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Receipt size={32} />} msg="No bills found" />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {["Bill No", "Period", "Qty", "Milk Amt", "Deductions", "Final Payable", "Paid On"].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map(b => {
+                                                    const deductions = parseFloat(b.installment_cut || 0) + parseFloat(b.deposit_amount || 0)
+                                                        + parseFloat(b.product_deduction || 0) + parseFloat(b.walkin_deduction || 0)
+                                                        + parseFloat(b.cattle_feed_deduction || 0);
+                                                    return (
+                                                        <tr key={b.bill_id} className="hover:bg-gray-50/30 transition">
+                                                            <td className="px-4 py-2.5 font-mono text-xs text-violet-700 font-bold border-r border-gray-200/60">{b.bill_no}</td>
+                                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-mono whitespace-nowrap border-r border-gray-200/60">{fmt(b.from_date)} → {fmt(b.to_date)}</td>
+                                                            <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">{parseFloat(b.total_qty || 0).toFixed(2)} L</td>
+                                                            <td className="px-4 py-2.5 font-mono text-emerald-600 border-r border-gray-200/60">₹{parseFloat(b.milk_amount || 0).toFixed(2)}</td>
+                                                            <td className="px-4 py-2.5 font-mono text-rose-500 border-r border-gray-200/60">− ₹{deductions.toFixed(2)}</td>
+                                                            <td className="px-4 py-2.5 font-bold text-gray-900 border-r border-gray-200/60">₹{parseFloat(b.final_payable || b.cash_paid || 0).toFixed(2)}</td>
+                                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-mono whitespace-nowrap">{fmtDateTime(b.paid_at)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={billPage} setPage={setBillPage}
+                                pageSize={billPageSize} setPageSize={setBillPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Bonus ── */}
+                {(() => {
+                    const combined = [
+                        ...bonusData.bonus.map(b => ({ ...b, kind: 'Standard' })),
+                        ...bonusData.gavaliBonus.map(b => ({ ...b, kind: 'Gavali' })),
+                    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    const paginated = combined.slice((bonusPage - 1) * bonusPageSize, bonusPage * bonusPageSize);
+                    const fTotal = combined.reduce((a, b) => a + parseFloat(b.total_bonus || 0), 0);
+                    return (
+                        <Section title={t('farmerProfile.bonus.title')} icon={<Gift size={16} className="text-white" />}>
+                            {combined.length > 0 && (
+                                <div className="flex gap-3 flex-wrap py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-amber-50/80 border border-amber-200/60 text-amber-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {combined.length} bonus records
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        Total bonus: ₹{fTotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {combined.length === 0 ? (
+                                <EmptyState icon={<Gift size={32} />} msg="No bonus records found" />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {["Event", "Occasion", "Type", "Qty", "Bonus", "Status", "Paid On"].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map(b => (
+                                                    <tr key={`${b.kind}-${b.payment_id}`} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 font-medium text-gray-800 border-r border-gray-200/60">{b.event_name}</td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 capitalize border-r border-gray-200/60">{b.occasion}</td>
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm bg-violet-50/80 text-violet-700 border-violet-200/60">{b.kind}</span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">{parseFloat(b.total_qty || 0).toFixed(2)} L</td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900 font-mono border-r border-gray-200/60">₹{parseFloat(b.total_bonus || 0).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 border-r border-gray-200/60">
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${b.is_paid ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60" : "bg-amber-50/80 text-amber-600 border-amber-200/60"}`}>
+                                                                {b.is_paid ? "Paid" : "Pending"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2.5 text-xs text-gray-500 font-mono whitespace-nowrap">{b.paid_at ? fmtDateTime(b.paid_at) : "—"}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={combined.length} page={bonusPage} setPage={setBonusPage}
+                                pageSize={bonusPageSize} setPageSize={setBonusPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+                {/* ── Cattle Feed Purchased ── */}
+                {(() => {
+                    const filtered = applyDateFilter(cattleFeedSales, cfFilter, cfFrom, cfTo, "sale_date");
+                    const paginated = filtered.slice((cfPage - 1) * cfPageSize, cfPage * cfPageSize);
+                    const fTotal = filtered.reduce((a, f) => a + parseFloat(f.total_amount || 0), 0);
+                    return (
+                        <Section title={t('farmerProfile.cattleFeed.title')} icon={<Wheat size={16} className="text-white" />}>
+                            <FilterBar filter={cfFilter} setFilter={setCfFilter}
+                                from={cfFrom} setFrom={setCfFrom}
+                                to={cfTo} setTo={setCfTo}
+                                onReset={() => setCfPage(1)} t={t} />
+                            {filtered.length > 0 && (
+                                <div className="flex gap-3 flex-wrap py-3 border-b border-gray-200/60">
+                                    <span className="text-xs bg-violet-50/80 border border-violet-200/60 text-violet-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        {filtered.length} transactions
+                                    </span>
+                                    <span className="text-xs bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                        Total: ₹{fTotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            {filtered.length === 0 ? (
+                                <EmptyState icon={<Wheat size={32} />} msg="No cattle feed purchases found" />
+                            ) : (
+                                <div className="overflow-x-auto -mx-1">
+                                    <div className="max-h-[320px] overflow-y-auto">
+                                        <table className="w-full text-sm min-w-max">
+                                            <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm shadow-sm">
+                                                <tr className="border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50">
+                                                    {["Date", "Feed", "Qty", "Rate", "Amount"].map(h => (
+                                                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100/60">
+                                                {paginated.map(f => (
+                                                    <tr key={f.sale_id} className="hover:bg-gray-50/30 transition">
+                                                        <td className="px-4 py-2.5 text-xs text-gray-600 font-mono border-r border-gray-200/60">{fmt(f.sale_date) || "—"}</td>
+                                                        <td className="px-4 py-2.5 font-medium text-gray-800 border-r border-gray-200/60">{f.feed_name}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">{f.quantity} {f.unit || ""}</td>
+                                                        <td className="px-4 py-2.5 font-mono text-gray-600 border-r border-gray-200/60">₹{parseFloat(f.rate).toFixed(2)}</td>
+                                                        <td className="px-4 py-2.5 font-bold text-gray-900">₹{parseFloat(f.total_amount).toFixed(2)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                            <Paginator total={filtered.length} page={cfPage} setPage={setCfPage}
+                                pageSize={cfPageSize} setPageSize={setCfPageSize} t={t} />
+                        </Section>
+                    );
+                })()}
+
+            </main>
+
+            <ImageViewModal image={viewImage} onClose={() => setViewImage(null)} />
+        </div>
+    );
+}

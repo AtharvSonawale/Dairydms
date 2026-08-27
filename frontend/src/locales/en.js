@@ -1083,6 +1083,255 @@ const en = {
             }
         },
 
+        "farmerProfile": {
+            "farmerCode": "Farmer: {{code}}",
+            "registeredOn": "Registered: {{date}}",
+            "editFarmer": "Edit Farmer",
+            "deleteFarmer": "Delete Farmer",
+            "status": {
+                "active": "Active",
+                "inactive": "Inactive",
+                "enabled": "Enabled",
+                "disabled": "Disabled"
+            },
+            "stats": {
+                "totalMilk": "Total Milk",
+                "totalMilkSub": "{{count}} entries",
+                "totalEarned": "Total Earned",
+                "totalEarnedSub": "Lifetime earnings",
+                "depositBalance": "Deposit Balance",
+                "depositBalanceSub": "Current balance",
+                "cashAdvance": "Cash Advance",
+                "cashAdvanceSub": "Repaid: ₹{{amount}}",
+                "productsBought": "Products Bought",
+                "productsBoughtSub": "{{count}} transactions"
+            },
+            "personalInfo": {
+                "title": "Personal Information",
+                "mobile": "Mobile Number",
+                "aadhaar": "Aadhaar",
+                "panNumber": "PAN Number",
+                "farmerIdCode": "Farmer ID Code",
+                "jamin": "Jamin",
+                "address": "Address",
+                "pincode": "Pincode",
+                "registeredOn": "Registered On",
+                "farmerType": "Farmer Type",
+                "milkType": "Milk Type",
+                "cashAdvance": "Cash Advance",
+                "advanceRecovery": "Advance Recovery",
+                "depositPerLitre": "Deposit Per Litre",
+                "status": "Status",
+                "productSale": "Product Sale",
+                "cattleFeedSale": "Cattle Feed Sale"
+            },
+            "bankDetails": {
+                "title": "Bank Details",
+                "accountNumber": "Account Number",
+                "accountHolder": "Account Holder",
+                "bankName": "Bank Name",
+                "branchName": "Branch Name",
+                "ifscCode": "IFSC Code"
+            },
+            "milkEntries": {
+                "title": "Milk Entries",
+                "noEntries": "No milk entries found",
+                "shiftMorning": "Morning",
+                "shiftEvening": "Evening",
+                "stats": {
+                    "avgFat": "Avg Fat: {{value}}%",
+                    "avgSnf": "Avg SNF: {{value}}%",
+                    "records": "{{count}} records",
+                    "total": "Total: {{qty}} L",
+                    "cow": "Cow: {{qty}} L",
+                    "buffalo": "Buffalo: {{qty}} L",
+                    "amount": "Amount: ₹{{amount}}"
+                },
+                "tableHeaders": {
+                    "date": "Date",
+                    "shift": "Shift",
+                    "milk": "Milk",
+                    "qty": "Qty",
+                    "fat": "Fat",
+                    "snf": "SNF",
+                    "water": "Water",
+                    "rate": "Rate",
+                    "amount": "Amount",
+                    "premium": "Premium"
+                }
+            },
+            "premiumRates": {
+                "title": "Premium Rates",
+                "noRates": "No premium rates configured",
+                "active": "Active",
+                "inactive": "Inactive",
+                "tableHeaders": {
+                    "milkType": "Milk Type",
+                    "rate": "Rate",
+                    "from": "From",
+                    "to": "To",
+                    "reason": "Reason",
+                    "status": "Status"
+                }
+            },
+            "cashAdvances": {
+                "title": "Cash Advances",
+                "noRecords": "No cash advance records",
+                "given": "Given",
+                "received": "Received",
+                "stats": {
+                    "given": "Given: ₹{{amount}}",
+                    "received": "Received: ₹{{amount}}",
+                    "balance": "Balance: ₹{{amount}}"
+                },
+                "tableHeaders": {
+                    "date": "Date",
+                    "type": "Type",
+                    "amount": "Amount",
+                    "remarks": "Remarks"
+                }
+            },
+            "cashDeposits": {
+                "title": "Cash Deposits",
+                "noRecords": "No cash deposit records",
+                "credit": "Credit",
+                "debit": "Debit",
+                "stats": {
+                    "records": "{{count}} records",
+                    "credited": "Credited: ₹{{amount}}",
+                    "debited": "Debited: ₹{{amount}}",
+                    "net": "Net: ₹{{amount}}"
+                },
+                "tableHeaders": {
+                    "date": "Date",
+                    "type": "Type",
+                    "amount": "Amount",
+                    "remarks": "Remarks"
+                }
+            },
+            "productsPurchased": {
+                "title": "Products Purchased",
+                "noRecords": "No product purchases found",
+                "stats": {
+                    "transactions": "{{count}} transactions",
+                    "total": "Total: ₹{{amount}}"
+                },
+                "tableHeaders": {
+                    "date": "Date",
+                    "product": "Product",
+                    "qty": "Qty",
+                    "rate": "Rate",
+                    "amount": "Amount"
+                }
+            },
+            "commission": {
+                "title": "Commission"
+            },
+            "bills": {
+                "title": "Bills"
+            },
+            "bonus": {
+                "title": "Bonus"
+            },
+            "cattleFeed": {
+                "title": "Cattle Feed Purchased"
+            },
+            "editForm": {
+                "title": "Edit Farmer",
+                "subtitle": "Update farmer information",
+                "fullName": "Full Name",
+                "fullNamePlaceholder": "Enter full name",
+                "farmerCode": "Farmer Code",
+                "farmerCodePlaceholder": "Farmer Code",
+                "farmerCodeRequired": "Farmer code is required",
+                "mobile": "Mobile Number",
+                "mobilePlaceholder": "Enter mobile number",
+                "mobileInvalid": "Please enter a valid 10-12 digit mobile number",
+                "panNumber": "PAN Number",
+                "panPlaceholder": "e.g. ABCDE1234F",
+                "panInvalid": "PAN number must be alphanumeric and up to 12 characters",
+                "farmerIdCode": "Farmer ID Code",
+                "farmerIdCodePlaceholder": "Up to 18 digits",
+                "farmerIdCodeInvalid": "Farmer ID Code must be numeric and up to 18 digits",
+                "aadhaar": "Aadhaar",
+                "aadhaarPlaceholder": "Enter 12-digit Aadhaar",
+                "farmerType": "Farmer Type",
+                "milkType": "Milk Type",
+                "milkTypeCow": "Cow",
+                "milkTypeBuffalo": "Buffalo",
+                "jamin": "Jamin",
+                "jaminPlaceholder": "Enter jamin details",
+                "bankAccount": "Bank Account",
+                "bankAccountPlaceholder": "Enter bank account number",
+                "confirmAccount": "Confirm Account",
+                "confirmAccountPlaceholder": "Re-enter account number",
+                "bankMismatch": "Bank account numbers do not match",
+                "accountHolder": "Account Holder",
+                "accountHolderPlaceholder": "As per bank passbook",
+                "bankName": "Bank Name",
+                "bankNamePlaceholder": "Enter bank name",
+                "ifscCode": "IFSC Code",
+                "ifscCodePlaceholder": "e.g. SBIN0001234",
+                "branchName": "Branch Name",
+                "branchNamePlaceholder": "e.g. Pune Main Branch",
+                "pincode": "Pincode",
+                "pincodePlaceholder": "e.g. 411001",
+                "pincodeInvalid": "Pincode must be a valid 6-digit number",
+                "address": "Address",
+                "addressPlaceholder": "Enter address",
+                "password": "Password",
+                "passwordSetHint": "Password is set. Enter a new one to change it.",
+                "passwordNotSetHint": "No password set yet for this farmer.",
+                "passwordMinError": "Password must be at least 6 characters",
+                "cashAdvance": "Cash Advance",
+                "advanceRecovery": "Advance Recovery",
+                "advanceRecoveryPlaceholder": "Enter deduction amount",
+                "depositPerLitre": "Deposit Per Litre",
+                "depositRate": "Deposit Rate",
+                "depositRatePlaceholder": "Enter deposit rate",
+                "productSale": "Product Sale",
+                "cattleFeedSale": "Cattle Feed Sale",
+                "farmerStatus": "Farmer Status",
+                "active": "Active",
+                "inactive": "Inactive",
+                "enabled": "Enabled",
+                "disabled": "Disabled",
+                "nameRequired": "Please enter full name (first and last name)",
+                "nameNoNumbers": "Name cannot contain numbers",
+                "saveSuccess": "Farmer profile updated successfully",
+                "saveError": "Failed to update farmer profile",
+                "saving": "Saving...",
+                "updateFarmer": "Update Farmer",
+                "cancel": "Cancel"
+            },
+            "deleteModal": {
+                "title": "Delete Farmer",
+                "warning": "Are you sure you want to delete <strong>{{name}}</strong>? This action cannot be undone.",
+                "confirm": "Delete",
+                "cancel": "Cancel",
+                "deleting": "Deleting...",
+                "deleteError": "Failed to delete farmer"
+            },
+            "filterBar": {
+                "all": "All",
+                "day": "Day",
+                "week": "Week",
+                "month": "Month",
+                "year": "Year",
+                "custom": "Custom"
+            },
+            "paginator": {
+                "prev": "Prev",
+                "next": "Next",
+                "of": "of",
+                "rows": "Rows"
+            },
+            "flash": {
+                "notFound": "Farmer not found",
+                "loadError": "Failed to load farmer profile"
+            }
+        },
+
         // ── Create Operator ──────────────────────────────────────────
         createOperator: {
             startTour: "Start a Tour",
@@ -2188,6 +2437,8 @@ const en = {
 
         // ── Navigation ───────────────────────────────────────────────
         nav: {
+            utpadakBonusReport : "Utpadak Bonus Report",
+            gavaliBonusReport: "Gavali Bonus Report",
             favourites: "Favourites",
             commissionSettings: "Commission Settings",
             utpadakMilkEntry: "Utpadak Milk Entry",
@@ -4106,63 +4357,12 @@ const en = {
 
         // ── Settings ─────────────────────────────────────────────────
         settings: {
-            fssaiCode: "FSSAI Code",
-            fssaiCodeHint: "",
-            dispatchSettings: "Dispatch Settings",
-            fatOnlyAutofill: {
-                title: 'Fat-Only Rate Auto-Fill',
-                description:
-                    'When enabled, the milk entry rate auto-fill looks up the rate using only the entered <strong>FAT %</strong>, always paired with a fixed SNF — <strong>8.5</strong> for Cow and <strong>9.0</strong> for Buffalo — regardless of the SNF the fat machine actually reads. Use this if your centre prices strictly off a standard SNF slab.',
-                hint: 'When off (default), the auto-fill uses the actual measured FAT and SNF together.',
-                activeNotification:
-                    'Active — rate lookups in Milk Entry will use FAT + fixed SNF (8.5 Cow / 9.0 Buffalo), not the measured SNF.',
-            },
-            // ── Tour descriptions ──
-            tour: {
-                appIdentity: 'Set your app name and upload a logo — this appears across the whole app.',
-                textSize: 'Choose how large text appears throughout the app.',
-                language: 'Switch the app language for all users.',
-                operatorAccess: 'Select an operator below to control exactly what they can create, view, edit, or delete on each page.',
-                save: 'Save all changes — app identity, appearance, and operator permissions.',
-            },
-
-            // ── Permissions labels ──
-            permissions: {
-                groups: {
-                    dashboard: 'Dashboard',
-                    milkCollection: 'Milk & Collection',
-                    sellersPayments: 'Farmers & Payments',
-                    products: 'Products',
-                    reportsAnalytics: 'Reports & Analytics',
-                    rates: 'Rates',
-                },
-                pages: {
-                    operator_dashboard: 'Dashboard Access',
-                    milk_entry: 'Milk Entry',
-                    walkin_sales: 'Walk-in Sale',
-                    walkin_payments: 'Walk-in Payments',
-                    named_buyers: 'Named Buyers',
-                    tank_dispatch: 'Tank Dispatch',
-                    owner_usage: 'Owner Usage',
-                    seller_register: 'Farmer Register',
-                    seller_payments: 'Farmer Payments',
-                    cash_advance: 'Cash Advance',
-                    cash_deposit: 'Cash Deposit',
-                    products: 'Products Catalogue',
-                    product_purchases: 'Product Purchase',
-                    product_sales: 'Product Sales',
-                    sum_report: 'Sum Report',
-                    daily_collection: 'Daily Collection',
-                    utpadak_bonus_register: 'Utpadak Bonus Register',
-                    gavali_bonus_register: 'Gavali Bonus Register',
-                    rate_chart: 'Rate Chart',
-                    premium_rates: 'Premium Rates',
-                },
-            },
             title: "Settings",
-            startTour: "Start a Tour",
             subtitle: "App identity · Preferences · Operator access rights",
+            startTour: "Start Tour",
             adminOnly: "Admin only",
+
+            // App Identity
             appIdentity: "App Identity",
             appName: "App Name",
             appNamePlaceholder: "e.g. Shri Dairy",
@@ -4175,14 +4375,70 @@ const en = {
             logoSizeError: "Logo must be under 2 MB.",
             logoTypeError: "Please upload a valid image file.",
             livePreview: "Live preview",
+
+            // Language
             language: "Language",
-            languageHint:
-                "Language affects UI labels and date formats throughout the app. Changes take effect immediately after saving.",
+            languageHint: "Language affects UI labels and date formats throughout the app. Changes take effect immediately after saving.",
+
+            // Text Size
             textSize: "Text Size",
             textSizeHint: "Adjusts the base font size across the application.",
             textSm: "Small",
             textMd: "Medium",
             textLg: "Large",
+
+            // Fat-Only Rate Auto-Fill
+            fatOnlyAutofill: {
+                title: "Fat-Only Rate Auto-Fill",
+                description: 'When enabled, the milk entry rate auto-fill looks up the rate using only the entered <strong>FAT %</strong>, always paired with a fixed SNF — <strong>8.5</strong> for Cow and <strong>9.0</strong> for Buffalo — regardless of the SNF the fat machine actually reads. Use this if your centre prices strictly off a standard SNF slab.',
+                hint: 'When off (default), the auto-fill uses the actual measured FAT and SNF together.',
+                activeNotification: 'Active — rate lookups in Milk Entry will use FAT + fixed SNF (8.5 Cow / 9.0 Buffalo), not the measured SNF.',
+            },
+
+            // Dispatch Settings
+            dispatchSettings: "Dispatch Settings",
+            fssaiCode: "FSSAI Code",
+            fssaiCodeHint: "Enter your 14-digit FSSAI license number. This appears on dispatch and tanker documents.",
+
+            // Receipt Printer
+            printSettings: "Receipt Printer",
+            printerType: "Printer Type",
+            printerThermal: "Thermal Roll",
+            printerA4: "A4 Sheet",
+            paperWidth: "Paper Width",
+            paperWidthHint: "Match this to your roll's actual width (printed on the box — 58mm or 80mm are the two common sizes). This is applied to receipt printing so it doesn't print with extra blank space or get cut off.",
+            autoPrint: "Auto-print receipt after recording a sale",
+            autoPrintHint: "Skips the manual 'Print Receipt' click — the receipt opens the print dialog automatically right after Save. The browser's print dialog will still appear once; that's a browser security limit, not a setting.",
+
+            // Receipt Format
+            receiptFormat: "Receipt Format",
+            receiptFormatHint: "Controls what appears on every printed receipt — Cattle Feed sales, Product sales, and any future receipt type all use this same format.",
+            txnPrefix: "Transaction ID prefix",
+            txnPrefixHint: 'IDs are generated as PREFIX/FinancialYear/Number, e.g. "KDM/2627/1". The financial year and running number are added automatically.',
+            productLabel: "Product label",
+            productLabelHint: 'Replaces "Feed" on the sales page and receipts (e.g. change to "Product").',
+            showTopSymbol: "Show top symbol (e.g. श्री)",
+            topSymbolText: "Top symbol text",
+            showAppName: "Show app/dairy name",
+            showCentreName: "Show centre name",
+            centreNameOverride: "Centre name override",
+            centreNameHint: "Leave blank to use your registered centre name",
+            showTransactionId: "Show transaction ID",
+            transactionIdLabel: "Transaction ID label",
+            showDateTime: "Show date & time row",
+            showSellerCode: "Show seller code next to name",
+            footerText: "Footer text",
+            itemTableText: "Item table text",
+            tableHeader: "header",
+            tableRows: "rows",
+            grandTotal: "Grand total row",
+            showGst: "Show GST line",
+            gstText: "GST text",
+            showSignatory: "Show signatory line",
+            signatoryText: "Signatory text",
+            livePreviewLabel: "Live Preview",
+
+            // Operator Access
             operatorAccess: "Operator Access Rights",
             selectOperator: "Select Operator",
             loadingOperators: "Loading operators…",
@@ -4192,9 +4448,136 @@ const en = {
             grantAll: "Grant all",
             revokeAll: "Revoke all",
             selectOperatorHint: "Select an operator above to override their access rights",
+
+            // Page Visibility
+            pageVisibility: "Page Visibility",
+            pageVisibilityHint: "Turn a page off here and it disappears for ALL users in that role. The 'Flutter' toggle controls the mobile app; the 'Web' toggle controls this dashboard. Each role (Admin, Operator, Farmer) has its own independent visibility controls.",
+            platformWeb: "Web",
+            platformFlutter: "Flutter",
+            roleAdmin: "Admin",
+            roleOperator: "Operator",
+            roleFarmer: "Farmer",
+
+            // Section labels for visibility
+            visibilitySections: {
+                adminDashboard: "Dashboard (Admin)",
+                adminAdministration: "Administration (Admin)",
+                adminSellersAndRates: "Sellers & Rates (Admin)",
+                adminMilkCollection: "Milk Collection (Admin)",
+                adminWalkinSales: "Walk-in Sales (Admin)",
+                adminProducts: "Products (Admin)",
+                adminCattleFeed: "Cattle Feed (Admin)",
+                adminFinance: "Finance (Admin)",
+                adminBonusRegister: "Bonus Register (Admin)",
+                adminReports: "Reports (Admin)",
+                adminExpenses: "Expenses (Admin)",
+                operatorDashboard: "Dashboard (Operator)",
+                operatorSettings: "Settings (Operator)",
+                operatorSellersAndRates: "Sellers & Rates (Operator)",
+                operatorMilkCollection: "Milk Collection (Operator)",
+                operatorWalkinSales: "Walk-in Sales (Operator)",
+                operatorProducts: "Products (Operator)",
+                operatorCattleFeed: "Cattle Feed (Operator)",
+                operatorFinance: "Finance (Operator)",
+                operatorBonusRegister: "Bonus Register (Operator)",
+                operatorReports: "Reports (Operator)",
+                farmerPortal: "Farmer Portal",
+            },
+
+            // ── Tour descriptions ──
+            tour: {
+                appIdentity: "Set your app name and upload a logo — this appears across the whole app.",
+                textSize: "Choose how large text appears throughout the app.",
+                language: "Switch the app language for all users.",
+                dispatchSettings: "Configure FSSAI code for dispatch and tanker documents.",
+                fatOnlyAutofill: "Toggle fat-only rate lookup mode for milk entry auto-fill.",
+                operatorAccess: "Select an operator below to control exactly what they can create, view, edit, or delete on each page.",
+                pageVisibility: "Control which pages are visible to each role, separately for Web and Flutter.",
+                receiptFormat: "Customize what appears on every printed receipt.",
+                printSettings: "Configure printer type and auto-print behavior.",
+                save: "Save all changes — app identity, appearance, and operator permissions.",
+            },
+
+            // ── Permissions labels ──
+            permissions: {
+                groups: {
+                    dashboard: "Dashboard",
+                    milkCollection: "Milk & Collection",
+                    sellersPayments: "Farmers & Payments",
+                    products: "Products",
+                    cattleFeed: "Cattle Feed",
+                    reportsAnalytics: "Reports & Analytics",
+                    rates: "Rates",
+                    expenses: "Expenses",
+                    administration: "Administration",
+                },
+                pages: {
+                    dashboard: "Dashboard",
+                    profile: "My Profile",
+                    milk_entry: "Milk Entry",
+                    utpadak_milk_entry: "Utpadak Milk Entry",
+                    gavali_milk_entry: "Gavali Milk Entry",
+                    walkin_sales: "Walk-in Sale",
+                    walkin_payments: "Walk-in Payments",
+                    named_buyers: "Named Buyers",
+                    tank_dispatch: "Tank Dispatch",
+                    owner_usage: "Owner Usage",
+                    all_milk_entries: "All Milk Entries",
+                    seller_register: "Seller Register",
+                    seller_payments: "Seller Payments",
+                    cash_advance: "Cash Advance",
+                    cash_deposit: "Cash Deposit",
+                    products: "Products Catalogue",
+                    product_purchases: "Product Purchases",
+                    product_sales: "Product Sales",
+                    product_purchase_payment: "Product Purchase Payment",
+                    product_sales_report: "Product Sales Report",
+                    cattle_feed_catalogue: "Cattle Feed Catalogue",
+                    cattle_feed_purchase: "Cattle Feed Purchase",
+                    cattle_feed_sales: "Cattle Feed Sales",
+                    cattle_feed_purchase_payment: "Cattle Feed Purchase Payment",
+                    cattle_feed_sales_report: "Cattle Feed Sales Report",
+                    sum_report: "Summary Report",
+                    farmer_ledger: "Farmer Ledger",
+                    utpadak_bonus_register: "Utpadak Bonus Register",
+                    gavali_bonus_register: "Gavali Bonus Register",
+                    utpadak_bonus_report: "Utpadak Bonus Report",
+                    gavali_bonus_report: "Gavali Bonus Report",
+                    walkin_seller_report: "Walk-in Seller Report",
+                    walkin_named_buyer_reports: "Named Buyer Reports",
+                    walkin_anon_reports: "Anonymous Reports",
+                    rate_chart: "Rate Chart",
+                    premium_rates: "Premium Rates",
+                    expenses: "Expenses",
+                    expenses_report: "Expenses Report",
+                    settings: "Settings",
+                    centres: "Centres",
+                    operators: "Operators",
+                    admin_list: "Admin List",
+                    port_settings: "Port Settings",
+                    commission_settings: "Commission Settings",
+                    clear_data: "Clear All Data",
+                },
+            },
+
             savedSuccess: "Settings saved successfully!",
             savedError: "Failed to save settings.",
             resetSuccess: "Access rights reset to defaults.",
+
+            // ── Actions ──
+            actions: {
+                save: "Save",
+                saveAll: "Save All",
+                saving: "Saving…",
+                change: "Change",
+                remove: "Remove",
+                resetDefaults: "Reset Defaults",
+            },
+
+            // ── Status ──
+            status: {
+                inactive: "Inactive",
+            },
         },
 
         // ── Seller Profile ─────────────────────────────────────

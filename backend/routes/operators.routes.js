@@ -7,6 +7,7 @@ const ctrl = require('../controllers/operator.controller');
 router.get('/', protect, isAdmin, ctrl.listOperators);
 router.get('/all', protect, isAdmin, ctrl.listAllOperators);
 router.get('/me', protect, ctrl.getMyOperatorProfile);
+router.put('/me', protect, ctrl.updateMyOperatorProfile);
 router.post('/', protect, isAdmin, ctrl.createOperator);
 router.put('/:id', protect, isAdmin, ctrl.updateOperator);
 router.delete('/:id', protect, isAdmin, ctrl.deleteOperator);

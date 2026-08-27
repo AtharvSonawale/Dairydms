@@ -540,7 +540,7 @@ exports.createSeller = async (req, res) => {
                 aadhaar || null,
                 pan_number || null,
                 seller_id_code || null,
-                seller_type || 'Utpadak',
+                (isSeller ? existing.seller_type : seller_type) || 'Utpadak',
                 milk_type || 'cow',                jamin || null,
                 bank_account || null,
                 bank_name || null,
@@ -586,6 +586,46 @@ exports.createSeller = async (req, res) => {
 // ── PUT /api/sellers/:id ───────────────────────────────────
 exports.updateSeller = async (req, res) => {
     try {
+        if (req.body.milk_type === 'both') {
+            return res.status(400).json({ error: '"Both" milk type is no longer supported. Please select Cow or Buffalo.' });
+        }
+
+        const operatorId = req.user.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const isSeller = req.user.role === 'seller';
+
+        let accessQuery, accessParams;
+        if (isAdmin) {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
+            accessParams = [req.params.id, centreId];
+        } else if (isSeller) {
+            // A farmer may only update their OWN profile.
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND seller_id = ? AND centre_id = ?`;
+            accessParams = [req.params.id, req.user.id, centreId];
+        } else {
+            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
+            accessParams = [req.params.id, operatorId, centreId];
+        }
+
+        const [accessCheck] = await pool.query(accessQuery, accessParams);
+        if (!accessCheck.length) {
+            return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
+        }
+
+        // Farmers can only touch their own personal/bank details — not
+        // business-rule toggles that only an admin/operator should control.
+        if (isSeller) {
+            delete req.body.is_active;
+            delete req.body.advance_enabled;
+            delete req.body.advance_deduction;
+            delete req.body.deposit_enabled;
+            delete req.body.deposit_per_litre;
+            delete req.body.product_sale_enabled;
+            delete req.body.cattle_feed_sale_enabled;
+            delete req.body.seller_type;
+        }
+
         const {
             seller_code, name, mobile, aadhaar,
             pan_number, seller_id_code,
@@ -596,28 +636,6 @@ exports.updateSeller = async (req, res) => {
             cattle_feed_sale_enabled,
             cheque, profile_image,
         } = req.body;
-
-        if (milk_type === 'both') {
-            return res.status(400).json({ error: '"Both" milk type is no longer supported. Please select Cow or Buffalo.' });
-        }
-
-        const operatorId = req.user.id;
-        const centreId = req.user.centre_id;
-        const isAdmin = req.user.role === 'admin';
-
-        let accessQuery, accessParams;
-        if (isAdmin) {
-            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
-            accessParams = [req.params.id, centreId];
-        } else {
-            accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
-            accessParams = [req.params.id, operatorId, centreId];
-        }
-
-        const [accessCheck] = await pool.query(accessQuery, accessParams);
-        if (!accessCheck.length) {
-            return res.status(403).json({ error: 'Access denied. Seller not found or unauthorized.' });
-        }
 
         // Check duplicate seller_code
         const cleanSellerCode = seller_code ? String(seller_code).trim() : null;
@@ -679,6 +697,21 @@ exports.updateSeller = async (req, res) => {
 
         const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
+        // For farmer self-edits, the toggle/deduction fields above were
+        // stripped out — pull the current DB values so the UPDATE preserves
+        // them instead of resetting to hardcoded defaults (1/0).
+        let existing = null;
+        if (isSeller) {
+            const [[row]] = await pool.query(
+                `SELECT seller_type, advance_enabled, advance_deduction,
+                        deposit_enabled, deposit_per_litre,
+                        product_sale_enabled, cattle_feed_sale_enabled, is_active
+                 FROM sellers WHERE seller_id = ? AND centre_id = ?`,
+                [req.params.id, centreId]
+            );
+            existing = row;
+        }
+
         const [result] = await pool.query(
             `UPDATE sellers SET
                 seller_code          = ?,
@@ -716,7 +749,7 @@ exports.updateSeller = async (req, res) => {
                 aadhaar || null,
                 pan_number || null,
                 seller_id_code || null,
-                seller_type || 'Utpadak',
+                (isSeller ? existing.seller_type : seller_type) || 'Utpadak',
                 milk_type || 'cow',                jamin || null,
                 bank_account || null,
                 bank_name || null,
@@ -725,13 +758,13 @@ exports.updateSeller = async (req, res) => {
                 ifsc_code || null,
                 address || null,
                 pincode || null,
-                advance_enabled !== undefined ? advance_enabled : 1,
-                advance_deduction || null,
-                product_sale_enabled !== undefined ? product_sale_enabled : 0,
-                deposit_enabled !== undefined ? deposit_enabled : 0,
-                deposit_per_litre || null,
-                cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
-                is_active !== undefined ? is_active : 1,
+                isSeller ? existing.advance_enabled : (advance_enabled !== undefined ? advance_enabled : 1),
+                isSeller ? existing.advance_deduction : (advance_deduction || null),
+                isSeller ? existing.product_sale_enabled : (product_sale_enabled !== undefined ? product_sale_enabled : 0),
+                isSeller ? existing.deposit_enabled : (deposit_enabled !== undefined ? deposit_enabled : 0),
+                isSeller ? existing.deposit_per_litre : (deposit_per_litre || null),
+                isSeller ? existing.cattle_feed_sale_enabled : (cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0),
+                isSeller ? existing.is_active : (is_active !== undefined ? is_active : 1),
                 password_hash,
                 password_hash,
                 cheque || null,
@@ -787,6 +820,9 @@ exports.deleteSeller = async (req, res) => {
         if (isAdmin) {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND centre_id = ?`;
             accessParams = [req.params.id, centreId];
+        } else if (req.user.role === 'seller') {
+            // Farmers should not be able to delete their own account.
+            return res.status(403).json({ error: 'Access denied. Farmers cannot delete their own profile.' });
         } else {
             accessQuery = `SELECT seller_id FROM sellers WHERE seller_id = ? AND operator_id = ? AND centre_id = ?`;
             accessParams = [req.params.id, operatorId, centreId];

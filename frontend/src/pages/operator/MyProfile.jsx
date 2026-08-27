@@ -1,21 +1,18 @@
-// pages/admin/MyProfile.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-    ArrowLeft, BadgeCheck, AlertTriangle, X, Mail, Phone,
-    Building2, Calendar, Save, Eye, EyeOff, ShieldCheck, User,
-    Settings, Home,
+    ArrowLeft, BadgeCheck, AlertTriangle, X, Eye, EyeOff, User, Save,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 
-export default function MyProfile() {
+export default function OperatorMyProfile() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const [admin, setAdmin] = useState(null);
+    const [operator, setOperator] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
@@ -31,8 +28,8 @@ export default function MyProfile() {
     const fetchMyProfile = async () => {
         setLoading(true);
         try {
-            const { data } = await api.get(`/admin-management/${user.id}`);
-            setAdmin(data);
+            const { data } = await api.get('/operators/me');
+            setOperator(data);
             setForm({ name: data.name, email: data.email, mobile: data.mobile || '', password: '' });
         } catch (err) {
             showFlash('error', err.response?.data?.message || t('myProfile.loadError', { defaultValue: 'Could not load your profile.' }));
@@ -41,7 +38,7 @@ export default function MyProfile() {
         }
     };
 
-    useEffect(() => { if (user?.id) fetchMyProfile(); }, [user?.id]);
+    useEffect(() => { fetchMyProfile(); }, []);
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -49,16 +46,11 @@ export default function MyProfile() {
         e.preventDefault();
         setSaving(true);
         try {
-            const payload = {
-                name: form.name,
-                email: form.email,
-                mobile: form.mobile,
-                is_active: admin.is_active,
-            };
+            const payload = { name: form.name, email: form.email, mobile: form.mobile };
             if (form.password) payload.password = form.password;
 
-            const { data } = await api.put(`/admin-management/${user.id}`, payload);
-            setAdmin(data);
+            const { data } = await api.put('/operators/me', payload);
+            setOperator(data);
             setForm(f => ({ ...f, password: '' }));
             showFlash('success', t('myProfile.updateSuccess', { defaultValue: 'Profile updated successfully.' }));
         } catch (err) {
@@ -71,19 +63,19 @@ export default function MyProfile() {
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
-                <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+                <div className="w-8 h-8 border-3 border-emerald-200 border-t-emerald-700 rounded-full animate-spin" />
             </div>
         );
     }
 
-    if (!admin) {
+    if (!operator) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex flex-col items-center justify-center gap-3 text-gray-400">
                 <AlertTriangle size={28} />
                 <p className="text-sm">{t('myProfile.notFound', { defaultValue: 'Profile not found.' })}</p>
                 <button
-                    onClick={() => navigate('/admin/dashboard')}
-                    className="text-blue-600 text-sm font-medium hover:underline"
+                    onClick={() => navigate('/operator/dashboard')}
+                    className="text-emerald-600 text-sm font-medium hover:underline"
                 >
                     {t('myProfile.backToDashboard', { defaultValue: 'Back to Dashboard' })}
                 </button>
@@ -98,8 +90,8 @@ export default function MyProfile() {
                 {/* Top bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                            {t('myProfile.title', { defaultValue: 'Administrator Profile' })}
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-800 to-emerald-600 bg-clip-text text-transparent">
+                            {t('myProfile.operatorTitle', { defaultValue: 'My Profile' })}
                         </h1>
                         <p className="text-xs text-gray-500 mt-0.5">
                             {new Date().toLocaleDateString("en-IN", {
@@ -109,7 +101,7 @@ export default function MyProfile() {
                     </div>
 
                     <button
-                        onClick={() => navigate('/admin/dashboard')}
+                        onClick={() => navigate('/operator/dashboard')}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                     >
                         <ArrowLeft size={16} />
@@ -134,10 +126,26 @@ export default function MyProfile() {
                     </div>
                 )}
 
+                {/* Read-only centre / admin context */}
+                <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/70 backdrop-blur-sm border border-gray-200/60 text-xs text-gray-600 shadow-sm">
+                        <span className="font-semibold text-gray-800">{t('myProfile.centre', { defaultValue: 'Centre' })}:</span>
+                        {operator.centre_name} ({operator.centre_code})
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/70 backdrop-blur-sm border border-gray-200/60 text-xs text-gray-600 shadow-sm">
+                        <span className="font-semibold text-gray-800">{t('myProfile.reportsTo', { defaultValue: 'Reports to' })}:</span>
+                        {operator.admin_name}
+                    </div>
+                    <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm
+                        ${operator.is_active ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700' : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        {operator.is_active ? t('status.active', { defaultValue: 'Active' }) : t('status.inactive', { defaultValue: 'Inactive' })}
+                    </div>
+                </div>
+
                 {/* Edit form */}
                 <form onSubmit={handleSave} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-6 flex flex-col gap-5">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/20">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-700 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-700/20">
                             <User size={16} className="text-white" />
                         </div>
                         <div>
@@ -148,18 +156,18 @@ export default function MyProfile() {
 
                     <div className="grid sm:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.fullName')}</label>
+                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.fullName', { defaultValue: 'Full Name' })}</label>
                             <input
                                 name="name"
                                 value={form.name}
                                 onChange={handleChange}
                                 required
                                 className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700
-                                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                    focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.email')}</label>
+                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.email', { defaultValue: 'Email' })}</label>
                             <input
                                 name="email"
                                 type="email"
@@ -167,26 +175,28 @@ export default function MyProfile() {
                                 onChange={handleChange}
                                 required
                                 className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700
-                                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                    focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.mobile')}</label>
+                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.mobile', { defaultValue: 'Mobile' })}</label>
                             <input
                                 name="mobile"
                                 type="tel"
                                 value={form.mobile}
                                 onChange={handleChange}
                                 pattern="^\+?[0-9]{10,15}$"
-                                placeholder={t('adminProfile.mobilePlaceholder')}
+                                placeholder={t('adminProfile.mobilePlaceholder', { defaultValue: 'Enter mobile number' })}
                                 className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700
-                                    focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                    focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                {t('adminProfile.newPassword')}
-                                <span className="text-gray-400 font-normal lowercase tracking-normal ml-1">{t('adminProfile.leaveBlankHint')}</span>
+                                {t('adminProfile.newPassword', { defaultValue: 'New Password' })}
+                                <span className="text-gray-400 font-normal lowercase tracking-normal ml-1">
+                                    {t('adminProfile.leaveBlankHint', { defaultValue: '(leave blank to keep current)' })}
+                                </span>
                             </label>
                             <div className="relative">
                                 <input
@@ -195,9 +205,9 @@ export default function MyProfile() {
                                     value={form.password}
                                     onChange={handleChange}
                                     autoComplete="new-password"
-                                    placeholder={t('adminProfile.passwordPlaceholder')}
+                                    placeholder={t('adminProfile.passwordPlaceholder', { defaultValue: '••••••••' })}
                                     className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-700 w-full
-                                        focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                        focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
                                 />
                                 <button
                                     type="button"
@@ -214,28 +224,21 @@ export default function MyProfile() {
                         <button
                             type="submit"
                             disabled={saving}
-                            className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 disabled:opacity-50"
+                            className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-emerald-700 to-emerald-600 text-white shadow-lg shadow-emerald-700/30 hover:shadow-xl hover:shadow-emerald-700/40 transition-all duration-200 disabled:opacity-50"
                         >
                             {saving
                                 ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <Save size={16} />}
-                            {saving ? t('adminProfile.saving') : t('adminProfile.saveChanges')}
+                            {saving ? t('adminProfile.saving', { defaultValue: 'Saving...' }) : t('adminProfile.saveChanges', { defaultValue: 'Save Changes' })}
                         </button>
                     </div>
                 </form>
 
-                {/* Self-account notice */}
-                <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-gradient-to-br from-gray-50 to-gray-100/50 shadow-sm p-4 text-xs text-gray-500 flex items-center gap-2.5">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
-                    <AlertTriangle size={14} className="text-gray-400 shrink-0 relative z-10" />
-                    <span className="relative z-10">{t('adminProfile.selfDeactivateWarning')}</span>
-                </div>
-
                 {/* Footer */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
                     <span>· {t('myProfile.footerProfile', { defaultValue: 'Profile management' })}</span>
-                    <span>· {t('myProfile.footerLastLogin', { defaultValue: 'Last login' })}: {admin.last_login ? new Date(admin.last_login).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('myProfile.firstLogin', { defaultValue: 'First login' })}</span>
-                    <span>· {t('myProfile.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">Administrator</strong></span>
+                    <span>· {t('myProfile.footerLastLogin', { defaultValue: 'Last login' })}: {operator.last_login ? new Date(operator.last_login).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('myProfile.firstLogin', { defaultValue: 'First login' })}</span>
+                    <span>· {t('myProfile.footerRole', { defaultValue: 'Role' })}: <strong className="text-gray-600">{t('status.operator', { defaultValue: 'Operator' })}</strong></span>
                 </div>
             </main>
         </div>

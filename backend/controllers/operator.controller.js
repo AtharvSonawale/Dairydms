@@ -388,7 +388,7 @@ exports.getMyOperatorProfile = async (req, res) => {
         const centreId = req.user.centre_id;
 
         const [rows] = await pool.query(
-            `SELECT o.operator_id, o.name, o.email, o.mobile, o.is_active, o.created_at,
+            `SELECT o.operator_id, o.name, o.email, o.mobile, o.is_active, o.created_at, o.last_login,
                     a.name AS admin_name, a.admin_id,
                     c.centre_name, c.centre_code,
                     d.dairy_name, d.dairy_id
@@ -407,6 +407,63 @@ exports.getMyOperatorProfile = async (req, res) => {
         res.json(rows[0]);
     } catch (err) {
         console.error('getMyOperatorProfile error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── PUT /api/operators/me ─────────────────────────────────────
+exports.updateMyOperatorProfile = async (req, res) => {
+    try {
+        const { name, email, mobile, password } = req.body;
+        const operatorId = req.user.id;
+        const centreId = req.user.centre_id;
+
+        if (!name || !email) {
+            return res.status(400).json({ message: 'Name and email are required.' });
+        }
+
+        // Check email uniqueness against both operators and admins
+        const [emailCheckOp] = await pool.query(
+            `SELECT operator_id FROM operators WHERE email = ? AND operator_id != ?`,
+            [email, operatorId]
+        );
+        const [emailCheckAdmin] = await pool.query(
+            `SELECT admin_id FROM admins WHERE email = ?`, [email]
+        );
+        if (emailCheckOp.length > 0 || emailCheckAdmin.length > 0) {
+            return res.status(409).json({ message: 'Another account with this email already exists.' });
+        }
+
+        if (password) {
+            const hash = await bcrypt.hash(password, 10);
+            await pool.query(
+                `UPDATE operators SET name=?, email=?, mobile=?, password_hash=?
+                 WHERE operator_id=? AND centre_id=?`,
+                [name, email, mobile || null, hash, operatorId, centreId]
+            );
+        } else {
+            await pool.query(
+                `UPDATE operators SET name=?, email=?, mobile=?
+                 WHERE operator_id=? AND centre_id=?`,
+                [name, email, mobile || null, operatorId, centreId]
+            );
+        }
+
+        const [rows] = await pool.query(
+            `SELECT o.operator_id, o.name, o.email, o.mobile, o.is_active, o.created_at,
+                    a.name AS admin_name, a.admin_id,
+                    c.centre_name, c.centre_code,
+                    d.dairy_name, d.dairy_id
+             FROM operators o
+             JOIN admins a ON a.admin_id = o.admin_id
+             JOIN centres c ON c.centre_id = o.centre_id
+             JOIN dairies d ON d.dairy_id = c.dairy_id
+             WHERE o.operator_id = ? AND o.centre_id = ?`,
+            [operatorId, centreId]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('updateMyOperatorProfile error:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
