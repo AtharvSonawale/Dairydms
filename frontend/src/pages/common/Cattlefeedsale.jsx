@@ -554,18 +554,19 @@ export default function CattleFeedSales() {
             .then(({ data }) => setProductLabel(data?.productLabel || ""))
             .catch(() => { });
     }, []);
-    const BUYER_MODES = [
-    { val: "seller", label: t('cattleFeedSales.form.sellerBuys') || 'Seller', icon: <Users size={18} /> },
-    { val: "named", label: t('cattleFeedSales.form.named') || 'Named', icon: <Tag size={18} /> },
-    { val: "anon", label: t('cattleFeedSales.form.anon') || 'Anonymous', icon: <UserCircle2 size={18} /> },
-];
 
-const [form, setForm] = useState({ buyer_mode: "seller", seller_id: "", seller_code: "" });
-const [namedBuyers, setNamedBuyers] = useState([]);
-const [namedBuyerSearch, setNamedBuyerSearch] = useState("");
-const [namedBuyerId, setNamedBuyerId] = useState("");
-const [namedBuyerDropdownOpen, setNamedBuyerDropdownOpen] = useState(false);
-const [namedBuyerHighlight, setNamedBuyerHighlight] = useState(-1);
+    const BUYER_MODES = [
+        { val: "seller", label: t('cattleFeedSales.form.sellerBuys') || 'Seller', icon: <Users size={18} /> },
+        { val: "named", label: t('cattleFeedSales.form.named') || 'Named', icon: <Tag size={18} /> },
+        { val: "anon", label: t('cattleFeedSales.form.anon') || 'Anonymous', icon: <UserCircle2 size={18} /> },
+    ];
+
+    const [form, setForm] = useState({ buyer_mode: "seller", seller_id: "", seller_code: "" });
+    const [namedBuyers, setNamedBuyers] = useState([]);
+    const [namedBuyerSearch, setNamedBuyerSearch] = useState("");
+    const [namedBuyerId, setNamedBuyerId] = useState("");
+    const [namedBuyerDropdownOpen, setNamedBuyerDropdownOpen] = useState(false);
+    const [namedBuyerHighlight, setNamedBuyerHighlight] = useState(-1);
     const [lines, setLines] = useState([{ ...EMPTY_LINE, _key: Date.now() }]);
     const [sales, setSales] = useState([]);
     const [sellers, setSellers] = useState([]);
@@ -591,8 +592,14 @@ const [namedBuyerHighlight, setNamedBuyerHighlight] = useState(-1);
     const [deletingId, setDeletingId] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [speedConfigOpen, setSpeedConfigOpen] = useState(false);
-    const [printStatus, setPrintStatus] = useState(null); // null | 'preparing' | 'printing'
+    const [printStatus, setPrintStatus] = useState(null);
     const sellerCodeRef = useRef(null);
+
+    // Edit modal state
+    const [editSellerSearch, setEditSellerSearch] = useState("");
+    const [editBuyerSearch, setEditBuyerSearch] = useState("");
+    const [editSellerDrop, setEditSellerDrop] = useState(false);
+    const [editBuyerDrop, setEditBuyerDrop] = useState(false);
 
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -817,28 +824,28 @@ const [namedBuyerHighlight, setNamedBuyerHighlight] = useState(-1);
     };
 
     const fetchNamedBuyers = async () => {
-    try {
-        const { data } = await api.get("/cattle-feed-sales/named-buyers");
-        setNamedBuyers(data);
-    } catch { /* silent */ }
-};
+        try {
+            const { data } = await api.get("/cattle-feed-sales/named-buyers");
+            setNamedBuyers(data);
+        } catch { /* silent */ }
+    };
 
-const saveFeedNamedBuyer = async (name) => {
-    try {
-        const { data } = await api.post("/cattle-feed-sales/named-buyers", { name: name.trim() });
-        await fetchNamedBuyers();
-        return data;
-    } catch (err) {
-        if (err.response?.status === 409) {
-            const existing = namedBuyers.find(b => b.name.toLowerCase() === name.toLowerCase());
-            if (existing) return existing;
+    const saveFeedNamedBuyer = async (name) => {
+        try {
+            const { data } = await api.post("/cattle-feed-sales/named-buyers", { name: name.trim() });
+            await fetchNamedBuyers();
+            return data;
+        } catch (err) {
+            if (err.response?.status === 409) {
+                const existing = namedBuyers.find(b => b.name.toLowerCase() === name.toLowerCase());
+                if (existing) return existing;
+            }
+            showFlash('error', 'Failed to register buyer');
+            return null;
         }
-        showFlash('error', 'Failed to register buyer');
-        return null;
-    }
-};
+    };
 
-useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
+    useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
     // ── FIXED: Seller filtering - search by name OR code (partial match) ──
@@ -1254,158 +1261,160 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                             {form.buyer_mode === "seller" && (
                                 <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
                                     <Field label={t('cattleFeedSales.form.sellerCode')} icon={<User size={12} />}>
-                                    <TinyInput
-                                        ref={sellerCodeRef}
-                                        value={sellerCodeInput}
-                                        onChange={(e) => handleSellerCodeChange(e.target.value)}
-                                        placeholder="SC-001"
-                                        className="text-[13px] font-mono w-24"
-                                    />
-                                </Field>
-
-                                <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
-                                    <div className="relative" style={{ width: "220px" }}>
                                         <TinyInput
-                                            value={sellerSearch}
-                                            onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
-                                            onBlur={() => setTimeout(() => {
-                                                setShowSellerDrop(false);
-                                                setForm(prev => {
-                                                    if (!prev.seller_id) setSellerSearch("");
-                                                    return prev;
-                                                });
-                                            }, 150)}
-                                            onChange={(e) => handleSellerSearchChange(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (!showSellerDrop || filteredSellers.length === 0) return;
-                                                if (e.key === "ArrowDown") {
-                                                    e.preventDefault();
-                                                    setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
-                                                } else if (e.key === "ArrowUp") {
-                                                    e.preventDefault();
-                                                    setHighlightedIdx(i => Math.max(i - 1, 0));
-                                                } else if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
-                                                        const sel = filteredSellers[highlightedIdx];
-                                                        handleSellerSelect(sel);
-                                                        focusNextField(e.currentTarget);
-                                                    } else {
-                                                        setShowSellerDrop(false);
-                                                        focusNextField(e.currentTarget);
-                                                    }
-                                                } else if (e.key === "Escape") {
-                                                    setShowSellerDrop(false);
-                                                }
-                                            }}
-                                            placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
-                                            className="pr-7 w-full"
+                                            ref={sellerCodeRef}
+                                            value={sellerCodeInput}
+                                            onChange={(e) => handleSellerCodeChange(e.target.value)}
+                                            placeholder="SC-001"
+                                            className="text-[13px] font-mono w-24"
                                         />
-                                        {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
-                                            <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
-                                                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
-                                                    {sellerSearch.trim() || sellerCodeInput.trim()
-                                                        ? `${filteredSellers.length} ${t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })}`
-                                                        : t('cattleFeedSales.form.sellersAZ')}
-                                                </p>
-                                                {filteredSellers.map((s, idx) => (
-                                                    <button key={s.seller_id} type="button"
-                                                        onMouseEnter={() => setHighlightedIdx(idx)}
-                                                        onClick={() => {
-                                                            handleSellerSelect(s);
-                                                            focusNextField(e.currentTarget);
-                                                        }}
-                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
-                                    ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
-                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
-                                    ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-gray-100/80 text-gray-600"}`}>
-                                                            {s.name?.charAt(0)?.toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                            <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {form.seller_id && (
-                                            <button type="button"
-                                                onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); }}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                                                <X size={12} />
-                                            </button>
-                        )}
-                                </div>
-                </Field>
-                    </div>
-                )}
+                                    </Field>
 
-                {form.buyer_mode === "named" && (
-                    <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
-                        <Field label="Buyer Name" icon={<User size={12} />}>
-                            <div className="relative" style={{ width: "220px" }}>
-                                <TinyInput
-                                    value={namedBuyerSearch}
-                                    onFocus={() => { setNamedBuyerDropdownOpen(true); setNamedBuyerHighlight(-1); }}
-                                    onBlur={() => setTimeout(() => setNamedBuyerDropdownOpen(false), 150)}
-                                    onChange={(e) => {
-                                        setNamedBuyerSearch(e.target.value);
-                                        setNamedBuyerId("");
-                                        setNamedBuyerDropdownOpen(true);
-                                    }}
-                                    placeholder="Search or add buyer..."
-                                    className="pr-7 w-full"
-                                />
-                                {namedBuyerDropdownOpen && (() => {
-                                    const filtered = namedBuyerSearch
-                                        ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
-                                        : namedBuyers.slice(0, 5);
-                                    const showRegister = namedBuyerSearch.trim() &&
-                                        !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
-                                    return (filtered.length > 0 || showRegister) ? (
-                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
-                                            {filtered.map((b) => (
-                                                <button key={b.buyer_id} type="button"
-                                                    onClick={() => { setNamedBuyerId(b.buyer_id); setNamedBuyerSearch(b.name); setNamedBuyerDropdownOpen(false); }}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
-                                                    <div className="w-6 h-6 rounded-full bg-gray-100/80 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
-                                                        {b.name?.charAt(0)?.toUpperCase()}
-                                                    </div>
-                                                    <span className="font-medium text-gray-800 text-xs">{b.name}</span>
-                                                </button>
-                                            ))}
-                                            {showRegister && (
+                                    <Field label={t('cattleFeedSales.form.seller')} icon={<User size={12} />}>
+                                        <div className="relative" style={{ width: "220px" }}>
+                                            <TinyInput
+                                                value={sellerSearch}
+                                                onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
+                                                onBlur={() => setTimeout(() => {
+                                                    setShowSellerDrop(false);
+                                                    setForm(prev => {
+                                                        if (!prev.seller_id) setSellerSearch("");
+                                                        return prev;
+                                                    });
+                                                }, 150)}
+                                                onChange={(e) => handleSellerSearchChange(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (!showSellerDrop || filteredSellers.length === 0) return;
+                                                    if (e.key === "ArrowDown") {
+                                                        e.preventDefault();
+                                                        setHighlightedIdx(i => Math.min(i + 1, filteredSellers.length - 1));
+                                                    } else if (e.key === "ArrowUp") {
+                                                        e.preventDefault();
+                                                        setHighlightedIdx(i => Math.max(i - 1, 0));
+                                                    } else if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        if (highlightedIdx >= 0 && filteredSellers[highlightedIdx]) {
+                                                            const sel = filteredSellers[highlightedIdx];
+                                                            handleSellerSelect(sel);
+                                                            focusNextField(e.currentTarget);
+                                                        } else {
+                                                            setShowSellerDrop(false);
+                                                            focusNextField(e.currentTarget);
+                                                        }
+                                                    } else if (e.key === "Escape") {
+                                                        setShowSellerDrop(false);
+                                                    }
+                                                }}
+                                                placeholder={t('cattleFeedSales.form.sellerPlaceholder')}
+                                                className="pr-7 w-full"
+                                            />
+                                            {showSellerDrop && !form.seller_id && filteredSellers.length > 0 && (
+                                                <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
+                                                        {sellerSearch.trim() || sellerCodeInput.trim()
+                                                            ? `${filteredSellers.length} ${t('cattleFeedSales.form.sellerMatches', { count: filteredSellers.length })}`
+                                                            : t('cattleFeedSales.form.sellersAZ')}
+                                                    </p>
+                                                    {filteredSellers.map((s, idx) => (
+                                                        <button key={s.seller_id} type="button"
+                                                            onMouseEnter={() => setHighlightedIdx(idx)}
+                                                            onClick={() => {
+                                                                handleSellerSelect(s);
+                                                                focusNextField(e.currentTarget);
+                                                            }}
+                                                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+                                    ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
+                                    ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-gray-100/80 text-gray-600"}`}>
+                                                                {s.name?.charAt(0)?.toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium text-gray-800 text-xs">{s.name}</p>
+                                                                <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {form.seller_id && (
                                                 <button type="button"
-                                                    onClick={async () => {
-                                                        const nb = await saveFeedNamedBuyer(namedBuyerSearch.trim());
-                                                        if (nb) { setNamedBuyerId(nb.buyer_id); setNamedBuyerSearch(nb.name); }
-                                                        setNamedBuyerDropdownOpen(false);
-                                                    }}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 hover:bg-emerald-50 transition">
-                                                    <Plus size={12} className="text-emerald-600" />
-                                                    <span className="font-medium text-emerald-700 text-xs">Register "{namedBuyerSearch}"</span>
+                                                    onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); }}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                                                    <X size={12} />
                                                 </button>
                                             )}
                                         </div>
-                                    ) : null;
-                                })()}
-                            </div>
-                        </Field>
-                    </div>
-                )}
+                                    </Field>
+                                </div>
+                            )}
 
-                {form.buyer_mode === "anon" && (
-                    <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
-                        <Field label="Buyer" icon={<UserCircle2 size={12} />}>
-                            <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
-                                <UserCircle2 size={14} /> Anonymous
-                            </div>
-                        </Field>
-                    </div>
-                )}
+                            {form.buyer_mode === "named" && (
+                                <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                                    <Field label={t('cattleFeedSales.form.buyerName') || "Buyer Name"} icon={<User size={12} />}>
+                                        <div className="relative" style={{ width: "220px" }}>
+                                            <TinyInput
+                                                value={namedBuyerSearch}
+                                                onFocus={() => { setNamedBuyerDropdownOpen(true); setNamedBuyerHighlight(-1); }}
+                                                onBlur={() => setTimeout(() => setNamedBuyerDropdownOpen(false), 150)}
+                                                onChange={(e) => {
+                                                    setNamedBuyerSearch(e.target.value);
+                                                    setNamedBuyerId("");
+                                                    setNamedBuyerDropdownOpen(true);
+                                                }}
+                                                placeholder={t('cattleFeedSales.form.buyerPlaceholder') || "Search or add buyer..."}
+                                                className="pr-7 w-full"
+                                            />
+                                            {namedBuyerDropdownOpen && (() => {
+                                                const filtered = namedBuyerSearch
+                                                    ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
+                                                    : namedBuyers.slice(0, 5);
+                                                const showRegister = namedBuyerSearch.trim() &&
+                                                    !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
+                                                return (filtered.length > 0 || showRegister) ? (
+                                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                                        {filtered.map((b) => (
+                                                            <button key={b.buyer_id} type="button"
+                                                                onClick={() => { setNamedBuyerId(b.buyer_id); setNamedBuyerSearch(b.name); setNamedBuyerDropdownOpen(false); }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
+                                                                <div className="w-6 h-6 rounded-full bg-gray-100/80 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                                                    {b.name?.charAt(0)?.toUpperCase()}
+                                                                </div>
+                                                                <span className="font-medium text-gray-800 text-xs">{b.name}</span>
+                                                            </button>
+                                                        ))}
+                                                        {showRegister && (
+                                                            <button type="button"
+                                                                onClick={async () => {
+                                                                    const nb = await saveFeedNamedBuyer(namedBuyerSearch.trim());
+                                                                    if (nb) { setNamedBuyerId(nb.buyer_id); setNamedBuyerSearch(nb.name); }
+                                                                    setNamedBuyerDropdownOpen(false);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 hover:bg-emerald-50 transition">
+                                                                <Plus size={12} className="text-emerald-600" />
+                                                                <span className="font-medium text-emerald-700 text-xs">
+                                                                    {t('cattleFeedSales.form.registerBuyer', { name: namedBuyerSearch }) || `Register "${namedBuyerSearch}"`}
+                                                                </span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    </Field>
+                                </div>
+                            )}
 
-                {/* Speed strip */}
+                            {form.buyer_mode === "anon" && (
+                                <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
+                                    <Field label={t('cattleFeedSales.form.buyer') || "Buyer"} icon={<UserCircle2 size={12} />}>
+                                        <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
+                                            <UserCircle2 size={14} /> {t('cattleFeedSales.form.anonymous') || "Anonymous"}
+                                        </div>
+                                    </Field>
+                                </div>
+                            )}
+
+                            {/* Speed strip */}
                             <SpeedStripInForm onTap={(sp) => handleAddSpeedLines([{
                                 feed_id: String(sp.feed_id),
                                 quantity: "1",
@@ -1475,7 +1484,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                                                                     <p className="text-[10px] text-gray-400">
                                                                         {f.supplier_name && <span className="text-violet-500 font-semibold">{f.supplier_name}</span>}
                                                                         {f.supplier_name && " · "}
-                                                                        {`${t('cattleFeedSales.form.stockLabel', { amount: parseFloat(f.current_stock || 0).toFixed(1), unit: f.unit })}`}
+                                                                        {t('cattleFeedSales.form.stockLabel', { amount: parseFloat(f.current_stock || 0).toFixed(1), unit: f.unit })}
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-[10px] text-violet-600 font-semibold">
@@ -1784,7 +1793,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                         </div>
 
                         {/* Date */}
-                        <Field label="Sale Date">
+                        <Field label={t('cattleFeedSales.editModal.saleDate') || "Sale Date"}>
                             <TinyInput
                                 type="date"
                                 value={editingSale.sale_date}
@@ -1809,14 +1818,14 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                                             ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-sm"
                                             : "bg-white/60 text-gray-500 border-gray-200/60 hover:border-gray-400"}`}
                                 >
-                                    {mode === "seller" ? "Seller" : mode === "named" ? "Named" : "Anonymous"}
+                                    {mode === "seller" ? t('cattleFeedSales.editModal.seller') || "Seller" : mode === "named" ? t('cattleFeedSales.editModal.named') || "Named" : t('cattleFeedSales.editModal.anon') || "Anonymous"}
                                 </button>
                             ))}
                         </div>
 
                         {/* Seller picker */}
                         {editingSale.buyer_mode === "seller" && (
-                            <Field label="Seller">
+                            <Field label={t('cattleFeedSales.editModal.seller') || "Seller"}>
                                 <div className="relative w-full">
                                     <TinyInput
                                         value={editSellerSearch}
@@ -1827,7 +1836,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                                             setEditSellerDrop(true);
                                             setEditingSale(prev => ({ ...prev, seller_id: "" }));
                                         }}
-                                        placeholder="Search seller..."
+                                        placeholder={t('cattleFeedSales.editModal.sellerPlaceholder') || "Search seller..."}
                                         className="w-full"
                                     />
                                     {editSellerDrop && (
@@ -1858,7 +1867,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
 
                         {/* Named buyer picker */}
                         {editingSale.buyer_mode === "named" && (
-                            <Field label="Buyer Name">
+                            <Field label={t('cattleFeedSales.editModal.buyerName') || "Buyer Name"}>
                                 <div className="relative w-full">
                                     <TinyInput
                                         value={editBuyerSearch}
@@ -1869,7 +1878,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                                             setEditBuyerDrop(true);
                                             setEditingSale(prev => ({ ...prev, buyer_id: "" }));
                                         }}
-                                        placeholder="Search or add buyer..."
+                                        placeholder={t('cattleFeedSales.editModal.buyerPlaceholder') || "Search or add buyer..."}
                                         className="w-full"
                                     />
                                     {editBuyerDrop && (
@@ -1890,7 +1899,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                                                 ))}
                                             {editBuyerSearch.trim() && !namedBuyers.find(b => b.name.toLowerCase() === editBuyerSearch.toLowerCase()) && (
                                                 <div className="px-3 py-2 text-[11px] text-emerald-600 border-t border-gray-100">
-                                                    Will register "{editBuyerSearch}" as a new buyer on save
+                                                    {t('cattleFeedSales.editModal.registerBuyer', { name: editBuyerSearch }) || `Will register "${editBuyerSearch}" as a new buyer on save`}
                                                 </div>
                                             )}
                                         </div>
@@ -1901,7 +1910,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
 
                         {editingSale.buyer_mode === "anon" && (
                             <div className="h-[35px] px-3 flex items-center rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium w-fit">
-                                Anonymous buyer
+                                {t('cattleFeedSales.editModal.anonymous') || "Anonymous buyer"}
                             </div>
                         )}
 
@@ -1909,7 +1918,10 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                         <div className="flex flex-col gap-2">
                             <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
                                 style={{ gridTemplateColumns: "1fr 90px 90px 28px" }}>
-                                <span>Feed</span><span>Qty</span><span>Rate</span><span />
+                                <span>{t('cattleFeedSales.editModal.feed') || "Feed"}</span>
+                                <span>{t('cattleFeedSales.editModal.qty') || "Qty"}</span>
+                                <span>{t('cattleFeedSales.editModal.rate') || "Rate"}</span>
+                                <span />
                             </div>
                             {editingSale.items.map((item) => (
                                 <div key={item._key} className="grid gap-2 items-center" style={{ gridTemplateColumns: "1fr 90px 90px 28px" }}>
@@ -1918,7 +1930,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                                         onChange={(e) => setEditLine(item._key, "feed_id", e.target.value)}
                                         className="border border-gray-200/60 bg-white/50 rounded-xl px-2.5 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                                     >
-                                        <option value="">Select feed…</option>
+                                        <option value="">{t('cattleFeedSales.editModal.selectFeed') || "Select feed…"}</option>
                                         {feeds.map(f => (
                                             <option key={f.feed_id} value={f.feed_id}>
                                                 {f.feed_name} (stock: {parseFloat(f.current_stock).toFixed(1)} {f.unit})
@@ -1944,7 +1956,7 @@ useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
                             ))}
                             <button type="button" onClick={addEditLine}
                                 className="self-start flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 border border-dashed border-gray-300/60 hover:border-gray-500 px-3 py-1.5 rounded-xl transition">
-                                <Plus size={12} /> Add Line
+                                <Plus size={12} /> {t('cattleFeedSales.editModal.addLine') || "Add Line"}
                             </button>
                         </div>
 

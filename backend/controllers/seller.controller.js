@@ -18,6 +18,7 @@ exports.listSellers = async (req, res) => {
                 deposit_enabled, deposit_per_litre,
                 operator_id,
                 cheque,
+                profile_image,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
             FROM sellers
             WHERE centre_id = ?
@@ -51,6 +52,7 @@ exports.listCentreSellers = async (req, res) => {
                 s.is_active, s.created_at,
                 s.deposit_enabled, s.deposit_per_litre,
                 s.cheque,
+                s.profile_image,
                 o.name AS operator_name, o.operator_id
             FROM sellers s
             JOIN operators o ON o.operator_id = s.operator_id
@@ -97,7 +99,8 @@ exports.listSellersByOperator = async (req, res) => {
                 address, pincode, advance_enabled, advance_deduction, product_sale_enabled,
                 is_active, created_at,
                 deposit_enabled, deposit_per_litre,
-                cheque
+                cheque,
+                profile_image
             FROM sellers
             WHERE operator_id = ? AND centre_id = ?
             ORDER BY created_at DESC
@@ -131,6 +134,7 @@ exports.getSellerById = async (req, res) => {
                 deposit_enabled, deposit_per_litre,
                 operator_id,
                 cheque,
+                profile_image,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
             FROM sellers
             WHERE seller_id = ? AND centre_id = ?
@@ -420,12 +424,17 @@ exports.createSeller = async (req, res) => {
             advance_enabled, advance_deduction, product_sale_enabled, product_sale_rate,
             deposit_enabled, deposit_per_litre, password,
             cattle_feed_sale_enabled,
-            cheque
+            cheque, profile_image
         } = req.body;
 
         if (!name || !mobile) {
             await conn.rollback();
             return res.status(400).json({ message: 'Name and mobile are required' });
+        }
+
+        if (milk_type === 'both') {
+            await conn.rollback();
+            return res.status(400).json({ message: '"Both" milk type is no longer supported. Please select Cow or Buffalo.' });
         }
 
         const isAdmin = req.user.role === 'admin';
@@ -510,7 +519,7 @@ exports.createSeller = async (req, res) => {
                 deposit_enabled, deposit_per_litre,
                 cattle_feed_sale_enabled,
                 password_hash, must_change_password,
-                cheque
+                cheque, profile_image
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                       ?, ?,
                       ?, ?, ?,
@@ -519,7 +528,7 @@ exports.createSeller = async (req, res) => {
                       ?, ?,
                       ?,
                       ?, ?,
-                      ?)`,
+                      ?, ?)`,
             [
                 operator_id,
                 created_by_admin_id,
@@ -532,8 +541,7 @@ exports.createSeller = async (req, res) => {
                 pan_number || null,
                 seller_id_code || null,
                 seller_type || 'Utpadak',
-                milk_type || 'both',
-                jamin || null,
+                milk_type || 'cow',                jamin || null,
                 bank_account || null,
                 bank_name || null,
                 account_holder_name || null,
@@ -550,7 +558,8 @@ exports.createSeller = async (req, res) => {
                 cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                 password_hash,
                 password_hash ? 0 : 1,
-                cheque || null
+                cheque || null,
+                profile_image || null
             ]
         );
 
@@ -585,8 +594,12 @@ exports.updateSeller = async (req, res) => {
             advance_enabled, advance_deduction, product_sale_enabled,
             deposit_enabled, deposit_per_litre, password, is_active,
             cattle_feed_sale_enabled,
-            cheque
+            cheque, profile_image,
         } = req.body;
+
+        if (milk_type === 'both') {
+            return res.status(400).json({ error: '"Both" milk type is no longer supported. Please select Cow or Buffalo.' });
+        }
 
         const operatorId = req.user.id;
         const centreId = req.user.centre_id;
@@ -693,7 +706,8 @@ exports.updateSeller = async (req, res) => {
                 is_active            = ?,
                 password_hash        = COALESCE(?, password_hash),
                 must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END,
-                cheque               = ?
+                cheque               = ?,
+                profile_image        = ?
             WHERE seller_id = ? AND centre_id = ?`,
             [
                 cleanSellerCode || null,
@@ -703,8 +717,7 @@ exports.updateSeller = async (req, res) => {
                 pan_number || null,
                 seller_id_code || null,
                 seller_type || 'Utpadak',
-                milk_type || 'both',
-                jamin || null,
+                milk_type || 'cow',                jamin || null,
                 bank_account || null,
                 bank_name || null,
                 account_holder_name || null,
@@ -722,6 +735,7 @@ exports.updateSeller = async (req, res) => {
                 password_hash,
                 password_hash,
                 cheque || null,
+                profile_image || null,
                 req.params.id,
                 centreId
             ]
@@ -743,6 +757,7 @@ exports.updateSeller = async (req, res) => {
                 cattle_feed_sale_enabled,
                 is_active, created_at, operator_id,
                 cheque,
+                profile_image,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
              FROM sellers
              WHERE seller_id = ? AND centre_id = ?`,
@@ -865,6 +880,7 @@ exports.getActiveSellers = async (req, res) => {
                 deposit_enabled, deposit_per_litre,
                 operator_id,
                 cheque,
+                profile_image,
                 (password_hash IS NOT NULL AND password_hash <> '') AS has_password
              FROM sellers
              WHERE centre_id = ? AND is_active = 1
@@ -921,10 +937,11 @@ exports.importSellers = async (req, res) => {
                 advance_enabled, advance_deduction, product_sale_enabled,
                 deposit_enabled, deposit_per_litre, password,
                 cattle_feed_sale_enabled,
-                cheque
+                cheque, profile_image
             } = row;
 
-            const mobileClean = mobile ? String(mobile).replace(/[^\d]/g, "") : "";
+ const mobileClean = mobile ? String(mobile).replace(/[^\d]/g, "") : "";
+            const milkTypeClean = String(milk_type || '').trim().toLowerCase() === 'both' ? 'cow' : (milk_type || 'cow');
 
             let finalSellerCode = seller_code ? String(seller_code).trim() : '';
             if (finalSellerCode && /^0+[0-9]+$/.test(finalSellerCode)) {
@@ -975,7 +992,7 @@ exports.importSellers = async (req, res) => {
                         deposit_enabled, deposit_per_litre,
                         cattle_feed_sale_enabled,
                         password_hash, must_change_password,
-                        cheque
+                        cheque, profile_image
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                               ?, ?,
                               ?, ?, ?,
@@ -984,7 +1001,7 @@ exports.importSellers = async (req, res) => {
                               ?, ?,
                               ?,
                               ?, ?,
-                              ?)`,
+                              ?, ?)`,
                     [
                         operator_id,
                         created_by_admin_id,
@@ -997,7 +1014,7 @@ exports.importSellers = async (req, res) => {
                         pan_number || null,
                         seller_id_code || null,
                         seller_type || 'Utpadak',
-                        milk_type || 'both',
+                        milkTypeClean,
                         jamin || null,
                         bank_account || null,
                         bank_name || null,
@@ -1014,7 +1031,8 @@ exports.importSellers = async (req, res) => {
                         cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                         password_hash,
                         password_hash ? 0 : 1,
-                        cheque || null
+                        cheque || null,
+                        profile_image || null
                     ]
                 );
                 results.added++;
@@ -1110,7 +1128,7 @@ exports.updateSellersBulk = async (req, res) => {
                 advance_enabled, advance_deduction, product_sale_enabled,
                 deposit_enabled, deposit_per_litre, password,
                 cattle_feed_sale_enabled,
-                cheque
+                cheque, profile_image
             } = row;
 
             if (!seller_code) {
@@ -1120,6 +1138,7 @@ exports.updateSellersBulk = async (req, res) => {
             }
 
             const mobileClean = mobile ? String(mobile).replace(/[^\d]/g, "") : "";
+            const milkTypeClean = String(milk_type || '').trim().toLowerCase() === 'both' ? 'cow' : (milk_type || 'cow');
 
             const [[existing]] = await conn.query(
                 `SELECT seller_id FROM sellers WHERE seller_code = ? AND centre_id = ?`,
@@ -1141,11 +1160,12 @@ exports.updateSellersBulk = async (req, res) => {
                             deposit_enabled = ?, deposit_per_litre = ?, cattle_feed_sale_enabled = ?,
                             password_hash = COALESCE(?, password_hash),
                             must_change_password = CASE WHEN ? IS NOT NULL THEN 0 ELSE must_change_password END,
-                            cheque = ?
+                            cheque = ?,
+                            profile_image = ?
                         WHERE seller_id = ? AND centre_id = ?`,
                         [
                             name, mobileClean, aadhaar || null, pan_number || null, seller_id_code || null,
-                            seller_type || 'Utpadak', milk_type || 'both', jamin || null,
+                            seller_type || 'Utpadak', milkTypeClean, jamin || null,
                             bank_account || null, bank_name || null, account_holder_name || null, branch_name || null, ifsc_code || null,
                             address || null, pincode || null,
                             advance_enabled !== undefined ? advance_enabled : 1,
@@ -1157,6 +1177,7 @@ exports.updateSellersBulk = async (req, res) => {
                             password_hash,
                             password_hash,
                             cheque || null,
+                            profile_image || null,
                             sellerId, centreId
                         ]
                     );
@@ -1177,7 +1198,7 @@ exports.updateSellersBulk = async (req, res) => {
                             deposit_enabled, deposit_per_litre,
                             cattle_feed_sale_enabled,
                             password_hash, must_change_password,
-                            cheque
+                            cheque, profile_image
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
                                   ?, ?,
                                   ?, ?, ?,
@@ -1186,7 +1207,7 @@ exports.updateSellersBulk = async (req, res) => {
                                   ?, ?,
                                   ?,
                                   ?, ?,
-                                  ?)`,
+                                  ?, ?)`,
                         [
                             operator_id,
                             created_by_admin_id,
@@ -1198,8 +1219,8 @@ exports.updateSellersBulk = async (req, res) => {
                             aadhaar || null,
                             pan_number || null,
                             seller_id_code || null,
-                            seller_type || 'Utpadak',
-                            milk_type || 'both',
+                           seller_type || 'Utpadak',
+                            milkTypeClean,
                             jamin || null,
                             bank_account || null,
                             bank_name || null,
@@ -1216,7 +1237,8 @@ exports.updateSellersBulk = async (req, res) => {
                             cattle_feed_sale_enabled !== undefined ? cattle_feed_sale_enabled : 0,
                             password_hash,
                             password_hash ? 0 : 1,
-                            cheque || null
+                            cheque || null,
+                            profile_image || null
                         ]
                     );
                     results.inserted++;

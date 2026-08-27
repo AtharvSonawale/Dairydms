@@ -370,7 +370,7 @@ exports.saveProductType = async (req, res) => {
         const [result] = await pool.query(
             `INSERT INTO walkin_product_types (operator_id, centre_id, name, milk_type, type, extra_rate)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [operator_id, centre_id, name.trim(), milk_type || 'both', type, parseFloat(extra_rate || 0)]
+            [operator_id, centre_id, name.trim(), milk_type || 'cow', type, parseFloat(extra_rate || 0)]
         );
 
         const [row] = await pool.query(
@@ -417,8 +417,7 @@ exports.updateProductType = async (req, res) => {
              WHERE product_type_id = ? AND centre_id = ?`,
             [
                 name || null,
-                milk_type || 'both',
-                type || 'loose',
+                milk_type || 'cow',                type || 'loose',
                 parseFloat(extra_rate) || 0,
                 is_active !== undefined ? is_active : 1,
                 id,

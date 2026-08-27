@@ -69,13 +69,13 @@ const sellerTypeBadge = (t) =>
         ? "bg-emerald-50/80 text-emerald-700 border-emerald-200/60"
         : "bg-orange-50/80 text-orange-700 border-orange-200/60";
 
-const MILK_TYPES = ["cow", "buffalo", "both"];
 const SELLER_TYPES = ["Utpadak", "Gavali"];
+const MILK_TYPES = ["cow", "buffalo"];
 
 const EMPTY_FORM = {
     seller_code: "", name: "", mobile: "", aadhaar: "",
     pan_number: "", seller_id_code: "",
-    seller_type: "Utpadak", milk_type: "both", jamin: "",
+    seller_type: "Utpadak", milk_type: "cow", jamin: "",
     bank_account: "", bank_name: "", account_holder_name: "", branch_name: "",
     ifsc_code: "", address: "", pincode: "",
     advance_enabled: 1, advance_deduction: "", deposit_enabled: 0,
@@ -85,6 +85,7 @@ const EMPTY_FORM = {
     is_active: 1,
     password: "",
     cheque: "",
+    profile_image: "",
 };
 
 const Field = ({ label, required, children }) => (
@@ -309,6 +310,41 @@ function FlashToast({ flash, phase, onClose }) {
                 <button onClick={onClose} className="opacity-50 hover:opacity-100 transition shrink-0">
                     <X size={16} />
                 </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Image View Modal (cheque / profile photo popup) ──────────
+function ImageViewModal({ image, onClose }) {
+    if (!image) return null;
+    return (
+        <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={onClose}
+        >
+            <div
+                className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200/60 shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 truncate pr-2">{image.title}</h3>
+                    <div className="flex items-center gap-2 shrink-0">
+<a
+                            href={image.url}
+                            download={`${(image.title || "image").replace(/\s+/g, "_")}.png`}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
+                        >
+                            Download
+                        </a>
+                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 p-4">
+                    <img src={image.url} alt={image.title} className="max-w-full max-h-full object-contain rounded-lg" />
+                </div>
             </div>
         </div>
     );
@@ -634,6 +670,13 @@ function EditFormModal({ isOpen, onClose, form, setForm, seller, saving, onSave,
                             label="Cheque Image"
                         />
 
+                        {/* Profile Image */}
+                        <ChequeUpload
+                            value={form.profile_image}
+                            onChange={(val) => setForm(p => ({ ...p, profile_image: val }))}
+                            label="Profile Image"
+                        />
+
                         {/* Advance + Deposit + Product + Cattle Feed + Payment Term + Status */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <Field label={t('sellerProfile.editForm.cashAdvance')}>
@@ -763,6 +806,7 @@ export default function SellerProfile() {
     const [hasPassword, setHasPassword] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [viewImage, setViewImage] = useState(null);
     const [flash, setFlash] = useState(null);
     const [flashPhase, setFlashPhase] = useState("idle");
     const flashHideTimer = useRef(null);
@@ -879,8 +923,7 @@ export default function SellerProfile() {
             pan_number: seller.pan_number || "",
             seller_id_code: seller.seller_id_code || "",
             seller_type: seller.seller_type || "Utpadak",
-            milk_type: seller.milk_type || "both",
-            jamin: seller.jamin || "",
+            milk_type: seller.milk_type || "cow",            jamin: seller.jamin || "",
             bank_account: seller.bank_account || "",
             bank_account_confirm: seller.bank_account || "",
             bank_name: seller.bank_name || "",
@@ -897,8 +940,9 @@ export default function SellerProfile() {
             product_sale_rate: seller.product_sale_rate || "",
             cattle_feed_sale_enabled: Number(seller.cattle_feed_sale_enabled ?? 0) ? 1 : 0,
             is_active: Number(seller.is_active ?? 1) ? 1 : 0,
-            password: "",
+           password: "",
             cheque: seller.cheque || "",
+            profile_image: seller.profile_image || "",
         });
         setHasPassword(!!seller.has_password);
         setShowEdit(true);
@@ -1054,8 +1098,10 @@ export default function SellerProfile() {
                         </button>
 
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-gray-900/20 shrink-0">
-                                {seller?.name?.charAt(0)?.toUpperCase()}
+                            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-gray-900/20 shrink-0">
+                                {seller?.profile_image
+                                    ? <img src={seller.profile_image} alt={seller.name} className="w-full h-full object-cover" />
+                                    : seller?.name?.charAt(0)?.toUpperCase()}
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">{seller?.name}</h1>
@@ -1172,7 +1218,7 @@ export default function SellerProfile() {
                         <InfoRow icon={<ImageIcon size={13} />} label="Cheque Image" badge={
                             seller.cheque ? (
                                 <button
-                                    onClick={() => window.open(seller.cheque, '_blank')}
+                                    onClick={() => setViewImage({ url: seller.cheque, title: `${seller.name} — Cheque` })}
                                     className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 transition"
                                 >
                                     <ImageIcon size={14} />
@@ -1180,6 +1226,21 @@ export default function SellerProfile() {
                                 </button>
                             ) : (
                                 <span className="text-xs text-gray-300 italic">No cheque uploaded</span>
+                            )
+                        } />
+
+                        {/* Profile Image */}
+                        <InfoRow icon={<ImageIcon size={13} />} label="Profile Image" badge={
+                            seller.profile_image ? (
+                                <button
+                                    onClick={() => setViewImage({ url: seller.profile_image, title: `${seller.name} — Profile Photo` })}
+                                    className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+                                >
+                                    <ImageIcon size={14} />
+                                    View Photo
+                                </button>
+                            ) : (
+                                <span className="text-xs text-gray-300 italic">No photo uploaded</span>
                             )
                         } />
                         <InfoRow icon={<Banknote size={13} />} label={t('sellerProfile.personalInfo.cashAdvance')} badge={
@@ -1913,6 +1974,7 @@ export default function SellerProfile() {
                     </div>
                 </div>
             )}
+            <ImageViewModal image={viewImage} onClose={() => setViewImage(null)} />
         </div>
     );
 }

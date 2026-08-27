@@ -21,8 +21,8 @@ import AccessDenied from '../components/AccessDenied';
 const fmt = (d, t) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-const MILK_TYPES = ["cow", "buffalo", "both"];
 const SELLER_TYPES = ["Utpadak", "Gavali"];
+const MILK_TYPES = ["cow", "buffalo"];
 
 const columnMap = {
     'seller code': 'seller_code',
@@ -89,7 +89,7 @@ const SAMPLE_FARMER_ROWS = [
         "At Post Manjari, Tal. Haveli, Dist. Pune", "412307",
         1, 300, 0, 1, 2, 0, "farmer@456"],
     ["3", "Ganesh Baburao Shinde", "9765432109", "345678901234", "CDEFG3456H", "100234567892",
-        "Utpadak", "both", "Shinde Vasti, Gat No. 78", "34567890123", "Punjab National Bank",
+    "Utpadak", "buffalo", "Shinde Vasti, Gat No. 78", "34567890123", "Punjab National Bank",
         "Ganesh Baburao Shinde", "Shivajinagar Branch", "PUNB0123400",
         "At Post Wagholi, Tal. Haveli, Dist. Pune", "412207",
         0, "", 1, 0, "", 1, "farmer@789"],
@@ -133,7 +133,7 @@ const normalizeSellerType = (val) => {
 const normalizeMilkType = (val) => {
     const s = String(val || '').trim().toLowerCase();
     if (['cow', 'buffalo'].includes(s)) return s;
-    return 'both';
+    return 'cow';
 };
 
 const EMPTY_FORM = {
@@ -144,7 +144,7 @@ const EMPTY_FORM = {
     pan_number: "",
     seller_id_code: "",
     seller_type: "Utpadak",
-    milk_type: "both",
+    milk_type: "cow",
     jamin: "",
     bank_account: "",
     bank_name: "",
@@ -163,6 +163,7 @@ const EMPTY_FORM = {
     cattle_feed_sale_enabled: 0,
     is_active: 1,
     cheque: "",
+    profile_image: "",
 };
 
 const milkBadge = (t, translate) =>
@@ -227,6 +228,41 @@ function FlashToast({ flash, phase, onClose }) {
                 <button onClick={onClose} className="opacity-50 hover:opacity-100 transition shrink-0">
                     <X size={16} />
                 </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Image View Modal (cheque / profile photo popup) ──────────
+function ImageViewModal({ image, onClose }) {
+    if (!image) return null;
+    return (
+        <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={onClose}
+        >
+            <div
+                className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200/60 shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 truncate pr-2">{image.title}</h3>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <a
+                            href={image.url}
+                            download={`${(image.title || "image").replace(/\s+/g, "_")}.png`}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
+                        >
+                            Download
+                        </a>
+                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition">
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 p-4">
+                    <img src={image.url} alt={image.title} className="max-w-full max-h-full object-contain rounded-lg" />
+                </div>
             </div>
         </div>
     );
@@ -548,12 +584,21 @@ function SellerFormModal({ isOpen, onClose, form, setForm, editingId, saving, on
                             </Field>
                         </div>
 
-                        {/* Row 7 - Cheque Image */}
+                       {/* Row 7 - Cheque Image */}
                         <div className="grid grid-cols-1 gap-4">
                             <ChequeUpload
                                 value={form.cheque}
                                 onChange={(val) => setForm(p => ({ ...p, cheque: val }))}
                                 label="Cheque Image"
+                            />
+                        </div>
+
+                        {/* Row 7b - Profile Image */}
+                        <div className="grid grid-cols-1 gap-4">
+                            <ChequeUpload
+                                value={form.profile_image}
+                                onChange={(val) => setForm(p => ({ ...p, profile_image: val }))}
+                                label="Profile Image"
                             />
                         </div>
 
@@ -743,6 +788,7 @@ export default function SellerRegister() {
     });
     const [hasPassword, setHasPassword] = useState(false);
     const [codeSortDirection, setCodeSortDirection] = useState('asc');
+    const [viewImage, setViewImage] = useState(null); // { url, title } — cheque/profile photo popup
 
     // Cycles: none -> ascending -> descending -> none
     const toggleCodeSort = () => {
@@ -1205,6 +1251,7 @@ export default function SellerRegister() {
             cattle_feed_sale_enabled: Number(s.cattle_feed_sale_enabled ?? 0) ? 1 : 0,
             is_active: Number(s.is_active ?? 1) ? 1 : 0,
             cheque: s.cheque || "",
+            profile_image: s.profile_image || "",
         });
         setEditingId(s.seller_id);
         setHasPassword(!!s.has_password);
@@ -1275,6 +1322,7 @@ export default function SellerRegister() {
 
     const TABLE_COLS = [
         { label: 'Seller', icon: <User size={11} /> },
+        { label: 'Photo', icon: <ImageIcon size={11} /> },
         { label: 'Code', icon: <Hash size={11} />, sortKey: 'seller_code' },
         { label: 'Mobile', icon: <Phone size={11} /> },
         { label: 'Aadhaar', icon: <CreditCard size={11} /> },
@@ -1298,7 +1346,7 @@ export default function SellerRegister() {
         { label: 'Actions', icon: <Settings size={11} /> },
     ];
 
-    const GRID = "210px 100px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 80px 65px 95px 75px 75px 85px 100px";
+    const GRID = "210px 70px 100px 100px 120px 110px 140px 85px 85px 90px 120px 110px 120px 100px 115px 80px 80px 65px 95px 75px 75px 85px 100px";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
@@ -1486,6 +1534,19 @@ export default function SellerRegister() {
                                     </TableCell>
 
                                     <TableCell>
+                                        {s.profile_image ? (
+                                            <button
+                                                onClick={() => setViewImage({ url: s.profile_image, title: `${s.name} — Profile Photo` })}
+                                                className="w-8 h-8 rounded-full overflow-hidden border border-gray-200/60 shrink-0"
+                                            >
+                                                <img src={s.profile_image} alt={s.name} className="w-full h-full object-cover" />
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-300 text-xs">—</span>
+                                        )}
+                                    </TableCell>
+
+                                    <TableCell>
                                         <span className="font-mono text-xs text-gray-500 bg-gray-50/80 border border-gray-200/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
                                             {s.seller_code || "—"}
                                         </span>
@@ -1543,7 +1604,7 @@ export default function SellerRegister() {
                                     <TableCell>
                                         {s.cheque ? (
                                             <button
-                                                onClick={() => window.open(s.cheque, '_blank')}
+                                                onClick={() => setViewImage({ url: s.cheque, title: `${s.name} — Cheque` })}
                                                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition"
                                             >
                                                 <ImageIcon size={14} />
@@ -1919,6 +1980,8 @@ export default function SellerRegister() {
                     </div>
                 </div>
             )}
+            
+            <ImageViewModal image={viewImage} onClose={() => setViewImage(null)} />
         </div>
     );
 }
