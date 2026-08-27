@@ -35,6 +35,8 @@ exports.adminLogin = async (req, res) => {
         if (!match)
             return res.status(401).json({ message: 'Invalid credentials' });
 
+        await pool.query('UPDATE admins SET last_login = NOW() WHERE admin_id = ?', [admin.admin_id]);
+
         const token = signToken({
             id: admin.admin_id,
             role: 'admin',
@@ -306,6 +308,8 @@ exports.operatorLogin = async (req, res) => {
         const match = await bcrypt.compare(password, operator.password_hash);
         if (!match)
             return res.status(401).json({ message: 'Invalid email or password' });
+
+        await pool.query('UPDATE operators SET last_login = NOW() WHERE operator_id = ?', [operator.operator_id]);
 
         const token = signToken({
             id: operator.operator_id,
