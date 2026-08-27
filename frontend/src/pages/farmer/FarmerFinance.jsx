@@ -88,6 +88,34 @@ function StatCard({ label, value, sub, icon, color }) {
     );
 }
 
+function CycleModeBar({ viewMode, setViewMode, selectedDate, setSelectedDate, activeCycle, count, t }) {
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-200/60">
+            <p className="text-[11px] text-gray-500">
+                {viewMode === 'cycle'
+                    ? <>{activeCycle.label} <span className="text-gray-300">·</span> {fmtDate(activeCycle.from)} – {fmtDate(activeCycle.to)}</>
+                    : <>{count} {t('dashboard.transactions')} {t('dashboard.matchingFilter', { defaultValue: 'matching filter' })}</>}
+            </p>
+            <div className="flex items-center gap-2">
+                <div className="flex rounded-lg border border-gray-200/60 overflow-hidden text-[10px] font-bold bg-white/50 backdrop-blur-sm shadow-sm">
+                    <button onClick={() => setViewMode('cycle')}
+                        className={`px-2.5 py-1.5 transition-all duration-200 ${viewMode === 'cycle' ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
+                        {t('dashboard.paymentCycle', { defaultValue: 'Payment Cycle' })}
+                    </button>
+                    <button onClick={() => setViewMode('period')}
+                        className={`px-2.5 py-1.5 transition-all duration-200 ${viewMode === 'period' ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
+                        {t('dashboard.customPeriod', { defaultValue: 'Custom Period' })}
+                    </button>
+                </div>
+                {viewMode === 'cycle' && (
+                    <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-lg px-2 py-1.5 text-[10px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                )}
+            </div>
+        </div>
+    );
+}
+
 function FilterBar({ filter, setFilter, from, setFrom, to, setTo, onReset }) {
     const { t } = useTranslation();
     const presets = ["all", "day", "week", "month", "year", "custom"];
@@ -208,13 +236,19 @@ export default function FarmerFinance() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Payment Cycle is the priority/default view; Custom Period is optional
-    const [viewMode, setViewMode] = useState('cycle'); // 'cycle' | 'period'
-    const [selectedDate, setSelectedDate] = useState(today());
+    // Advance section — independent filter state
+    const [advViewMode, setAdvViewMode] = useState('cycle'); // 'cycle' | 'period'
+    const [advSelectedDate, setAdvSelectedDate] = useState(today());
+    const [advFilter, setAdvFilter] = useState("month");
+    const [advCustomFrom, setAdvCustomFrom] = useState("");
+    const [advCustomTo, setAdvCustomTo] = useState("");
 
-    const [filter, setFilter] = useState("month");
-    const [customFrom, setCustomFrom] = useState("");
-    const [customTo, setCustomTo] = useState("");
+    // Deposit section — independent filter state
+    const [depViewMode, setDepViewMode] = useState('cycle'); // 'cycle' | 'period'
+    const [depSelectedDate, setDepSelectedDate] = useState(today());
+    const [depFilter, setDepFilter] = useState("month");
+    const [depCustomFrom, setDepCustomFrom] = useState("");
+    const [depCustomTo, setDepCustomTo] = useState("");
 
     const PAGE_SIZE_DEFAULT = 10;
     const [advPage, setAdvPage] = useState(1);
@@ -222,8 +256,9 @@ export default function FarmerFinance() {
     const [depPage, setDepPage] = useState(1);
     const [depPageSize, setDepPageSize] = useState(PAGE_SIZE_DEFAULT);
 
-    const activeCycle = getActiveFixedCycle(new Date(selectedDate + 'T00:00:00'));
-
+    const advActiveCycle = getActiveFixedCycle(new Date(advSelectedDate + 'T00:00:00'));
+    const depActiveCycle = getActiveFixedCycle(new Date(depSelectedDate + 'T00:00:00'));
+    
     // Expected shape from GET /api/farmer/finance (own-seller-only,
     // enforced server-side via requireRole('seller') + WHERE seller_id = req.user.id
     // — mirrors /farmer/milk-entries and /farmer/dashboard):
@@ -245,15 +280,16 @@ export default function FarmerFinance() {
 
     useEffect(() => { fetchFinance(); }, []);
 
-    useEffect(() => { setAdvPage(1); setDepPage(1); }, [viewMode, selectedDate, filter, customFrom, customTo]);
+    useEffect(() => { setAdvPage(1); }, [advViewMode, advSelectedDate, advFilter, advCustomFrom, advCustomTo]);
+useEffect(() => { setDepPage(1); }, [depViewMode, depSelectedDate, depFilter, depCustomFrom, depCustomTo]);
 
-    const filteredAdvances = viewMode === 'cycle'
-        ? advances.filter(a => inCycle(a.transaction_date, activeCycle))
-        : applyDateFilter(advances, 'transaction_date', filter, customFrom, customTo);
+    const filteredAdvances = advViewMode === 'cycle'
+        ? advances.filter(a => inCycle(a.transaction_date, advActiveCycle))
+        : applyDateFilter(advances, 'transaction_date', advFilter, advCustomFrom, advCustomTo);
 
-    const filteredDeposits = viewMode === 'cycle'
-        ? deposits.filter(d => inCycle(d.transaction_date, activeCycle))
-        : applyDateFilter(deposits, 'transaction_date', filter, customFrom, customTo);
+    const filteredDeposits = depViewMode === 'cycle'
+        ? deposits.filter(d => inCycle(d.transaction_date, depActiveCycle))
+        : applyDateFilter(deposits, 'transaction_date', depFilter, depCustomFrom, depCustomTo);
 
     const pagedAdvances = filteredAdvances.slice((advPage - 1) * advPageSize, advPage * advPageSize);
     const pagedDeposits = filteredDeposits.slice((depPage - 1) * depPageSize, depPage * depPageSize);
@@ -334,55 +370,7 @@ export default function FarmerFinance() {
                     </div>
                 </div>
 
-                {/* ── Current Payment Cycle / Custom Period indicator ── */}
-                <div className="relative overflow-hidden rounded-2xl border border-emerald-200/60 bg-emerald-50/80 backdrop-blur-sm shadow-lg shadow-emerald-200/50 px-5 py-4">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-emerald-400/5 blur-3xl" />
-                    <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
-                                <Calendar size={16} className="text-white" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                                    {viewMode === 'cycle'
-                                        ? t('dashboard.currentPaymentCycle', { defaultValue: 'Current Payment Cycle' })
-                                        : t('dashboard.customPeriodViewing', { defaultValue: 'Viewing Custom Period' })}
-                                </p>
-                                <p className="text-sm font-bold text-gray-900 leading-tight">
-                                    {viewMode === 'cycle'
-                                        ? <>{activeCycle.label} <span className="font-normal text-gray-400">·</span> {fmtDate(activeCycle.from)} – {fmtDate(activeCycle.to)}</>
-                                        : <>{filteredAdvances.length + filteredDeposits.length} {t('dashboard.transactions')} {t('dashboard.matchingFilter', { defaultValue: 'matching filter' })}</>}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
-                                <button
-                                    onClick={() => setViewMode('cycle')}
-                                    className={`px-3.5 py-2 transition-all duration-200 ${viewMode === 'cycle' ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}
-                                >
-                                    {t('dashboard.paymentCycle', { defaultValue: 'Payment Cycle' })}
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('period')}
-                                    className={`px-3.5 py-2 transition-all duration-200 ${viewMode === 'period' ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}
-                                >
-                                    {t('dashboard.customPeriod', { defaultValue: 'Custom Period' })}
-                                </button>
-                            </div>
-
-                            {viewMode === 'cycle' && (
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
-                                />
-                            )}
-                        </div>
-                    </div>
-                </div>
+                
 
                 {loading && <Spinner />}
 
@@ -402,10 +390,15 @@ export default function FarmerFinance() {
                                     </div>
                                 </div>
 
-                                {viewMode === 'period' && (
-                                    <FilterBar filter={filter} setFilter={setFilter}
-                                        from={customFrom} setFrom={setCustomFrom}
-                                        to={customTo} setTo={setCustomTo}
+                                <CycleModeBar
+                                    viewMode={advViewMode} setViewMode={setAdvViewMode}
+                                    selectedDate={advSelectedDate} setSelectedDate={setAdvSelectedDate}
+                                    activeCycle={advActiveCycle} count={filteredAdvances.length} t={t}
+                                />
+                                {advViewMode === 'period' && (
+                                    <FilterBar filter={advFilter} setFilter={setAdvFilter}
+                                        from={advCustomFrom} setFrom={setAdvCustomFrom}
+                                        to={advCustomTo} setTo={setAdvCustomTo}
                                         onReset={() => setAdvPage(1)} />
                                 )}
 
@@ -457,10 +450,15 @@ export default function FarmerFinance() {
                                     </div>
                                 </div>
 
-                                {viewMode === 'period' && (
-                                    <FilterBar filter={filter} setFilter={setFilter}
-                                        from={customFrom} setFrom={setCustomFrom}
-                                        to={customTo} setTo={setCustomTo}
+                                <CycleModeBar
+                                    viewMode={depViewMode} setViewMode={setDepViewMode}
+                                    selectedDate={depSelectedDate} setSelectedDate={setDepSelectedDate}
+                                    activeCycle={depActiveCycle} count={filteredDeposits.length} t={t}
+                                />
+                                {depViewMode === 'period' && (
+                                    <FilterBar filter={depFilter} setFilter={setDepFilter}
+                                        from={depCustomFrom} setFrom={setDepCustomFrom}
+                                        to={depCustomTo} setTo={setDepCustomTo}
                                         onReset={() => setDepPage(1)} />
                                 )}
 
@@ -502,7 +500,8 @@ export default function FarmerFinance() {
 
                 {/* ── Footer ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
-                    <span>· {t('dashboard.footerPeriod')} <strong className="text-gray-600">{viewMode === 'cycle' ? activeCycle.label : filter}</strong> {t('dashboard.footerData')}: {viewMode === 'cycle' ? `${fmtDate(activeCycle.from)} – ${fmtDate(activeCycle.to)}` : `${fmtDate(customFrom) || 'start'} – ${fmtDate(customTo) || 'end'}`}</span>
+                    <span>· {t('dashboard.advance', { defaultValue: 'Advance' })}: <strong className="text-gray-600">{advViewMode === 'cycle' ? advActiveCycle.label : advFilter}</strong> ({advViewMode === 'cycle' ? `${fmtDate(advActiveCycle.from)} – ${fmtDate(advActiveCycle.to)}` : `${fmtDate(advCustomFrom) || 'start'} – ${fmtDate(advCustomTo) || 'end'}`})</span>
+                    <span>· {t('dashboard.deposit', { defaultValue: 'Deposit' })}: <strong className="text-gray-600">{depViewMode === 'cycle' ? depActiveCycle.label : depFilter}</strong> ({depViewMode === 'cycle' ? `${fmtDate(depActiveCycle.from)} – ${fmtDate(depActiveCycle.to)}` : `${fmtDate(depCustomFrom) || 'start'} – ${fmtDate(depCustomTo) || 'end'}`})</span>
                     <span>· {t('dashboard.farmerFooter', { defaultValue: 'Showing only your own records' })}</span>
                 </div>
 

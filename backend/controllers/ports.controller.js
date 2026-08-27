@@ -19,10 +19,45 @@ function requireAdmin(req, res) {
     return true;
 }
 
+// ─── Helper: check operator permission (admins always pass) ──────────────────
+// op: 'R' | 'C' | 'U' | 'D' — checked against operator_permissions.page_key = 'port_settings'
+async function canAccessPorts(req, res, op = 'R') {
+    if (req.user.role === 'admin') return true;
+
+    if (req.user.role !== 'operator') {
+        res.status(403).json({ error: 'Access denied.' });
+        return false;
+    }
+
+    try {
+        const [[perm]] = await pool.query(
+            `SELECT can_create, can_read, can_update, can_delete
+             FROM operator_permissions
+             WHERE operator_id = ? AND page_key = ?`,
+            [req.user.id, 'port_settings']
+        );
+
+        const allowed = op === 'R' ? perm?.can_read
+            : op === 'C' ? perm?.can_create
+            : op === 'U' ? perm?.can_update
+            : perm?.can_delete;
+
+        if (!allowed) {
+            res.status(403).json({ error: 'Access denied. Missing permission for port settings.' });
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('canAccessPorts error:', err);
+        res.status(500).json({ error: 'Failed to verify permissions.' });
+        return false;
+    }
+}
+
 // ─── GET /api/settings/ports ──────────────────────────────────────────────────
 // Returns serial settings for BOTH machine types for the current dairy (admin only)
 exports.getPortSettings = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'R'))) return;
 
     try {
         const dairyId = req.user.dairy_id;
@@ -288,7 +323,7 @@ exports.testPortConnection = async (req, res) => {
 
 // ─── GET /api/settings/ports/weight/status ───────────────────────────────────
 exports.getWeightStatus = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'R'))) return;
     const subtype =
     req.params.subtype === 'gavali' ? 'weight_gavali'
     : req.params.subtype === 'utpadak' ? 'weight_utpadak'
@@ -298,7 +333,7 @@ exports.getWeightStatus = async (req, res) => {
 
 // ─── POST /api/settings/ports/weight/connect ─────────────────────────────────
 exports.connectWeightMachine = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'U'))) return;
     const subtype =
     req.params.subtype === 'gavali' ? 'weight_gavali'
     : req.params.subtype === 'utpadak' ? 'weight_utpadak'
@@ -313,7 +348,7 @@ exports.connectWeightMachine = async (req, res) => {
 
 // ─── POST /api/settings/ports/weight/disconnect ──────────────────────────────
 exports.disconnectWeightMachine = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'U'))) return;
     const subtype =
     req.params.subtype === 'gavali' ? 'weight_gavali'
     : req.params.subtype === 'utpadak' ? 'weight_utpadak'
@@ -325,13 +360,13 @@ res.json({ success: true, message: `Disconnected from ${label} weight machine.` 
 
 // ─── GET /api/settings/ports/fat/status ──────────────────────────────────────
 exports.getFatStatus = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'R'))) return;
     res.json(fatMachine.getLatest());
 };
 
 // ─── POST /api/settings/ports/fat/connect ────────────────────────────────────
 exports.connectFatMachine = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'U'))) return;
     try {
         await fatMachine.connect(req.user.dairy_id);
         res.json({ success: true, message: 'Connected to the serial port.' });
@@ -342,7 +377,7 @@ exports.connectFatMachine = async (req, res) => {
 
 // ─── POST /api/settings/ports/fat/disconnect ─────────────────────────────────
 exports.disconnectFatMachine = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'U'))) return;
     fatMachine.disconnect();
     res.json({ success: true, message: 'Disconnected from Fat & SNF machine.' });
 };
@@ -369,7 +404,7 @@ exports.getWeightConfig = async (req, res) => {
 
 // ─── POST /api/settings/weight-config ────────────────────────────────────────
 exports.saveWeightConfig = async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    if (!(await canAccessPorts(req, res, 'U'))) return;
     try {
         const dairyId = req.user.dairy_id;
         const { portSwitchingEnabled } = req.body;

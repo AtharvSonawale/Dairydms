@@ -76,6 +76,8 @@ import AllMilkEntries from './pages/AllMilkEntries';
 import ProductSalesReport from './pages/ProductSalesReport';
 import CattleFeedSalesReport from './pages/CattleFeedSalesReport';
 
+// ── Unified Login ──────────────────────────────────────────
+import UnifiedLogin from './pages/auth/UnifiedLogin';
 
 // ── Root redirect ──────────────────────────────────────────
 // If a valid session exists, skip the login page and go straight
@@ -89,7 +91,7 @@ function RootRedirect() {
     if (user.role === 'seller') return <Navigate to="/farmer/dashboard" replace />;
   }
 
-  return <AdminLogin />;
+  return <UnifiedLogin />;
 }
 
 function AppRoutes() {

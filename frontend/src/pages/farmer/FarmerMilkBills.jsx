@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
     ArrowLeft, Receipt, ChevronRight, AlertTriangle, X,
     Milk, FlaskConical, Banknote, Sun, Moon, Home,
-    BadgeCheck, Calendar, Droplets
+    BadgeCheck, Calendar, Droplets, Wallet
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -286,7 +286,7 @@ export default function FarmerMilkBills() {
 
     const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-    const totalPayable = filtered.reduce((a, b) => a + parseFloat(b.final_payable || 0), 0);
+    const totalPayable = filtered.reduce((a, b) => a + Math.max(0, parseFloat(b.final_payable || 0)), 0);
     const totalQty = filtered.reduce((a, b) => a + parseFloat(b.total_qty || 0), 0);
     const totalEntries = filtered.reduce((a, b) => a + parseInt(b.total_entries || 0), 0);
 
@@ -451,7 +451,7 @@ export default function FarmerMilkBills() {
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0 ml-3">
-                                            <p className="text-xs font-bold text-emerald-600">₹{fmt(b.final_payable)}</p>
+                                            <p className="text-xs font-bold text-emerald-600">₹{fmt(Math.max(0, b.final_payable))}</p>
                                             <p className="text-[10px] text-gray-400">{b.total_qty} L · {b.total_entries} {t('dashboard.entries')}</p>
                                         </div>
                                     </div>
@@ -594,7 +594,7 @@ export default function FarmerMilkBills() {
                                             ))}
                                             <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
                                                 <span className="text-xs font-bold uppercase tracking-wider">{t('dashboard.netCashToHand', { defaultValue: 'Net Cash To Hand' })}</span>
-                                                <span className="text-base font-bold font-mono">₹{fmt(billDetail.payment.final_payable ?? billDetail.payment.cash_paid)}</span>
+                                                <span className="text-base font-bold font-mono">₹{fmt(Math.max(0, billDetail.payment.final_payable ?? billDetail.payment.cash_paid))}</span>
                                             </div>
                                         </div>
                                     </div>
