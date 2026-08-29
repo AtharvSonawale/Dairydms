@@ -24,6 +24,9 @@ router.delete('/speed-feeds/:id', protect, salesCtrl.deleteSpeedFeed);
 router.get('/named-buyers', protect, salesCtrl.getFeedNamedBuyers);
 router.post('/named-buyers', protect, salesCtrl.createFeedNamedBuyer);
 
+// ── Fulfillment (QR pickup verification) ─────────────────────
+
+
 // ── Report Routes ────────────────────────────────────────────
 router.get('/report', protect, reportCtrl.getSalesReport);
 router.get('/report/summary', protect, reportCtrl.getReportSummary);

@@ -975,6 +975,7 @@ export default function CattleFeedSales() {
                     seller_code: first.seller_code,
                     sale_date: first.sale_date,
                     created_at: first.created_at,
+                    fulfillment_token: created.fulfillment_token,
                     items: created.items.map(item => ({
                         sale_id: item.sale_id,
                         feed_name: item.feed_name,

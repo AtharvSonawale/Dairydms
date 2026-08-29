@@ -2,6 +2,8 @@ const pool = require('../config/db');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const crypto = require('crypto');
+
 
 // ── Multer config for image uploads (same as product sales) ──
 const storage = multer.diskStorage({
@@ -89,12 +91,15 @@ exports.getSales = async (req, res) => {
                 s.seller_code AS seller_code,
                 s.seller_type AS seller_type,
                 nb.name       AS registered_buyer_name,
-                o.name        AS operator_name
+                o.name        AS operator_name,
+                f.token       AS fulfillment_token,
+                f.status      AS fulfillment_status
             FROM cattle_feed_sales cfs
 JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
 LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
 LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
 JOIN operators   o ON o.operator_id = cfs.operator_id
+LEFT JOIN cattle_feed_fulfillments f ON f.transaction_id = cfs.transaction_id
 WHERE cfs.centre_id = ?
 ${dateCondition}
 ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
@@ -136,12 +141,15 @@ exports.getTransactions = async (req, res) => {
                 s.seller_code AS seller_code,
                 s.seller_type AS seller_type,
                 nb.name       AS registered_buyer_name,
-                o.name        AS operator_name
+                o.name        AS operator_name,
+                f.token       AS fulfillment_token,
+                f.status      AS fulfillment_status
             FROM cattle_feed_sales cfs
 JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
 LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
 LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
 JOIN operators   o ON o.operator_id = cfs.operator_id
+LEFT JOIN cattle_feed_fulfillments f ON f.transaction_id = cfs.transaction_id
 WHERE cfs.centre_id = ?
 ${dateCondition}
 ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
@@ -168,6 +176,8 @@ ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
                     created_at: row.created_at,
                     operator_id: row.operator_id,
                     operator_name: row.operator_name,
+                    fulfillment_token: row.fulfillment_token,
+                    fulfillment_status: row.fulfillment_status,
                     items: [],
                     total_amount: 0,
                 });
@@ -355,6 +365,16 @@ exports.createSale = async (req, res) => {
             );
         }
 
+        // ── create a fulfillment record with a secure random token ──
+        // The QR on the receipt encodes this token, never the transaction_id
+        // alone, so a receipt can't be forged or guessed by trying numbers.
+        const fulfillmentToken = crypto.randomBytes(24).toString('hex');
+        await conn.query(
+            `INSERT INTO cattle_feed_fulfillments (transaction_id, centre_id, token, status)
+             VALUES (?, ?, ?, 'pending')`,
+            [transaction_id, centreId, fulfillmentToken]
+        );
+
         await conn.commit();
 
         // ── return all inserted rows with joins ──
@@ -373,7 +393,7 @@ exports.createSale = async (req, res) => {
      WHERE cfs.sale_id IN (?) AND cfs.centre_id = ?`,
             [insertedIds, centreId]
         );
-        res.status(201).json({ transaction_id, items: newRows });
+        res.status(201).json({ transaction_id, items: newRows, fulfillment_token: fulfillmentToken });
 
     } catch (err) {
         await conn.rollback();

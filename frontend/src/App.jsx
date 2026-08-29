@@ -78,6 +78,7 @@ import ProductSalesReport from './pages/ProductSalesReport';
 import CattleFeedSalesReport from './pages/CattleFeedSalesReport';
 import OperatorMyProfile from './pages/operator/MyProfile';
 
+import FulfillmentScanner from './pages/FulfillmentScanner';
 // ── Farmer Profile ──────────────────────────────────────────
 import FarmerProfile from './pages/farmer/FarmerProfile';
 
@@ -186,6 +187,14 @@ function AppRoutes() {
         <Route path="/farmer/profile" element={<ProtectedRoute><FarmerProfile /></ProtectedRoute>} />
         <Route path="/farmer/profile/:farmer_id" element={<ProtectedRoute><FarmerProfile /></ProtectedRoute>} />
         <Route path="/operator/profile" element={<ProtectedRoute role="operator"><OperatorMyProfile /></ProtectedRoute>} />
+        <Route
+          path="/scanner/:type"
+          element={
+            <ProtectedRoute role={['admin', 'operator']}>
+              <FulfillmentScanner />
+            </ProtectedRoute>
+          }
+        />
         
         {/* ── Seller Profile (alias for admin) ── */}
         <Route path="/farmer/:farmer_id" element={<ProtectedRoute><FarmerProfile /></ProtectedRoute>} />

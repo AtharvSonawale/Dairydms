@@ -29,4 +29,7 @@ router.get('/report', protect, reportCtrl.getSalesReport);
 router.get('/report/summary', protect, reportCtrl.getReportSummary);
 router.get('/report/export', protect, reportCtrl.exportReport);
 
+// ── Fulfillment (QR pickup verification) ─────────────────────
+
+
 module.exports = router;

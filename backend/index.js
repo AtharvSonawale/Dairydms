@@ -12,7 +12,7 @@ const operatorRoutes = require('./routes/operators.routes');
 const rateRoutes = require('./routes/rate.routes');
 const walkinRoutes = require('./routes/walkinsales.routes');
 const productRoutes = require('./routes/productpurchase.routes');
-const productSalesRoutes = require('./routes/productSales.routes');
+const productSalesRoutes = require('./routes/productsales.routes');
 const sellerRoutes = require('./routes/seller.routes');
 const farmerRoutes = require('./routes/farmer.routes');
 const cashAdvanceRoutes = require('./routes/cashadvance.routes');
@@ -33,7 +33,7 @@ const portsRouter = require('./routes/ports.routes');
 const weightMachine = require('./services/weightMachine.service');
 const fatMachine = require('./services/fatMachine.service');
 const cattleFeedPurcahseRoutes = require('./routes/cattlefeedpurchase.routes')
-const cattleFeedSaleRoutes = require('./routes/cattleFeedSale.routes');
+const cattleFeedSaleRoutes = require('./routes/cattlefeedsale.routes');
 const expenses = require('./routes/expenses.routes');
 const productPurchasePaymentRoutes = require('./routes/productPurchasePayment.routes');
 const cattleFeedPaymentRoutes = require('./routes/cattleFeedPayment.routes');
@@ -42,6 +42,7 @@ const centresRoutes = require('./routes/centres.routes');
 const commission = require('./routes/commission.routes');
 const tourRoutes = require('./routes/tour.routes');
 const favouritesRoutes = require('./routes/favourites.routes');
+const fulfillmentRoutes = require('./routes/fulfillment.routes');
 
 const app = express();
 
@@ -90,6 +91,7 @@ app.use('/api/ledger', ledgerRoutes);
 app.use('/api/centres', centresRoutes);
 app.use('/api/commission', commission);
 app.use('/api/favourites', favouritesRoutes);
+app.use('/api/fulfillments', fulfillmentRoutes);
 
 
 setInterval(async () => {

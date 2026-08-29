@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -89,12 +90,15 @@ exports.getSales = async (req, res) => {
                 s.seller_code AS seller_code,
                 s.seller_type AS seller_type,
                 nb.name       AS registered_buyer_name,
-                o.name        AS operator_name
+                o.name        AS operator_name,
+                f.token       AS fulfillment_token,
+                f.status      AS fulfillment_status
             FROM product_sales ps
 JOIN products p ON p.product_id = ps.product_id
 LEFT JOIN sellers s ON s.seller_id  = ps.seller_id
 LEFT JOIN product_named_buyers nb ON nb.buyer_id = ps.buyer_id
 JOIN operators o ON o.operator_id = ps.operator_id
+LEFT JOIN product_fulfillments f ON f.transaction_id = ps.transaction_id
 WHERE ps.centre_id = ?
 ${dateCondition}
 ORDER BY ps.transaction_id ASC, ps.sale_id ASC
@@ -139,12 +143,15 @@ exports.getTransactions = async (req, res) => {
                 s.seller_code AS seller_code,
                 s.seller_type AS seller_type,
                 nb.name       AS registered_buyer_name,
-                o.name        AS operator_name
+                o.name        AS operator_name,
+                f.token       AS fulfillment_token,
+                f.status      AS fulfillment_status
             FROM product_sales ps
 JOIN products p ON p.product_id = ps.product_id
 LEFT JOIN sellers s ON s.seller_id  = ps.seller_id
 LEFT JOIN product_named_buyers nb ON nb.buyer_id = ps.buyer_id
 JOIN operators o ON o.operator_id = ps.operator_id
+LEFT JOIN product_fulfillments f ON f.transaction_id = ps.transaction_id
 WHERE ps.centre_id = ?
 ${dateCondition}
 ORDER BY ps.transaction_id ASC, ps.sale_id ASC
@@ -172,6 +179,8 @@ ORDER BY ps.transaction_id ASC, ps.sale_id ASC
                     created_at: row.created_at,
                     operator_id: row.operator_id,
                     operator_name: row.operator_name,
+                    fulfillment_token: row.fulfillment_token,
+                    fulfillment_status: row.fulfillment_status,
                     items: [],
                     total_amount: 0,
                 });
@@ -359,6 +368,16 @@ const mode = buyer_mode || 'seller'; // default keeps old clients working
             );
         }
 
+        // ── create a fulfillment record with a secure random token ──
+        // The QR on the receipt encodes this token, never the transaction_id
+        // alone, so a receipt can't be forged or guessed by trying numbers.
+        const fulfillmentToken = crypto.randomBytes(24).toString('hex');
+        await conn.query(
+            `INSERT INTO product_fulfillments (transaction_id, centre_id, token, status)
+             VALUES (?, ?, ?, 'pending')`,
+            [transaction_id, centreId, fulfillmentToken]
+        );
+
         await conn.commit();
 
         // ── return all inserted rows with joins ──
@@ -377,7 +396,7 @@ const mode = buyer_mode || 'seller'; // default keeps old clients working
      WHERE ps.sale_id IN (?) AND ps.centre_id = ?`,
             [insertedIds, centreId]
         );
-        res.status(201).json({ transaction_id, items: newRows });
+        res.status(201).json({ transaction_id, items: newRows, fulfillment_token: fulfillmentToken });
 
     } catch (err) {
         await conn.rollback();

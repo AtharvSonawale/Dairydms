@@ -8,6 +8,7 @@ import {
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
     Home, Tag, UserCircle2
 } from "lucide-react";
+
 import api from "../../api/axios";
 import { usePermission } from '../../context/PermissionContext';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -956,6 +957,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                     seller_code: created.items[0].seller_code,
                     sale_date: created.items[0].sale_date,
                     created_at: created.items[0].created_at,
+                    fulfillment_token: created.fulfillment_token,
                     items: created.items.map(item => ({
                         sale_id: item.sale_id,
                         product_name: item.product_name,

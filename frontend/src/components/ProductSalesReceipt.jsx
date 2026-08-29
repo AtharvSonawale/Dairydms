@@ -2,8 +2,9 @@
 import { getPrintSettings } from "../utils/printSettings";
 import { getReceiptTemplate } from "../utils/receiptTemplate";
 import { renderReceiptHeader, renderReceiptFooter } from "../utils/receiptTemplateRenderer";
+import QRCode from "qrcode";
 
-export const printReceipt = (txn, t, appName, centreName, { onStart, onReady, onDone } = {}) => {
+export const printReceipt = async (txn, t, appName, centreName, { onStart, onReady, onDone } = {}) => {
   const { printerType, paperWidthMm } = getPrintSettings();
   const tpl = getReceiptTemplate();
   const isThermal = printerType === "thermal";
@@ -29,6 +30,20 @@ export const printReceipt = (txn, t, appName, centreName, { onStart, onReady, on
   const grandTotal = txn.items.reduce((s, i) => s + parseFloat(i.total_amount || i.quantity * i.rate || 0), 0);
   const showDateTime = tpl.showDateTime;
   const showSellerCode = tpl.showSellerCode;
+
+  // ── QR code for pickup verification at the storage counter ──
+  let qrDataUrl = "";
+  if (txn.fulfillment_token) {
+    try {
+      const verifyUrl = `${window.location.origin}/product-scan/${txn.fulfillment_token}`;
+      qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+        margin: 1,
+        width: isThermal ? 130 : 160,
+      });
+    } catch {
+      qrDataUrl = "";
+    }
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -304,6 +319,14 @@ export const printReceipt = (txn, t, appName, centreName, { onStart, onReady, on
 
       <!-- Footer (fully driven by the saved receipt template) -->
       ${renderReceiptFooter()}
+
+      ${qrDataUrl ? `
+      <div style="text-align:center;margin-top:6px;">
+        <img src="${qrDataUrl}" style="width:${isThermal ? '90px' : '120px'};height:${isThermal ? '90px' : '120px'};" />
+        <div style="font-size:${isThermal ? '7px' : '9px'};color:#666;margin-top:2px;font-weight:600;">
+          ${t('productSales.receipt.scanToCollect') || 'Scan at Storage to collect'}
+        </div>
+      </div>` : ''}
 
       <!-- Hardcoded advertising line — not user-configurable -->
       <div class="advertising">
