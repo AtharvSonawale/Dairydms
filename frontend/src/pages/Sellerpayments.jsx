@@ -30,6 +30,7 @@ const fmt = (n) => `₹${parseFloat(n || 0).toFixed(2)}`;
 const fmtDate = (d) =>
     d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
 const round2 = (n) => Math.round((parseFloat(n || 0) + Number.EPSILON) * 100) / 100;
+const roundAmt = (n) => Math.round(parseFloat(n || 0) + Number.EPSILON);
 const toPaise = (n) => Math.round(parseFloat(n || 0) * 100);
 const fromPaise = (p) => p / 100;
 
@@ -638,7 +639,7 @@ const handleResetCustomCut = (sellerId) => {
 
     const getEffectiveFinalPayable = (seller) => {
         if (seller.is_paid || seller.bill_no) {
-            return Math.max(0, fromPaise(toPaise(seller.final_payable || seller.cash_to_pay || 0)));
+            return Math.max(0, roundAmt(fromPaise(toPaise(seller.final_payable || seller.cash_to_pay || 0))));
         }
 
         const milkP = toPaise(seller.milk_amount || 0);
@@ -649,7 +650,7 @@ const handleResetCustomCut = (sellerId) => {
         const cattleFeedP = toPaise(seller.cattle_feed_deduction || 0);
 
         const rawP = milkP - depositP - cutP - productP - walkinP - cattleFeedP;
-        return Math.max(0, fromPaise(rawP));
+        return Math.max(0, roundAmt(fromPaise(rawP)));
     };
 
     const handleMarkPaid = async (e, sellerId) => {
@@ -746,15 +747,27 @@ const handleResetCustomCut = (sellerId) => {
         const avgFat = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.length).toFixed(2) : "0.00";
         const avgSnf = entries.length ? (entries.reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.length).toFixed(2) : "0.00";
 
-        const milkAmt = parseFloat(seller.milk_amount || 0);
-        const depositAmt = parseFloat(seller.deposit_amount || 0);
-        const installmentCut = parseFloat(seller.installment_cut || 0);
-        const advGiven = parseFloat(seller.advance_given || 0);
-        const productDed = parseFloat(seller.product_deduction || 0);
-        const walkinDed = parseFloat(seller.walkin_deduction || 0);
-        const cattleFeedDed = parseFloat(seller.cattle_feed_deduction || 0);
-        const openingDeposit = parseFloat(seller.deposit_balance || 0);
-        const finalPayable = Math.max(0, parseFloat(seller.final_payable || seller.cash_to_pay || 0));
+        // Raw (unrounded) milk amount — used ONLY for the Daily Entry Breakdown table's Total row
+        const milkAmtRaw = parseFloat(seller.milk_amount || 0);
+        // Rounded amounts — used everywhere money gets added/subtracted
+        // (Advance/Deposit/Payment summary, Detailed Breakdown, Net Cash)
+        const milkAmt = roundAmt(seller.milk_amount || 0);
+        const depositAmt = roundAmt(seller.deposit_amount || 0);
+        const installmentCut = roundAmt(seller.installment_cut || 0);
+        const advGiven = roundAmt(seller.advance_given || 0);
+        const productDed = roundAmt(seller.product_deduction || 0);
+        const walkinDed = roundAmt(seller.walkin_deduction || 0);
+        const cattleFeedDed = roundAmt(seller.cattle_feed_deduction || 0);
+        const openingDeposit = roundAmt(seller.deposit_balance || 0);
+        // IMPORTANT: derive Net Cash from the SAME rounded line items shown in the
+        // breakdown (milk - deposit - installment - product - cattleFeed - walkin),
+        // instead of trusting a separately-stored/rounded seller.final_payable value.
+        // Otherwise the breakdown can sum to 0 on screen while Net Cash shows ₹1
+        // due to independent rounding of the stored total.
+        const finalPayable = Math.max(
+            0,
+            milkAmt - depositAmt - installmentCut - productDed - cattleFeedDed - walkinDed
+        );
 
         // Build daily entries
         const dailyEntries = entries.map(e => ({
@@ -824,7 +837,7 @@ const handleResetCustomCut = (sellerId) => {
                     fat: entries.filter(e => e.shift === "evening").length ? (entries.filter(e => e.shift === "evening").reduce((a, e) => a + parseFloat(e.fat || 0), 0) / entries.filter(e => e.shift === "evening").length).toFixed(1) : "0.0",
                     snf: entries.filter(e => e.shift === "evening").length ? (entries.filter(e => e.shift === "evening").reduce((a, e) => a + parseFloat(e.snf || 0), 0) / entries.filter(e => e.shift === "evening").length).toFixed(1) : "0.0",
                 },
-                dayTotal: milkAmt.toFixed(2),
+                dayTotal: milkAmtRaw.toFixed(2),
             },
             advance: {
                 opening: `₹${advGiven.toFixed(2)}`,
@@ -1307,15 +1320,24 @@ const handleResetCustomCut = (sellerId) => {
                         total_milk_quantity: entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0),
                     };
 
-                    const milkAmt = parseFloat(sellerObj.milk_amount || 0);
-                    const depositAmt = parseFloat(sellerObj.deposit_amount || 0);
-                    const installmentCut = parseFloat(sellerObj.installment_cut || 0);
-                    const productDed = parseFloat(sellerObj.product_deduction || 0);
-                    const walkinDed = parseFloat(sellerObj.walkin_deduction || 0);
-                    const cattleFeedDed = parseFloat(sellerObj.cattle_feed_deduction || 0);
-                    const advGiven = parseFloat(sellerObj.advance_given || 0);
-                    const openingDeposit = parseFloat(sellerObj.opening_deposit || 0);
-                    const finalPayable = Math.max(0, parseFloat(sellerObj.final_payable || sellerObj.cash_to_pay || 0));
+                    // Raw (unrounded) milk amount — used ONLY in the Daily Entry Breakdown table's Total row
+                    const milkAmtRaw = parseFloat(sellerObj.milk_amount || 0);
+                    // Rounded amounts — used everywhere money gets added/subtracted
+                    // (Advance/Deposit/Payment Summary at the bottom of the receipt)
+                    const milkAmt = roundAmt(sellerObj.milk_amount || 0);
+                    const depositAmt = roundAmt(sellerObj.deposit_amount || 0);
+                    const installmentCut = roundAmt(sellerObj.installment_cut || 0);
+                    const productDed = roundAmt(sellerObj.product_deduction || 0);
+                    const walkinDed = roundAmt(sellerObj.walkin_deduction || 0);
+                    const cattleFeedDed = roundAmt(sellerObj.cattle_feed_deduction || 0);
+                    const advGiven = roundAmt(sellerObj.advance_given || 0);
+                    const openingDeposit = roundAmt(sellerObj.opening_deposit || 0);
+                    // Derive Net Cash from the SAME rounded components shown in the
+                    // Payment Summary block below, so the numbers always sum to it exactly.
+                    const finalPayable = Math.max(
+                        0,
+                        milkAmt - depositAmt - installmentCut - productDed - cattleFeedDed - walkinDed
+                    );
                     const totalQty = entries.reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
                     const commissionAmt = parseFloat(sellerObj.commission_amount || 0);
 
@@ -1476,7 +1498,7 @@ const handleResetCustomCut = (sellerId) => {
                                             <td></td>
                                             <td></td>
                                             <td></td>
-                                            <td style="text-align:right;font-weight:700;font-size:6px">${fmtR(milkAmt)}</td>
+                                            <td style="text-align:right;font-weight:700;font-size:6px">${fmtR(milkAmtRaw)}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -1832,14 +1854,14 @@ const handleResetCustomCut = (sellerId) => {
         const activePrintSellers = sellers.filter(s => parseFloat(s.milk_amount || 0) > 0);
 
         const sellerRows = activePrintSellers.map((s, i) => {
-            const milkAmt = parseFloat(s.milk_amount || 0);
-            const advGiven = parseFloat(s.advance_given || 0) + parseFloat(s.installment_cut || 0);
-            const installmentCut = parseFloat(s.installment_cut || 0);
-            const depositAmt = parseFloat(s.deposit_amount || 0);
-            const productDed = parseFloat(s.product_deduction || 0);
-            const walkinDed = parseFloat(s.walkin_deduction || 0);
-            const cattleFeedDed = parseFloat(s.cattle_feed_deduction || 0);
-            const finalPayable = parseFloat(s.final_payable || s.cash_to_pay || 0);
+            const milkAmt = roundAmt(s.milk_amount || 0);
+            const advGiven = roundAmt(s.advance_given || 0) + roundAmt(s.installment_cut || 0);
+            const installmentCut = roundAmt(s.installment_cut || 0);
+            const depositAmt = roundAmt(s.deposit_amount || 0);
+            const productDed = roundAmt(s.product_deduction || 0);
+            const walkinDed = roundAmt(s.walkin_deduction || 0);
+            const cattleFeedDed = roundAmt(s.cattle_feed_deduction || 0);
+            const finalPayable = roundAmt(s.final_payable || s.cash_to_pay || 0);
             const totalQty = (s.entries || []).reduce((a, e) => a + parseFloat(e.quantity || 0), 0);
             const billNo = s.bill_no || "N/A";
 
@@ -1937,11 +1959,11 @@ const handleResetCustomCut = (sellerId) => {
         }).join("");
 
         const grandQty = activePrintSellers.reduce((a, s) => a + (s.entries || []).reduce((b, e) => b + parseFloat(e.quantity || 0), 0), 0);
-        const grandMilk = activePrintSellers.reduce((a, s) => a + parseFloat(s.milk_amount || 0), 0);
-        const grandAdv = activePrintSellers.reduce((a, s) => a + parseFloat(s.advance_given || 0), 0);
-        const grandInstallment = activePrintSellers.reduce((a, s) => parseFloat(s.advance_given || 0) > 0 ? a + parseFloat(s.installment_cut || 0) : a, 0);
+        const grandMilk = activePrintSellers.reduce((a, s) => a + roundAmt(s.milk_amount || 0), 0);
+        const grandAdv = activePrintSellers.reduce((a, s) => a + roundAmt(s.advance_given || 0), 0);
+        const grandInstallment = activePrintSellers.reduce((a, s) => parseFloat(s.advance_given || 0) > 0 ? a + roundAmt(s.installment_cut || 0) : a, 0);
         const grandAdvBalance = Math.max(0, grandAdv - grandInstallment);
-        const grandFinal = activePrintSellers.reduce((a, s) => a + parseFloat(s.final_payable || s.cash_to_pay || 0), 0);
+        const grandFinal = activePrintSellers.reduce((a, s) => a + roundAmt(s.final_payable || s.cash_to_pay || 0), 0);
 
         const win = window.open("", "_blank", "width=1100,height=900");
         if (!win) { showFlash("error", t('sellerPayments.popupBlocked')); return; }

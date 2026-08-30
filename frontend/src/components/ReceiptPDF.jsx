@@ -14,8 +14,59 @@ const clean = (str) =>
         .replace(/→/g, '->')
         .replace(/[−–—]/g, '-');
 
+// Parse a date value into {day, month, year} WITHOUT relying on the
+// built-in `new Date(string)` constructor, which is ambiguous for
+// non-ISO strings and can silently produce a wrong year (this is what
+// was causing dates to show as 2001 instead of 2026).
+// Returns null if the format isn't recognised. `year` is null when the
+// source string has no year of its own (e.g. "13/08").
+const parseDateParts = (value) => {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+        if (isNaN(value.getTime())) return null;
+        return { day: value.getDate(), month: value.getMonth() + 1, year: value.getFullYear() };
+    }
+
+    const str = String(value).trim();
+
+    // ISO: YYYY-MM-DD (optionally with a time component)
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return { year: +m[1], month: +m[2], day: +m[3] };
+
+    // DD/MM/YYYY
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return { day: +m[1], month: +m[2], year: +m[3] };
+
+    // DD/MM with no year
+    m = str.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (m) return { day: +m[1], month: +m[2], year: null };
+
+    return null;
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// Always render as DD/MM/YYYY. `fallbackYear` is used only when the
+// source value has no year of its own (e.g. "13/08") - pass the
+// receipt's own billing-cycle year here, not the current year.
+const formatDate = (value, fallbackYear) => {
+    const parts = parseDateParts(value);
+    if (!parts) return value ? String(value) : '';
+
+    const year = parts.year ?? fallbackYear ?? new Date().getFullYear();
+    return `${pad2(parts.day)}/${pad2(parts.month)}/${year}`;
+};
+
 const ReceiptPDF = ({ data, onClose }) => {
     const generatePDF = () => {
+        // Derive the correct year for any entry date that doesn't carry
+        // its own year (e.g. "13/08"), from the receipt's billing period
+        // instead of defaulting to "today".
+        const cycleYear =
+            (parseDateParts(data.endDate) || parseDateParts(data.startDate) || {}).year ||
+            new Date().getFullYear();
+
         const doc = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
@@ -41,7 +92,7 @@ const ReceiptPDF = ({ data, onClose }) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
         doc.text(
-            `${data.startDate} – ${data.endDate}`,
+            `${formatDate(data.startDate)} - ${formatDate(data.endDate)}`,
             pageWidth - marginX,
             y,
             { align: 'right' }
@@ -52,7 +103,7 @@ const ReceiptPDF = ({ data, onClose }) => {
         doc.text(`Bill No.: ${data.billNo}`, pageWidth - marginX, y + 4.5, {
             align: 'right',
         });
-        doc.text(`Generated: ${data.generatedDate}`, pageWidth - marginX, y + 8.5, {
+        doc.text(`Generated: ${formatDate(data.generatedDate)}`, pageWidth - marginX, y + 8.5, {
             align: 'right',
         });
 
@@ -170,7 +221,7 @@ const ReceiptPDF = ({ data, onClose }) => {
 
         // Build body from data
         const body = data.entries.map((entry) => [
-            entry.date,
+            formatDate(entry.date, cycleYear),
             entry.morning.qty,
             entry.morning.fat,
             entry.morning.snf,
@@ -534,13 +585,17 @@ const ReceiptPDF = ({ data, onClose }) => {
         doc.setFontSize(7);
         doc.setTextColor(102, 102, 102);
         doc.text('Computer Generated - Kumbhar Dairy', marginX, y);
-        doc.text(`Paid On: ${data.paidOn}`, pageWidth - marginX, y, {
+        doc.text(`Paid On: ${formatDate(data.paidOn)}`, pageWidth - marginX, y, {
             align: 'right',
         });
 
         doc.save(`Kumbhar_Dairy_Receipt_${data.billNo}.pdf`);
         onClose();
     };
+
+    const previewCycleYear =
+        (parseDateParts(data.endDate) || parseDateParts(data.startDate) || {}).year ||
+        new Date().getFullYear();
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -571,7 +626,7 @@ const ReceiptPDF = ({ data, onClose }) => {
                             <span className="text-gray-500">Bill No.:</span>
                             <span className="font-medium text-gray-800">{data.billNo}</span>
                             <span className="text-gray-500">Period:</span>
-                            <span className="font-medium text-gray-800">{data.startDate} – {data.endDate}</span>
+                            <span className="font-medium text-gray-800">{formatDate(data.startDate)} - {formatDate(data.endDate)}</span>
                             <span className="text-gray-500">Total Amount:</span>
                             <span className="font-medium text-gray-800">{data.payment.milkAmount}</span>
                         </div>
