@@ -23,8 +23,10 @@ export default function ProductFulfillmentScanner() {
     const [manualToken, setManualToken] = useState("");
 
     const extractToken = (decodedText) => {
-        const match = decodedText.match(/product-scan\/([a-f0-9]+)/i);
-        return match ? match[1] : decodedText.trim();
+        const trimmed = decodedText.trim();
+        const match = trimmed.match(/product-scan\/([a-zA-Z0-9_-]+)/i);
+        const raw = match ? match[1] : trimmed;
+        return raw.split("?")[0].split("#")[0].replace(/\/+$/, "");
     };
 
     const stopCamera = useCallback(() => {

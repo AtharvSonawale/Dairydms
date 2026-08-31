@@ -41,9 +41,11 @@ export default function FulfillmentScanner() {
     // Accept either a full URL (…/feed-scan/<token> or …/product-scan/<token>)
     // or a bare token. Falls back to the raw text if no path match.
     const extractToken = useCallback((decodedText) => {
-        const re = new RegExp(`(?:feed-scan|product-scan)\\/([a-f0-9]+)`, "i");
-        const match = decodedText.match(re);
-        return match ? match[1] : decodedText.trim();
+        const trimmed = decodedText.trim();
+        const re = new RegExp(`(?:feed-scan|product-scan)\\/([a-zA-Z0-9_-]+)`, "i");
+        const match = trimmed.match(re);
+        const raw = match ? match[1] : trimmed;
+        return raw.split("?")[0].split("#")[0].replace(/\/+$/, "");
     }, []);
 
     const stopCamera = useCallback(() => {
@@ -269,6 +271,11 @@ export default function FulfillmentScanner() {
                                 <div className="flex items-center gap-2 text-rose-600 text-sm font-medium bg-rose-50/80 border border-rose-200/60 rounded-xl px-4 py-3 mt-3">
                                     <XCircle size={18} className="shrink-0" />
                                     Already collected {preview.fulfilled_at ? `at ${new Date(preview.fulfilled_at).toLocaleString()}` : ""}
+                                </div>
+                            ) : preview.status === "cancelled" ? (
+                                <div className="flex items-center gap-2 text-rose-600 text-sm font-medium bg-rose-50/80 border border-rose-200/60 rounded-xl px-4 py-3 mt-3">
+                                    <XCircle size={18} className="shrink-0" />
+                                    This receipt was cancelled and cannot be redeemed.
                                 </div>
                             ) : (
                                 <>

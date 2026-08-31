@@ -5,7 +5,8 @@ import {
     PiggyBank, Save, User, AlertTriangle, BadgeCheck,
     RefreshCw, X, TrendingUp, TrendingDown, Banknote,
     FileText, Milk, Hash, ChevronDown, FileDown,
-    Home, Settings, Calendar
+    Home, Settings, Calendar,
+    SquarePen
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -792,7 +793,7 @@ export default function CashDeposit() {
                         </div>
                         {editingEntry && (
                             <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 text-amber-700 text-xs font-medium shadow-sm relative z-10">
-                                ✏ Editing entry for <strong>{sellers.find(s => String(s.seller_id) === String(editingEntry.seller_id))?.name}</strong> · {editingEntry.type} · {fmtDate(editingEntry.transaction_date)}
+                                <SquarePen />Editing entry for <strong>{sellers.find(s => String(s.seller_id) === String(editingEntry.seller_id))?.name}</strong> · {editingEntry.type} · {fmtDate(editingEntry.transaction_date)}
                             </div>
                         )}
 
@@ -1163,7 +1164,7 @@ export default function CashDeposit() {
                                         ${editingEntry?.id === r.id
                                                             ? "bg-amber-100/80 text-amber-700 border-amber-200/60"
                                                             : "bg-blue-50/80 text-blue-600 border-blue-200/60 hover:bg-blue-100/80"}`}>
-                                                    ✏ {editingEntry?.id === r.id ? t('cashDeposit.editing') || "Editing" : t('cashDeposit.edit') || "Edit"}
+                                                    <SquarePen />{editingEntry?.id === r.id ? t('cashDeposit.editing') || "Editing" : t('cashDeposit.edit') || "Edit"}
                                                 </button>
                                             </TableCell>
                                         )}

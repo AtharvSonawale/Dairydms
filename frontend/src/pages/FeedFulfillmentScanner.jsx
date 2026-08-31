@@ -24,8 +24,10 @@ export default function FeedFulfillmentScanner() {
 
     const extractToken = (decodedText) => {
         // Accept either a full URL (…/feed-scan/<token>) or a bare token
-        const match = decodedText.match(/feed-scan\/([a-f0-9]+)/i);
-        return match ? match[1] : decodedText.trim();
+        const trimmed = decodedText.trim();
+        const match = trimmed.match(/feed-scan\/([a-zA-Z0-9_-]+)/i);
+        const raw = match ? match[1] : trimmed;
+        return raw.split("?")[0].split("#")[0].replace(/\/+$/, "");
     };
 
     const stopCamera = useCallback(() => {
