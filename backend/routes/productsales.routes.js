@@ -30,6 +30,7 @@ router.get('/report/summary', protect, reportCtrl.getReportSummary);
 router.get('/report/export', protect, reportCtrl.exportReport);
 
 // ── Fulfillment (QR pickup verification) ─────────────────────
-
+router.get('/fulfillment/:token', protect, salesCtrl.getFulfillmentByToken);
+router.post('/fulfillment/:token/confirm', protect, salesCtrl.confirmFulfillment);
 
 module.exports = router;

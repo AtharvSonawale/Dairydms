@@ -23,6 +23,75 @@ async function existsInCowOrBuffalo(centreId, fat, snf, date) {
   return rows.length > 0;
 }
 
+// ── helper — copy all rates from one date to another, for one milk type ──
+// Used both by the manual "copy-forward" endpoint's logic pattern and by
+// the nightly auto-carry-forward cron job below.
+async function copyRatesForDate(centreId, milk_type, fromDate, toDate) {
+  const table = tbl(milk_type);
+  const [rows] = await pool.query(
+    `SELECT fat, snf, rate, mrp FROM ${table} WHERE centre_id = ? AND effective_from = ?`,
+    [centreId, fromDate],
+  );
+  if (rows.length === 0) return { inserted: 0, skipped: 0 };
+
+  const values = rows.map((row) => [
+    centreId,
+    row.fat,
+    row.snf,
+    row.rate,
+    row.mrp || null,
+    toDate,
+    null,
+  ]);
+
+  const [result] = await pool.query(
+    `INSERT IGNORE INTO ${table} (centre_id, fat, snf, rate, mrp, effective_from, effective_to) VALUES ?`,
+    [values],
+  );
+  return { inserted: result.affectedRows, skipped: values.length - result.affectedRows };
+}
+exports.copyRatesForDate = copyRatesForDate;
+
+// ── helper — does this centre+milk_type already have rates for `date`? ──
+async function hasRatesForDate(centreId, milk_type, date) {
+  const table = tbl(milk_type);
+  const [[row]] = await pool.query(
+    `SELECT COUNT(*) AS cnt FROM ${table} WHERE centre_id = ? AND effective_from = ?`,
+    [centreId, date],
+  );
+  return row.cnt > 0;
+}
+exports.hasRatesForDate = hasRatesForDate;
+
+// ── helper — if `date` has NO saved rates yet for this milk_type, find the
+// most recent earlier date that DOES have rates and copy them onto `date`.
+// This is the "catch-up" step: it covers the case where the nightly cron
+// didn't run (server down at midnight) — even across a multi-day gap,
+// since it always looks back to the latest available date, not just
+// yesterday.
+async function backfillIfMissing(centreId, milk_type, date) {
+  const already = await hasRatesForDate(centreId, milk_type, date);
+  if (already) return { copied: false };
+
+  const table = tbl(milk_type);
+  const [[latest]] = await pool.query(
+    `SELECT effective_from FROM ${table}
+       WHERE centre_id = ? AND effective_from < ?
+       ORDER BY effective_from DESC LIMIT 1`,
+    [centreId, date],
+  );
+  if (!latest) return { copied: false };
+
+  const fromDateStr =
+    latest.effective_from instanceof Date
+      ? latest.effective_from.toISOString().split("T")[0]
+      : latest.effective_from;
+
+  const result = await copyRatesForDate(centreId, milk_type, fromDateStr, date);
+  return { copied: result.inserted > 0, from: fromDateStr, ...result };
+}
+exports.backfillIfMissing = backfillIfMissing;
+
 // ── GET /api/rates?date=YYYY-MM-DD&milk_type=cow|buffalo ─────
 // Returns rates only for the EXACT selected date (effective_from = date).
 // Rates saved for 2026-05-01 will NOT appear on 2026-05-02 unless copied.
@@ -324,6 +393,64 @@ exports.deleteRate = async (req, res) => {
     res.json({ message: "Rate deleted successfully" });
   } catch (err) {
     console.error("deleteRate error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// ── GET /api/rates/auto-carry-forward ─────────────────────────
+// Returns whether nightly auto carry-forward is enabled for this centre.
+exports.getAutoCarryForwardSetting = async (req, res) => {
+  try {
+    const centreId = req.user.centre_id;
+    const [[row]] = await pool.query(
+      `SELECT auto_carry_forward_rates FROM centres WHERE centre_id = ?`,
+      [centreId],
+    );
+    if (!row) return res.status(404).json({ message: "Centre not found" });
+    res.json({ auto_carry_forward_rates: !!row.auto_carry_forward_rates });
+  } catch (err) {
+    console.error("getAutoCarryForwardSetting error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// ── PUT /api/rates/auto-carry-forward ─────────────────────────
+// Enables/disables nightly auto carry-forward of today's rates
+// (cow, buffalo AND mixed) to the next day, for this centre.
+// When turning it ON, we also immediately backfill TODAY for this centre
+// (instead of waiting for the next midnight cron tick), so the admin sees
+// yesterday's rates show up under today right away.
+exports.updateAutoCarryForwardSetting = async (req, res) => {
+  try {
+    const centreId = req.user.centre_id;
+    const { enabled } = req.body;
+    if (enabled === undefined)
+      return res.status(400).json({ message: "enabled is required" });
+
+    await pool.query(
+      `UPDATE centres SET auto_carry_forward_rates = ? WHERE centre_id = ?`,
+      [enabled ? 1 : 0, centreId],
+    );
+
+    let backfilled = [];
+    if (enabled) {
+      const today = new Date().toISOString().split("T")[0];
+      const milkTypes = ["cow", "buffalo", "mixed"];
+      for (const milkType of milkTypes) {
+        try {
+          const result = await backfillIfMissing(centreId, milkType, today);
+          if (result.copied) {
+            backfilled.push({ milk_type: milkType, from: result.from, inserted: result.inserted });
+          }
+        } catch (err) {
+          console.error(`updateAutoCarryForwardSetting: backfill failed for ${milkType}:`, err.message);
+        }
+      }
+    }
+
+    res.json({ auto_carry_forward_rates: !!enabled, backfilled });
+  } catch (err) {
+    console.error("updateAutoCarryForwardSetting error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };

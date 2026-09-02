@@ -329,6 +329,25 @@ CREATE TABLE cash_advance (
    CONSTRAINT cash_advance_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
  ) ENGINE=InnoDB AUTO_INCREMENT=115 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE `cattle_feed_fulfillments` (
+   `fulfillment_id` int NOT NULL AUTO_INCREMENT,
+   `transaction_id` varchar(30) NOT NULL,
+   `centre_id` int NOT NULL,
+   `token` varchar(64) NOT NULL,
+   `status` enum('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
+   `fulfilled_at` datetime DEFAULT NULL,
+   `fulfilled_by_operator_id` int DEFAULT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`fulfillment_id`),
+   UNIQUE KEY `uq_transaction` (`transaction_id`),
+   UNIQUE KEY `uq_token` (`token`),
+   KEY `idx_centre_id` (`centre_id`),
+   KEY `idx_status` (`status`),
+   KEY `cattle_feed_fulfillments_ibfk_2` (`fulfilled_by_operator_id`),
+   CONSTRAINT `cattle_feed_fulfillments_ibfk_1` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`) ON DELETE CASCADE,
+   CONSTRAINT `cattle_feed_fulfillments_ibfk_2` FOREIGN KEY (`fulfilled_by_operator_id`) REFERENCES `operators` (`operator_id`) ON DELETE SET NULL
+ ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
  CREATE TABLE cattle_feed_named_buyers (
    buyer_id int NOT NULL AUTO_INCREMENT,
    operator_id int DEFAULT NULL,
@@ -843,6 +862,25 @@ CREATE TABLE print_settings (
    KEY idx_centre_id (centre_id),
    CONSTRAINT print_settings_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `product_fulfillments` (
+   `fulfillment_id` int NOT NULL AUTO_INCREMENT,
+   `transaction_id` varchar(30) NOT NULL,
+   `centre_id` int NOT NULL,
+   `token` varchar(64) NOT NULL,
+   `status` enum('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
+   `fulfilled_at` datetime DEFAULT NULL,
+   `fulfilled_by_operator_id` int DEFAULT NULL,
+   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`fulfillment_id`),
+   UNIQUE KEY `uq_transaction` (`transaction_id`),
+   UNIQUE KEY `uq_token` (`token`),
+   KEY `idx_centre_id` (`centre_id`),
+   KEY `idx_status` (`status`),
+   KEY `product_fulfillments_ibfk_2` (`fulfilled_by_operator_id`),
+   CONSTRAINT `product_fulfillments_ibfk_1` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`) ON DELETE CASCADE,
+   CONSTRAINT `product_fulfillments_ibfk_2` FOREIGN KEY (`fulfilled_by_operator_id`) REFERENCES `operators` (`operator_id`) ON DELETE SET NULL
+ ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE product_named_buyers (
    buyer_id int NOT NULL AUTO_INCREMENT,
@@ -1394,45 +1432,5 @@ CREATE TABLE walkin_sales (
    CONSTRAINT walkin_sales_ibfk_5 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT walkin_sales_ibfk_6 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE cattle_feed_fulfillments (
-  fulfillment_id INT NOT NULL AUTO_INCREMENT,
-  transaction_id VARCHAR(30) NOT NULL,
-  centre_id INT NOT NULL,
-  token VARCHAR(64) NOT NULL,
-  status ENUM('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
-  fulfilled_at DATETIME DEFAULT NULL,
-  fulfilled_by_operator_id INT DEFAULT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (fulfillment_id),
-  UNIQUE KEY uq_transaction (transaction_id),
-  UNIQUE KEY uq_token (token),
-  KEY idx_centre_id (centre_id),
-  KEY idx_status (status),
-  CONSTRAINT cattle_feed_fulfillments_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE,
-  CONSTRAINT cattle_feed_fulfillments_ibfk_2 FOREIGN KEY (fulfilled_by_operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-select * from cattle_feed_fulfillments;
-
-
-CREATE TABLE product_fulfillments (
-  fulfillment_id INT NOT NULL AUTO_INCREMENT,
-  transaction_id VARCHAR(30) NOT NULL,
-  centre_id INT NOT NULL,
-  token VARCHAR(64) NOT NULL,
-  status ENUM('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
-  fulfilled_at DATETIME DEFAULT NULL,
-  fulfilled_by_operator_id INT DEFAULT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (fulfillment_id),
-  UNIQUE KEY uq_transaction (transaction_id),
-  UNIQUE KEY uq_token (token),
-  KEY idx_centre_id (centre_id),
-  KEY idx_status (status),
-  CONSTRAINT product_fulfillments_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE,
-  CONSTRAINT product_fulfillments_ibfk_2 FOREIGN KEY (fulfilled_by_operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -9,6 +9,8 @@ const correctionCtrl = require('../controllers/rate-correction.controller');
 // copy-forward and premium MUST be before /:id
 // otherwise Express matches "copy-forward" as id param
 router.post('/copy-forward', protect, isAdmin, ctrl.copyForward);
+router.get('/auto-carry-forward', protect, ctrl.getAutoCarryForwardSetting);
+router.put('/auto-carry-forward', protect, isAdmin, ctrl.updateAutoCarryForwardSetting);
 router.post('/generate', protect, ctrl.generateRates);
 router.post('/premium', protect, isAdmin, ctrl.assignPremiumRate);
 router.get('/premium', protect, ctrl.getPremiumRates);

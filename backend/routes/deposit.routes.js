@@ -9,6 +9,7 @@ router.get('/balance/:sellerId', protect, ctrl.getBalance);
 
 router.get('/', protect, ctrl.getDeposits);
 router.post('/', protect, ctrl.createDeposit);
+router.put('/:id', protect, ctrl.updateDeposit);
 router.delete('/:id', protect, ctrl.deleteDeposit);
 
 module.exports = router;

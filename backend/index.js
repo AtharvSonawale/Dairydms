@@ -43,6 +43,7 @@ const commission = require('./routes/commission.routes');
 const tourRoutes = require('./routes/tour.routes');
 const favouritesRoutes = require('./routes/favourites.routes');
 const fulfillmentRoutes = require('./routes/fulfillment.routes');
+const scheduleAutoCarryForward = require('./jobs/autoCarryForward.job');
 
 const app = express();
 
@@ -101,6 +102,8 @@ setInterval(async () => {
         console.error('OTP cleanup error:', err.message);
     }
 }, 60 * 60 * 1000);
+
+scheduleAutoCarryForward();
 
 // ======================
 // Serve React Frontend

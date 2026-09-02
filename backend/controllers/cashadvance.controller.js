@@ -272,6 +272,80 @@ exports.createEntry = async (req, res) => {
     }
 };
 
+
+// ══════════════════════════════════════════════════════════════
+//  PUT /api/cash-advance/:id
+//  Update an existing cash advance transaction
+// ══════════════════════════════════════════════════════════════
+exports.updateEntry = async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        const operatorId = req.user.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const { id } = req.params;
+        const { type, amount, transaction_date, remarks } = req.body;
+
+        if (!type || !['given', 'received'].includes(type)) {
+            await conn.rollback();
+            return res.status(400).json({ error: "Type must be 'given' or 'received'." });
+        }
+        if (!amount || parseFloat(amount) <= 0) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Amount must be greater than 0.' });
+        }
+        if (!transaction_date) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Transaction date is required.' });
+        }
+
+        // Verify entry exists and belongs to this centre (and operator, unless admin)
+        let checkQuery = `SELECT id FROM cash_advance WHERE id = ? AND centre_id = ?`;
+        let checkParams = [id, centreId];
+        if (!isAdmin) {
+            checkQuery += ` AND operator_id = ?`;
+            checkParams.push(operatorId);
+        }
+        const [existing] = await conn.query(checkQuery, checkParams);
+        if (!existing[0]) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Entry not found or unauthorized.' });
+        }
+
+        let updateQuery = `UPDATE cash_advance SET type = ?, amount = ?, transaction_date = ?, remarks = ? WHERE id = ? AND centre_id = ?`;
+        let updateParams = [type, parseFloat(amount), transaction_date, remarks ? String(remarks).trim() : null, id, centreId];
+        if (!isAdmin) {
+            updateQuery += ` AND operator_id = ?`;
+            updateParams.push(operatorId);
+        }
+        await conn.query(updateQuery, updateParams);
+        await conn.commit();
+
+        const [updatedRow] = await pool.query(
+            `SELECT
+                ca.id, ca.seller_id, ca.type, ca.amount,
+                ca.transaction_date, ca.remarks, ca.created_at, ca.operator_id,
+                s.name AS seller_name, s.seller_code, s.seller_type,
+                COALESCE(o.name, 'Admin') AS operator_name
+            FROM cash_advance ca
+            JOIN sellers s ON s.seller_id = ca.seller_id
+            LEFT JOIN operators o ON o.operator_id = ca.operator_id
+            WHERE ca.id = ? AND ca.centre_id = ?`,
+            [id, centreId]
+        );
+
+        res.json(updatedRow[0]);
+    } catch (err) {
+        await conn.rollback();
+        console.error('updateEntry error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    } finally {
+        conn.release();
+    }
+};
+
 // ══════════════════════════════════════════════════════════════
 //  DELETE /api/cash-advance/:id
 //  Remove a cash advance transaction (operator-scoped)

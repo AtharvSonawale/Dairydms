@@ -25,7 +25,8 @@ router.get('/named-buyers', protect, salesCtrl.getFeedNamedBuyers);
 router.post('/named-buyers', protect, salesCtrl.createFeedNamedBuyer);
 
 // ── Fulfillment (QR pickup verification) ─────────────────────
-
+router.get('/fulfillment/:token', protect, salesCtrl.getFulfillmentByToken);
+router.post('/fulfillment/:token/confirm', protect, salesCtrl.confirmFulfillment);
 
 // ── Report Routes ────────────────────────────────────────────
 router.get('/report', protect, reportCtrl.getSalesReport);

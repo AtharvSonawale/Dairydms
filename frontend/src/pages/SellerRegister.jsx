@@ -268,8 +268,8 @@ function ImageViewModal({ image, onClose }) {
     );
 }
 
-// ── Cheque Upload Component ──────────────────────────────────
-function ChequeUpload({ value, onChange, label = "Cheque Image" }) {
+// ── Image Upload Component ──────────────────────────────────
+function ImageUpload({ value, onChange, label = "Cheque Image" }) {
     const [preview, setPreview] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef(null);
@@ -337,7 +337,7 @@ function ChequeUpload({ value, onChange, label = "Cheque Image" }) {
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-sm text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                 >
                     <ImageIcon size={16} />
-                    {preview ? 'Change Image' : 'Upload Cheque'}
+                    {preview ? 'Change Image' : `Upload ${label}`}
                 </button>
                 {preview && (
                     <button
@@ -363,7 +363,7 @@ function ChequeUpload({ value, onChange, label = "Cheque Image" }) {
                 <div className="relative mt-2 w-32 h-32 rounded-xl overflow-hidden border border-gray-200/60 shadow-sm">
                     <img
                         src={preview}
-                        alt="Cheque"
+                        alt={label}
                         className="w-full h-full object-cover"
                     />
                     <button
@@ -586,7 +586,7 @@ function SellerFormModal({ isOpen, onClose, form, setForm, editingId, saving, on
 
                        {/* Row 7 - Cheque Image */}
                         <div className="grid grid-cols-1 gap-4">
-                            <ChequeUpload
+                            <ImageUpload
                                 value={form.cheque}
                                 onChange={(val) => setForm(p => ({ ...p, cheque: val }))}
                                 label="Cheque Image"
@@ -595,7 +595,7 @@ function SellerFormModal({ isOpen, onClose, form, setForm, editingId, saving, on
 
                         {/* Row 7b - Profile Image */}
                         <div className="grid grid-cols-1 gap-4">
-                            <ChequeUpload
+                            <ImageUpload
                                 value={form.profile_image}
                                 onChange={(val) => setForm(p => ({ ...p, profile_image: val }))}
                                 label="Profile Image"

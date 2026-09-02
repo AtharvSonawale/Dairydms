@@ -256,6 +256,79 @@ exports.createDeposit = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════════════════════
+//  PUT /api/deposits/:id
+//  Update an existing deposit transaction
+// ══════════════════════════════════════════════════════════════
+exports.updateDeposit = async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        const operatorId = req.user.id;
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const { id } = req.params;
+        const { type, amount, transaction_date, remarks } = req.body;
+
+        if (!type || !["credit", "debit"].includes(type)) {
+            await conn.rollback();
+            return res.status(400).json({ error: "Type must be 'credit' or 'debit'." });
+        }
+        if (!amount || parseFloat(amount) <= 0) {
+            await conn.rollback();
+            return res.status(400).json({ error: "Amount must be greater than 0." });
+        }
+        if (!transaction_date) {
+            await conn.rollback();
+            return res.status(400).json({ error: "Transaction date is required." });
+        }
+
+        // Verify entry exists and belongs to this centre (and operator, unless admin)
+        let checkQuery = `SELECT id FROM seller_deposits WHERE id = ? AND centre_id = ?`;
+        let checkParams = [id, centreId];
+        if (!isAdmin) {
+            checkQuery += ` AND operator_id = ?`;
+            checkParams.push(operatorId);
+        }
+        const [existing] = await conn.query(checkQuery, checkParams);
+        if (!existing[0]) {
+            await conn.rollback();
+            return res.status(404).json({ error: "Deposit entry not found or unauthorized." });
+        }
+
+        let updateQuery = `UPDATE seller_deposits SET type = ?, amount = ?, transaction_date = ?, remarks = ? WHERE id = ? AND centre_id = ?`;
+        let updateParams = [type, parseFloat(amount), transaction_date, remarks ? String(remarks).trim() : null, id, centreId];
+        if (!isAdmin) {
+            updateQuery += ` AND operator_id = ?`;
+            updateParams.push(operatorId);
+        }
+        await conn.query(updateQuery, updateParams);
+        await conn.commit();
+
+        const [updatedRow] = await pool.query(
+            `SELECT
+                d.id, d.seller_id, d.type, d.category, d.amount, d.remarks,
+                d.transaction_date, d.created_at, d.operator_id,
+                s.name AS seller_name, s.seller_code, s.seller_type, s.deposit_per_litre,
+                COALESCE(o.name, 'Admin') AS operator_name
+            FROM seller_deposits d
+            JOIN sellers s ON s.seller_id = d.seller_id
+            LEFT JOIN operators o ON o.operator_id = d.operator_id
+            WHERE d.id = ? AND d.centre_id = ?`,
+            [id, centreId]
+        );
+
+        res.json(updatedRow[0]);
+    } catch (err) {
+        await conn.rollback();
+        console.error("updateDeposit error:", err);
+        res.status(500).json({ error: "Server error", message: err.message });
+    } finally {
+        conn.release();
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
 //  DELETE /api/deposits/:id
 exports.deleteDeposit = async (req, res) => {
     try {

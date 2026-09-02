@@ -192,6 +192,10 @@ export default function RateChart() {
     new Date().toISOString().split("T")[0],
   );
 
+  // ── Auto carry-forward toggle ──
+  const [autoCarryForward, setAutoCarryForward] = useState(false);
+  const [autoCarryForwardLoading, setAutoCarryForwardLoading] = useState(false);
+
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [sellers, setSellers] = useState([]);
   const [selectedSellers, setSelectedSellers] = useState([]);
@@ -326,6 +330,50 @@ export default function RateChart() {
   useEffect(() => {
     fetchRates();
   }, [fetchRates]);
+
+  useEffect(() => {
+    api
+      .get("/rates/auto-carry-forward")
+      .then(({ data }) => setAutoCarryForward(!!data.auto_carry_forward_rates))
+      .catch(() => {});
+  }, []);
+
+  const handleToggleAutoCarryForward = async () => {
+    const next = !autoCarryForward;
+    setAutoCarryForwardLoading(true);
+    try {
+      const { data } = await api.put("/rates/auto-carry-forward", { enabled: next });
+      setAutoCarryForward(next);
+
+      if (next && data.backfilled?.length > 0) {
+        const summary = data.backfilled
+          .map((b) => `${milkTypeLabel(b.milk_type, t)} (from ${fmt(b.from)}, ${b.inserted} rate(s))`)
+          .join(", ");
+        showFlash(
+          "success",
+          `Auto carry-forward enabled. Backfilled today's rates: ${summary}. It will also roll forward automatically each night.`,
+        );
+      } else if (next) {
+        showFlash(
+          "success",
+          "Auto carry-forward enabled — today already has rates for every milk type, or there was nothing earlier to copy. It will roll forward automatically each night.",
+        );
+      } else {
+        showFlash("success", "Auto carry-forward disabled.");
+      }
+
+      // Refresh the visible table in case today's rates for the current
+      // filter were just backfilled.
+      await fetchRates();
+    } catch (err) {
+      showFlash(
+        "error",
+        err.response?.data?.message || "Failed to update auto carry-forward setting.",
+      );
+    } finally {
+      setAutoCarryForwardLoading(false);
+    }
+  };
 
   // ── Delete by Date Range Functions ──
 
@@ -1517,6 +1565,25 @@ export default function RateChart() {
                 </>
               )}
             </button>
+
+            {isAdmin && (
+              <button
+                onClick={handleToggleAutoCarryForward}
+                disabled={autoCarryForwardLoading}
+                title="When ON, today's Cow, Buffalo and Mixed rates are automatically copied to tomorrow every night."
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 disabled:opacity-50
+                  ${autoCarryForward
+                    ? "bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40"
+                    : "bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80"}`}
+              >
+                {autoCarryForwardLoading ? (
+                  <RefreshCw size={15} className="animate-spin" />
+                ) : (
+                  <ChevronRight size={15} />
+                )}
+                {autoCarryForward ? "Auto Carry-Forward: ON" : "Auto Carry-Forward: OFF"}
+              </button>
+            )}
 
             <button
               onClick={() => {

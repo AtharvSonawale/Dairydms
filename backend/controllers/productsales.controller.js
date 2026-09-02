@@ -846,3 +846,126 @@ exports.getSalesSummary = async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 };
+
+// ══════════════════════════════════════════════════════════════
+// GET /api/product-sales/fulfillment/:token
+//   Preview only — does NOT mark fulfilled.
+// ══════════════════════════════════════════════════════════════
+exports.getFulfillmentByToken = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const centreId = req.user.centre_id;
+
+        const [rows] = await pool.query(
+            `SELECT f.fulfillment_id, f.transaction_id, f.status, f.fulfilled_at,
+                    f.fulfilled_by_operator_id, o.name AS fulfilled_by_name
+             FROM product_fulfillments f
+             LEFT JOIN operators o ON o.operator_id = f.fulfilled_by_operator_id
+             WHERE f.token = ? AND f.centre_id = ?`,
+            [token, centreId]
+        );
+        if (!rows.length) {
+            return res.status(404).json({ error: 'Invalid QR code for this centre.' });
+        }
+        const fulfillment = rows[0];
+
+        const [items] = await pool.query(
+            `SELECT ps.sale_id, ps.product_id, p.product_name, p.unit,
+                    ps.quantity, ps.rate, ps.total_amount,
+                    ps.buyer_type, ps.buyer_name,
+                    s.name AS seller_name, s.seller_code,
+                    nb.name AS registered_buyer_name
+             FROM product_sales ps
+             JOIN products p ON p.product_id = ps.product_id
+             LEFT JOIN sellers s ON s.seller_id = ps.seller_id
+             LEFT JOIN product_named_buyers nb ON nb.buyer_id = ps.buyer_id
+             WHERE ps.transaction_id = ?`,
+            [fulfillment.transaction_id]
+        );
+
+        res.json({
+            transaction_id: fulfillment.transaction_id,
+            status: fulfillment.status,
+            fulfilled_at: fulfillment.fulfilled_at,
+            fulfilled_by_name: fulfillment.fulfilled_by_name,
+            items,
+        });
+    } catch (err) {
+        console.error('getFulfillmentByToken error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// POST /api/product-sales/fulfillment/:token/confirm
+// ══════════════════════════════════════════════════════════════
+exports.confirmFulfillment = async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const { token } = req.params;
+        const centreId = req.user.centre_id;
+        const scannerId = req.user.id;
+        const isAdmin = req.user.role === 'admin';
+
+        const [rows] = await conn.query(
+            `SELECT * FROM product_fulfillments WHERE token = ? AND centre_id = ? FOR UPDATE`,
+            [token, centreId]
+        );
+        if (!rows.length) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Invalid QR code for this centre.' });
+        }
+        const fulfillment = rows[0];
+
+        if (fulfillment.status === 'fulfilled') {
+            await conn.rollback();
+            return res.status(409).json({
+                error: 'This receipt has already been used to collect the product.',
+                fulfilled_at: fulfillment.fulfilled_at,
+            });
+        }
+        if (fulfillment.status === 'cancelled') {
+            await conn.rollback();
+            return res.status(410).json({ error: 'This receipt was cancelled and cannot be redeemed.' });
+        }
+
+        let fulfilledByOperatorId = null;
+        if (!isAdmin) {
+            const [opCheck] = await conn.query(
+                `SELECT operator_id FROM operators WHERE operator_id = ? AND centre_id = ?`,
+                [scannerId, centreId]
+            );
+            if (opCheck.length) fulfilledByOperatorId = scannerId;
+        }
+
+        await conn.query(
+            `UPDATE product_fulfillments
+             SET status = 'fulfilled', fulfilled_at = NOW(), fulfilled_by_operator_id = ?
+             WHERE fulfillment_id = ?`,
+            [fulfilledByOperatorId, fulfillment.fulfillment_id]
+        );
+
+        await conn.commit();
+
+        const [items] = await pool.query(
+            `SELECT p.product_name AS product_name, p.unit, ps.quantity
+             FROM product_sales ps
+             JOIN products p ON p.product_id = ps.product_id
+             WHERE ps.transaction_id = ?`,
+            [fulfillment.transaction_id]
+        );
+
+        res.json({
+            message: 'Product collection confirmed.',
+            transaction_id: fulfillment.transaction_id,
+            items,
+        });
+    } catch (err) {
+        await conn.rollback();
+        console.error('confirmFulfillment error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    } finally {
+        conn.release();
+    }
+};
