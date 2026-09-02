@@ -129,8 +129,7 @@ export default function FarmerLedger() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
-
+            <main className="max-w-[1800px] mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col gap-6">
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
@@ -147,7 +146,7 @@ export default function FarmerLedger() {
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <StatCard
                         label={t('farmerLedger.stats.advanceOutstanding')}
                         value={fmt(data.total_advance_outstanding)}
@@ -165,28 +164,28 @@ export default function FarmerLedger() {
                 {/* ── Date filter ── */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto overflow-x-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Period</span>
-                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold w-max">
                                 {[["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"], ["custom", "Custom"]].map(([v, l]) => (
                                     <button key={v} onClick={() => selectPreset(v)}
-                                        className={`px-4 py-2 transition-all duration-200 ${preset === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                        className={`px-3 sm:px-4 py-2 whitespace-nowrap transition-all duration-200 ${preset === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                         {l}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">From</span>
                             <input type="date" value={fromDate} disabled={preset !== "custom"}
                                 onChange={e => { setFromDate(e.target.value); setPage(1); }}
-                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
+                                className="w-full sm:w-auto border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
                         </div>
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">To</span>
                             <input type="date" value={toDate} disabled={preset !== "custom"}
                                 onChange={e => { setToDate(e.target.value); setPage(1); }}
-                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
+                                className="w-full sm:w-auto border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
                         </div>
                         {preset !== "custom" && (
                             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50/60 border border-gray-200/60 text-gray-500 text-xs font-medium shadow-sm">

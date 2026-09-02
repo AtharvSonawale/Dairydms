@@ -891,8 +891,7 @@ export default function CashAdvance() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
-
+            <main className="max-w-[1800px] mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col gap-6">
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
@@ -928,7 +927,7 @@ export default function CashAdvance() {
 
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('cashAdvance.downloadPDF')}</span>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <div className="flex items-center gap-1 flex-wrap">
                                     <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
                                         {[{ v: "daily", l: t('cashAdvance.day') }, { v: "weekly", l: t('cashAdvance.week') }, { v: "monthly", l: t('cashAdvance.month') }, { v: "custom", l: t('cashAdvance.custom') }].map(({ v, l }) => (
@@ -964,7 +963,7 @@ export default function CashAdvance() {
                                     </div>
                                 )}
 
-                                <div className="flex gap-1.5">
+                                <div className="flex gap-1.5 w-full sm:w-auto">
                                     {rangeMode === "daily" ? (
                                         <button onClick={handleDownloadPDF} disabled={entries.length === 0}
                                             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white text-xs font-semibold hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-40 transition shadow-sm">
@@ -1044,8 +1043,7 @@ export default function CashAdvance() {
                             </div>
                         )}
 
-                        <div className="flex items-start gap-3 flex-wrap" data-entry-form onKeyDown={handleFormKeyDown}>
-                            {/* ── FIXED: Seller Code and Seller Name fields ── */}
+                        <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap min-w-0" data-entry-form onKeyDown={handleFormKeyDown}>                            {/* ── FIXED: Seller Code and Seller Name fields ── */}
                             <Field label={t('cashAdvance.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
                                 <TinyInput
                                     ref={sellerCodeRef}
@@ -1053,12 +1051,12 @@ export default function CashAdvance() {
                                     onChange={(e) => handleSellerCodeChange(e.target.value)}
                                     placeholder="SC-001"
                                     disabled={!!editingEntry}
-                                    className="text-[13px] font-mono w-24"
+                                    className="text-[13px] font-mono w-full max-w-[110px]"
                                 />
                             </Field>
 
                             <Field label={t('cashAdvance.seller')} icon={<User size={12} />}>
-                                <div className="relative" style={{ width: "160px" }}>
+                                <div className="relative w-full max-w-[180px]">
                                     <TinyInput
                                         value={sellerSearch}
                                         onFocus={() => { setDropdownOpen(true); setHighlightedIdx(-1); }}
@@ -1091,13 +1089,12 @@ export default function CashAdvance() {
                                                 }
                                             } else if (e.key === "Escape") setDropdownOpen(false);
                                         }}
-                                        disabled={!!editingEntry}
+                                          disabled={!!editingEntry}
                                         placeholder={t('cashAdvance.searchPlaceholder')}
-                                        className="pr-7"
-                                        style={{ width: "160px" }}
+                                        className="pr-7 w-full"
                                     />
                                     {dropdownOpen && !form.seller_id && filteredSellers.length > 0 && (
-                                        <div className="absolute top-full left-0 mt-1 w-64 bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
+                                        <div className="absolute top-full left-0 mt-1 w-64 max-w-[85vw] bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden">
                                             <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200/60">
                                                 {sellerSearch.trim() || sellerCodeInput.trim()
                                                     ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('cashAdvance.matchesPlural') : t('cashAdvance.matches')}`
@@ -1155,10 +1152,9 @@ export default function CashAdvance() {
                                     value={form.amount}
                                     onChange={(e) => { if (parseFloat(e.target.value) >= 0 || e.target.value === "") set("amount", e.target.value); }}
                                     placeholder="0.00" type="number" step="0.01"
-                                    className={form.type === "given"
+                                    className={`w-full max-w-[130px] ${form.type === "given"
                                         ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-800 focus:ring-emerald-300"
-                                        : "bg-blue-50/80 border-blue-200/60 text-blue-800 focus:ring-blue-300"}
-                                    style={{ width: "120px" }}
+                                        : "bg-blue-50/80 border-blue-200/60 text-blue-800 focus:ring-blue-300"}`}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") {
                                             e.preventDefault();
@@ -1174,7 +1170,7 @@ export default function CashAdvance() {
                                     value={form.remarks}
                                     onChange={(e) => set("remarks", e.target.value)}
                                     placeholder={t('cashAdvance.remarksPlaceholder')}
-                                    style={{ width: "200px" }}
+                                    className="w-full max-w-[220px]"
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") {
                                             e.preventDefault();
@@ -1482,7 +1478,7 @@ export default function CashAdvance() {
             {/* ── Seller Register Modal ── */}
             {showRegisterModal && selectedSeller && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[380px] flex flex-col gap-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[380px] max-h-[90vh] overflow-y-auto flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <h2 className="text-gray-800 font-semibold text-base">
                                 {t('cashAdvance.registerModalTitle')} — {selectedSeller.name}
@@ -1536,8 +1532,8 @@ export default function CashAdvance() {
 
             {/* ── Confirm Delete Entry Modal ── */}
             {confirmDeleteEntry && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[340px] flex flex-col gap-4">
+               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[340px] flex flex-col gap-4">
                         <div className="flex items-start gap-3">
                             <div className="w-9 h-9 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">

@@ -75,12 +75,12 @@ function rangeFor(preset) {
 
 function StatCard({ label, value, sub, icon, color }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
-                {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+        <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm min-w-0`}>
+            <div className="shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px] sm:[&>svg]:w-4 sm:[&>svg]:h-4">{icon}</div>
+            <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-xs text-gray-400 leading-none truncate">{label}</p>
+                <p className="text-sm sm:text-lg font-bold text-gray-900 leading-tight mt-0.5 truncate">{value}</p>
+                {sub && <p className="text-[9px] sm:text-[10px] text-gray-400 mt-0.5 truncate">{sub}</p>}
             </div>
         </div>
     );
@@ -183,9 +183,7 @@ export default function FarmerLedgerDetail() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
-
-                {/* ── Back link ── */}
+            <main className="max-w-[1800px] mx-auto px-2 sm:px-6 py-4 sm:py-6 flex flex-col gap-6">                {/* ── Back link ── */}
                 <Link to="/farmer-ledger" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 transition w-fit">
                     <ArrowLeft size={13} /> Back to Farmer Ledger
                 </Link>
@@ -193,11 +191,11 @@ export default function FarmerLedgerDetail() {
                 {/* ── Farmer header card ── */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-6 py-5 flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-violet-600 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-lg shadow-violet-500/20">
                                 {seller.name?.charAt(0).toUpperCase()}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <h1 className="text-xl font-bold text-gray-900">{seller.name}</h1>
                                     <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-gray-100/80 text-gray-500 border border-gray-200/60">
@@ -215,7 +213,7 @@ export default function FarmerLedgerDetail() {
                                 </div>
                             </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-left sm:text-right shrink-0">
                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">Current Balance Owed</p>
                             <p className={`text-2xl font-bold ${info.current_balance >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(info.current_balance)}</p>
                         </div>
@@ -223,8 +221,7 @@ export default function FarmerLedgerDetail() {
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatCard label="Advance Outstanding" value={fmt(info.advance_balance)}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">                    <StatCard label="Advance Outstanding" value={fmt(info.advance_balance)}
                         icon={<Banknote size={16} className="text-violet-600" />}
                         color="text-violet-600 bg-violet-50/80 border-violet-200/60" />
                     <StatCard label="Deposit Balance" value={fmt(info.deposit_balance)}
@@ -243,28 +240,28 @@ export default function FarmerLedgerDetail() {
                 {/* ── Date filter ── */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto overflow-x-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Period</span>
-                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold">
+                            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold w-max">
                                 {[["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"], ["custom", "Custom"]].map(([v, l]) => (
                                     <button key={v} onClick={() => selectPreset(v)}
-                                        className={`px-4 py-2 transition-all duration-200 ${preset === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                        className={`px-3 sm:px-4 py-2 whitespace-nowrap transition-all duration-200 ${preset === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                         {l}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">From</span>
                             <input type="date" value={from} disabled={preset !== "custom"}
                                 onChange={e => setFrom(e.target.value)}
-                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
+                                className="w-full sm:w-auto border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
                         </div>
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">To</span>
                             <input type="date" value={to} disabled={preset !== "custom"}
                                 onChange={e => setTo(e.target.value)}
-                                className="border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
+                                className="w-full sm:w-auto border border-gray-200/60 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm disabled:bg-gray-100/60 disabled:text-gray-400 disabled:cursor-not-allowed" />
                         </div>
                         {preset !== "custom" && (
                             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50/60 border border-gray-200/60 text-gray-500 text-xs font-medium shadow-sm">
@@ -277,7 +274,7 @@ export default function FarmerLedgerDetail() {
                 </div>
 
                 {/* ── Period summary ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3">
                     <StatCard label="Opening Balance" value={fmt(ledger.opening_balance)}
                         icon={<Wallet size={16} className="text-gray-600" />}
                         color="text-gray-600 bg-gray-50/80 border-gray-200/60" />
@@ -293,8 +290,7 @@ export default function FarmerLedgerDetail() {
                 </div>
 
                 {/* ── Tabs + Type filter ── */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/60 backdrop-blur-sm shadow-sm w-fit">
+                <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">                    <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/60 backdrop-blur-sm shadow-sm w-fit">
                         <button onClick={() => setTab("ledger")}
                             className={`px-4 py-2.5 transition-all duration-200 ${tab === "ledger" ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                             Ledger Transactions
@@ -307,7 +303,7 @@ export default function FarmerLedgerDetail() {
 
                     {tab === "ledger" && (
                         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                            className="border border-gray-200/60 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-600 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
+                            className="w-full sm:w-auto max-w-full border border-gray-200/60 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-600 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm">
                             {TYPE_FILTER_OPTIONS.map(opt => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}

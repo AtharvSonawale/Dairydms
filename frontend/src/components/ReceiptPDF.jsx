@@ -4,6 +4,14 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FileText, Download, X } from 'lucide-react';
 
+// ── A2 scaling ────────────────────────────────────────────────
+// A2 landscape (594mm x 420mm) is EXACTLY double A4 landscape
+// (297mm x 210mm). So every mm-based dimension, font size, and line
+// width below is multiplied by SCALE to reproduce the identical layout
+// at true A2 size, instead of a tiny A4 layout floating in a huge page.
+const SCALE = 2;
+const mm = (n) => n * SCALE;
+
 // jsPDF's built-in "helvetica" font has no glyph for ₹, →, or typographic
 // dashes (−, –, —), which causes garbled characters and mis-measured
 // (right-align) text that gets clipped or spaced out oddly.
@@ -70,27 +78,27 @@ const ReceiptPDF = ({ data, onClose }) => {
         const doc = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
-            format: 'a4',
+            format: 'a2',
         });
 
         const pageWidth = doc.internal.pageSize.getWidth();
-        const marginX = 8;
-        let y = 10;
+        const marginX = mm(8);
+        let y = mm(10);
 
         // ---------- Header ----------
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
+        doc.setFontSize(mm(16));
         doc.text('Kumbhar Dairy', marginX, y);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(mm(8.5));
         doc.setTextColor(60, 60, 60);
-        doc.text('Milk Collection Receipt', marginX, y + 5);
+        doc.text('Milk Collection Receipt', marginX, y + mm(5));
 
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10.5);
+        doc.setFontSize(mm(10.5));
         doc.text(
             `${formatDate(data.startDate)} - ${formatDate(data.endDate)}`,
             pageWidth - marginX,
@@ -98,20 +106,20 @@ const ReceiptPDF = ({ data, onClose }) => {
             { align: 'right' }
         );
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(mm(8.5));
         doc.setTextColor(60, 60, 60);
-        doc.text(`Bill No.: ${data.billNo}`, pageWidth - marginX, y + 4.5, {
+        doc.text(`Bill No.: ${data.billNo}`, pageWidth - marginX, y + mm(4.5), {
             align: 'right',
         });
-        doc.text(`Generated: ${formatDate(data.generatedDate)}`, pageWidth - marginX, y + 8.5, {
+        doc.text(`Generated: ${formatDate(data.generatedDate)}`, pageWidth - marginX, y + mm(8.5), {
             align: 'right',
         });
 
-        y += 12;
+        y += mm(12);
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(mm(0.5));
         doc.line(marginX, y, pageWidth - marginX, y);
-        y += 5;
+        y += mm(5);
 
         // ---------- Compact info strip ----------
         // ── UPDATED: Even more width for SELLER NAME ──
@@ -128,42 +136,42 @@ const ReceiptPDF = ({ data, onClose }) => {
 
         // Calculate total width units
         const totalWidthUnits = stripItems.reduce((sum, item) => sum + item.width, 0);
-        const stripBoxH = 13;
+        const stripBoxH = mm(13);
 
         doc.setFillColor(242, 242, 242);
         doc.setDrawColor(85, 85, 85);
-        doc.setLineWidth(0.25);
+        doc.setLineWidth(mm(0.25));
         doc.roundedRect(
             marginX,
             y,
             pageWidth - 2 * marginX,
             stripBoxH,
-            1,
-            1,
+            mm(1),
+            mm(1),
             'FD'
         );
 
         let currentX = marginX;
         stripItems.forEach((item) => {
             const itemWidth = ((pageWidth - 2 * marginX) * item.width) / totalWidthUnits;
-            const x = currentX + 3;
+            const x = currentX + mm(3);
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6);
+            doc.setFontSize(mm(6));
             doc.setTextColor(51, 51, 51);
-            doc.text(item.label, x, y + 5);
+            doc.text(item.label, x, y + mm(5));
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.3);
+            doc.setFontSize(mm(8.3));
             doc.setTextColor(0, 0, 0);
 
             // ── IMPROVED: Better truncation for seller names ──
             let displayValue = item.value;
             if (item.label === 'SELLER NAME') {
                 // Calculate available width for seller name
-                const availableWidth = itemWidth - 8; // padding
+                const availableWidth = itemWidth - mm(8); // padding
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8.3);
+                doc.setFontSize(mm(8.3));
                 const fullWidth = doc.getTextWidth(clean(item.value));
 
                 if (fullWidth > availableWidth) {
@@ -184,19 +192,19 @@ const ReceiptPDF = ({ data, onClose }) => {
                 }
             }
 
-            doc.text(clean(displayValue), x, y + 10);
+            doc.text(clean(displayValue), x, y + mm(10));
 
             currentX += itemWidth;
         });
 
-        y += stripBoxH + 5;
+        y += stripBoxH + mm(5);
 
         // ---------- Daily entry table ----------
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(mm(9));
         doc.setTextColor(0, 0, 0);
         doc.text('DAILY ENTRY BREAKDOWN', marginX, y);
-        y += 2.5;
+        y += mm(2.5);
 
         const head = [
             [
@@ -254,18 +262,18 @@ const ReceiptPDF = ({ data, onClose }) => {
         const totalRowIndex = body.length - 1;
 
         const colWidths = {
-            0: 23,
-            1: 23,
-            2: 21,
-            3: 21,
-            4: 24,
-            5: 26,
-            6: 23,
-            7: 21,
-            8: 21,
-            9: 24,
-            10: 26,
-            11: 28,
+            0: mm(23),
+            1: mm(23),
+            2: mm(21),
+            3: mm(21),
+            4: mm(24),
+            5: mm(26),
+            6: mm(23),
+            7: mm(21),
+            8: mm(21),
+            9: mm(24),
+            10: mm(26),
+            11: mm(28),
         };
 
         const columnStyles = {};
@@ -285,19 +293,19 @@ const ReceiptPDF = ({ data, onClose }) => {
             tableWidth: 'wrap',
             styles: {
                 font: 'helvetica',
-                fontSize: 7,
-                cellPadding: 1.3,
+                fontSize: mm(7),
+                cellPadding: mm(1.3),
                 halign: 'center',
                 valign: 'middle',
                 textColor: [0, 0, 0],
                 lineColor: [68, 68, 68],
-                lineWidth: 0.2,
+                lineWidth: mm(0.2),
             },
             headStyles: {
                 fillColor: [224, 224, 224],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
-                fontSize: 6.6,
+                fontSize: mm(6.6),
                 halign: 'center',
                 valign: 'middle',
             },
@@ -310,7 +318,7 @@ const ReceiptPDF = ({ data, onClose }) => {
                 if (data.section === 'body' && data.row.index === totalRowIndex) {
                     data.cell.styles.fillColor = [232, 232, 232];
                     data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.lineWidth = 0.3;
+                    data.cell.styles.lineWidth = mm(0.3);
                 }
                 if (data.section === 'body') {
                     const rightAlignedColumns = [1, 4, 5, 6, 9, 10, 11];
@@ -327,25 +335,25 @@ const ReceiptPDF = ({ data, onClose }) => {
             },
         });
 
-        y = doc.lastAutoTable.finalY + 5;
+        y = doc.lastAutoTable.finalY + mm(5);
 
         // ---------- Account Summary (3 columns) ----------
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(mm(9));
         doc.setTextColor(0, 0, 0);
         doc.text('ACCOUNT SUMMARY', marginX, y);
-        y += 2.5;
+        y += mm(2.5);
 
         const summaryTop = y;
 
         const summaryW = pageWidth - 2 * marginX;
         const colW = summaryW / 3;
 
-        const summaryPadX = 4;
+        const summaryPadX = mm(4);
 
-        const headerH = 5.5;
-        const rowH = 5;
-        const totalH = 6;
+        const headerH = mm(5.5);
+        const rowH = mm(5);
+        const totalH = mm(6);
 
         const summaryBoxH = headerH + rowH * 3 + totalH;
 
@@ -384,18 +392,18 @@ const ReceiptPDF = ({ data, onClose }) => {
             const x = marginX + i * colW;
 
             doc.setDrawColor(85, 85, 85);
-            doc.setLineWidth(0.5);
+            doc.setLineWidth(mm(0.5));
             doc.rect(x, summaryTop, colW, summaryBoxH);
 
             doc.setFillColor(204, 204, 204);
             doc.rect(x, summaryTop, colW, headerH, 'F');
             doc.setDrawColor(85, 85, 85);
-            doc.setLineWidth(0.2);
+            doc.setLineWidth(mm(0.2));
             doc.line(x, summaryTop + headerH, x + colW, summaryTop + headerH);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.3);
+            doc.setFontSize(mm(7.3));
             doc.setTextColor(0, 0, 0);
-            doc.text(col.title, x + colW / 2, summaryTop + headerH / 2 + 1.2, {
+            doc.text(col.title, x + colW / 2, summaryTop + headerH / 2 + mm(1.2), {
                 align: 'center',
             });
 
@@ -404,20 +412,20 @@ const ReceiptPDF = ({ data, onClose }) => {
                 doc.setFillColor(255, 255, 255);
                 doc.rect(x, ry, colW, rowH, 'F');
                 doc.setDrawColor(220, 220, 220);
-                doc.setLineWidth(0.15);
+                doc.setLineWidth(mm(0.15));
                 doc.line(x, ry + rowH, x + colW, ry + rowH);
 
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(7.1);
+                doc.setFontSize(mm(7.1));
                 doc.setTextColor(51, 51, 51);
-                doc.text(clean(r[0]), x + summaryPadX, ry + rowH / 2 + 1.3, {
+                doc.text(clean(r[0]), x + summaryPadX, ry + rowH / 2 + mm(1.3), {
                     align: 'left',
                 });
 
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(7.1);
+                doc.setFontSize(mm(7.1));
                 doc.setTextColor(0, 0, 0);
-                doc.text(clean(r[1]), x + colW - summaryPadX, ry + rowH / 2 + 1.3, {
+                doc.text(clean(r[1]), x + colW - summaryPadX, ry + rowH / 2 + mm(1.3), {
                     align: 'right',
                 });
 
@@ -432,42 +440,42 @@ const ReceiptPDF = ({ data, onClose }) => {
                 doc.setFillColor(232, 232, 232);
                 doc.rect(x, ry, colW, totalH, 'F');
                 doc.setDrawColor(0, 0, 0);
-                doc.setLineWidth(0.35);
+                doc.setLineWidth(mm(0.35));
                 doc.line(x, ry, x + colW, ry);
                 doc.setTextColor(0, 0, 0);
             }
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.4);
-            doc.text(clean(col.total[0]), x + summaryPadX, ry + totalH / 2 + 1.3, {
+            doc.setFontSize(mm(7.4));
+            doc.text(clean(col.total[0]), x + summaryPadX, ry + totalH / 2 + mm(1.3), {
                 align: 'left',
             });
 
-            doc.text(clean(col.total[1]), x + colW - summaryPadX, ry + totalH / 2 + 1.3, {
+            doc.text(clean(col.total[1]), x + colW - summaryPadX, ry + totalH / 2 + mm(1.3), {
                 align: 'right',
             });
 
             if (i < columns.length - 1) {
                 doc.setDrawColor(85, 85, 85);
-                doc.setLineWidth(0.3);
+                doc.setLineWidth(mm(0.3));
                 doc.line(x + colW, summaryTop, x + colW, summaryTop + summaryBoxH);
             }
         });
 
-        y = summaryTop + summaryBoxH + 5;
+        y = summaryTop + summaryBoxH + mm(5);
 
         // ---------- Detailed Breakdown (UPDATED with Product Cuts and Cattle Feed Cuts) ----------
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(mm(9));
         doc.setTextColor(0, 0, 0);
         doc.text('DETAILED BREAKDOWN', marginX, y);
-        y += 2.5;
+        y += mm(2.5);
 
         const breakdownTop = y;
         const breakdownW = pageWidth - 2 * marginX;
-        const breakdownPadLeft = 4;
-        const breakdownPadRight = 4;
-        const dRowH = 5.2;
-        const netRowH = 8;
+        const breakdownPadLeft = mm(4);
+        const breakdownPadRight = mm(4);
+        const dRowH = mm(5.2);
+        const netRowH = mm(8);
 
         // ── Build rows dynamically, including product cuts and cattle feed cuts ──
         const dRows = [
@@ -512,7 +520,7 @@ const ReceiptPDF = ({ data, onClose }) => {
         ];
 
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.4);
+        doc.setLineWidth(mm(0.4));
         doc.rect(
             marginX,
             breakdownTop,
@@ -527,30 +535,30 @@ const ReceiptPDF = ({ data, onClose }) => {
 
             if (idx < dRows.length - 1) {
                 doc.setDrawColor(200, 200, 200);
-                doc.setLineWidth(0.15);
+                doc.setLineWidth(mm(0.15));
                 doc.line(marginX, dy + dRowH, marginX + breakdownW, dy + dRowH);
             }
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
+            doc.setFontSize(mm(8));
             doc.setTextColor(0, 0, 0);
-            doc.text(clean(row.label), marginX + breakdownPadLeft, dy + dRowH / 2 + 1, {
+            doc.text(clean(row.label), marginX + breakdownPadLeft, dy + dRowH / 2 + mm(1), {
                 align: 'left',
             });
 
             if (row.sub) {
                 const labelWidth = doc.getTextWidth(row.label);
-                doc.setFontSize(5.8);
+                doc.setFontSize(mm(5.8));
                 doc.setTextColor(102, 102, 102);
-                doc.text(clean(row.sub), marginX + breakdownPadLeft + labelWidth + 2, dy + dRowH / 2 + 1, {
+                doc.text(clean(row.sub), marginX + breakdownPadLeft + labelWidth + mm(2), dy + dRowH / 2 + mm(1), {
                     align: 'left',
                 });
             }
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.6);
+            doc.setFontSize(mm(7.6));
             doc.setTextColor(0, 0, 0);
-            doc.text(clean(row.value), marginX + breakdownW - breakdownPadRight, dy + dRowH / 2 + 1, {
+            doc.text(clean(row.value), marginX + breakdownW - breakdownPadRight, dy + dRowH / 2 + mm(1), {
                 align: 'right',
             });
 
@@ -561,28 +569,28 @@ const ReceiptPDF = ({ data, onClose }) => {
         doc.setFillColor(34, 34, 34);
         doc.rect(marginX, dy, breakdownW, netRowH, 'F');
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.4);
+        doc.setLineWidth(mm(0.4));
         doc.line(marginX, dy, marginX + breakdownW, dy);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10.5);
+        doc.setFontSize(mm(10.5));
         doc.setTextColor(255, 255, 255);
-        doc.text('Net Cash to Hand', marginX + breakdownPadLeft, dy + netRowH / 2 + 1.5, {
+        doc.text('Net Cash to Hand', marginX + breakdownPadLeft, dy + netRowH / 2 + mm(1.5), {
             align: 'left',
         });
 
-        doc.text(clean(data.breakdown.netCash), marginX + breakdownW - breakdownPadRight, dy + netRowH / 2 + 1.5, {
+        doc.text(clean(data.breakdown.netCash), marginX + breakdownW - breakdownPadRight, dy + netRowH / 2 + mm(1.5), {
             align: 'right',
         });
 
-        y = dy + netRowH + 4;
+        y = dy + netRowH + mm(4);
 
         // ---------- Footer ----------
         doc.setDrawColor(230, 230, 230);
-        doc.setLineWidth(0.2);
+        doc.setLineWidth(mm(0.2));
         doc.line(marginX, y, pageWidth - marginX, y);
-        y += 4;
+        y += mm(4);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
+        doc.setFontSize(mm(7));
         doc.setTextColor(102, 102, 102);
         doc.text('Computer Generated - Kumbhar Dairy', marginX, y);
         doc.text(`Paid On: ${formatDate(data.paidOn)}`, pageWidth - marginX, y, {

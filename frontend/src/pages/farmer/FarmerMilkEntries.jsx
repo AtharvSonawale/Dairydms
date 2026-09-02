@@ -97,22 +97,24 @@ function FilterBar({ filter, setFilter, from, setFrom, to, setTo, onReset }) {
     const presets = ["all", "day", "week", "month", "year", "custom"];
     return (
         <div className="flex flex-wrap items-center gap-2 py-2 pb-3 border-b border-gray-200/60">
-            <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
-                {presets.map(p => (
-                    <button key={p} onClick={() => { setFilter(p); onReset(); }}
-                        className={`px-3.5 py-2 transition-all duration-200
-                            ${filter === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
-                        {t(`dashboard.${p}`, { defaultValue: p })}
-                    </button>
-                ))}
+            <div className="flex overflow-x-auto rounded-xl border border-gray-200/60 text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                <div className="flex whitespace-nowrap">
+                    {presets.map(p => (
+                        <button key={p} onClick={() => { setFilter(p); onReset(); }}
+                            className={`px-3.5 py-2 transition-all duration-200 flex-shrink-0
+                                ${filter === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "bg-white/50 text-gray-600 hover:bg-gray-100/50"}`}>
+                            {t(`dashboard.${p}`, { defaultValue: p })}
+                        </button>
+                    ))}
+                </div>
             </div>
             {filter === "custom" && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition min-w-[120px]" />
                     <span className="text-gray-400 text-xs">→</span>
                     <input type="date" value={to} onChange={e => setTo(e.target.value)}
-                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition" />
+                        className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition min-w-[120px]" />
                 </div>
             )}
         </div>

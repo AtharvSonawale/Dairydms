@@ -1982,8 +1982,8 @@ export default function CattleFeedSales() {
 
             {/* ── Confirm Delete Modal ── */}
             {confirmDelete && can('cattle_feed_sales', 'D') && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[340px] flex flex-col gap-4">
+               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[340px] flex flex-col gap-4">
                         <div className="flex items-start gap-3">
                             <div className="w-9 h-9 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">

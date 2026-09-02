@@ -357,29 +357,29 @@ export default function AdminDashboard() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-sm font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
+                    <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
+                        <div className="flex rounded-xl border border-gray-200/60 overflow-x-auto text-sm font-semibold bg-white/50 backdrop-blur-sm shadow-sm w-full sm:w-auto">
                             {['day', 'week', 'month', 'year'].map((p) => (
                                 <button
                                     key={p}
                                     onClick={() => setPeriod(p)}
-                                    className={`px-4 py-2 transition-all duration-200 ${period === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-600 hover:bg-gray-100/50"}`}
+                                    className={`px-4 py-2 whitespace-nowrap transition-all duration-200 ${period === p ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-600 hover:bg-gray-100/50"}`}
                                 >
                                     {t(`dashboard.${p}`)}
                                 </button>
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-shrink-0">
                             <input
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                className="border border-gray-200/60 rounded-xl px-4 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition shadow-sm w-40"
+                                className="border border-gray-200/60 rounded-xl px-4 py-2 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition shadow-sm w-full sm:w-40"
                             />
                         </div>
 
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-sm font-medium shadow-sm">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-sm font-medium shadow-sm min-w-0 w-full sm:w-auto">
                             <Calendar size={16} className="flex-shrink-0 text-gray-400" />
                             <span className="truncate">{formatPeriodLabel(period, rangeFrom, rangeTo)}</span>
                         </div>

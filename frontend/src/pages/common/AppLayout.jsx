@@ -855,10 +855,12 @@ export default function AppLayout() {
                         }
                     </div>
                     <span className="text-sm font-semibold text-gray-800 truncate min-w-0 flex-1">{appName}</span>
-                    <div className={`ml-auto w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm shrink-0
-                        ${isAdmin ? 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700' : 'bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-700'}`}>
+                    <button
+                        onClick={() => navigate(isAdmin ? '/admin/profile' : isFarmer ? '/farmer/profile' : '/operator/profile')}
+                        className={`ml-auto w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm shrink-0 transition hover:scale-105 active:scale-95
+        ${isAdmin ? 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700 hover:shadow-md' : 'bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-700 hover:shadow-md'}`}>
                         {initials(user?.name)}
-                    </div>
+                    </button>
                 </header>
 
                 <main className="flex-1 overflow-y-auto tracking-tighter bg-gradient-to-br from-gray-50 via-white to-gray-100/50">

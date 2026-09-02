@@ -245,11 +245,9 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                     </button>
                 </div>
 
-                <div className="flex flex-1 min-h-0 overflow-hidden">
-
+                <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
                     {/* Left — Add / Edit Form */}
-                    <div className="w-64 shrink-0 border-r border-gray-200/60 px-5 py-4 flex flex-col gap-4 overflow-y-auto bg-white/30 backdrop-blur-sm">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <div className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-gray-200/60 px-5 py-4 flex flex-col gap-4 overflow-y-auto bg-white/30 backdrop-blur-sm">                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                             {editingId ? 'Edit Entry' : 'Add New'}
                         </p>
 
@@ -428,7 +426,9 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
 // ── Speed Strip in Form ──────────────────────────────────────
 function SpeedStripInForm({ onTap }) {
     const [speedProducts, setSpeedProducts] = useState([]);
-    const [cols, setCols] = useState(7);
+    const [cols, setCols] = useState(() =>
+        typeof window !== "undefined" && window.innerWidth < 640 ? 4 : 7
+    );
     const stripRef = useRef(null);
     const [cardWidth, setCardWidth] = useState(80);
 
@@ -585,9 +585,9 @@ export default function ProductSales() {
             .catch(() => { });
     }, []);
     const BUYER_MODES = [
-        { val: "seller", label: "Seller", icon: <Users size={18} /> },
-        { val: "named", label: "Named", icon: <Tag size={18} /> },
-        { val: "anon", label: "Anonymous", icon: <UserCircle2 size={18} /> },
+        { val: "seller", label: "Seller", icon: <Users size={15} /> },
+        { val: "named", label: "Named", icon: <Tag size={15} /> },
+        { val: "anon", label: "Anonymous", icon: <UserCircle2 size={15} /> },
     ];
 
     const [form, setForm] = useState({
@@ -1192,8 +1192,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                     {printStatus === 'preparing' ? 'Preparing receipt…' : 'Sending to printer…'}
                 </div>
             )}
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
-
+            <main className="max-w-[1800px] mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col gap-6">
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
@@ -1279,18 +1278,18 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-3 gap-4" data-tour="sales-stats">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4" data-tour="sales-stats">
                     {[
                         { label: t('productSales.salesToday'), value: sales.length, icon: <ShoppingCart size={16} />, color: "from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700" },
                         { label: t('productSales.totalRevenue'), value: "₹" + totalRevenue.toFixed(2), icon: <TrendingUp size={16} />, color: "from-emerald-50 to-emerald-100/50 border-emerald-200/60 text-emerald-700" },
                         { label: t('productSales.sellersServed'), value: uniqueSellers, icon: <Users size={16} />, color: "from-violet-50 to-violet-100/50 border-violet-200/60 text-violet-700" },
                     ].map(({ label, value, icon, color }) => (
-                        <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+                        <div key={label} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3 min-w-0`}>
                             <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
                             <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
-                            <div className="relative z-10">
-                                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
-                                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+                            <div className="relative z-10 min-w-0 flex-1">
+                                <p className="text-xs font-semibold uppercase tracking-wider opacity-60 truncate">{label}</p>
+                                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5 truncate">{value}</p>
                             </div>
                         </div>
                     ))}
@@ -1319,7 +1318,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
 
                         {/* Seller row */}
                         {/* Buyer mode selector */}
-                        <div className="flex gap-2 mb-4 relative z-10">
+                        <div className="flex gap-2 mb-4 relative z-10 min-w-0">
                             {BUYER_MODES.map(({ val, label, icon }) => (
                                 <button
                                     key={val}
@@ -1332,12 +1331,13 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                         setNamedBuyerId("");
                                         setNamedBuyerSearch("");
                                     }}
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-semibold transition
+                                    className={`flex-1 min-w-0 flex items-center justify-center gap-1 py-2.5 px-1.5 rounded-xl border text-[11px] sm:text-xs font-semibold transition
                 ${form.buyer_mode === val
                                             ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
                                             : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
                                 >
-                                    {icon}<span>{label}</span>
+                                    <span className="shrink-0">{icon}</span>
+                                    <span className="truncate">{label}</span>
                                 </button>
                             ))}
                         </div>
@@ -1346,8 +1346,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                         {form.buyer_mode === "seller" && (
                             <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
                                 {/* ── FIXED: Added Seller Code and Seller Name fields ── */}
-                                <div className="flex items-start gap-2">
-                                    <Field label={t('productSales.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
+                                <div className="flex flex-col sm:flex-row items-start gap-2">                                    <Field label={t('productSales.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
                                     <TinyInput
                                         ref={sellerCodeRef}
                                         value={sellerCodeInput}
@@ -1358,8 +1357,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                 </Field>
 
                                 <Field label={t('productSales.seller')} icon={<User size={12} />}>
-                                    <div className="relative" style={{ width: "220px" }} ref={sellerAnchorRef}>
-                                        <TinyInput
+                                    <div className="relative w-full sm:w-[220px]" ref={sellerAnchorRef}>                                        <TinyInput
                                             value={sellerSearch}
                                             onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
                                             onBlur={() => setTimeout(() => {
@@ -1448,8 +1446,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                     {form.buyer_mode === "named" && (
                         <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
                             <Field label="Buyer Name" icon={<User size={12} />}>
-                                <div className="relative" style={{ width: "220px" }} ref={namedBuyerAnchorRef}>
-                                    <TinyInput
+                                <div className="relative w-full sm:w-[220px]" ref={namedBuyerAnchorRef}>                                    <TinyInput
                                         value={namedBuyerSearch}
                                         onFocus={() => setNamedBuyerDropdownOpen(true)}
                                         onBlur={() => setTimeout(() => setNamedBuyerDropdownOpen(false), 150)}
@@ -1521,10 +1518,11 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                         }])} />
 
                         {/* Product lines */}
-                        <div className="flex flex-col gap-3 mb-4 relative z-10">
-                            {/* Column headers */}
-                            <div className="grid gap-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-1"
-                                style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                        <div className="flex flex-col gap-3 mb-4 relative z-10 overflow-x-auto">
+  <div className="min-w-[560px] flex flex-col gap-3">
+    {/* Column headers */}
+    <div className="grid gap-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-1"
+        style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
                                 <span>{t('productSales.product')}</span>
                                 <span>{t('productSales.qty')}</span>
                                 <span>{t('productSales.mrpRate')}</span>
@@ -1648,9 +1646,10 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                             <X size={12} />
                                         </button>
                                     </div>
-                                );
+                                 );
                             })}
                         </div>
+                    </div>
 
                         {/* Add line + grand total */}
                         <div className="flex items-center justify-between mb-4 relative z-10">
@@ -1687,10 +1686,10 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                 )}
 
                 {/* ── Sales Table ── */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-hidden" data-tour="sales-table">
-
-                    {/* Header */}
-                    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
+<div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-x-auto" data-tour="sales-table">
+  <div className="min-w-[820px]">
+    {/* Header */}
+    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
                         {COLS.map((label) => (
                             <div key={label} className="px-2.5 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
                                 {label}
@@ -1850,6 +1849,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                             <div className="px-2.5 py-2" />
                         </div>
                     )}
+                  </div>
                 </div>
 
                 {/* ── Legend ── */}
@@ -1872,8 +1872,8 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
             {/* ── Edit Sale Modal ── */}
             {editingSale && can('product_sales', 'U') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[500px] flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto flex flex-col gap-4">
+            <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-gray-800 font-bold text-base">Edit Sale</h2>
                                 <p className="text-gray-500 text-xs mt-0.5">
@@ -1897,7 +1897,7 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                         {/* Items Table */}
                         <div className="flex flex-col gap-2">
                             {editingSale.items.map((item, index) => (
-                                <div key={item.sale_id} className="grid grid-cols-3 gap-2 items-center">
+                                <div key={item.sale_id} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
                                     <div className="px-4 py-2.5 rounded-xl bg-gray-50/80 backdrop-blur-sm border border-gray-200/60 shadow-sm">
                                         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Product</p>
                                         <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">
@@ -1963,8 +1963,8 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
             {/* ── Confirm Delete Modal ── */}
             {confirmDelete && can('product_sales', 'D') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-[340px] flex flex-col gap-4">
-                        <div className="flex items-start gap-3">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[340px] flex flex-col gap-4">
+            <div className="flex items-start gap-3">
                             <div className="w-10 h-10 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">
                                     <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />

@@ -168,11 +168,11 @@ export default function FarmerSettings() {
                         color="emerald"
                     />
                     <StatCard
-                        label={t('settings.status', { defaultValue: 'Status' })}
-                        value={savedState.textSize === textSize && savedState.language === language ? t('settings.saved', { defaultValue: 'Saved' }) : t('settings.unsaved', { defaultValue: 'Unsaved changes' })}
-                        icon={savedState.textSize === textSize && savedState.language === language ? <BadgeCheck size={16} /> : <AlertTriangle size={16} />}
-                        color={savedState.textSize === textSize && savedState.language === language ? "emerald" : "amber"}
-                    />
+    label="Status"
+    value={savedState.textSize === textSize && savedState.language === language ? "Saved" : "Unsaved changes"}
+    icon={savedState.textSize === textSize && savedState.language === language ? <BadgeCheck size={16} /> : <AlertTriangle size={16} />}
+    color={savedState.textSize === textSize && savedState.language === language ? "emerald" : "amber"}
+/>
                 </div>
 
                 {/* ── Flash ── */}

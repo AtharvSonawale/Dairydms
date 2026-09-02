@@ -1377,7 +1377,7 @@ export default function WalkinSales() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 ml-auto">
+                        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:ml-auto">
                             <button onClick={() => { setEditingMrp(false); setShowMrpModal(true); }}
                                 className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl transition bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 shadow-sm">
                                 <Settings size={13} /> {t('walkinSale.mrpRates')}
@@ -1892,36 +1892,27 @@ export default function WalkinSales() {
                             ))}
                         </div>
 
-                        <span className="ml-auto text-xs text-gray-400">
+                        <span className="w-full sm:w-auto sm:ml-auto text-xs text-gray-400">
                             {filteredSales.length} {filteredSales.length === 1 ? t('walkinSale.sale') : t('walkinSale.sales')}
                             {searchName && ` ${t('walkinSale.matching')} "${searchName}"`}
                             {filterBuyerType !== "all" && ` · ${filterBuyerType}`}
                         </span>
                     </div>
 
-                    {/* Table Header */}
-                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
-                        {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
-                                {label}
+                    {/* Table Header + Rows: wrapped together in ONE horizontal-scroll
+                        container so header and body columns always stay aligned on
+                        mobile/tablet screens narrower than the table's min width */}
+                    <div className="overflow-x-auto">
+                        <div className="min-w-max">
+                            <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
+                                {COLS.map((label) => (
+                                    <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
+                                        {label}
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
 
-                    {/* Table Rows */}
-                    {loading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
-                        </div>
-                    ) : sales.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <ShoppingCart size={32} />
-                            <p className="text-sm">{t('walkinSale.noSales')}</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <div className="min-w-max">
-                                {paginatedSales.map((s, i) => (
+                            {!loading && sales.length > 0 && paginatedSales.map((s, i) => (
                                     <div key={s.sale_id || i} className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors" style={{ gridTemplateColumns: GRID }}>
                                         {/* Buyer */}
                                         <TableCell>
@@ -2013,8 +2004,19 @@ export default function WalkinSales() {
                                             </div>
                                         </TableCell>
                                     </div>
-                                ))}
-                            </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {loading && (
+                        <div className="flex items-center justify-center py-16">
+                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                        </div>
+                    )}
+                    {!loading && sales.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
+                            <ShoppingCart size={32} />
+                            <p className="text-sm">{t('walkinSale.noSales')}</p>
                         </div>
                     )}
                 </SectionCard>
@@ -2072,7 +2074,7 @@ export default function WalkinSales() {
                 {/* ── Totals Footer ── */}
                 {sales.length > 0 && (
                     <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50">
-                        <div className="grid px-4 py-3 gap-4" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 px-4 py-3 gap-4">
                             <div className="flex flex-col gap-0.5">
                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('walkinSale.cowSold')}</p>
                                 <p className="text-sm font-bold text-amber-600">

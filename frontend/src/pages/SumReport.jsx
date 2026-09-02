@@ -24,12 +24,12 @@ const defaultTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,
 // ── StatCard ──────────────────────────────────────────────────
 function StatCard({ label, value, icon, color }) {
     return (
-        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3`}>
+        <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${color} shadow-sm p-4 flex items-center gap-3 min-w-0`}>
             <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/20 blur-2xl" />
             <div className="shrink-0 relative z-10 opacity-70">{icon}</div>
-            <div className="relative z-10">
-                <p className="text-xs font-semibold uppercase tracking-wider opacity-60">{label}</p>
-                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            <div className="relative z-10 min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wider opacity-60 truncate">{label}</p>
+                <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5 truncate">{value}</p>
             </div>
         </div>
     );
@@ -251,8 +251,8 @@ export default function SumReport() {
                             <td style="padding:8px 10px;border:1px solid #d1d5db;text-align:right;font-family:monospace;font-size:13px;font-weight:700">Rs.${totalAll.toFixed(2)}</td>
                             <td style="padding:8px 10px;border:1px solid #d1d5db"></td>
                         </tr>
-                    </tbody>
-                <table>
+                  </tbody>
+                </table>
 
                 <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:11px;color:#555">
                     <span>${t('sumReport.pdfFooter')}</span>
@@ -305,8 +305,7 @@ export default function SumReport() {
                 }
             `}</style>
 
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
-
+            <main className="max-w-[1800px] mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col gap-6">
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5 no-print">
                     <div>
@@ -330,35 +329,34 @@ export default function SumReport() {
 
                 {/* ── Date Range ── */}
                 <div className="flex items-center gap-4 flex-wrap no-print">
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                         <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('sumReport.from')}</span>
                         <input
                             type="date"
                             value={fromDate}
                             onChange={e => setFromDate(e.target.value)}
-                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
+                            className="w-full sm:w-auto border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
                                 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                         />
                     </div>
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                         <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{t('sumReport.to')}</span>
                         <input
                             type="date"
                             value={toDate}
                             onChange={e => setToDate(e.target.value)}
-                            className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
+                            className="w-full sm:w-auto border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 shadow-sm
                                 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                         />
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-500 text-sm font-medium shadow-sm">
-                        <Calendar size={16} className="text-gray-400" />
-                        <span className="text-xs">{t('sumReport.period')}: {new Date(fromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - {new Date(toDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-500 text-sm font-medium shadow-sm min-w-0">
+                        <Calendar size={16} className="text-gray-400 shrink-0" />
+                        <span className="text-xs truncate">{t('sumReport.period')}: {new Date(fromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - {new Date(toDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                     </div>
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-3 gap-4">
-                    <StatCard
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">                    <StatCard
                         label={t('sumReport.utpadakSellers')}
                         value={filtered.length}
                         icon={<Users size={16} />}
@@ -393,8 +391,8 @@ export default function SumReport() {
                 )}
 
                 {/* ── Search & Filter ── */}
-                <div className="flex items-center gap-2 no-print">
-                    <div className="relative flex-1 max-w-xs">
+                <div className="flex items-center gap-2 flex-wrap no-print">
+                    <div className="relative flex-1 min-w-[180px] max-w-xs">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             value={search}
@@ -418,7 +416,7 @@ export default function SumReport() {
                             </button>
                         ))}
                     </div>
-                    <span className="ml-auto text-xs text-gray-400">
+                    <span className="ml-auto text-xs text-gray-400 shrink-0">
                         {filtered.length} {filtered.length === 1 ? t('sumReport.seller') : t('sumReport.sellers')}
                     </span>
                 </div>

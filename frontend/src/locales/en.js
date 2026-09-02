@@ -2444,7 +2444,7 @@ const en = {
             utpadakMilkEntry: "Utpadak Milk Entry",
             gavaliMilkEntry: "Gavali Milk Entry",
 
-            myProfile: "My Profiles",
+            myProfile: "My Profile",
             centres: "Centres",
             productPurchasePayment: "Bill Payments",
             cattlefeedPurchasePayment: "Bill Payments",
@@ -5085,6 +5085,7 @@ const en = {
 
         // ── Sum Report ───────────────────────────────────────────────
         sumReport: {
+            sellers: "Sellers",
             startTour: "Start a Tour",
             pageTitle: "Sum Report",
             pageSubtitle: "Farmer payment summary · milk, deductions & net payable",

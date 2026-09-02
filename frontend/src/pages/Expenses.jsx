@@ -58,7 +58,7 @@ const PAYMENT_STATUS = [
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
     return (
-        <div className="flex flex-col gap-1 shrink-0">
+        <div className="flex flex-col gap-1 shrink-0 w-full sm:w-auto">
             <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                 {icon}{label}
             </span>
@@ -80,13 +80,13 @@ function TinyInput({ className = "", ...props }) {
 
 function ToggleGroup({ value, onChange, options, t }) {
     return (
-        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden h-[35px] bg-white/50 backdrop-blur-sm shadow-sm">
+        <div className="flex rounded-xl border border-gray-200/60 overflow-x-auto h-[35px] bg-white/50 backdrop-blur-sm shadow-sm w-full sm:w-max">
             {options.map((opt, i) => (
                 <button
                     key={opt.value}
                     type="button"
                     onClick={() => onChange(opt.value)}
-                    className={`flex items-center gap-1.5 px-3 text-xs font-semibold transition-all duration-200
+                    className={`flex items-center gap-1.5 px-3 text-xs font-semibold whitespace-nowrap transition-all duration-200
                         ${i > 0 ? "border-l border-gray-200/60" : ""}
                         ${value === opt.value ? opt.activeClass : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}
                 >
@@ -108,16 +108,15 @@ function TableCell({ children, className = "" }) {
 // ── StatCard ──────────────────────────────────────────────────
 function StatCard({ label, value, icon, color }) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm`}>
-            <div className="shrink-0">{icon}</div>
-            <div>
-                <p className="text-xs text-gray-400 leading-none">{label}</p>
-                <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+        <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border ${color} bg-white/60 backdrop-blur-sm shadow-sm min-w-0`}>
+            <div className="shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px] sm:[&>svg]:w-4 sm:[&>svg]:h-4">{icon}</div>
+            <div className="min-w-0 flex-1">
+                <p className="text-[11px] sm:text-xs text-gray-400 leading-none truncate">{label}</p>
+                <p className="text-sm sm:text-lg font-bold text-gray-900 leading-tight mt-0.5 truncate">{value}</p>
             </div>
         </div>
     );
 }
-
 // ── Main Page ─────────────────────────────────────────────────
 export default function Expenses() {
     const { t } = useTranslation();
@@ -333,8 +332,7 @@ export default function Expenses() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
-            <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
-
+            <main className="max-w-[1800px] mx-auto px-2 sm:px-6 py-4 sm:py-6 flex flex-col gap-6">
                 {/* ── Top Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
                     <div>
@@ -350,20 +348,20 @@ export default function Expenses() {
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expenses.anchorDate')}</span>
                             <input
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => handleDateChange(e.target.value)}
-                                className="border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
+                                className="w-full sm:w-auto border border-gray-200/60 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition shadow-sm"
                             />
                         </div>
 
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 w-full sm:w-auto">
                             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{t('expenses.period')}</span>
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm">
+                                <div className="flex rounded-xl border border-gray-200/60 overflow-x-auto text-xs font-semibold bg-white/50 backdrop-blur-sm shadow-sm w-full sm:w-max">
                                     {[
                                         { v: "daily", l: t('expenses.periodDay') },
                                         { v: "weekly", l: t('expenses.periodWeek') },
@@ -373,7 +371,7 @@ export default function Expenses() {
                                     ].map(({ v, l }) => (
                                         <button key={v} type="button"
                                             onClick={() => handleRangeModeChange(v)}
-                                            className={`px-3 py-2 transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
+                                            className={`px-3 py-2 whitespace-nowrap transition-all duration-200 ${rangeMode === v ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-sm" : "bg-white/60 backdrop-blur-sm text-gray-400 hover:bg-gray-50/80"}`}>
                                             {l}
                                         </button>
                                     ))}
@@ -404,8 +402,7 @@ export default function Expenses() {
                 </div>
 
                 {/* ── Stats ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatCard
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">                    <StatCard
                         label={t('expenses.stats.total')}
                         value={"₹" + totalAmount.toFixed(2)}
                         icon={<Wallet size={14} className="text-blue-600" />}
@@ -466,7 +463,7 @@ export default function Expenses() {
                                 type="date"
                                 value={form.expense_date}
                                 onChange={(e) => set("expense_date", e.target.value)}
-                                className="w-36"
+                                className="w-full sm:w-36"
                             />
                         </Field>
 
@@ -475,7 +472,7 @@ export default function Expenses() {
                                 value={form.reason}
                                 onChange={(e) => set("reason", e.target.value)}
                                 placeholder={t('expenses.reasonPlaceholder')}
-                                className="w-56"
+                                className="w-full sm:w-56"
                             />
                         </Field>
 
@@ -485,7 +482,7 @@ export default function Expenses() {
                                 value={form.amount}
                                 onChange={(e) => set("amount", e.target.value)}
                                 placeholder="0.00"
-                                className="w-28 bg-blue-50/80 border-blue-200/60 text-blue-700"
+                                className="w-full sm:w-28 bg-blue-50/80 border-blue-200/60 text-blue-700"
                             />
                         </Field>
 
@@ -494,7 +491,7 @@ export default function Expenses() {
                                 value={form.vendor_name}
                                 onChange={(e) => set("vendor_name", e.target.value)}
                                 placeholder={t('expenses.vendorPlaceholder')}
-                                className="w-44"
+                                className="w-full sm:w-44"
                             />
                         </Field>
 
@@ -503,7 +500,7 @@ export default function Expenses() {
                                 value={form.vendor_contact}
                                 onChange={(e) => set("vendor_contact", e.target.value)}
                                 placeholder={t('expenses.contactPlaceholder')}
-                                className="w-36"
+                                className="w-full sm:w-36"
                             />
                         </Field>
 
@@ -521,7 +518,7 @@ export default function Expenses() {
                                 value={form.bill_no}
                                 onChange={(e) => set("bill_no", e.target.value)}
                                 placeholder={t('expenses.billPlaceholder')}
-                                className="w-32"
+                                className="w-full sm:w-32"
                             />
                         </Field>
 
@@ -583,28 +580,29 @@ export default function Expenses() {
                         </span>
                     </div>
 
-                    <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: `${GRID} 100px` }}>
-                        {COLS.map((label) => (
-                            <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
-                                {label}
+                    <div className="overflow-x-auto">
+                        <div className="min-w-max w-full">
+                            <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: `${GRID} 100px` }}>
+                                {COLS.map((label) => (
+                                    <div key={label} className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
+                                        {label}
+                                    </div>
+                                ))}
+                                <div className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{t('expenses.actions')}</div>
                             </div>
-                        ))}
-                        <div className="px-3 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{t('expenses.actions')}</div>
-                    </div>
 
-                    {loading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
-                        </div>
-                    ) : filteredEntries.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
-                            <Receipt size={32} />
-                            <p className="text-sm">{t('expenses.noEntries')}</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <div className="min-w-max w-full">
-                                {[...filteredEntries].reverse().map((e, i) => (
+                            {loading ? (
+                                <div className="flex items-center justify-center py-16">
+                                    <div className="w-6 h-6 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                                </div>
+                            ) : filteredEntries.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-300">
+                                    <Receipt size={32} />
+                                    <p className="text-sm">{t('expenses.noEntries')}</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {[...filteredEntries].reverse().map((e, i) => (
                                     <div
                                         key={e.expense_id || i}
                                         className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors"
@@ -670,27 +668,28 @@ export default function Expenses() {
                                         </TableCell>
                                     </div>
                                 ))}
-                            </div>
-                        </div>
-                    )}
+                                </>
+                            )}
 
-                    {/* Totals footer */}
-                    {filteredEntries.length > 0 && (
-                        <div className="grid border-t-2 border-gray-200/60 bg-gray-50/60 rounded-b-xl" style={{ gridTemplateColumns: `${GRID} 100px` }}>
-                            <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
-                                {t('expenses.entryCount', { count: filteredEntries.length })}
-                            </div>
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 border-r border-gray-200/60" />
-                            <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-200/60">
-                                ₹{filteredEntries.reduce((a, e) => a + parseFloat(e.amount || 0), 0).toFixed(2)}
-                            </div>
-                            <div className="px-3 py-2.5" />
+                            {/* Totals footer */}
+                            {filteredEntries.length > 0 && (
+                                <div className="grid border-t-2 border-gray-200/60 bg-gray-50/60 rounded-b-xl" style={{ gridTemplateColumns: `${GRID} 100px` }}>
+                                    <div className="px-3 py-2.5 text-xs font-bold text-gray-600 border-r border-gray-200/60">
+                                        {t('expenses.entryCount', { count: filteredEntries.length })}
+                                    </div>
+                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                                    <div className="px-3 py-2.5 border-r border-gray-200/60" />
+                                    <div className="px-3 py-2.5 text-xs font-bold text-blue-600 border-r border-gray-200/60">
+                                        ₹{filteredEntries.reduce((a, e) => a + parseFloat(e.amount || 0), 0).toFixed(2)}
+                                    </div>
+                                    <div className="px-3 py-2.5" />
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </SectionCard>
 
                 {/* ── Delete Confirm Modal ── */}
