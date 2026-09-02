@@ -118,7 +118,7 @@ function AppRoutes() {
       >
 
         {/* ── Admin ── */}
-        <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/operators/new" element={<ProtectedRoute role="admin"><CreateOperator /></ProtectedRoute>} />
         <Route path="/admin/adminlist" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
@@ -192,6 +192,25 @@ function AppRoutes() {
           element={
             <ProtectedRoute role={['admin', 'operator']}>
               <FulfillmentScanner />
+            </ProtectedRoute>
+          }
+        />
+        {/* Direct QR links — the token is generated with the type already
+            baked into the path, e.g. …/product-scan/<token>. These bypass
+            the in-app camera and preview immediately. */}
+        <Route
+          path="/feed-scan/:token"
+          element={
+            <ProtectedRoute role={['admin', 'operator']}>
+              <FulfillmentScanner type="feed" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/product-scan/:token"
+          element={
+            <ProtectedRoute role={['admin', 'operator']}>
+              <FulfillmentScanner type="product" />
             </ProtectedRoute>
           }
         />

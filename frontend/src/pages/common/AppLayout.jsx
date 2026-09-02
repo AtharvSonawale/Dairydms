@@ -22,7 +22,7 @@ import {
     ArrowLeftRight,
     ShoppingBasket,
     Percent,
-    UserCircle, Droplets, User
+    UserCircle, Droplets, User, ScanLine
 } from 'lucide-react';
 
 /**
@@ -55,6 +55,16 @@ const SHARED_NAV = (isAdmin, t) => {
             to: getRoute('/settings'),
             tourId: 'nav-settings',
             pageKey: getPageKey('settings'),
+        },
+        {
+            label: t('nav.scanner', { defaultValue: 'Scanner' }),
+            icon: <ScanLine size={16} />,
+            to: null,
+            tourId: 'nav-scanner',
+            children: [
+                { label: t('nav.feedScanner', { defaultValue: 'Feed Pickup Scanner' }), icon: <ScanLine size={14} />, to: '/scanner/feed', pageKey: getPageKey('scanner_feed') },
+                { label: t('nav.productScanner', { defaultValue: 'Product Pickup Scanner' }), icon: <ScanLine size={14} />, to: '/scanner/product', pageKey: getPageKey('scanner_product') },
+            ],
         },
 
         ...(isAdmin ? [

@@ -21,9 +21,11 @@ const TYPE_META = {
     },
 };
 
-export default function FulfillmentScanner() {
-    const { type } = useParams(); // "feed" | "product"
+export default function FulfillmentScanner({ type: fixedType }) {
+    const params = useParams(); // { type, token } — shape depends on which route matched
+    const type = fixedType || params.type; // "feed" | "product"
     const meta = TYPE_META[type] || TYPE_META.feed;
+    const tokenFromUrl = params.token;
 
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
@@ -70,6 +72,16 @@ export default function FulfillmentScanner() {
             setLoadingPreview(false);
         }
     }, [type]);
+
+    // If we arrived via a direct QR link (…/feed-scan/<token> or
+    // …/product-scan/<token>), skip camera scanning entirely and go
+    // straight to the preview.
+    useEffect(() => {
+        if (tokenFromUrl) {
+            fetchPreview(tokenFromUrl);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tokenFromUrl]);
 
     const tick = useCallback(() => {
         const video = videoRef.current;
