@@ -4,12 +4,14 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FileText, Download, X } from 'lucide-react';
 
-// ── A2 scaling ────────────────────────────────────────────────
-// A2 landscape (594mm x 420mm) is EXACTLY double A4 landscape
-// (297mm x 210mm). So every mm-based dimension, font size, and line
-// width below is multiplied by SCALE to reproduce the identical layout
-// at true A2 size, instead of a tiny A4 layout floating in a huge page.
-const SCALE = 2;
+// ── A5 scaling ────────────────────────────────────────────────
+// A5 landscape (210mm x 148mm) is ONE ISO 216 step below A4 landscape
+// (297mm x 210mm) — each step down halves the *area*, so dimensions
+// scale by 1/√2 (~0.7071), not 0.5. So every mm-based dimension, font
+// size, and line width below is multiplied by SCALE to reproduce the
+// identical layout shrunk to true A5 size, instead of an oversized
+// A4 layout hanging off the page.
+const SCALE = 1 / Math.sqrt(2); // ≈ 0.7071 — A4 landscape → A5 landscape
 const mm = (n) => n * SCALE;
 
 // jsPDF's built-in "helvetica" font has no glyph for ₹, →, or typographic
@@ -78,7 +80,7 @@ const ReceiptPDF = ({ data, onClose }) => {
         const doc = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
-            format: 'a2',
+            format: 'a5',
         });
 
         const pageWidth = doc.internal.pageSize.getWidth();

@@ -20,7 +20,9 @@ import {
     Clock,
     Wheat,
     Truck,
-    Store
+    Store,
+    Home,
+    Droplets
 } from "lucide-react";
 
 import api from "../api/axios";
@@ -519,8 +521,8 @@ export default function CattleFeedSalesReport() {
 
     // ── Render ──────────────────────────────────────────────
     if (permLoading) return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div className="w-8 h-8 border-3 border-gray-200 border-t-emerald-600 rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex items-center justify-center">
+            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
         </div>
     );
 
@@ -535,12 +537,12 @@ export default function CattleFeedSalesReport() {
     const selectedOperator = operators.find(o => o.operator_id === parseInt(filters.operator_id));
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50/30 via-white to-emerald-100/30">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
                 {/* ── Flash ── */}
                 {flash && (
-                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-sm
                         ${flash.type === "success" ? "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700"
                             : "bg-rose-50/80 border border-rose-200/60 text-rose-600"}`}>
                         {flash.type === "error" ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
@@ -552,10 +554,17 @@ export default function CattleFeedSalesReport() {
                 )}
 
                 {/* ── Header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-800 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
-                            <Wheat size={24} className="text-emerald-600" />
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>Cattle Feed Sales Report</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
+                                <Wheat size={12} /> Report
+                            </span>
+                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent flex items-center gap-2">
+                            <Wheat size={22} className="text-emerald-600" />
                             Cattle Feed Sales Report
                         </h1>
                         <p className="text-xs text-gray-500 mt-0.5">
@@ -565,7 +574,7 @@ export default function CattleFeedSalesReport() {
                     <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={fetchSales}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
                             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
                             Refresh
@@ -573,27 +582,27 @@ export default function CattleFeedSalesReport() {
                         <button
                             onClick={downloadCSV}
                             disabled={!salesData.length}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-100/80 text-emerald-700 hover:bg-emerald-200/80 transition border border-emerald-200/60 backdrop-blur-sm shadow-sm disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition border border-emerald-200/60 backdrop-blur-sm shadow-sm disabled:opacity-50"
                         >
                             <FileDown size={15} /> CSV
                         </button>
                         <button
                             onClick={printReport}
                             disabled={!salesData.length}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-blue-100/80 text-blue-700 hover:bg-blue-200/80 transition border border-blue-200/60 backdrop-blur-sm shadow-sm disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-50/80 text-blue-700 hover:bg-blue-100/80 transition border border-blue-200/60 backdrop-blur-sm shadow-sm disabled:opacity-50"
                         >
                             <Printer size={15} /> Print
                         </button>
-                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
+                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
                             <button
                                 onClick={() => setViewMode("table")}
-                                className={`px-3 py-2 transition ${viewMode === "table" ? "bg-emerald-700 text-white" : "text-gray-500"}`}
+                                className={`px-3.5 py-2 transition-all duration-200 ${viewMode === "table" ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}
                             >
                                 <List size={14} />
                             </button>
                             <button
                                 onClick={() => setViewMode("cards")}
-                                className={`px-3 py-2 transition ${viewMode === "cards" ? "bg-emerald-700 text-white" : "text-gray-500"}`}
+                                className={`px-3.5 py-2 transition-all duration-200 ${viewMode === "cards" ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30" : "text-gray-500 hover:bg-gray-100/50"}`}
                             >
                                 <Grid3X3 size={14} />
                             </button>
@@ -602,9 +611,10 @@ export default function CattleFeedSalesReport() {
                 </div>
 
                 {/* ── Period Selector ── */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-semibold shadow-sm bg-white/60 backdrop-blur-sm">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4 relative overflow-hidden">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="relative z-10 flex flex-wrap items-center gap-3">
+                        <div className="flex rounded-xl border border-gray-200/60 overflow-hidden text-xs font-bold bg-white/50 backdrop-blur-sm shadow-sm">
                             {[
                                 { v: "today", l: "Today" },
                                 { v: "yesterday", l: "Yesterday" },
@@ -624,7 +634,7 @@ export default function CattleFeedSalesReport() {
                                         }
                                     }}
                                     className={`px-3.5 py-2 transition-all duration-200 ${rangeMode === v
-                                        ? "bg-gradient-to-br from-emerald-700 to-emerald-600 text-white shadow-lg shadow-emerald-700/30"
+                                        ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-lg shadow-gray-900/30"
                                         : "text-gray-500 hover:bg-gray-100/50"
                                         }`}
                                 >
@@ -639,18 +649,18 @@ export default function CattleFeedSalesReport() {
                                     type="date"
                                     value={fromDate}
                                     onChange={e => setFromDate(e.target.value)}
-                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                 />
                                 <span className="text-gray-400 text-sm">→</span>
                                 <input
                                     type="date"
                                     value={toDate}
                                     onChange={e => setToDate(e.target.value)}
-                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                 />
                                 <button
                                     onClick={fetchSales}
-                                    className="px-4 py-2 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition shadow-sm"
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-sm font-bold shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"
                                 >
                                     Apply
                                 </button>
@@ -658,9 +668,11 @@ export default function CattleFeedSalesReport() {
                         )}
 
                         <div className="ml-auto text-sm text-gray-500 font-medium flex items-center gap-2">
-                            {periodLabel}
+                            <span className="bg-gray-50/80 px-3 py-1 rounded-full border border-gray-200/60 text-xs font-bold text-gray-600">
+                                {periodLabel}
+                            </span>
                             {loading && (
-                                <span className="flex items-center gap-1 text-gray-300">
+                                <span className="flex items-center gap-1 text-gray-400 text-xs font-medium">
                                     <Clock size={12} className="animate-pulse" /> Loading...
                                 </span>
                             )}
@@ -669,15 +681,16 @@ export default function CattleFeedSalesReport() {
                 </div>
 
                 {/* ── Filters ── */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-4">
-                    <div className="flex flex-wrap items-center gap-3">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-4 relative overflow-hidden">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="relative z-10 flex flex-wrap items-center gap-3">
                         {/* Seller Type Filter */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Seller Type</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Seller Type</span>
                             <select
                                 value={filters.seller_type}
                                 onChange={e => handleFilterChange("seller_type", e.target.value)}
-                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                             >
                                 <option value="all">All Types</option>
                                 <option value="Utpadak">Utpadak</option>
@@ -687,11 +700,11 @@ export default function CattleFeedSalesReport() {
 
                         {/* Buyer Type Filter */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Buyer Type</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Buyer Type</span>
                             <select
                                 value={filters.buyer_type}
                                 onChange={e => handleFilterChange("buyer_type", e.target.value)}
-                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                             >
                                 <option value="all">All Buyers</option>
                                 <option value="seller">Seller</option>
@@ -702,14 +715,14 @@ export default function CattleFeedSalesReport() {
 
                         {/* Seller Filter */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Seller</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Seller</span>
                             <div className="relative" ref={sellerAnchorRef}>
                                 <button
                                     onClick={() => setShowSellerDropdown(!showSellerDropdown)}
                                     className="flex items-center gap-2 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm hover:bg-white transition min-w-[150px]"
                                 >
                                     {selectedSeller ? (
-                                        <span className="truncate">{selectedSeller.name}</span>
+                                        <span className="truncate font-medium">{selectedSeller.name}</span>
                                     ) : (
                                         <span className="text-gray-400">All Sellers</span>
                                     )}
@@ -717,20 +730,20 @@ export default function CattleFeedSalesReport() {
                                 </button>
                                 <DropdownPortal anchorRef={sellerAnchorRef} open={showSellerDropdown} width={250}>
                                     <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
-                                        <div className="p-2 border-b border-gray-100">
+                                        <div className="p-2 border-b border-gray-200/60">
                                             <input
                                                 type="text"
                                                 value={sellerSearch}
                                                 onChange={e => setSellerSearch(e.target.value)}
                                                 placeholder="Search sellers..."
-                                                className="w-full border border-gray-200/60 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                className="w-full border border-gray-200/60 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition bg-white/50"
                                                 autoFocus
                                             />
                                         </div>
                                         <div className="max-h-52 overflow-y-auto">
                                             <button
                                                 onClick={() => { handleFilterChange("seller_id", "all"); setShowSellerDropdown(false); }}
-                                                className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50/50 transition"
+                                                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50/50 transition font-medium"
                                             >
                                                 All Sellers
                                             </button>
@@ -741,10 +754,10 @@ export default function CattleFeedSalesReport() {
                                                     <button
                                                         key={s.seller_id}
                                                         onClick={() => { handleFilterChange("seller_id", String(s.seller_id)); setShowSellerDropdown(false); }}
-                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50/50 transition flex items-center gap-2"
+                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50/50 transition flex items-center gap-2"
                                                     >
                                                         <span className="font-medium">{s.name}</span>
-                                                        <span className="text-xs text-gray-400">{s.seller_code}</span>
+                                                        <span className="text-xs text-gray-400 font-mono">{s.seller_code}</span>
                                                     </button>
                                                 ))}
                                         </div>
@@ -755,14 +768,14 @@ export default function CattleFeedSalesReport() {
 
                         {/* Feed Filter */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Feed</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Feed</span>
                             <div className="relative" ref={feedAnchorRef}>
                                 <button
                                     onClick={() => setShowFeedDropdown(!showFeedDropdown)}
                                     className="flex items-center gap-2 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm hover:bg-white transition min-w-[150px]"
                                 >
                                     {selectedFeed ? (
-                                        <span className="truncate">{selectedFeed.feed_name}</span>
+                                        <span className="truncate font-medium">{selectedFeed.feed_name}</span>
                                     ) : (
                                         <span className="text-gray-400">All Feeds</span>
                                     )}
@@ -770,20 +783,20 @@ export default function CattleFeedSalesReport() {
                                 </button>
                                 <DropdownPortal anchorRef={feedAnchorRef} open={showFeedDropdown} width={250}>
                                     <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
-                                        <div className="p-2 border-b border-gray-100">
+                                        <div className="p-2 border-b border-gray-200/60">
                                             <input
                                                 type="text"
                                                 value={feedSearch}
                                                 onChange={e => setFeedSearch(e.target.value)}
                                                 placeholder="Search feeds..."
-                                                className="w-full border border-gray-200/60 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                className="w-full border border-gray-200/60 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition bg-white/50"
                                                 autoFocus
                                             />
                                         </div>
                                         <div className="max-h-52 overflow-y-auto">
                                             <button
                                                 onClick={() => { handleFilterChange("feed_id", "all"); setShowFeedDropdown(false); }}
-                                                className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50/50 transition"
+                                                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50/50 transition font-medium"
                                             >
                                                 All Feeds
                                             </button>
@@ -793,10 +806,10 @@ export default function CattleFeedSalesReport() {
                                                     <button
                                                         key={f.feed_id}
                                                         onClick={() => { handleFilterChange("feed_id", String(f.feed_id)); setShowFeedDropdown(false); }}
-                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50/50 transition flex items-center justify-between"
+                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50/50 transition flex items-center justify-between"
                                                     >
                                                         <span className="font-medium">{f.feed_name}</span>
-                                                        <span className="text-xs text-gray-400">{f.unit}</span>
+                                                        <span className="text-xs text-gray-400 font-mono">{f.unit}</span>
                                                     </button>
                                                 ))}
                                         </div>
@@ -807,26 +820,26 @@ export default function CattleFeedSalesReport() {
 
                         {/* Supplier Filter */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Supplier</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Supplier</span>
                             <input
                                 type="text"
                                 value={filters.supplier_name}
                                 onChange={e => handleFilterChange("supplier_name", e.target.value)}
                                 placeholder="Filter by supplier..."
-                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition w-40"
+                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition w-40"
                             />
                         </div>
 
                         {/* Operator Filter */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Operator</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Operator</span>
                             <div className="relative" ref={operatorAnchorRef}>
                                 <button
                                     onClick={() => setShowOperatorDropdown(!showOperatorDropdown)}
                                     className="flex items-center gap-2 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-3 py-2 text-sm text-gray-700 shadow-sm hover:bg-white transition min-w-[120px]"
                                 >
                                     {selectedOperator ? (
-                                        <span className="truncate">{selectedOperator.name}</span>
+                                        <span className="truncate font-medium">{selectedOperator.name}</span>
                                     ) : (
                                         <span className="text-gray-400">All</span>
                                     )}
@@ -834,20 +847,20 @@ export default function CattleFeedSalesReport() {
                                 </button>
                                 <DropdownPortal anchorRef={operatorAnchorRef} open={showOperatorDropdown} width={200}>
                                     <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
-                                        <div className="p-2 border-b border-gray-100">
+                                        <div className="p-2 border-b border-gray-200/60">
                                             <input
                                                 type="text"
                                                 value={operatorSearch}
                                                 onChange={e => setOperatorSearch(e.target.value)}
                                                 placeholder="Search..."
-                                                className="w-full border border-gray-200/60 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                                className="w-full border border-gray-200/60 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition bg-white/50"
                                                 autoFocus
                                             />
                                         </div>
                                         <div className="max-h-52 overflow-y-auto">
                                             <button
                                                 onClick={() => { handleFilterChange("operator_id", "all"); setShowOperatorDropdown(false); }}
-                                                className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50/50 transition"
+                                                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50/50 transition font-medium"
                                             >
                                                 All Operators
                                             </button>
@@ -857,7 +870,7 @@ export default function CattleFeedSalesReport() {
                                                     <button
                                                         key={o.operator_id}
                                                         onClick={() => { handleFilterChange("operator_id", String(o.operator_id)); setShowOperatorDropdown(false); }}
-                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-50/50 transition"
+                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50/50 transition"
                                                     >
                                                         {o.name}
                                                     </button>
@@ -870,14 +883,14 @@ export default function CattleFeedSalesReport() {
 
                         {/* Amount Range */}
                         <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Amount Range</span>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Amount Range</span>
                             <div className="flex items-center gap-1">
                                 <input
                                     type="number"
                                     value={filters.min_amount}
                                     onChange={e => handleFilterChange("min_amount", e.target.value)}
                                     placeholder="Min ₹"
-                                    className="w-20 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
+                                    className="w-20 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                 />
                                 <span className="text-gray-400">–</span>
                                 <input
@@ -885,7 +898,7 @@ export default function CattleFeedSalesReport() {
                                     value={filters.max_amount}
                                     onChange={e => handleFilterChange("max_amount", e.target.value)}
                                     placeholder="Max ₹"
-                                    className="w-20 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
+                                    className="w-20 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:bg-white transition"
                                 />
                             </div>
                         </div>
@@ -893,13 +906,13 @@ export default function CattleFeedSalesReport() {
                         {/* Action buttons */}
                         <button
                             onClick={applyFilters}
-                            className="px-4 py-2 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 transition shadow-sm h-[38px] mt-auto flex items-center gap-1"
+                            className="px-4 py-2 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-sm font-bold shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200 h-[38px] mt-auto flex items-center gap-1"
                         >
                             <Search size={14} /> Apply
                         </button>
                         <button
                             onClick={resetFilters}
-                            className="px-4 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition h-[38px] mt-auto flex items-center gap-1"
+                            className="px-4 py-2 rounded-xl bg-gray-100/80 text-gray-600 text-sm font-bold hover:bg-gray-200/80 transition h-[38px] mt-auto flex items-center gap-1 border border-gray-200/60"
                         >
                             <X size={14} /> Reset
                         </button>
@@ -909,41 +922,47 @@ export default function CattleFeedSalesReport() {
                 {/* ── Summary Stats ── */}
                 {computedSummary && (
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm">
-                            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <div className="relative overflow-hidden rounded-xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm p-3">
+                            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-gray-400/5 blur-2xl" />
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 relative z-10">
                                 <ShoppingCart size={10} /> Transactions
                             </p>
-                            <p className="text-xl font-bold text-gray-900">{computedSummary.totalTransactions}</p>
+                            <p className="text-xl font-bold text-gray-900 relative z-10">{computedSummary.totalTransactions}</p>
                         </div>
-                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm">
-                            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <div className="relative overflow-hidden rounded-xl border border-emerald-200/60 bg-emerald-50/80 backdrop-blur-sm shadow-sm p-3">
+                            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-emerald-400/5 blur-2xl" />
+                            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1 relative z-10">
                                 <TrendingUp size={10} /> Revenue
                             </p>
-                            <p className="text-xl font-bold text-emerald-600">{formatCurrency(computedSummary.totalRevenue)}</p>
+                            <p className="text-xl font-bold text-emerald-700 relative z-10">{formatCurrency(computedSummary.totalRevenue)}</p>
                         </div>
-                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm">
-                            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <div className="relative overflow-hidden rounded-xl border border-blue-200/60 bg-blue-50/80 backdrop-blur-sm shadow-sm p-3">
+                            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-blue-400/5 blur-2xl" />
+                            <p className="text-[9px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1 relative z-10">
                                 <Package size={10} /> Total Qty
                             </p>
-                            <p className="text-xl font-bold text-blue-600">{formatNumber(computedSummary.totalQty)}</p>
+                            <p className="text-xl font-bold text-blue-700 relative z-10">{formatNumber(computedSummary.totalQty)}</p>
                         </div>
-                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm">
-                            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <div className="relative overflow-hidden rounded-xl border border-violet-200/60 bg-violet-50/80 backdrop-blur-sm shadow-sm p-3">
+                            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-violet-400/5 blur-2xl" />
+                            <p className="text-[9px] font-bold text-violet-600 uppercase tracking-wider flex items-center gap-1 relative z-10">
                                 <BarChart3 size={10} /> Avg/Transaction
                             </p>
-                            <p className="text-xl font-bold text-violet-600">{formatCurrency(computedSummary.avgTransactionValue)}</p>
+                            <p className="text-xl font-bold text-violet-700 relative z-10">{formatCurrency(computedSummary.avgTransactionValue)}</p>
                         </div>
-                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm">
-                            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <div className="relative overflow-hidden rounded-xl border border-orange-200/60 bg-orange-50/80 backdrop-blur-sm shadow-sm p-3">
+                            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-orange-400/5 blur-2xl" />
+                            <p className="text-[9px] font-bold text-orange-600 uppercase tracking-wider flex items-center gap-1 relative z-10">
                                 <Users size={10} /> Unique Sellers
                             </p>
-                            <p className="text-xl font-bold text-orange-600">{computedSummary.uniqueSellers}</p>
+                            <p className="text-xl font-bold text-orange-700 relative z-10">{computedSummary.uniqueSellers}</p>
                         </div>
-                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm">
-                            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <div className="relative overflow-hidden rounded-xl border border-rose-200/60 bg-rose-50/80 backdrop-blur-sm shadow-sm p-3">
+                            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-rose-400/5 blur-2xl" />
+                            <p className="text-[9px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1 relative z-10">
                                 <Wheat size={10} /> Unique Feeds
                             </p>
-                            <p className="text-xl font-bold text-rose-600">{computedSummary.uniqueFeeds}</p>
+                            <p className="text-xl font-bold text-rose-700 relative z-10">{computedSummary.uniqueFeeds}</p>
                         </div>
                     </div>
                 )}
@@ -953,100 +972,112 @@ export default function CattleFeedSalesReport() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Daily Trend Chart */}
                         {computedSummary.dailyTrend.length > 1 && (
-                            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-2">
-                                        <TrendingUp size={14} className="text-emerald-500" />
-                                        Daily Revenue Trend
-                                    </h3>
-                                    <span className="text-[10px] text-gray-400">
-                                        {computedSummary.dailyTrend.length} days
-                                    </span>
-                                </div>
-                                <div className="h-32">
-                                    <SimpleBar
-                                        data={computedSummary.dailyTrend.map(d => ({
-                                            label: d.date.slice(5),
-                                            value: d.revenue
-                                        }))}
-                                        color="bg-emerald-500"
-                                        height={120}
-                                    />
+                            <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 p-4">
+                                <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                                <div className="relative z-10">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-xs font-bold text-gray-700 flex items-center gap-2">
+                                            <TrendingUp size={14} className="text-emerald-500" />
+                                            Daily Revenue Trend
+                                        </h3>
+                                        <span className="text-[10px] text-gray-400 font-medium">
+                                            {computedSummary.dailyTrend.length} days
+                                        </span>
+                                    </div>
+                                    <div className="h-32">
+                                        <SimpleBar
+                                            data={computedSummary.dailyTrend.map(d => ({
+                                                label: d.date.slice(5),
+                                                value: d.revenue
+                                            }))}
+                                            color="bg-emerald-500"
+                                            height={120}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {/* Top Feeds */}
-                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-4">
-                            <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-2 mb-3">
-                                <Wheat size={14} className="text-amber-500" />
-                                Top Feeds by Revenue
-                            </h3>
-                            <div className="space-y-2">
-                                {computedSummary.topFeeds.map((f, idx) => (
-                                    <div key={f.id} className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-gray-400 w-4">{idx + 1}</span>
-                                        <span className="text-xs text-gray-700 flex-1 truncate">{f.name}</span>
-                                        {f.supplier && (
-                                            <span className="text-[9px] text-gray-400 truncate max-w-[80px]">({f.supplier})</span>
-                                        )}
-                                        <span className="text-xs font-semibold text-emerald-600">{formatCurrency(f.revenue)}</span>
-                                        <span className="text-[10px] text-gray-400">{formatNumber(f.qty)} units</span>
-                                    </div>
-                                ))}
+                        <div className="relative overflow-hidden rounded-2xl border border-amber-200/60 bg-amber-50/80 backdrop-blur-sm shadow-lg shadow-amber-200/50 p-4">
+                            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-amber-400/5 blur-3xl" />
+                            <div className="relative z-10">
+                                <h3 className="text-xs font-bold text-amber-700 flex items-center gap-2 mb-3">
+                                    <Wheat size={14} className="text-amber-500" />
+                                    Top Feeds by Revenue
+                                </h3>
+                                <div className="space-y-2">
+                                    {computedSummary.topFeeds.map((f, idx) => (
+                                        <div key={f.id} className="flex items-center gap-2 bg-white/50 rounded-lg px-3 py-1.5">
+                                            <span className="text-[10px] font-bold text-gray-400 w-4">{idx + 1}</span>
+                                            <span className="text-xs font-medium text-gray-700 flex-1 truncate">{f.name}</span>
+                                            {f.supplier && (
+                                                <span className="text-[9px] text-gray-400 truncate max-w-[80px]">({f.supplier})</span>
+                                            )}
+                                            <span className="text-xs font-bold text-emerald-600">{formatCurrency(f.revenue)}</span>
+                                            <span className="text-[10px] text-gray-400">{formatNumber(f.qty)} units</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
                         {/* Top Sellers */}
-                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-4">
-                            <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-2 mb-3">
-                                <Users size={14} className="text-violet-500" />
-                                Top Sellers by Revenue
-                            </h3>
-                            <div className="space-y-2">
-                                {computedSummary.topSellers.map((s, idx) => (
-                                    <div key={s.id || idx} className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-gray-400 w-4">{idx + 1}</span>
-                                        <span className="text-xs text-gray-700 flex-1 truncate">{s.name}</span>
-                                        <span className="text-[10px] text-gray-400">{s.code}</span>
-                                        <span className="text-xs font-semibold text-emerald-600">{formatCurrency(s.revenue)}</span>
-                                    </div>
-                                ))}
+                        <div className="relative overflow-hidden rounded-2xl border border-violet-200/60 bg-violet-50/80 backdrop-blur-sm shadow-lg shadow-violet-200/50 p-4">
+                            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-violet-400/5 blur-3xl" />
+                            <div className="relative z-10">
+                                <h3 className="text-xs font-bold text-violet-700 flex items-center gap-2 mb-3">
+                                    <Users size={14} className="text-violet-500" />
+                                    Top Sellers by Revenue
+                                </h3>
+                                <div className="space-y-2">
+                                    {computedSummary.topSellers.map((s, idx) => (
+                                        <div key={s.id || idx} className="flex items-center gap-2 bg-white/50 rounded-lg px-3 py-1.5">
+                                            <span className="text-[10px] font-bold text-gray-400 w-4">{idx + 1}</span>
+                                            <span className="text-xs font-medium text-gray-700 flex-1 truncate">{s.name}</span>
+                                            <span className="text-[10px] text-gray-400 font-mono">{s.code}</span>
+                                            <span className="text-xs font-bold text-emerald-600 ml-auto">{formatCurrency(s.revenue)}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 p-4">
-                            <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-2 mb-3">
-                                <BarChart3 size={14} className="text-purple-500" />
-                                Quick Insights
-                            </h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-gray-50/80 rounded-xl p-2 text-center">
-                                    <p className="text-[10px] text-gray-400">Items Sold</p>
-                                    <p className="text-sm font-bold text-gray-800">{computedSummary.totalItems}</p>
-                                </div>
-                                <div className="bg-gray-50/80 rounded-xl p-2 text-center">
-                                    <p className="text-[10px] text-gray-400">Avg Items/Transaction</p>
-                                    <p className="text-sm font-bold text-gray-800">
-                                        {computedSummary.totalTransactions > 0
-                                            ? (computedSummary.totalItems / computedSummary.totalTransactions).toFixed(1)
-                                            : 0}
-                                    </p>
-                                </div>
-                                <div className="bg-gray-50/80 rounded-xl p-2 text-center">
-                                    <p className="text-[10px] text-gray-400">Avg Revenue/Item</p>
-                                    <p className="text-sm font-bold text-gray-800">
-                                        {computedSummary.totalItems > 0
-                                            ? formatCurrency(computedSummary.totalRevenue / computedSummary.totalItems)
-                                            : formatCurrency(0)}
-                                    </p>
-                                </div>
-                                <div className="bg-gray-50/80 rounded-xl p-2 text-center">
-                                    <p className="text-[10px] text-gray-400">Supplier Count</p>
-                                    <p className="text-sm font-bold text-gray-800">
-                                        {new Set(salesData.flatMap(t => t.items.map(i => i.supplier_name)).filter(Boolean)).size} suppliers
-                                    </p>
+                        <div className="relative overflow-hidden rounded-2xl border border-purple-200/60 bg-purple-50/80 backdrop-blur-sm shadow-lg shadow-purple-200/50 p-4">
+                            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-purple-400/5 blur-3xl" />
+                            <div className="relative z-10">
+                                <h3 className="text-xs font-bold text-purple-700 flex items-center gap-2 mb-3">
+                                    <BarChart3 size={14} className="text-purple-500" />
+                                    Quick Insights
+                                </h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-white/60 rounded-xl p-2 text-center">
+                                        <p className="text-[10px] text-gray-400 font-medium">Items Sold</p>
+                                        <p className="text-sm font-bold text-gray-800">{computedSummary.totalItems}</p>
+                                    </div>
+                                    <div className="bg-white/60 rounded-xl p-2 text-center">
+                                        <p className="text-[10px] text-gray-400 font-medium">Avg Items/Transaction</p>
+                                        <p className="text-sm font-bold text-gray-800">
+                                            {computedSummary.totalTransactions > 0
+                                                ? (computedSummary.totalItems / computedSummary.totalTransactions).toFixed(1)
+                                                : 0}
+                                        </p>
+                                    </div>
+                                    <div className="bg-white/60 rounded-xl p-2 text-center">
+                                        <p className="text-[10px] text-gray-400 font-medium">Avg Revenue/Item</p>
+                                        <p className="text-sm font-bold text-gray-800">
+                                            {computedSummary.totalItems > 0
+                                                ? formatCurrency(computedSummary.totalRevenue / computedSummary.totalItems)
+                                                : formatCurrency(0)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-white/60 rounded-xl p-2 text-center">
+                                        <p className="text-[10px] text-gray-400 font-medium">Supplier Count</p>
+                                        <p className="text-sm font-bold text-gray-800">
+                                            {new Set(salesData.flatMap(t => t.items.map(i => i.supplier_name)).filter(Boolean)).size} suppliers
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1054,16 +1085,17 @@ export default function CattleFeedSalesReport() {
                 )}
 
                 {/* ── Data Table ── */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-emerald-200/60 shadow-lg shadow-emerald-200/30 overflow-hidden">
-                    <div className="px-5 py-3 border-b border-emerald-200/60 flex items-center justify-between">
+                <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="relative z-10 px-5 py-3 border-b border-gray-200/60 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
                                 <ShoppingCart size={14} /> Transactions
                             </h3>
-                            <span className="text-xs text-gray-400">{salesData.length} records</span>
+                            <span className="text-xs text-gray-400 font-medium">{salesData.length} records</span>
                         </div>
                         {loading && (
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
                                 <div className="w-3 h-3 border-2 border-gray-300 border-t-emerald-600 rounded-full animate-spin" />
                                 Loading...
                             </div>
@@ -1072,7 +1104,7 @@ export default function CattleFeedSalesReport() {
 
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <div className="w-8 h-8 border-3 border-gray-200 border-t-emerald-600 rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
                         </div>
                     ) : salesData.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
@@ -1083,59 +1115,59 @@ export default function CattleFeedSalesReport() {
                     ) : viewMode === "table" ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-gradient-to-r from-emerald-50/50 to-white/50 border-b border-emerald-200/60">
+                                <thead className="bg-gradient-to-r from-gray-50/50 to-white/50 border-b border-gray-200/60">
                                     <tr>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Transaction</th>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Seller</th>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Feed</th>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Supplier</th>
-                                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
-                                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Rate</th>
-                                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                                        <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Operator</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Date</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Transaction</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Seller</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Type</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Feed</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Supplier</th>
+                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Qty</th>
+                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Rate</th>
+                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200/60">Total</th>
+                                        <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Operator</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {salesData.map((txn, idx) => (
                                         txn.items.map((item, itemIdx) => (
-                                            <tr key={`${txn.transaction_id}-${item.sale_id}`} className="border-b border-gray-100/60 hover:bg-emerald-50/30 transition-colors">
-                                                <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
+                                            <tr key={`${txn.transaction_id}-${item.sale_id}`} className="border-b border-gray-100/60 hover:bg-gray-50/30 transition-colors">
+                                                <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap border-r border-gray-200/60">
                                                     {itemIdx === 0 ? formatDate(txn.sale_date) : ""}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-gray-500 font-mono">
+                                                <td className="px-3 py-2 text-xs text-gray-500 font-mono border-r border-gray-200/60">
                                                     {itemIdx === 0 ? txn.transaction_id : ""}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-gray-800 whitespace-nowrap">
+                                                <td className="px-3 py-2 text-xs text-gray-800 whitespace-nowrap border-r border-gray-200/60">
                                                     {itemIdx === 0 ? (txn.seller_name || "Anonymous") : ""}
                                                     {itemIdx === 0 && txn.seller_code && (
                                                         <span className="ml-1 text-[10px] text-gray-400 font-mono">{txn.seller_code}</span>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs">
+                                                <td className="px-3 py-2 text-xs border-r border-gray-200/60">
                                                     {itemIdx === 0 && (
-                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium
-                                                            ${txn.seller_type === 'Utpadak' ? 'bg-blue-100 text-blue-700'
-                                                                : txn.seller_type === 'Gavali' ? 'bg-amber-100 text-amber-700'
-                                                                    : 'bg-gray-100 text-gray-500'}`}>
+                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold
+                                                            ${txn.seller_type === 'Utpadak' ? 'bg-blue-100/80 text-blue-700 border border-blue-200/60'
+                                                                : txn.seller_type === 'Gavali' ? 'bg-amber-100/80 text-amber-700 border border-amber-200/60'
+                                                                    : 'bg-gray-100/80 text-gray-500 border border-gray-200/60'}`}>
                                                             {txn.seller_type || txn.buyer_type || "—"}
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-gray-700">
+                                                <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200/60">
                                                     {item.feed_name || ""}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-gray-500">
+                                                <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-200/60">
                                                     {item.supplier_name || "—"}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-blue-600 font-medium text-right">
+                                                <td className="px-3 py-2 text-xs text-blue-600 font-bold text-right border-r border-gray-200/60">
                                                     {formatNumber(item.quantity)}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-amber-600 font-medium text-right">
+                                                <td className="px-3 py-2 text-xs text-amber-600 font-bold text-right border-r border-gray-200/60">
                                                     {formatNumber(item.rate)}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-emerald-600 font-bold text-right">
+                                                <td className="px-3 py-2 text-xs text-emerald-600 font-extrabold text-right border-r border-gray-200/60">
                                                     {formatNumber(item.total_amount)}
                                                 </td>
                                                 <td className="px-3 py-2 text-xs text-gray-500">
@@ -1145,9 +1177,9 @@ export default function CattleFeedSalesReport() {
                                         ))
                                     ))}
                                 </tbody>
-                                <tfoot className="bg-gradient-to-r from-emerald-50/50 to-white/50 border-t-2 border-emerald-200/60">
+                                <tfoot className="bg-gradient-to-r from-gray-50/50 to-white/50 border-t-2 border-gray-200/60">
                                     <tr>
-                                        <td colSpan="6" className="px-3 py-2 text-xs font-semibold text-gray-700">
+                                        <td colSpan="6" className="px-3 py-2 text-xs font-bold text-gray-700">
                                             {salesData.length} transactions · {salesData.reduce((s, t) => s + t.items.length, 0)} items
                                         </td>
                                         <td className="px-3 py-2 text-xs font-bold text-blue-600 text-right">
@@ -1166,19 +1198,19 @@ export default function CattleFeedSalesReport() {
                         // Card View
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
                             {salesData.map(txn => (
-                                <div key={txn.transaction_id} className="bg-white/60 backdrop-blur-sm rounded-xl border border-emerald-200/60 p-3 shadow-sm hover:shadow-md transition">
+                                <div key={txn.transaction_id} className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/60 p-3 shadow-sm hover:shadow-md transition">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs font-semibold text-gray-800 flex items-center gap-1">
+                                        <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
                                             <Users size={12} className="text-gray-400" />
                                             {txn.seller_name || "Anonymous"}
                                         </span>
                                         <span className="text-[10px] text-gray-400 font-mono">{txn.transaction_id}</span>
                                     </div>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium
-                                            ${txn.seller_type === 'Utpadak' ? 'bg-blue-100 text-blue-700'
-                                                : txn.seller_type === 'Gavali' ? 'bg-amber-100 text-amber-700'
-                                                    : 'bg-gray-100 text-gray-500'}`}>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold
+                                            ${txn.seller_type === 'Utpadak' ? 'bg-blue-100/80 text-blue-700 border border-blue-200/60'
+                                                : txn.seller_type === 'Gavali' ? 'bg-amber-100/80 text-amber-700 border border-amber-200/60'
+                                                    : 'bg-gray-100/80 text-gray-500 border border-gray-200/60'}`}>
                                             {txn.seller_type || txn.buyer_type || "—"}
                                         </span>
                                         <span className="text-[10px] text-gray-400">{formatDate(txn.sale_date)}</span>
@@ -1186,19 +1218,19 @@ export default function CattleFeedSalesReport() {
                                     <div className="space-y-1">
                                         {txn.items.map(item => (
                                             <div key={item.sale_id} className="flex items-center justify-between text-xs">
-                                                <span className="text-gray-600 truncate max-w-[80px]">{item.feed_name}</span>
+                                                <span className="text-gray-600 truncate max-w-[80px] font-medium">{item.feed_name}</span>
                                                 {item.supplier_name && (
                                                     <span className="text-[9px] text-gray-400 truncate max-w-[50px]">{item.supplier_name}</span>
                                                 )}
-                                                <span className="text-gray-400">{formatNumber(item.quantity)}</span>
-                                                <span className="text-amber-600 font-medium">₹{formatNumber(item.rate)}</span>
-                                                <span className="text-emerald-600 font-bold">₹{formatNumber(item.total_amount)}</span>
+                                                <span className="text-gray-400 font-mono">{formatNumber(item.quantity)}</span>
+                                                <span className="text-amber-600 font-bold">₹{formatNumber(item.rate)}</span>
+                                                <span className="text-emerald-600 font-extrabold">₹{formatNumber(item.total_amount)}</span>
                                             </div>
                                         ))}
                                     </div>
                                     <div className="mt-2 pt-2 border-t border-gray-100/60 flex justify-between">
                                         <span className="text-[10px] text-gray-400">{txn.operator_name}</span>
-                                        <span className="text-xs font-bold text-emerald-700">
+                                        <span className="text-xs font-extrabold text-emerald-700">
                                             ₹{parseFloat(txn.total_amount).toFixed(2)}
                                         </span>
                                     </div>
@@ -1209,13 +1241,13 @@ export default function CattleFeedSalesReport() {
                 </div>
 
                 {/* ── Footer ── */}
-                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-emerald-200/40">
+                <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
                     <span>• <strong className="text-gray-600">{salesData.length}</strong> transactions found</span>
                     <span>• Report period: {periodLabel}</span>
                     <span>• Filters applied: {
                         Object.entries(filters).filter(([k, v]) => v !== "all" && v !== "").length
                     } active</span>
-                    <span className="ml-auto flex items-center gap-1">
+                    <span className="ml-auto flex items-center gap-1 font-medium">
                         <Wheat size={12} className="text-emerald-600" /> {appName || "Dairy CMS"}
                     </span>
                 </div>

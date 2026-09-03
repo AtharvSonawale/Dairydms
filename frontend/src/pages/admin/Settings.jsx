@@ -7,7 +7,7 @@ import {
     BadgeCheck, AlertTriangle, X,
     Check, Lock, Unlock, RefreshCw,
     Users, Building2, Upload, Languages, Percent, Truck, Eye,
-    Home, FileText,
+    Home, FileText, ScanLine
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAppConfig } from '../../context/AppConfigContext';
@@ -23,6 +23,13 @@ const ALL_PAGES = [
             { key: 'dashboard', ops: ['C', 'R', 'U', 'D'] },
             { key: 'profile', ops: ['R', 'U'] },
         ]
+    },
+    {
+        groupKey: 'scanner',
+        pages: [
+            { key: 'scanner_feed', ops: ['C', 'R'] },
+            { key: 'scanner_product', ops: ['C', 'R'] },
+        ],
     },
     {
         groupKey: 'milkCollection',
@@ -116,6 +123,8 @@ const buildDefaultAccess = () => {
         group.pages.forEach(page => {
             if (page.key === 'milk_entry' || page.key === 'dashboard' || page.key === 'settings' || page.key === 'profile') {
                 acc[page.key] = { C: true, R: true, U: false, D: false };
+            } else if (page.key === 'scanner_feed' || page.key === 'scanner_product') {
+                acc[page.key] = { C: true, R: true };
             } else {
                 const obj = {};
                 page.ops.forEach(op => { obj[op] = true; });
@@ -156,6 +165,15 @@ const VISIBILITY_SECTIONS = [
         pages: [
             { key: 'admin_dashboard', label: 'Dashboard' },
             { key: 'admin_profile', label: 'My Profile' },
+        ],
+    },
+    {
+        groupKey: 'adminScanner',
+        label: 'Scanner (Admin)',
+        role: 'Admin',
+        pages: [
+            { key: 'admin_scanner_feed', label: 'Feed Pickup Scanner' },
+            { key: 'admin_scanner_product', label: 'Product Pickup Scanner' },
         ],
     },
     {
@@ -280,6 +298,15 @@ const VISIBILITY_SECTIONS = [
         pages: [
             { key: 'operator_dashboard', label: 'Dashboard' },
             { key: 'operator_profile', label: 'My Profile' },
+        ],
+    },
+    {
+        groupKey: 'operatorScanner',
+        label: 'Scanner (Operator)',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_scanner_feed', label: 'Feed Pickup Scanner' },
+            { key: 'operator_scanner_product', label: 'Product Pickup Scanner' },
         ],
     },
     {

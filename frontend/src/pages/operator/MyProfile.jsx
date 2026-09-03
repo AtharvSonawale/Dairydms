@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
     ArrowLeft, BadgeCheck, AlertTriangle, X, Eye, EyeOff, User, Save,
+    Home, Droplets, UserCircle, Building2, Shield
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -71,11 +72,11 @@ export default function OperatorMyProfile() {
     if (!operator) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex flex-col items-center justify-center gap-3 text-gray-400">
-                <AlertTriangle size={28} />
-                <p className="text-sm">{t('myProfile.notFound', { defaultValue: 'Profile not found.' })}</p>
+                <AlertTriangle size={28} className="text-rose-400" />
+                <p className="text-sm font-medium">{t('myProfile.notFound', { defaultValue: 'Profile not found.' })}</p>
                 <button
                     onClick={() => navigate('/operator/dashboard')}
-                    className="text-emerald-600 text-sm font-medium hover:underline"
+                    className="text-emerald-600 text-sm font-bold hover:underline transition"
                 >
                     {t('myProfile.backToDashboard', { defaultValue: 'Back to Dashboard' })}
                 </button>
@@ -87,10 +88,18 @@ export default function OperatorMyProfile() {
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
 
-                {/* Top bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
-                    <div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-800 to-emerald-600 bg-clip-text text-transparent">
+                {/* ── Top bar ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5 relative overflow-hidden">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-emerald-400/5 blur-3xl" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-1">
+                            <Home size={16} className="text-gray-400" />
+                            <span>{t('myProfile.operatorTitle', { defaultValue: 'My Profile' })}</span>
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
+                                <UserCircle size={12} /> {t('status.operator', { defaultValue: 'Operator' })}
+                            </span>
+                        </div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {t('myProfile.operatorTitle', { defaultValue: 'My Profile' })}
                         </h1>
                         <p className="text-xs text-gray-500 mt-0.5">
@@ -102,16 +111,16 @@ export default function OperatorMyProfile() {
 
                     <button
                         onClick={() => navigate('/operator/dashboard')}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                     >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={15} />
                         {t('myProfile.backToDashboard', { defaultValue: 'Back to Dashboard' })}
                     </button>
                 </div>
 
-                {/* Flash message */}
+                {/* ── Flash message ── */}
                 {flash && (
-                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium backdrop-blur-sm shadow-sm 
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-semibold backdrop-blur-sm shadow-sm 
                         ${flash.type === 'success'
                             ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700'
                             : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
@@ -126,26 +135,30 @@ export default function OperatorMyProfile() {
                     </div>
                 )}
 
-                {/* Read-only centre / admin context */}
+                {/* ── Read-only centre / admin context ── */}
                 <div className="flex flex-wrap gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/70 backdrop-blur-sm border border-gray-200/60 text-xs text-gray-600 shadow-sm">
-                        <span className="font-semibold text-gray-800">{t('myProfile.centre', { defaultValue: 'Centre' })}:</span>
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/70 backdrop-blur-sm border border-gray-200/60 text-xs text-gray-600 shadow-sm">
+                        <Building2 size={14} className="text-emerald-600" />
+                        <span className="font-bold text-gray-800">{t('myProfile.centre', { defaultValue: 'Centre' })}:</span>
                         {operator.centre_name} ({operator.centre_code})
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/70 backdrop-blur-sm border border-gray-200/60 text-xs text-gray-600 shadow-sm">
-                        <span className="font-semibold text-gray-800">{t('myProfile.reportsTo', { defaultValue: 'Reports to' })}:</span>
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/70 backdrop-blur-sm border border-gray-200/60 text-xs text-gray-600 shadow-sm">
+                        <Shield size={14} className="text-blue-600" />
+                        <span className="font-bold text-gray-800">{t('myProfile.reportsTo', { defaultValue: 'Reports to' })}:</span>
                         {operator.admin_name}
                     </div>
-                    <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm
+                    <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm
                         ${operator.is_active ? 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-700' : 'bg-rose-50/80 border border-rose-200/60 text-rose-600'}`}>
+                        <BadgeCheck size={12} />
                         {operator.is_active ? t('status.active', { defaultValue: 'Active' }) : t('status.inactive', { defaultValue: 'Inactive' })}
                     </div>
                 </div>
 
-                {/* Edit form */}
-                <form onSubmit={handleSave} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-6 flex flex-col gap-5">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-700 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-700/20">
+                {/* ── Edit form ── */}
+                <form onSubmit={handleSave} className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 p-6 flex flex-col gap-5">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gray-400/5 blur-3xl" />
+                    <div className="relative z-10 flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
                             <User size={16} className="text-white" />
                         </div>
                         <div>
@@ -154,20 +167,25 @@ export default function OperatorMyProfile() {
                         </div>
                     </div>
 
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid sm:grid-cols-2 gap-5 relative z-10">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.fullName', { defaultValue: 'Full Name' })}</label>
+                            <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <User size={12} /> {t('adminProfile.fullName', { defaultValue: 'Full Name' })}
+                            </label>
                             <input
                                 name="name"
                                 value={form.name}
                                 onChange={handleChange}
                                 required
                                 className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700
-                                    focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
+                                    placeholder:text-gray-300 shadow-sm
+                                    focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.email', { defaultValue: 'Email' })}</label>
+                            <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <Droplets size={12} /> {t('adminProfile.email', { defaultValue: 'Email' })}
+                            </label>
                             <input
                                 name="email"
                                 type="email"
@@ -175,11 +193,14 @@ export default function OperatorMyProfile() {
                                 onChange={handleChange}
                                 required
                                 className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700
-                                    focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
+                                    placeholder:text-gray-300 shadow-sm
+                                    focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{t('adminProfile.mobile', { defaultValue: 'Mobile' })}</label>
+                            <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <User size={12} /> {t('adminProfile.mobile', { defaultValue: 'Mobile' })}
+                            </label>
                             <input
                                 name="mobile"
                                 type="tel"
@@ -188,13 +209,14 @@ export default function OperatorMyProfile() {
                                 pattern="^\+?[0-9]{10,15}$"
                                 placeholder={t('adminProfile.mobilePlaceholder', { defaultValue: 'Enter mobile number' })}
                                 className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700
-                                    focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
+                                    placeholder:text-gray-300 shadow-sm
+                                    focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                {t('adminProfile.newPassword', { defaultValue: 'New Password' })}
-                                <span className="text-gray-400 font-normal lowercase tracking-normal ml-1">
+                            <label className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <Eye size={12} /> {t('adminProfile.newPassword', { defaultValue: 'New Password' })}
+                                <span className="text-gray-400 font-normal lowercase tracking-normal ml-1 text-[9px]">
                                     {t('adminProfile.leaveBlankHint', { defaultValue: '(leave blank to keep current)' })}
                                 </span>
                             </label>
@@ -206,8 +228,9 @@ export default function OperatorMyProfile() {
                                     onChange={handleChange}
                                     autoComplete="new-password"
                                     placeholder={t('adminProfile.passwordPlaceholder', { defaultValue: '••••••••' })}
-                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-700 w-full
-                                        focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:bg-white transition shadow-sm"
+                                    className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 pr-12 text-sm text-gray-700 w-full
+                                        placeholder:text-gray-300 shadow-sm
+                                        focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
                                 />
                                 <button
                                     type="button"
@@ -220,21 +243,24 @@ export default function OperatorMyProfile() {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-2 mt-2 pt-4 border-t border-gray-100/60">
+                    <div className="flex justify-end gap-2 mt-2 pt-4 border-t border-gray-200/60 relative z-10">
                         <button
                             type="submit"
                             disabled={saving}
-                            className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-emerald-700 to-emerald-600 text-white shadow-lg shadow-emerald-700/30 hover:shadow-xl hover:shadow-emerald-700/40 transition-all duration-200 disabled:opacity-50"
+                            className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all duration-200
+                                ${saving
+                                    ? "bg-gray-300 cursor-not-allowed shadow-gray-300/30"
+                                    : "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 active:scale-95"}`}
                         >
                             {saving
                                 ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                : <Save size={16} />}
+                                : <Save size={15} />}
                             {saving ? t('adminProfile.saving', { defaultValue: 'Saving...' }) : t('adminProfile.saveChanges', { defaultValue: 'Save Changes' })}
                         </button>
                     </div>
                 </form>
 
-                {/* Footer */}
+                {/* ── Footer ── */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-400 pb-2 pt-2 border-t border-gray-200/40">
                     <span>· {t('myProfile.footerProfile', { defaultValue: 'Profile management' })}</span>
                     <span>· {t('myProfile.footerLastLogin', { defaultValue: 'Last login' })}: {operator.last_login ? new Date(operator.last_login).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('myProfile.firstLogin', { defaultValue: 'First login' })}</span>

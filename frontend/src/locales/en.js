@@ -801,7 +801,7 @@ const en = {
         // ── Cattle Feed Purchase ────────────────────────────────────
         cattleFeedPurchase: {
             pageTitle: "Cattle Feed Purchase",
-            pageSubtitle: "Record and manage feed purchases — {{date}}",
+            pageSubtitle: "Record and manage feed purchases",
             dateLabel: "Date",
             downloadPDF: "Download PDF",
             day: "Day",
@@ -3872,6 +3872,7 @@ const en = {
             switchError: 'Failed to switch centre.',
 
             modal: {
+                saveChanges: "Save Changes",
                 title: 'New Centre',
                 name: 'Centre Name',
                 code: 'Centre Code',
