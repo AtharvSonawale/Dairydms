@@ -57,35 +57,6 @@ CREATE TABLE bill_cash_advance_snapshot (
    CONSTRAINT bill_cash_advance_snapshot_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
  ) ENGINE=InnoDB AUTO_INCREMENT=102 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE cattle_feed_sales (
-   sale_id int NOT NULL AUTO_INCREMENT,
-   transaction_id varchar(30) DEFAULT NULL,
-   seller_id int DEFAULT NULL,
-   buyer_id int DEFAULT NULL,
-   buyer_name varchar(100) DEFAULT NULL,
-   buyer_type enum('seller','named','anon') NOT NULL DEFAULT 'seller',
-   feed_id int NOT NULL,
-   operator_id int NOT NULL,
-   centre_id int NOT NULL,
-   quantity decimal(10,2) NOT NULL,
-   rate decimal(8,2) NOT NULL,
-   total_amount decimal(12,2) NOT NULL,
-   sale_date date NOT NULL,
-   created_at datetime DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (sale_id),
-   KEY seller_id (seller_id),
-   KEY feed_id (feed_id),
-   KEY operator_id (operator_id),
-   KEY centre_id (centre_id),
-   KEY idx_transaction_id (transaction_id),
-   KEY idx_buyer_id (buyer_id),
-   CONSTRAINT cattle_feed_sales_ibfk_1 FOREIGN KEY (seller_id) REFERENCES sellers (seller_id),
-   CONSTRAINT cattle_feed_sales_ibfk_2 FOREIGN KEY (feed_id) REFERENCES cattle_feeds (feed_id),
-   CONSTRAINT cattle_feed_sales_ibfk_3 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
-   CONSTRAINT cattle_feed_sales_ibfk_4 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
-   CONSTRAINT cattle_feed_sales_ibfk_buyer FOREIGN KEY (buyer_id) REFERENCES cattle_feed_named_buyers (buyer_id) ON DELETE SET NULL
- ) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE bill_deposit_snapshot (
    id bigint NOT NULL AUTO_INCREMENT,
    bill_id bigint NOT NULL,

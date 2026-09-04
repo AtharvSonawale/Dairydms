@@ -4,7 +4,7 @@ import jsQR from "jsqr";
 import api from "../api/axios";
 import {
     CheckCircle2, XCircle, Camera, Loader2, PackageCheck,
-    Home, AlertTriangle, ArrowLeft
+    Home, AlertTriangle
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
@@ -176,32 +176,15 @@ export default function FulfillmentScanner({ type: fixedType }) {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex flex-col items-center px-4 py-6">
-            <div className="w-full max-w-md flex flex-col gap-5">
+            <div className="w-full max-w-full flex flex-col gap-5">
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div>
-                        <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-0.5">
-                            <Home size={16} className="text-gray-400" />
-                            <Link to="/operator/dashboard" className="hover:text-gray-800 transition">
-                                <ArrowLeft size={15} /> Back
-                            </Link>
-                            <span className="text-gray-300">/</span>
-                            <span className="font-medium">{meta.crumb}</span>
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/30">
-                                <PackageCheck size={12} /> Scanner
-                            </span>
-                        </div>
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                             {meta.label}
                         </h1>
                         <p className="text-xs text-gray-500 mt-0.5">Scan a receipt QR to verify and confirm collection</p>
                     </div>
-                    <Link
-                        to="/operator/dashboard"
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-xs font-bold hover:bg-gray-50/80 transition shadow-sm self-start sm:self-auto"
-                    >
-                        <ArrowLeft size={15} /> Back
-                    </Link>
                 </div>
 
                 {!scanning && !preview && !result && (
@@ -241,7 +224,7 @@ export default function FulfillmentScanner({ type: fixedType }) {
                     </>
                 )}
 
-                <div className={`relative rounded-2xl overflow-hidden border-2 ${scanning ? "border-emerald-500/60 shadow-lg shadow-emerald-500/20" : "border-gray-200/60"}`}>
+                <div className={`relative rounded-2xl overflow-hidden border-2 mx-auto w-full min-w-[240px] max-w-[480px] ${scanning ? "border-emerald-500/60 shadow-lg shadow-emerald-500/20" : "border-gray-200/60"}`}>
                     <video ref={videoRef} className="w-full aspect-square object-cover" muted playsInline autoPlay />
                     <canvas ref={canvasRef} className="hidden" />
                     {scanning && (

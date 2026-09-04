@@ -1,6 +1,14 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 
+// ── Resolve "me" to the logged-in seller's own id ─────────
+const resolveSellerId = (req) => {
+    if (req.params.id === 'me' && req.user.role === 'seller') {
+        return req.user.id;
+    }
+    return req.params.id;
+};
+
 // ── GET /api/sellers ──────────────────────────────────────
 exports.listSellers = async (req, res) => {
     try {
@@ -139,7 +147,8 @@ exports.getSellerById = async (req, res) => {
             FROM sellers
             WHERE seller_id = ? AND centre_id = ?
         `;
-        const params = [req.params.id, centreId];
+        const id = resolveSellerId(req);
+const params = [id, centreId];
 
         const [rows] = await pool.query(query, params);
 
@@ -157,7 +166,7 @@ exports.getSellerById = async (req, res) => {
 // ── GET /api/sellers/:id/summary ─────────────────────────
 exports.getSellerSummary = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -238,7 +247,7 @@ exports.getSellerSummary = async (req, res) => {
 // ── GET /api/sellers/:id/entries ─────────────────────────
 exports.getSellerEntries = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -283,7 +292,7 @@ exports.getSellerEntries = async (req, res) => {
 // ── GET /api/sellers/:id/advance ─────────────────────────
 exports.getSellerAdvance = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -320,7 +329,7 @@ exports.getSellerAdvance = async (req, res) => {
 // ── GET /api/sellers/:id/deposit ─────────────────────────
 exports.getSellerDeposits = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -350,7 +359,7 @@ exports.getSellerDeposits = async (req, res) => {
 // ── GET /api/sellers/:id/products ────────────────────────
 exports.getSellerProducts = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -382,7 +391,7 @@ exports.getSellerProducts = async (req, res) => {
 // ── GET /api/sellers/:id/premium ─────────────────────────
 exports.getSellerPremium = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -540,7 +549,7 @@ exports.createSeller = async (req, res) => {
                 aadhaar || null,
                 pan_number || null,
                 seller_id_code || null,
-                seller_type || 'Utpadak',
+                isSeller ? existing.seller_type : (seller_type || 'Utpadak'),
                 milk_type || 'cow',                jamin || null,
                 bank_account || null,
                 bank_name || null,
@@ -749,7 +758,7 @@ exports.updateSeller = async (req, res) => {
                 aadhaar || null,
                 pan_number || null,
                 seller_id_code || null,
-                seller_type || 'Utpadak',
+                isSeller ? existing.seller_type : (seller_type || 'Utpadak'),
                 milk_type || 'cow',
                 jamin || null,
                 bank_account || null,
@@ -867,7 +876,7 @@ exports.deleteSeller = async (req, res) => {
 // ── GET /api/sellers/:id/deposit-balance ─────────────────
 exports.getSellerDepositBalance = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -1303,7 +1312,7 @@ exports.updateSellersBulk = async (req, res) => {
 // ── GET /api/sellers/:id/commission ──────────────────────
 exports.getSellerCommission = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -1347,7 +1356,7 @@ exports.getSellerCommission = async (req, res) => {
 // ── GET /api/sellers/:id/bills ────────────────────────────
 exports.getSellerBills = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -1379,7 +1388,7 @@ exports.getSellerBills = async (req, res) => {
 // ── GET /api/sellers/:id/bonus ────────────────────────────
 exports.getSellerBonus = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;
@@ -1421,7 +1430,7 @@ exports.getSellerBonus = async (req, res) => {
 // ── GET /api/sellers/:id/cattle-feed ──────────────────────
 exports.getSellerCattleFeed = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = resolveSellerId(req);
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operatorId = req.user.id;

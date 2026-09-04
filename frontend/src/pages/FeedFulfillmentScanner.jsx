@@ -25,9 +25,14 @@ export default function FeedFulfillmentScanner() {
     const extractToken = (decodedText) => {
         // Accept either a full URL (…/feed-scan/<token>) or a bare token
         const trimmed = decodedText.trim();
+        // Match feed-scan/ followed by alphanumeric, underscore, or hyphen
         const match = trimmed.match(/feed-scan\/([a-zA-Z0-9_-]+)/i);
-        const raw = match ? match[1] : trimmed;
-        return raw.split("?")[0].split("#")[0].replace(/\/+$/, "");
+        if (match) {
+            // Extract just the token part, strip any trailing query params or fragments
+            return match[1].split("?")[0].split("#")[0].replace(/\/+$/, "");
+        }
+        // If no URL pattern, treat the entire string as the token
+        return trimmed.split("?")[0].split("#")[0].replace(/\/+$/, "");
     };
 
     const stopCamera = useCallback(() => {
@@ -40,6 +45,10 @@ export default function FeedFulfillmentScanner() {
     }, []);
 
     const fetchPreview = async (token) => {
+        if (!token) {
+            setResult({ ok: false, message: "Invalid token. Please try again." });
+            return;
+        }
         setLoadingPreview(true);
         setResult(null);
         try {
@@ -144,11 +153,12 @@ export default function FeedFulfillmentScanner() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50 flex flex-col items-center px-4 py-6">
-            <div className="w-full max-w-md flex flex-col gap-5">
+            <div className="max-w-full min-w-full flex flex-col gap-5">
 
                 {/* ── Header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
-                    <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4 relative overflow-hidden">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-emerald-400/5 blur-3xl" />
+                    <div className="relative z-10">
                         <div className="flex items-center gap-2.5 text-sm text-gray-600 mb-0.5">
                             <Home size={16} className="text-gray-400" />
                             <Link to="/operator/dashboard" className="hover:text-gray-800 transition">
@@ -167,7 +177,7 @@ export default function FeedFulfillmentScanner() {
                     </div>
                     <Link
                         to="/operator/dashboard"
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-xs font-bold hover:bg-gray-50/80 transition shadow-sm self-start sm:self-auto"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 text-xs font-bold hover:bg-gray-50/80 transition shadow-sm self-start sm:self-auto relative z-10"
                     >
                         <ArrowLeft size={15} /> Back
                     </Link>
@@ -200,7 +210,14 @@ export default function FeedFulfillmentScanner() {
                                     className="flex-1 border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition"
                                 />
                                 <button
-                                    onClick={() => manualToken.trim() && fetchPreview(extractToken(manualToken))}
+                                    onClick={() => {
+                                        const token = extractToken(manualToken);
+                                        if (token) {
+                                            fetchPreview(token);
+                                        } else {
+                                            setResult({ ok: false, message: "Invalid token format." });
+                                        }
+                                    }}
                                     className="px-5 py-2.5 rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white text-sm font-bold shadow-lg shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40 transition-all duration-200"
                                 >
                                     Check
@@ -258,7 +275,7 @@ export default function FeedFulfillmentScanner() {
                                     <div className="flex flex-col gap-2 mt-3">
                                         <p className="text-[10.5px] font-bold text-gray-500 uppercase tracking-wider">Items to collect</p>
                                         {preview.items.map((item) => (
-                                            <div key={item.sale_id} className="flex items-center justify-between bg-gray-50/80 border border-gray-200/60 rounded-xl px-4 py-3 shadow-sm">
+                                            <div key={item.sale_id} className="flex items-center justify-between bg-gray-50/80 border border-gray-200/60 rounded-xl px-4 py-3 shadow-sm hover:bg-gray-100/50 transition">
                                                 <span className="text-sm font-semibold text-gray-800">{item.feed_name}</span>
                                                 <span className="text-sm font-mono font-bold text-emerald-600">{parseFloat(item.quantity).toFixed(2)} {item.unit}</span>
                                             </div>
