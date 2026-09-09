@@ -44,6 +44,7 @@ const tourRoutes = require('./routes/tour.routes');
 const favouritesRoutes = require('./routes/favourites.routes');
 const fulfillmentRoutes = require('./routes/fulfillment.routes');
 const scheduleAutoCarryForward = require('./jobs/autoCarryForward.job');
+const adminsRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -93,6 +94,8 @@ app.use('/api/centres', centresRoutes);
 app.use('/api/commission', commission);
 app.use('/api/favourites', favouritesRoutes);
 app.use('/api/fulfillments', fulfillmentRoutes);
+app.use('/api/admin-management', adminManagementRoutes);
+app.use('/api/admins', adminsRoutes);
 
 
 setInterval(async () => {
