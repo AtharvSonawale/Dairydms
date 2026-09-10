@@ -78,6 +78,9 @@ import ProductSalesReport from './pages/ProductSalesReport';
 import CattleFeedSalesReport from './pages/CattleFeedSalesReport';
 import OperatorMyProfile from './pages/operator/MyProfile';
 
+// ── Stock Transfer ─────────────────────────────────────────
+import StockTransfer from './pages/StockTransfer';
+
 import FulfillmentScanner from './pages/FulfillmentScanner';
 // ── Farmer Profile ──────────────────────────────────────────
 import FarmerProfile from './pages/farmer/FarmerProfile';
@@ -183,6 +186,17 @@ function AppRoutes() {
         <Route path="/product-sales/report" element={<ProtectedRoute><ProductSalesReport /></ProtectedRoute>} />
         <Route path="/cattle-feed-sales/report" element={<ProtectedRoute><CattleFeedSalesReport /></ProtectedRoute>} />
         <Route path="/premiumrates" element={<ProtectedRoute><PremiumRates /></ProtectedRoute>} />
+
+        {/* ── Stock Transfer ── */}
+        <Route
+          path="/stock-transfer"
+          element={
+            <ProtectedRoute role={['admin', 'operator']}>
+              <StockTransfer />
+            </ProtectedRoute>
+          }
+        />
+
         {/* ── Farmer Profile ── */}
         <Route path="/farmer/profile" element={<ProtectedRoute><FarmerProfile /></ProtectedRoute>} />
         <Route path="/farmer/profile/:farmer_id" element={<ProtectedRoute><FarmerProfile /></ProtectedRoute>} />
@@ -214,7 +228,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        
+
         {/* ── Seller Profile (alias for admin) ── */}
         <Route path="/farmer/:farmer_id" element={<ProtectedRoute><FarmerProfile /></ProtectedRoute>} />
 

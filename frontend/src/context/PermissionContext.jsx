@@ -22,6 +22,15 @@ export function PermissionProvider({ children }) {
             return null;
         };
 
+        // Admins bypass the permission system entirely (see can() below),
+        // and admins aren't rows in the `operators` table, so this fetch
+        // would always 403 for them — skip it.
+        if (user?.role === "admin") {
+            setPerms({});
+            setLoading(false);
+            return;
+        }
+
         const opId = getOpId();
         if (!opId) {
             setLoading(false);

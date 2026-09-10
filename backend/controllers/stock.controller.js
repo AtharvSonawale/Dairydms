@@ -62,6 +62,34 @@ exports.getAvailableStock = async (req, res) => {
         const cowDispatched = parseFloat(dispatched[0]?.cow_dispatched || 0);
         const buffaloDispatched = parseFloat(dispatched[0]?.buffalo_dispatched || 0);
 
+        // ── 5. Stock transfers OUT of this centre (pending + approved reserve stock) ──
+        const [transferOut] = await pool.query(
+            `SELECT
+                SUM(CASE WHEN sti.milk_type='cow' THEN sti.quantity ELSE 0 END) AS cow_out,
+                SUM(CASE WHEN sti.milk_type='buffalo' THEN sti.quantity ELSE 0 END) AS buffalo_out
+             FROM stock_transfer_items sti
+             JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
+             WHERE sti.stock_type = 'milk' AND st.from_centre_id = ?
+               AND st.transfer_date = ? AND st.status IN ('pending','approved')`,
+            [centreId, date]
+        );
+        const cowTransferOut = parseFloat(transferOut[0]?.cow_out || 0);
+        const buffaloTransferOut = parseFloat(transferOut[0]?.buffalo_out || 0);
+
+        // ── 6. Stock transfers IN to this centre (only approved actually arrived) ──
+        const [transferIn] = await pool.query(
+            `SELECT
+                SUM(CASE WHEN sti.milk_type='cow' THEN sti.quantity ELSE 0 END) AS cow_in,
+                SUM(CASE WHEN sti.milk_type='buffalo' THEN sti.quantity ELSE 0 END) AS buffalo_in
+             FROM stock_transfer_items sti
+             JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
+             WHERE sti.stock_type = 'milk' AND st.to_centre_id = ?
+               AND st.transfer_date = ? AND st.status = 'approved'`,
+            [centreId, date]
+        );
+        const cowTransferIn = parseFloat(transferIn[0]?.cow_in || 0);
+        const buffaloTransferIn = parseFloat(transferIn[0]?.buffalo_in || 0);
+
         // ── helpers to look up per type ──
         const getQty = (rows, type) => {
             const row = rows.find(r => r.milk_type === type);
@@ -84,9 +112,9 @@ exports.getAvailableStock = async (req, res) => {
         const cowOut = getQty(walkinOut, 'cow') + getQty(ownerOut, 'cow');
         const buffaloOut = getQty(walkinOut, 'buffalo') + getQty(ownerOut, 'buffalo');
 
-        // ── remaining after all deductions ──
-        const cowRemaining = Math.max(0, cowCollected - cowOut - cowDispatched);
-        const buffaloRemaining = Math.max(0, buffaloCollected - buffaloOut - buffaloDispatched);
+        // ── remaining after all deductions (incl. stock transfers) ──
+        const cowRemaining = Math.max(0, cowCollected + cowTransferIn - cowOut - cowDispatched - cowTransferOut);
+        const buffaloRemaining = Math.max(0, buffaloCollected + buffaloTransferIn - buffaloOut - buffaloDispatched - buffaloTransferOut);
         const totalRemaining = cowRemaining + buffaloRemaining;
 
         // ── weighted avg FAT/SNF from milk entries ──
@@ -131,11 +159,180 @@ exports.getAvailableStock = async (req, res) => {
                 buffalo_owner_out: parseFloat(getQty(ownerOut, 'buffalo').toFixed(2)),
                 cow_dispatched: cowDispatched,
                 buffalo_dispatched: buffaloDispatched,
+                cow_transfer_out: cowTransferOut,
+                buffalo_transfer_out: buffaloTransferOut,
+                cow_transfer_in: cowTransferIn,
+                buffalo_transfer_in: buffaloTransferIn,
             },
         });
 
     } catch (err) {
         console.error('getAvailableStock error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+
+// ── Add these to backend/controllers/stock.controller.js ───────
+
+// ── GET /api/stock/products?date=YYYY-MM-DD ────────────────────
+// Returns available product stock at the operator's centre
+exports.getAvailableProducts = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const date = req.query.date || new Date().toISOString().split('T')[0];
+
+        // Purchased + transferred-in − sold − transferred-out − damaged
+        const [rows] = await pool.query(
+            `SELECT
+                p.product_id AS ref_id,
+                p.product_name AS item_name,
+                p.unit,
+                p.mrp_rate AS rate,
+                COALESCE((
+                    SELECT SUM(pp.quantity) FROM product_purchases pp
+                    WHERE pp.product_id = p.product_id AND pp.centre_id = ? AND pp.purchase_date <= ?
+                ), 0)
+                + COALESCE((
+                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
+                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
+                    WHERE sti.stock_type = 'product' AND sti.ref_id = p.product_id
+                      AND st.to_centre_id = ? AND st.status = 'approved' AND st.transfer_date <= ?
+                ), 0)
+                - COALESCE((
+                    SELECT SUM(ps.quantity) FROM product_sales ps
+                    WHERE ps.product_id = p.product_id AND ps.centre_id = ? AND ps.sale_date <= ?
+                ), 0)
+                - COALESCE((
+                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
+                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
+                    WHERE sti.stock_type = 'product' AND sti.ref_id = p.product_id
+                      AND st.from_centre_id = ? AND st.status IN ('pending','approved') AND st.transfer_date <= ?
+                ), 0)
+                AS quantity
+             FROM products p
+             WHERE p.is_active = 1
+             HAVING quantity > 0
+             ORDER BY p.product_name`,
+            [centreId, date, centreId, date, centreId, date, centreId, date]
+        );
+
+        res.json(rows.map(r => ({
+            ...r,
+            stock_type: 'product',
+            quantity: parseFloat(r.quantity || 0),
+            rate: parseFloat(r.rate || 0),
+        })));
+    } catch (err) {
+        console.error('getAvailableProducts error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ── GET /api/stock/feeds?date=YYYY-MM-DD ───────────────────────
+exports.getAvailableFeeds = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const date = req.query.date || new Date().toISOString().split('T')[0];
+
+        const [rows] = await pool.query(
+            `SELECT
+                cf.feed_id AS ref_id,
+                cf.feed_name AS item_name,
+                cf.unit,
+                cf.rate,
+                COALESCE((
+                    SELECT SUM(cfp.quantity) FROM cattle_feed_purchases cfp
+                    WHERE cfp.feed_id = cf.feed_id AND cfp.centre_id = ? AND cfp.purchase_date <= ?
+                ), 0)
+                + COALESCE((
+                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
+                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
+                    WHERE sti.stock_type = 'cattle_feed' AND sti.ref_id = cf.feed_id
+                      AND st.to_centre_id = ? AND st.status = 'approved' AND st.transfer_date <= ?
+                ), 0)
+                - COALESCE((
+                    SELECT SUM(cfs.quantity) FROM cattle_feed_sales cfs
+                    WHERE cfs.feed_id = cf.feed_id AND cfs.centre_id = ? AND cfs.sale_date <= ?
+                ), 0)
+                - COALESCE((
+                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
+                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
+                    WHERE sti.stock_type = 'cattle_feed' AND sti.ref_id = cf.feed_id
+                      AND st.from_centre_id = ? AND st.status IN ('pending','approved') AND st.transfer_date <= ?
+                ), 0)
+                AS quantity
+             FROM cattle_feed cf
+             WHERE cf.is_active = 1
+             HAVING quantity > 0
+             ORDER BY cf.feed_name`,
+            [centreId, date, centreId, date, centreId, date, centreId, date]
+        );
+
+        res.json(rows.map(r => ({
+            ...r,
+            stock_type: 'cattle_feed',
+            quantity: parseFloat(r.quantity || 0),
+            rate: parseFloat(r.rate || 0),
+        })));
+    } catch (err) {
+        console.error('getAvailableFeeds error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ── GET /api/stock/transferable?centre_id=X&date=Y ─────────────
+// Combined payload used by the Stock Transfer page.
+exports.getTransferableStock = async (req, res) => {
+    try {
+        const centreId = req.query.centre_id || req.user.centre_id;
+        const date = req.query.date || new Date().toISOString().split('T')[0];
+
+        // reuse milk calc via internal call pattern
+        const milkReq = { query: { date }, user: { centre_id: centreId } };
+        let milkPayload = { available_milk: 0, available_cow: 0, available_buffalo: 0 };
+        await new Promise((resolve) => {
+            const fakeRes = {
+                json: (data) => {
+                    milkPayload = {
+                        available_milk: data.available?.total || 0,
+                        available_cow: data.available?.cow || 0,
+                        available_buffalo: data.available?.buffalo || 0,
+                        avg_fat_cow: data.avg_fat_cow,
+                        avg_snf_cow: data.avg_snf_cow,
+                        avg_fat_buffalo: data.avg_fat_buffalo,
+                        avg_snf_buffalo: data.avg_snf_buffalo,
+                    };
+                    resolve();
+                },
+                status: () => ({ json: resolve }),
+            };
+            exports.getAvailableStock(milkReq, fakeRes);
+        });
+
+        const productsReq = { query: { date }, user: { centre_id: centreId } };
+        let products = [];
+        await new Promise((resolve) => {
+            const fakeRes = { json: (d) => { products = d; resolve(); }, status: () => ({ json: resolve }) };
+            exports.getAvailableProducts(productsReq, fakeRes);
+        });
+
+        const feedsReq = { query: { date }, user: { centre_id: centreId } };
+        let feeds = [];
+        await new Promise((resolve) => {
+            const fakeRes = { json: (d) => { feeds = d; resolve(); }, status: () => ({ json: resolve }) };
+            exports.getAvailableFeeds(feedsReq, fakeRes);
+        });
+
+        res.json({
+            date,
+            centre_id: centreId,
+            milk: milkPayload,
+            products,
+            feeds,
+        });
+    } catch (err) {
+        console.error('getTransferableStock error:', err);
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };

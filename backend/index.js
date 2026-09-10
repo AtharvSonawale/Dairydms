@@ -45,6 +45,8 @@ const favouritesRoutes = require('./routes/favourites.routes');
 const fulfillmentRoutes = require('./routes/fulfillment.routes');
 const scheduleAutoCarryForward = require('./jobs/autoCarryForward.job');
 const adminsRoutes = require('./routes/admin.routes');
+const stockTransferRoutes = require('./routes/stockTransfer.routes');
+
 
 const app = express();
 
@@ -96,6 +98,8 @@ app.use('/api/favourites', favouritesRoutes);
 app.use('/api/fulfillments', fulfillmentRoutes);
 app.use('/api/admin-management', adminManagementRoutes);
 app.use('/api/admins', adminsRoutes);
+app.use('/api', stockTransferRoutes);
+
 
 
 setInterval(async () => {

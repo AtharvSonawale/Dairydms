@@ -1404,4 +1404,68 @@ CREATE TABLE walkin_sales (
    CONSTRAINT walkin_sales_ibfk_6 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+ -- ── Stock Transfers (header) ─────────────────────────────────
+CREATE TABLE stock_transfers (
+   transfer_id     INT NOT NULL AUTO_INCREMENT,
+   transfer_no     VARCHAR(50) NOT NULL,
+   from_centre_id  INT NOT NULL,
+   to_centre_id    INT NOT NULL,
+   dairy_id        INT NOT NULL,
+   transfer_date   DATE NOT NULL,
+   status          ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+   requires_approval TINYINT(1) NOT NULL DEFAULT 1,
+   remarks         TEXT,
+   created_by      INT DEFAULT NULL,          -- operator_id
+   created_by_admin_id INT DEFAULT NULL,      -- admin_id
+   approved_by     INT DEFAULT NULL,          -- operator_id who approved
+   approved_by_admin_id INT DEFAULT NULL,     -- admin_id who approved
+   approved_at     DATETIME DEFAULT NULL,
+   rejection_reason TEXT,
+   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+   updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (transfer_id),
+   UNIQUE KEY transfer_no (transfer_no),
+   KEY idx_from_centre (from_centre_id),
+   KEY idx_to_centre (to_centre_id),
+   KEY idx_status (status),
+   KEY idx_transfer_date (transfer_date),
+   CONSTRAINT st_from_centre_fk FOREIGN KEY (from_centre_id) REFERENCES centres (centre_id),
+   CONSTRAINT st_to_centre_fk   FOREIGN KEY (to_centre_id)   REFERENCES centres (centre_id),
+   CONSTRAINT st_dairy_fk       FOREIGN KEY (dairy_id)       REFERENCES dairies (dairy_id),
+   CONSTRAINT st_created_by_fk  FOREIGN KEY (created_by)     REFERENCES operators (operator_id) ON DELETE SET NULL,
+   CONSTRAINT st_created_by_admin_fk FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL,
+   CONSTRAINT st_approved_by_fk FOREIGN KEY (approved_by)    REFERENCES operators (operator_id) ON DELETE SET NULL,
+   CONSTRAINT st_approved_by_admin_fk FOREIGN KEY (approved_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── Stock Transfer Items (lines) ─────────────────────────────
+CREATE TABLE stock_transfer_items (
+   item_id      INT NOT NULL AUTO_INCREMENT,
+   transfer_id  INT NOT NULL,
+   stock_type   ENUM('milk','product','cattle_feed') NOT NULL,
+   ref_id       INT DEFAULT NULL,             -- product_id / feed_id (null for milk)
+   item_name    VARCHAR(255) NOT NULL,
+   milk_type    ENUM('cow','buffalo','mixed') DEFAULT NULL,
+   unit         VARCHAR(20) NOT NULL DEFAULT 'L',
+   quantity     DECIMAL(12,2) NOT NULL,
+   rate         DECIMAL(10,2) DEFAULT '0.00',
+   total_amount DECIMAL(12,2) DEFAULT '0.00',
+   PRIMARY KEY (item_id),
+   KEY idx_transfer_id (transfer_id),
+   CONSTRAINT sti_transfer_fk FOREIGN KEY (transfer_id) REFERENCES stock_transfers (transfer_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── Sequence table for transfer numbers per centre/dairy ─────
+CREATE TABLE stock_transfer_sequences (
+   id              INT NOT NULL AUTO_INCREMENT,
+   dairy_id        INT NOT NULL,
+   financial_year  VARCHAR(10) NOT NULL,
+   last_number     INT NOT NULL DEFAULT 0,
+   PRIMARY KEY (id),
+   UNIQUE KEY uq_dairy_fy (dairy_id, financial_year),
+   CONSTRAINT sts_dairy_fk FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
 SET FOREIGN_KEY_CHECKS = 1;

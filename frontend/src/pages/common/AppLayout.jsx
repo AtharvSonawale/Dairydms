@@ -224,10 +224,15 @@ const SHARED_NAV = (isAdmin, t) => {
                 { label: t('nav.gavaliBonusReport'), icon: <FileText size={14} />, to: '/gavalibonusreport', pageKey: getPageKey('gavali_bonus_report') },
             ],
         },
-        // NOTE: the separate "Walk-in Reports" admin section was a duplicate of the
-        // report links already added under Walk-in Sales above (with the same
-        // /admin-prefixed bug) — removed rather than fixed, to avoid two nav
-        // entries pointing at the same three pages.
+
+        // ── Stock Transfer (Centre to Centre) ─────────────────────
+        {
+            label: t('nav.stockTransfer', { defaultValue: 'Stock Transfer' }),
+            icon: <ArrowLeftRight size={16} />,
+            to: '/stock-transfer',
+            tourId: 'nav-stock-transfer',
+            pageKey: getPageKey('stock_transfer'),
+        },
     ];
 
     return nav;
