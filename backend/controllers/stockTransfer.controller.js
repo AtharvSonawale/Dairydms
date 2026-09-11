@@ -72,67 +72,53 @@ const computeMilkRemaining = async (conn, centreId, date) => {
 };
 
 // ── Helper: compute product/feed remaining ─────────────────────
+// current_stock is now kept live by createTransfer/approveTransfer/
+// rejectTransfer/cancelTransfer below, exactly like purchases and sales
+// already do — so remaining stock is just a direct lookup. Not clamped
+// to 0: a negative value here is a real signal (e.g. stock was hand-edited
+// down after a transfer reserved it) that approveTransfer's re-check relies on.
 const computeItemRemaining = async (conn, centreId, date, stockType, refId) => {
-    if (stockType === 'product') {
-        const [[{ purchased = 0 } = {}]] = await conn.query(
-            `SELECT SUM(quantity) AS purchased FROM product_purchases
-             WHERE product_id = ? AND centre_id = ? AND purchase_date <= ?`,
-            [refId, centreId, date]
-        );
-        const [[{ sold = 0 } = {}]] = await conn.query(
-            `SELECT SUM(quantity) AS sold FROM product_sales
-             WHERE product_id = ? AND centre_id = ? AND sale_date <= ?`,
-            [refId, centreId, date]
-        );
-        const [[{ inQty = 0 } = {}]] = await conn.query(
-            `SELECT SUM(sti.quantity) AS inQty FROM stock_transfer_items sti
-             JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-             WHERE sti.stock_type='product' AND sti.ref_id=?
-               AND st.to_centre_id=? AND st.status = 'approved'
-               AND st.transfer_date <= ?`,
-            [refId, centreId, date]
-        );
-        const [[{ outQty = 0 } = {}]] = await conn.query(
-            `SELECT SUM(sti.quantity) AS outQty FROM stock_transfer_items sti
-             JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-             WHERE sti.stock_type='product' AND sti.ref_id=?
-               AND st.from_centre_id=? AND st.status IN ('pending','approved')
-               AND st.transfer_date <= ?`,
-            [refId, centreId, date]
-        );
-        return Math.max(0, parseFloat(purchased) + parseFloat(inQty) - parseFloat(sold) - parseFloat(outQty));
-    }
+    const table = stockType === 'product' ? 'products' : 'cattle_feeds';
+    const idCol = stockType === 'product' ? 'product_id' : 'feed_id';
+    const [[row]] = await conn.query(
+        `SELECT current_stock FROM ${table} WHERE ${idCol} = ? AND centre_id = ?`,
+        [refId, centreId]
+    );
+    return row ? parseFloat(row.current_stock || 0) : 0;
+};
 
-    if (stockType === 'cattle_feed') {
-        const [[{ purchased = 0 } = {}]] = await conn.query(
-            `SELECT SUM(quantity) AS purchased FROM cattle_feed_purchases
-             WHERE feed_id = ? AND centre_id = ? AND purchase_date <= ?`,
-            [refId, centreId, date]
+// ── Helper: credit stock to the destination centre on approval ─
+// Products/cattle_feed rows are per-centre with independent IDs, so the
+// destination may not have a matching row yet — match by name, or create it.
+const creditDestinationStock = async (conn, centreId, stockType, itemName, unit, rate, quantity) => {
+    const table = stockType === 'product' ? 'products' : 'cattle_feeds';
+    const idCol = stockType === 'product' ? 'product_id' : 'feed_id';
+    const nameCol = stockType === 'product' ? 'product_name' : 'feed_name';
+
+    const [[existing]] = await conn.query(
+        `SELECT ${idCol} AS id FROM ${table}
+         WHERE centre_id = ? AND LOWER(TRIM(${nameCol})) = LOWER(TRIM(?))`,
+        [centreId, itemName]
+    );
+
+    if (existing) {
+        await conn.query(
+            `UPDATE ${table} SET current_stock = current_stock + ? WHERE ${idCol} = ? AND centre_id = ?`,
+            [quantity, existing.id, centreId]
         );
-        const [[{ sold = 0 } = {}]] = await conn.query(
-            `SELECT SUM(quantity) AS sold FROM cattle_feed_sales
-             WHERE feed_id = ? AND centre_id = ? AND sale_date <= ?`,
-            [refId, centreId, date]
+    } else if (stockType === 'product') {
+        await conn.query(
+            `INSERT INTO products (centre_id, product_name, unit, current_stock, rate, mrp_rate)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [centreId, itemName, unit || '', quantity, rate || 0, rate || 0]
         );
-        const [[{ inQty = 0 } = {}]] = await conn.query(
-            `SELECT SUM(sti.quantity) AS inQty FROM stock_transfer_items sti
-             JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-             WHERE sti.stock_type='cattle_feed' AND sti.ref_id=?
-               AND st.to_centre_id=? AND st.status = 'approved'
-               AND st.transfer_date <= ?`,
-            [refId, centreId, date]
+    } else {
+        await conn.query(
+            `INSERT INTO cattle_feeds (centre_id, feed_name, unit, current_stock, rate)
+             VALUES (?, ?, ?, ?, ?)`,
+            [centreId, itemName, unit || '', quantity, rate || 0]
         );
-        const [[{ outQty = 0 } = {}]] = await conn.query(
-            `SELECT SUM(sti.quantity) AS outQty FROM stock_transfer_items sti
-             JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-             WHERE sti.stock_type='cattle_feed' AND sti.ref_id=?
-               AND st.from_centre_id=? AND st.status IN ('pending','approved')
-               AND st.transfer_date <= ?`,
-            [refId, centreId, date]
-        );
-        return Math.max(0, parseFloat(purchased) + parseFloat(inQty) - parseFloat(sold) - parseFloat(outQty));
     }
-    return 0;
 };
 
 // ── GET /api/stock-transfers ───────────────────────────────────
@@ -375,6 +361,33 @@ exports.createTransfer = async (req, res) => {
                     parseFloat(it.quantity || 0) * parseFloat(it.rate || 0),
                 ]
             );
+
+            // Reserve stock at the source immediately (milk has no stored
+            // counter — it's already excluded from the source total by
+            // computeMilkRemaining counting pending+approved outgoing).
+            if (it.stock_type === 'product') {
+                await conn.query(
+                    `UPDATE products SET current_stock = current_stock - ?
+                     WHERE product_id = ? AND centre_id = ?`,
+                    [parseFloat(it.quantity || 0), it.ref_id, sourceCentre]
+                );
+            } else if (it.stock_type === 'cattle_feed') {
+                await conn.query(
+                    `UPDATE cattle_feeds SET current_stock = current_stock - ?
+                     WHERE feed_id = ? AND centre_id = ?`,
+                    [parseFloat(it.quantity || 0), it.ref_id, sourceCentre]
+                );
+            }
+
+            // When no approval is required, the transfer lands as
+            // 'approved' immediately — credit the destination in the same
+            // step, since approveTransfer will never run for this one.
+            if (!requires_approval && (it.stock_type === 'product' || it.stock_type === 'cattle_feed')) {
+                await creditDestinationStock(
+                    conn, to_centre_id, it.stock_type,
+                    it.item_name, it.unit, it.rate, parseFloat(it.quantity || 0)
+                );
+            }
         }
 
         await conn.commit();
@@ -445,6 +458,18 @@ exports.approveTransfer = async (req, res) => {
              WHERE transfer_id = ?`,
             [userId, id]
         );
+
+        // Credit the destination now that it's accepted. Milk has no
+        // stored stock column — it's computed live from entries — so
+        // only product/cattle_feed need an explicit credit here.
+        for (const it of items) {
+            if (it.stock_type === 'product' || it.stock_type === 'cattle_feed') {
+                await creditDestinationStock(
+                    conn, transfer.to_centre_id, it.stock_type,
+                    it.item_name, it.unit, it.rate, parseFloat(it.quantity || 0)
+                );
+            }
+        }
 
         await conn.commit();
         res.json({ message: 'Transfer approved' });

@@ -180,41 +180,21 @@ exports.getAvailableStock = async (req, res) => {
 exports.getAvailableProducts = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
-        const date = req.query.date || new Date().toISOString().split('T')[0];
 
-        // Purchased + transferred-in − sold − transferred-out − damaged
+        // current_stock is the single source of truth — the same column
+        // the Product Catalogue page reads, kept live by every purchase,
+        // sale, and (now) stock transfer.
         const [rows] = await pool.query(
             `SELECT
-                p.product_id AS ref_id,
-                p.product_name AS item_name,
-                p.unit,
-                p.mrp_rate AS rate,
-                COALESCE((
-                    SELECT SUM(pp.quantity) FROM product_purchases pp
-                    WHERE pp.product_id = p.product_id AND pp.centre_id = ? AND pp.purchase_date <= ?
-                ), 0)
-                + COALESCE((
-                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
-                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-                    WHERE sti.stock_type = 'product' AND sti.ref_id = p.product_id
-                      AND st.to_centre_id = ? AND st.status = 'approved' AND st.transfer_date <= ?
-                ), 0)
-                - COALESCE((
-                    SELECT SUM(ps.quantity) FROM product_sales ps
-                    WHERE ps.product_id = p.product_id AND ps.centre_id = ? AND ps.sale_date <= ?
-                ), 0)
-                - COALESCE((
-                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
-                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-                    WHERE sti.stock_type = 'product' AND sti.ref_id = p.product_id
-                      AND st.from_centre_id = ? AND st.status IN ('pending','approved') AND st.transfer_date <= ?
-                ), 0)
-                AS quantity
-             FROM products p
-             WHERE p.is_active = 1
-             HAVING quantity > 0
-             ORDER BY p.product_name`,
-            [centreId, date, centreId, date, centreId, date, centreId, date]
+                product_id AS ref_id,
+                product_name AS item_name,
+                unit,
+                current_stock AS quantity,
+                mrp_rate AS rate
+             FROM products
+             WHERE centre_id = ? AND current_stock > 0
+             ORDER BY product_name`,
+            [centreId]
         );
 
         res.json(rows.map(r => ({
@@ -233,40 +213,18 @@ exports.getAvailableProducts = async (req, res) => {
 exports.getAvailableFeeds = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
-        const date = req.query.date || new Date().toISOString().split('T')[0];
 
         const [rows] = await pool.query(
             `SELECT
-                cf.feed_id AS ref_id,
-                cf.feed_name AS item_name,
-                cf.unit,
-                cf.rate,
-                COALESCE((
-                    SELECT SUM(cfp.quantity) FROM cattle_feed_purchases cfp
-                    WHERE cfp.feed_id = cf.feed_id AND cfp.centre_id = ? AND cfp.purchase_date <= ?
-                ), 0)
-                + COALESCE((
-                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
-                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-                    WHERE sti.stock_type = 'cattle_feed' AND sti.ref_id = cf.feed_id
-                      AND st.to_centre_id = ? AND st.status = 'approved' AND st.transfer_date <= ?
-                ), 0)
-                - COALESCE((
-                    SELECT SUM(cfs.quantity) FROM cattle_feed_sales cfs
-                    WHERE cfs.feed_id = cf.feed_id AND cfs.centre_id = ? AND cfs.sale_date <= ?
-                ), 0)
-                - COALESCE((
-                    SELECT SUM(sti.quantity) FROM stock_transfer_items sti
-                    JOIN stock_transfers st ON st.transfer_id = sti.transfer_id
-                    WHERE sti.stock_type = 'cattle_feed' AND sti.ref_id = cf.feed_id
-                      AND st.from_centre_id = ? AND st.status IN ('pending','approved') AND st.transfer_date <= ?
-                ), 0)
-                AS quantity
-             FROM cattle_feed cf
-             WHERE cf.is_active = 1
-             HAVING quantity > 0
-             ORDER BY cf.feed_name`,
-            [centreId, date, centreId, date, centreId, date, centreId, date]
+                feed_id AS ref_id,
+                feed_name AS item_name,
+                unit,
+                current_stock AS quantity,
+                rate
+             FROM cattle_feeds
+             WHERE centre_id = ? AND current_stock > 0
+             ORDER BY feed_name`,
+            [centreId]
         );
 
         res.json(rows.map(r => ({
