@@ -1,3 +1,4 @@
+// productsales.controller.js
 const pool = require('../config/db');
 const path = require('path');
 const fs = require('fs');
@@ -59,6 +60,25 @@ const nextTransactionId = async (conn, centreId, saleType = 'product') => {
     const [[seqRow]] = await conn.query(`SELECT LAST_INSERT_ID() AS n`);
 
     return `${prefix}/${fy}/${seqRow.n}`;
+};
+
+// ── helper: load buyer-type visibility settings for a centre ──
+// Returns { seller: bool, named: bool, anon: bool }
+// Falls back to all-enabled when no row exists (backwards compatible).
+const loadBuyerSettings = async (conn, centreId) => {
+    const [rows] = await conn.query(
+        `SELECT seller_enabled, named_enabled, anon_enabled
+         FROM product_buyer_settings
+         WHERE centre_id = ?`,
+        [centreId]
+    );
+    if (!rows.length) return { seller: true, named: true, anon: true };
+    const r = rows[0];
+    return {
+        seller: !!r.seller_enabled,
+        named: !!r.named_enabled,
+        anon: !!r.anon_enabled,
+    };
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -208,7 +228,7 @@ ORDER BY ps.transaction_id ASC, ps.sale_id ASC
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/product-sales
-//   Body: { seller_id, sale_date, lines: [{ product_id, quantity, rate }] }
+//   Body: { buyer_mode, seller_id, buyer_id, buyer_name, sale_date, lines: [...] }
 //   Creates ONE transaction_id for all lines
 // ══════════════════════════════════════════════════════════════
 exports.createSale = async (req, res) => {
@@ -220,7 +240,7 @@ exports.createSale = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const { seller_id, buyer_mode, buyer_id, buyer_name, sale_date, lines } = req.body;
-const mode = buyer_mode || 'seller'; // default keeps old clients working
+        const mode = buyer_mode || 'seller'; // default keeps old clients working
 
         // ── Resolve a valid operator ID ──
         let effectiveOperatorId = userId;
@@ -249,7 +269,15 @@ const mode = buyer_mode || 'seller'; // default keeps old clients working
             effectiveOperatorId = userId;
         }
 
-        // ── validation ──
+        // ── Enforce buyer-type visibility settings ──
+        const cfg = await loadBuyerSettings(conn, centreId);
+        if (!cfg[mode]) {
+            await conn.rollback();
+            return res.status(403).json({
+                error: `Buyer type "${mode}" is disabled for this centre.`
+            });
+        }
+
         // ── validation ──
         if (mode === 'seller' && !seller_id) {
             await conn.rollback();
@@ -576,6 +604,18 @@ exports.updateTransaction = async (req, res) => {
                     error: 'Access denied. You can only update your own transactions.'
                 });
             }
+        }
+
+        // ── Enforce buyer-type visibility settings ──
+        // Uses the transaction's existing buyer_type — the edit modal for
+        // product sales does not currently allow changing buyer mode.
+        const existingMode = existingSales[0].buyer_type || 'seller';
+        const cfg = await loadBuyerSettings(conn, centreId);
+        if (!cfg[existingMode]) {
+            await conn.rollback();
+            return res.status(403).json({
+                error: `Buyer type "${existingMode}" is disabled for this centre.`
+            });
         }
 
         // Process each item in the transaction
@@ -967,5 +1007,94 @@ exports.confirmFulfillment = async (req, res) => {
         res.status(500).json({ error: 'Server error', message: err.message });
     } finally {
         conn.release();
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// GET /api/product-sales/buyer-settings
+//   Returns the buyer-type visibility settings for the current centre.
+//   If no row exists yet, returns all-enabled defaults.
+// ══════════════════════════════════════════════════════════════
+exports.getBuyerSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+
+        const [rows] = await pool.query(
+            `SELECT seller_enabled, named_enabled, anon_enabled
+             FROM product_buyer_settings
+             WHERE centre_id = ?`,
+            [centreId]
+        );
+
+        if (!rows.length) {
+            // No row yet → all types enabled (safe default)
+            return res.json({
+                seller_enabled: true,
+                named_enabled: true,
+                anon_enabled: true,
+            });
+        }
+
+        const r = rows[0];
+        res.json({
+            seller_enabled: !!r.seller_enabled,
+            named_enabled: !!r.named_enabled,
+            anon_enabled: !!r.anon_enabled,
+        });
+    } catch (err) {
+        console.error('getBuyerSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// PUT /api/product-sales/buyer-settings
+//   Body: { seller_enabled, named_enabled, anon_enabled }
+//   Upserts the settings row for the current centre.
+//   Safety rule: at least one buyer type must remain enabled.
+// ══════════════════════════════════════════════════════════════
+exports.updateBuyerSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const adminId = isAdmin ? req.user.id : null;
+
+        const { seller_enabled, named_enabled, anon_enabled } = req.body;
+
+        const sellerOn = seller_enabled === true || seller_enabled === 1 ? 1 : 0;
+        const namedOn = named_enabled === true || named_enabled === 1 ? 1 : 0;
+        const anonOn = anon_enabled === true || anon_enabled === 1 ? 1 : 0;
+
+        // ── Safety: at least one buyer type must stay enabled ──
+        if (sellerOn + namedOn + anonOn === 0) {
+            return res.status(400).json({
+                error: 'At least one buyer type must remain enabled.',
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO product_buyer_settings
+                (centre_id, seller_enabled, named_enabled, anon_enabled,
+                 updated_by_operator_id, updated_by_admin_id)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                seller_enabled = VALUES(seller_enabled),
+                named_enabled  = VALUES(named_enabled),
+                anon_enabled   = VALUES(anon_enabled),
+                updated_by_operator_id = VALUES(updated_by_operator_id),
+                updated_by_admin_id    = VALUES(updated_by_admin_id)`,
+            [centreId, sellerOn, namedOn, anonOn, operatorId, adminId]
+        );
+
+        res.json({
+            success: true,
+            seller_enabled: !!sellerOn,
+            named_enabled: !!namedOn,
+            anon_enabled: !!anonOn,
+        });
+    } catch (err) {
+        console.error('updateBuyerSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
     }
 };

@@ -6,7 +6,7 @@ import {
     BadgeCheck, RefreshCw, X, TrendingUp,
     ShoppingCart, Layers, Banknote, Users, FileDown,
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
-    Home, Tag, UserCircle2
+    Home, Tag, UserCircle2, SlidersHorizontal
 } from "lucide-react";
 // AFTER
 import api from "../../api/axios";
@@ -62,6 +62,24 @@ const imgUrl = (url) =>
 const EMPTY_FORM = { seller_id: "", seller_code: "" };
 const EMPTY_LINE = { feed_id: "", quantity: "", rate: "", mrp_rate: "" };
 
+// ── Default buyer-type visibility (all enabled) ──
+const DEFAULT_BUYER_SETTINGS = {
+    seller_enabled: true,
+    named_enabled: true,
+    anon_enabled: true,
+};
+
+// ── Numeric input normalizer: keeps field as string, blocks negatives/NaN ──
+const normalizeNumericInput = (raw) => {
+    if (raw === "" || raw === null || raw === undefined) return "";
+    // Allow intermediate states like "1." while typing
+    const cleaned = String(raw).replace(/[^0-9.]/g, "");
+    if (cleaned === "" || cleaned === ".") return "";
+    const n = parseFloat(cleaned);
+    if (isNaN(n) || n < 0) return "";
+    return cleaned;
+};
+
 // ── sub-components ────────────────────────────────────────────
 function Field({ label, icon, children }) {
     return (
@@ -100,6 +118,125 @@ function StatCard({ label, value, icon, color }) {
             <div>
                 <p className="text-xs text-gray-400 leading-none">{label}</p>
                 <p className="text-lg font-bold text-gray-900 leading-tight mt-0.5">{value}</p>
+            </div>
+        </div>
+    );
+}
+
+// ── Buyer Settings Modal ────────────────────────────────────
+function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
+    const { t } = useTranslation();
+    const [local, setLocal] = useState(settings);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => { if (open) setLocal(settings); }, [open, settings]);
+
+    const toggle = (key) => {
+        setLocal(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            // Safety: don't allow all-off locally
+            if (!next.seller_enabled && !next.named_enabled && !next.anon_enabled) {
+                showFlash('error', t('cattleFeedSales.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.');
+                return prev;
+            }
+            return next;
+        });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { data } = await api.put('/cattle-feed-sales/buyer-settings', local);
+            onSaved({
+                seller_enabled: !!data.seller_enabled,
+                named_enabled: !!data.named_enabled,
+                anon_enabled: !!data.anon_enabled,
+            });
+            showFlash('success', t('cattleFeedSales.buyerSettings.saveSuccess') || 'Buyer settings updated.');
+            onClose();
+        } catch (err) {
+            showFlash('error', err.response?.data?.error || t('cattleFeedSales.buyerSettings.saveError') || 'Failed to update buyer settings.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (!open) return null;
+
+    const items = [
+        { key: 'seller_enabled', label: t('cattleFeedSales.buyerSettings.seller') || 'Seller', hint: t('cattleFeedSales.buyerSettings.sellerHint') || 'Sell to registered sellers', icon: <Users size={16} /> },
+        { key: 'named_enabled', label: t('cattleFeedSales.buyerSettings.named') || 'Named Buyer', hint: t('cattleFeedSales.buyerSettings.namedHint') || 'Sell to named/registered buyers', icon: <Tag size={16} /> },
+        { key: 'anon_enabled', label: t('cattleFeedSales.buyerSettings.anon') || 'Anonymous', hint: t('cattleFeedSales.buyerSettings.anonHint') || 'Sell to anonymous walk-in buyers', icon: <UserCircle2 size={16} /> },
+    ];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md flex flex-col">
+
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <SlidersHorizontal size={16} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-800">{t('cattleFeedSales.buyerSettings.title') || 'Buyer Types'}</h2>
+                            <p className="text-[10px] text-gray-400">{t('cattleFeedSales.buyerSettings.desc') || 'Enable or disable buyer types for cattle feed sales'}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                <div className="p-6 flex flex-col gap-3">
+                    {items.map(({ key, label, hint, icon }) => {
+                        const on = local[key];
+                        return (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => toggle(key)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition shadow-sm
+                                    ${on
+                                        ? 'border-indigo-200/80 bg-indigo-50/60 hover:bg-indigo-100/60'
+                                        : 'border-gray-200/60 bg-gray-50/40 hover:bg-gray-100/60'}`}
+                            >
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                                    ${on ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
+                                    {icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-semibold ${on ? 'text-indigo-800' : 'text-gray-600'}`}>{label}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>
+                                </div>
+                                <div className={`w-10 h-6 rounded-full transition relative shrink-0
+                                    ${on ? 'bg-indigo-500' : 'bg-gray-300'}`}>
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all
+                                        ${on ? 'left-[18px]' : 'left-0.5'}`} />
+                                </div>
+                            </button>
+                        );
+                    })}
+
+                    <p className="text-[10px] text-gray-400 mt-1">
+                        {t('cattleFeedSales.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.'}
+                    </p>
+                </div>
+
+                <div className="flex gap-2 px-6 pb-5">
+                    <button onClick={onClose}
+                        className="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 transition shadow-sm">
+                        {t('cattleFeedSales.speedConfig.cancel') || 'Cancel'}
+                    </button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-indigo-500 to-indigo-600 text-white hover:shadow-lg hover:shadow-indigo-500/30 transition disabled:opacity-50 shadow-sm">
+                        {saving
+                            ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <Save size={12} />}
+                        {t('cattleFeedSales.speedConfig.update') || 'Update'}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -546,6 +683,11 @@ export default function CattleFeedSales() {
     const [centreName, setCentreName] = useState("");
     const [productLabel, setProductLabel] = useState("");
 
+    // ── Buyer-type visibility settings ──
+    const [buyerSettings, setBuyerSettings] = useState(DEFAULT_BUYER_SETTINGS);
+    const [buyerSettingsOpen, setBuyerSettingsOpen] = useState(false);
+    const [buyerSettingsLoaded, setBuyerSettingsLoaded] = useState(false);
+
     useEffect(() => {
         api.get('/settings/system-info')
             .then(({ data }) => setCentreName(data?.centre?.centre_name || ""))
@@ -555,11 +697,32 @@ export default function CattleFeedSales() {
             .catch(() => { });
     }, []);
 
-    const BUYER_MODES = [
-        { val: "seller", label: t('cattleFeedSales.form.sellerBuys') || 'Seller', icon: <Users size={18} /> },
-        { val: "named", label: t('cattleFeedSales.form.named') || 'Named', icon: <Tag size={18} /> },
-        { val: "anon", label: t('cattleFeedSales.form.anon') || 'Anonymous', icon: <UserCircle2 size={18} /> },
+    // Fetch buyer-type visibility on mount
+    useEffect(() => {
+        api.get('/cattle-feed-sales/buyer-settings')
+            .then(({ data }) => {
+                setBuyerSettings({
+                    seller_enabled: !!data.seller_enabled,
+                    named_enabled: !!data.named_enabled,
+                    anon_enabled: !!data.anon_enabled,
+                });
+            })
+            .catch(() => {
+                // Fall back to all-enabled — better UX than hiding everything
+                setBuyerSettings(DEFAULT_BUYER_SETTINGS);
+            })
+            .finally(() => setBuyerSettingsLoaded(true));
+    }, []);
+
+    // ── All buyer modes with their enabled flag ──
+    const ALL_BUYER_MODES = [
+        { val: "seller", label: t('cattleFeedSales.form.sellerBuys') || 'Seller', icon: <Users size={18} />, enabledKey: 'seller_enabled' },
+        { val: "named", label: t('cattleFeedSales.form.named') || 'Named', icon: <Tag size={18} />, enabledKey: 'named_enabled' },
+        { val: "anon", label: t('cattleFeedSales.form.anon') || 'Anonymous', icon: <UserCircle2 size={18} />, enabledKey: 'anon_enabled' },
     ];
+
+    // Only the enabled ones are shown
+    const BUYER_MODES = ALL_BUYER_MODES.filter(m => buyerSettings[m.enabledKey]);
 
     const [form, setForm] = useState({ buyer_mode: "seller", seller_id: "", seller_code: "" });
     const [namedBuyers, setNamedBuyers] = useState([]);
@@ -602,6 +765,27 @@ export default function CattleFeedSales() {
     const [editBuyerDrop, setEditBuyerDrop] = useState(false);
 
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+    // ── Auto-switch buyer_mode when the selected mode becomes disabled ──
+    useEffect(() => {
+        if (!buyerSettingsLoaded) return;
+        if (BUYER_MODES.length === 0) return; // safety
+        const currentEnabled = BUYER_MODES.some(m => m.val === form.buyer_mode);
+        if (!currentEnabled) {
+            const first = BUYER_MODES[0].val;
+            setForm(prev => ({
+                ...prev,
+                buyer_mode: first,
+                seller_id: "",
+                seller_code: "",
+            }));
+            setSellerSearch("");
+            setSellerCodeInput("");
+            setNamedBuyerId("");
+            setNamedBuyerSearch("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [buyerSettings, buyerSettingsLoaded]);
 
     const handleAddSpeedLines = (newLines) => {
         setLines(prev => {
@@ -731,28 +915,64 @@ export default function CattleFeedSales() {
         if (!editingSale) return false;
         if (editingSale.buyer_mode === "seller" && !editingSale.seller_id) return false;
         if (editingSale.buyer_mode === "named" && !editingSale.buyer_id && !editBuyerSearch.trim()) return false;
-        const valid = editingSale.items.filter(l => l.feed_id && l.quantity && l.rate);
+        const valid = editingSale.items.filter(
+            l => l.feed_id && l.quantity && parseFloat(l.quantity) > 0 && l.rate && parseFloat(l.rate) > 0
+        );
         return valid.length > 0;
     };
 
     const handleEditSave = async () => {
-        if (!editingSale || !isEditFormReady()) return;
+        if (!editingSale) return;
+
+        // ── Front-end guard: build only valid lines, with clear messages ──
+        const validItems = editingSale.items.filter(
+            l => l.feed_id && l.quantity && parseFloat(l.quantity) > 0 && l.rate && parseFloat(l.rate) > 0
+        );
+
+        if (validItems.length === 0) {
+            showFlash("error",
+                t('cattleFeedSales.editModal.needAtLeastOneValidLine')
+                || "Enter quantity and rate greater than 0 for at least one line.");
+            return;
+        }
+
+        // Optional: warn about partially-filled lines the user might have forgotten
+        const incomplete = editingSale.items.filter(l => {
+            const hasAny = l.feed_id || l.quantity || l.rate;
+            const isValid = l.feed_id && l.quantity && parseFloat(l.quantity) > 0 && l.rate && parseFloat(l.rate) > 0;
+            return hasAny && !isValid;
+        });
+        if (incomplete.length > 0) {
+            showFlash("error",
+                t('cattleFeedSales.editModal.incompleteLines')
+                || "Some lines are incomplete. Fill feed, quantity, and rate — or remove them.");
+            return;
+        }
+
+        // ── Buyer-mode validation ──
+        if (editingSale.buyer_mode === "seller" && !editingSale.seller_id) {
+            showFlash("error", t('cattleFeedSales.form.selectSeller') || "Select a seller.");
+            return;
+        }
+        if (editingSale.buyer_mode === "named" && !editingSale.buyer_id && !editBuyerSearch.trim()) {
+            showFlash("error", t('cattleFeedSales.form.buyerNameRequired') || "Buyer name is required.");
+            return;
+        }
+
         setEditSaving(true);
         try {
-            await api.put(`/cattle-feed-sales/transaction/${editingSale.transaction_id}`, {
+            await api.put(`/cattle-feed-sales/transaction/${encodeURIComponent(editingSale.transaction_id)}`, {
                 buyer_mode: editingSale.buyer_mode,
                 seller_id: editingSale.buyer_mode === "seller" ? Number(editingSale.seller_id) : null,
                 buyer_id: editingSale.buyer_mode === "named" ? (editingSale.buyer_id || null) : null,
                 buyer_name: editingSale.buyer_mode === "named" ? editBuyerSearch.trim() : null,
                 sale_date: editingSale.sale_date,
-                items: editingSale.items
-                    .filter(l => l.feed_id && l.quantity && l.rate)
-                    .map(item => ({
-                        sale_id: item.sale_id || undefined,
-                        feed_id: Number(item.feed_id),
-                        quantity: parseFloat(item.quantity),
-                        rate: parseFloat(item.rate),
-                    })),
+                items: validItems.map(item => ({
+                    sale_id: item.sale_id || undefined,
+                    feed_id: Number(item.feed_id),
+                    quantity: parseFloat(item.quantity),
+                    rate: parseFloat(item.rate),
+                })),
             });
             await Promise.all([
                 fetchSales(selectedDate),
@@ -848,7 +1068,7 @@ export default function CattleFeedSales() {
     useEffect(() => { fetchSellers(); fetchFeeds(); fetchNamedBuyers(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
-    // ── FIXED: Seller filtering - search by name OR code (partial match) ──
+    // ── Seller filtering - search by name OR code (partial match) ──
     const filteredSellers = (() => {
         const sorted = [...sellers]
             .filter((s) => s.cattle_feed_sale_enabled == 1)
@@ -862,7 +1082,6 @@ export default function CattleFeedSales() {
         return matched.slice(0, 10);
     })();
 
-    // ── FIXED: Handle seller code change - partial match and auto-select ──
     const handleSellerCodeChange = (code) => {
         setSellerCodeInput(code);
         if (!code.trim()) {
@@ -872,7 +1091,6 @@ export default function CattleFeedSales() {
             return;
         }
 
-        // Find exact match by code
         const exactMatch = sellers.find(
             (s) => s.cattle_feed_sale_enabled == 1 &&
                 (s.seller_code || "").toLowerCase() === code.trim().toLowerCase()
@@ -882,13 +1100,11 @@ export default function CattleFeedSales() {
             setSellerSearch(exactMatch.name);
             setShowSellerDrop(false);
         } else {
-            // Show dropdown with partial matches
             set("seller_id", "");
             setShowSellerDrop(true);
         }
     };
 
-    // ── FIXED: Handle seller search - partial match on name ──
     const handleSellerSearchChange = (val) => {
         setSellerSearch(val);
         setShowSellerDrop(true);
@@ -899,7 +1115,6 @@ export default function CattleFeedSales() {
             return;
         }
 
-        // Check if the search matches a seller name exactly or code
         const exactMatch = sellers.find(
             (s) => s.cattle_feed_sale_enabled == 1 &&
                 (s.name.toLowerCase() === val.trim().toLowerCase() ||
@@ -928,7 +1143,9 @@ export default function CattleFeedSales() {
         if (form.buyer_mode === "seller" && !form.seller_id) { showFlash("error", t('cattleFeedSales.form.selectSeller')); return; }
         if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) { showFlash("error", "Buyer name is required."); return; }
 
-        const validLines = lines.filter(l => l.feed_id && l.quantity && l.rate);
+        const validLines = lines.filter(
+            l => l.feed_id && l.quantity && parseFloat(l.quantity) > 0 && l.rate && parseFloat(l.rate) > 0
+        );
         if (validLines.length === 0) {
             showFlash("error", t('cattleFeedSales.form.addAtLeastOneFeed'));
             return;
@@ -1008,7 +1225,9 @@ export default function CattleFeedSales() {
     const isFormReady = () => {
         if (form.buyer_mode === "seller" && !form.seller_id) return false;
         if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) return false;
-        const validLines = lines.filter(l => l.feed_id && l.quantity && l.rate);
+        const validLines = lines.filter(
+            l => l.feed_id && l.quantity && parseFloat(l.quantity) > 0 && l.rate && parseFloat(l.rate) > 0
+        );
         if (validLines.length === 0) return false;
         for (const l of validLines) {
             const feed = feeds.find(f => String(f.feed_id) === String(l.feed_id));
@@ -1017,7 +1236,7 @@ export default function CattleFeedSales() {
         return true;
     };
 
-    // ── FIXED: Form keydown handler with Enter navigation ──
+    // ── Form keydown handler with Enter navigation ──
     const handleFormKeyDown = (e) => {
         if (e.key !== "Enter") return;
         if (showSellerDrop) return;
@@ -1025,7 +1244,6 @@ export default function CattleFeedSales() {
         if (e.target.tagName === "TEXTAREA") return;
         e.preventDefault();
 
-        // Check if we're on the last field (Save button)
         const container = e.target.closest('[data-entry-form]');
         if (!container) return;
         const focusable = Array.from(
@@ -1033,12 +1251,10 @@ export default function CattleFeedSales() {
         ).filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
         const idx = focusable.indexOf(e.target);
 
-        // If we're at the last focusable element or form is ready, save
         if (idx === focusable.length - 1 || isFormReady()) {
             if (saving) return;
             handleSave();
         } else {
-            // Move to next field
             focusNextField(e.target);
         }
     };
@@ -1118,6 +1334,12 @@ export default function CattleFeedSales() {
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
                         >
                             <BadgeCheck size={15} /> {t('cattleFeedSales.takeTour')}
+                        </button>
+                        <button
+                            onClick={() => setBuyerSettingsOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-indigo-50/80 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100/80 transition shadow-sm"
+                        >
+                            <SlidersHorizontal size={15} /> {t('cattleFeedSales.buyerSettingsButton') || 'Buyer Types'}
                         </button>
                         <button
                             onClick={() => setSpeedConfigOpen(true)}
@@ -1234,32 +1456,34 @@ export default function CattleFeedSales() {
                         data-tour="sales-form"
                     >
                         <div data-entry-form onKeyDown={handleFormKeyDown}>
-                            {/* ── Buyer mode selector ── */}
-                            <div className="flex gap-2 mb-4">
-                                {BUYER_MODES.map(({ val, label, icon }) => (
-                                    <button
-                                        key={val}
-                                        type="button"
-                                        onClick={() => {
-                                            set("buyer_mode", val);
-                                            set("seller_id", "");
-                                            setSellerSearch("");
-                                            setSellerCodeInput("");
-                                            setNamedBuyerId("");
-                                            setNamedBuyerSearch("");
-                                        }}
-                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-semibold transition
+                            {/* ── Buyer mode selector (only enabled types shown) ── */}
+                            {BUYER_MODES.length > 0 && (
+                                <div className="flex gap-2 mb-4">
+                                    {BUYER_MODES.map(({ val, label, icon }) => (
+                                        <button
+                                            key={val}
+                                            type="button"
+                                            onClick={() => {
+                                                set("buyer_mode", val);
+                                                set("seller_id", "");
+                                                setSellerSearch("");
+                                                setSellerCodeInput("");
+                                                setNamedBuyerId("");
+                                                setNamedBuyerSearch("");
+                                            }}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-semibold transition
                     ${form.buyer_mode === val
-                                                ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
-                                                : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
-                                    >
-                                        {icon}<span>{label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                                                    ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
+                                                    : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
+                                        >
+                                            {icon}<span>{label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* ── Seller row with Code and Name fields (seller mode only) ── */}
-                            {form.buyer_mode === "seller" && (
+                            {form.buyer_mode === "seller" && buyerSettings.seller_enabled && (
                                 <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
                                     <Field label={t('cattleFeedSales.form.sellerCode')} icon={<User size={12} />}>
                                         <TinyInput
@@ -1349,7 +1573,7 @@ export default function CattleFeedSales() {
                                 </div>
                             )}
 
-                            {form.buyer_mode === "named" && (
+                            {form.buyer_mode === "named" && buyerSettings.named_enabled && (
                                 <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
                                     <Field label={t('cattleFeedSales.form.buyerName') || "Buyer Name"} icon={<User size={12} />}>
                                         <div className="relative" style={{ width: "220px" }}>
@@ -1405,7 +1629,7 @@ export default function CattleFeedSales() {
                                 </div>
                             )}
 
-                            {form.buyer_mode === "anon" && (
+                            {form.buyer_mode === "anon" && buyerSettings.anon_enabled && (
                                 <div className="flex items-start gap-3 flex-wrap pb-4 mb-4 border-b border-gray-200/60">
                                     <Field label={t('cattleFeedSales.form.buyer') || "Buyer"} icon={<UserCircle2 size={12} />}>
                                         <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
@@ -1505,8 +1729,8 @@ export default function CattleFeedSales() {
 
                                             <TinyInput
                                                 value={line.quantity}
-                                                onChange={(e) => setLine(line._key, "quantity", e.target.value)}
-                                                placeholder="0.0" type="number" step="0.01"
+                                                onChange={(e) => setLine(line._key, "quantity", normalizeNumericInput(e.target.value))}
+                                                placeholder="0.0" type="number" step="0.01" min="0"
                                                 className={`w-full ${lineFeed && parseFloat(line.quantity) > parseFloat(lineFeed.current_stock || 0)
                                                     ? "bg-rose-50/80 border-rose-300 text-rose-700"
                                                     : "bg-blue-50/80 border-blue-200/60 text-blue-700"}`}
@@ -1520,8 +1744,8 @@ export default function CattleFeedSales() {
 
                                             <TinyInput
                                                 value={line.rate}
-                                                onChange={(e) => setLine(line._key, "rate", e.target.value)}
-                                                placeholder="₹0.00" type="number" step="0.01"
+                                                onChange={(e) => setLine(line._key, "rate", normalizeNumericInput(e.target.value))}
+                                                placeholder="₹0.00" type="number" step="0.01" min="0"
                                                 className="w-full bg-amber-50/80 border-amber-200/60 text-amber-700"
                                                 onKeyDown={(e) => {
                                                     if (e.key === "Enter") {
@@ -1777,6 +2001,14 @@ export default function CattleFeedSales() {
                 showFlash={showFlash}
             />
 
+            <BuyerSettingsModal
+                open={buyerSettingsOpen}
+                onClose={() => setBuyerSettingsOpen(false)}
+                settings={buyerSettings}
+                onSaved={setBuyerSettings}
+                showFlash={showFlash}
+            />
+
             {/* ── Edit Sale Modal (fully editable) ── */}
             {editingSale && can('cattle_feed_sales', 'U') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -1803,23 +2035,23 @@ export default function CattleFeedSales() {
                             />
                         </Field>
 
-                        {/* Buyer mode selector */}
+                        {/* Buyer mode selector — only enabled types shown in edit too */}
                         <div className="flex gap-2">
-                            {["seller", "named", "anon"].map((mode) => (
+                            {BUYER_MODES.map(({ val, label }) => (
                                 <button
-                                    key={mode}
+                                    key={val}
                                     type="button"
                                     onClick={() => {
-                                        setEditingSale(prev => ({ ...prev, buyer_mode: mode, seller_id: "", buyer_id: "" }));
+                                        setEditingSale(prev => ({ ...prev, buyer_mode: val, seller_id: "", buyer_id: "" }));
                                         setEditSellerSearch("");
                                         setEditBuyerSearch("");
                                     }}
                                     className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition
-                            ${editingSale.buyer_mode === mode
+                            ${editingSale.buyer_mode === val
                                             ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-sm"
                                             : "bg-white/60 text-gray-500 border-gray-200/60 hover:border-gray-400"}`}
                                 >
-                                    {mode === "seller" ? t('cattleFeedSales.editModal.seller') || "Seller" : mode === "named" ? t('cattleFeedSales.editModal.named') || "Named" : t('cattleFeedSales.editModal.anon') || "Anonymous"}
+                                    {label}
                                 </button>
                             ))}
                         </div>
@@ -1939,13 +2171,13 @@ export default function CattleFeedSales() {
                                         ))}
                                     </select>
                                     <TinyInput
-                                        type="number" step="0.01" value={item.quantity}
-                                        onChange={(e) => setEditLine(item._key, "quantity", e.target.value)}
+                                        type="number" step="0.01" min="0" value={item.quantity}
+                                        onChange={(e) => setEditLine(item._key, "quantity", normalizeNumericInput(e.target.value))}
                                         className="bg-blue-50/80 border-blue-200/60 text-blue-700"
                                     />
                                     <TinyInput
-                                        type="number" step="0.01" value={item.rate}
-                                        onChange={(e) => setEditLine(item._key, "rate", e.target.value)}
+                                        type="number" step="0.01" min="0" value={item.rate}
+                                        onChange={(e) => setEditLine(item._key, "rate", normalizeNumericInput(e.target.value))}
                                         className="bg-amber-50/80 border-amber-200/60 text-amber-700"
                                     />
                                     <button type="button" onClick={() => removeEditLine(item._key)}
@@ -1982,7 +2214,7 @@ export default function CattleFeedSales() {
 
             {/* ── Confirm Delete Modal ── */}
             {confirmDelete && can('cattle_feed_sales', 'D') && (
-               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[340px] flex flex-col gap-4">
                         <div className="flex items-start gap-3">
                             <div className="w-9 h-9 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shrink-0">

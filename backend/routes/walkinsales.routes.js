@@ -1,40 +1,44 @@
+// ── Combined routes file (cattle-feed-sales.js) ──────────────
 const router = require('express').Router();
 const protect = require('../middleware/auth');
-const ctrl = require('../controllers/walkinSales.controller');
 
-router.use(protect);
+// Import controllers
+const salesCtrl = require('../controllers/cattlefeedsales.controller');
+const reportCtrl = require('../controllers/cattleFeedSalesReport.controller');
 
-// Walk-in sales routes
-router.get('/', ctrl.getSales);
-router.get('/available-stock', ctrl.getAvailableStock);
-router.post('/', ctrl.createSale);
-router.delete('/:id', ctrl.deleteSale);
+// ── Main Cattle Feed Sales (CRUD) ──────────────────────────
+router.get('/transactions', protect, salesCtrl.getTransactions);
+router.get('/', protect, salesCtrl.getSales);
+router.post('/', protect, salesCtrl.createSale);
 
-// MRP rates routes
-router.get('/mrp-rates', ctrl.getMRPRates);
-router.post('/mrp-rates', ctrl.saveMRPRates);
+// ── Buyer-type Visibility Settings (must precede '/:id') ────
+router.get('/buyer-settings', protect, salesCtrl.getBuyerSettings);
+router.put('/buyer-settings', protect, salesCtrl.updateBuyerSettings);
 
-// Product types routes
-router.get('/product-types', ctrl.getProductTypes);
-router.post('/product-types', ctrl.saveProductType);
-router.delete('/product-types/:id', ctrl.deleteProductType);
+router.put('/:id', protect, salesCtrl.updateSale);
+router.put('/transaction/:transaction_id', protect, salesCtrl.updateTransaction);
+router.delete('/:id', protect, salesCtrl.deleteSale);
 
-// Named buyers routes
-router.get('/named-buyers', ctrl.getNamedBuyers);
-router.post('/named-buyers', ctrl.saveNamedBuyer);
-router.put('/named-buyers/:id', ctrl.updateNamedBuyer);
-router.delete('/named-buyers/:id', ctrl.deleteNamedBuyer);
-router.patch('/named-buyers/:id/status', ctrl.toggleBuyerStatus);
+// ── Speed Feeds ─────────────────────────────────────────────
+router.get('/speed-feeds', protect, salesCtrl.getSpeedFeeds);
+router.post('/speed-feeds', protect, salesCtrl.createSpeedFeed);
+router.put('/speed-feeds/:id', protect, salesCtrl.updateSpeedFeed);
+router.delete('/speed-feeds/:id', protect, salesCtrl.deleteSpeedFeed);
 
-// Named buyer balance & summaries
-router.get('/named-buyer-balance/:buyerId', ctrl.getNamedBuyerBalance);
-router.get('/named-buyer-summaries', ctrl.getNamedBuyerSummaries);
+// ── Named Buyers ────────────────────────────────────────────
+router.get('/named-buyers', protect, salesCtrl.getFeedNamedBuyers);
+router.post('/named-buyers', protect, salesCtrl.createFeedNamedBuyer);
 
-// Bill routes
-router.post('/clear-buyer-bill', ctrl.clearBuyerBill);
-router.get('/billing-summary', ctrl.getBillingSummary);
+// ── Fulfillment (QR pickup verification) ─────────────────────
+router.get('/fulfillment/:token', protect, salesCtrl.getFulfillmentByToken);
+router.post('/fulfillment/:token/confirm', protect, salesCtrl.confirmFulfillment);
 
-// Generic sale update — must stay last to avoid swallowing specific routes
-router.put('/:id', ctrl.updateSale);
+// ── Report Routes ────────────────────────────────────────────
+router.get('/report', protect, reportCtrl.getSalesReport);
+router.get('/report/summary', protect, reportCtrl.getReportSummary);
+router.get('/report/export', protect, reportCtrl.exportReport);
+
+// ── Admin summary ────────────────────────────────────────────
+router.get('/summary', protect, salesCtrl.getSalesSummary);
 
 module.exports = router;

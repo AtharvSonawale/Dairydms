@@ -10,6 +10,11 @@ const reportCtrl = require('../controllers/productSalesReport.controller');
 router.get('/transactions', protect, salesCtrl.getTransactions);
 router.get('/', protect, salesCtrl.getSales);
 router.post('/', protect, salesCtrl.createSale);
+
+// ── Buyer-type Visibility Settings (must precede '/:id') ────
+router.get('/buyer-settings', protect, salesCtrl.getBuyerSettings);
+router.put('/buyer-settings', protect, salesCtrl.updateBuyerSettings);
+
 router.put('/:id', protect, salesCtrl.updateSale);
 router.put('/transaction/:transaction_id', protect, salesCtrl.updateTransaction);
 router.delete('/:id', protect, salesCtrl.deleteSale);

@@ -15,11 +15,16 @@ CREATE TABLE admins (
    is_active tinyint(1) DEFAULT '1',
    created_at datetime DEFAULT CURRENT_TIMESTAMP,
    has_seen_tour tinyint(1) NOT NULL DEFAULT '1',
+   last_login datetime DEFAULT NULL,
+   address varchar(255) DEFAULT NULL,
+   pincode varchar(10) DEFAULT NULL,
+   profile_image longtext,
+   role varchar(20) NOT NULL DEFAULT 'admin',
    PRIMARY KEY (admin_id),
    UNIQUE KEY email (email),
    KEY centre_id (centre_id),
    CONSTRAINT admins_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE app_settings (
@@ -300,23 +305,44 @@ CREATE TABLE cash_advance (
    CONSTRAINT cash_advance_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
  ) ENGINE=InnoDB AUTO_INCREMENT=115 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `cattle_feed_fulfillments` (
-   `fulfillment_id` int NOT NULL AUTO_INCREMENT,
-   `transaction_id` varchar(30) NOT NULL,
-   `centre_id` int NOT NULL,
-   `token` varchar(64) NOT NULL,
-   `status` enum('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
-   `fulfilled_at` datetime DEFAULT NULL,
-   `fulfilled_by_operator_id` int DEFAULT NULL,
-   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (`fulfillment_id`),
-   UNIQUE KEY `uq_transaction` (`transaction_id`),
-   UNIQUE KEY `uq_token` (`token`),
-   KEY `idx_centre_id` (`centre_id`),
-   KEY `idx_status` (`status`),
-   KEY `cattle_feed_fulfillments_ibfk_2` (`fulfilled_by_operator_id`),
-   CONSTRAINT `cattle_feed_fulfillments_ibfk_1` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`) ON DELETE CASCADE,
-   CONSTRAINT `cattle_feed_fulfillments_ibfk_2` FOREIGN KEY (`fulfilled_by_operator_id`) REFERENCES `operators` (`operator_id`) ON DELETE SET NULL
+CREATE TABLE cattle_feed_buyer_settings (
+    id INT NOT NULL AUTO_INCREMENT,
+    centre_id INT NOT NULL,
+    seller_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    named_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    anon_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    updated_by_operator_id INT DEFAULT NULL,
+    updated_by_admin_id INT DEFAULT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_centre (centre_id),
+    KEY idx_centre_id (centre_id),
+    CONSTRAINT cfbs_centre_fk FOREIGN KEY (centre_id)
+        REFERENCES centres (centre_id) ON DELETE CASCADE,
+    CONSTRAINT cfbs_operator_fk FOREIGN KEY (updated_by_operator_id)
+        REFERENCES operators (operator_id) ON DELETE SET NULL,
+    CONSTRAINT cfbs_admin_fk FOREIGN KEY (updated_by_admin_id)
+        REFERENCES admins (admin_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE cattle_feed_fulfillments (
+   fulfillment_id int NOT NULL AUTO_INCREMENT,
+   transaction_id varchar(30) NOT NULL,
+   centre_id int NOT NULL,
+   token varchar(64) NOT NULL,
+   status enum('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
+   fulfilled_at datetime DEFAULT NULL,
+   fulfilled_by_operator_id int DEFAULT NULL,
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (fulfillment_id),
+   UNIQUE KEY uq_transaction (transaction_id),
+   UNIQUE KEY uq_token (token),
+   KEY idx_centre_id (centre_id),
+   KEY idx_status (status),
+   KEY cattle_feed_fulfillments_ibfk_2 (fulfilled_by_operator_id),
+   CONSTRAINT cattle_feed_fulfillments_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE,
+   CONSTRAINT cattle_feed_fulfillments_ibfk_2 FOREIGN KEY (fulfilled_by_operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
  ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 
  CREATE TABLE cattle_feed_named_buyers (
@@ -454,11 +480,12 @@ CREATE TABLE centres (
    contact_number varchar(15) DEFAULT NULL,
    is_active tinyint(1) NOT NULL DEFAULT '1',
    created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   auto_carry_forward_rates tinyint(1) NOT NULL DEFAULT '0',
    PRIMARY KEY (centre_id),
    UNIQUE KEY centre_code (centre_code),
    KEY dairy_id (dairy_id),
    CONSTRAINT centres_ibfk_1 FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id)
- ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE commission_settings (
    id int NOT NULL AUTO_INCREMENT,
@@ -630,13 +657,13 @@ CREATE TABLE global_settings (
    id int NOT NULL AUTO_INCREMENT,
    dairy_id int DEFAULT NULL,
    setting_key varchar(50) NOT NULL,
-   setting_value text NOT NULL,
+   setting_value longtext,
    updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
    PRIMARY KEY (id),
    UNIQUE KEY uq_dairy_setting (dairy_id,setting_key),
    KEY idx_dairy_id (dairy_id),
    CONSTRAINT global_settings_ibfk_1 FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id) ON DELETE CASCADE
- ) ENGINE=InnoDB AUTO_INCREMENT=1016 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+ ) ENGINE=InnoDB AUTO_INCREMENT=1082 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE milk_entries (
    entry_id int NOT NULL AUTO_INCREMENT,
@@ -834,23 +861,45 @@ CREATE TABLE print_settings (
    CONSTRAINT print_settings_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `product_fulfillments` (
-   `fulfillment_id` int NOT NULL AUTO_INCREMENT,
-   `transaction_id` varchar(30) NOT NULL,
-   `centre_id` int NOT NULL,
-   `token` varchar(64) NOT NULL,
-   `status` enum('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
-   `fulfilled_at` datetime DEFAULT NULL,
-   `fulfilled_by_operator_id` int DEFAULT NULL,
-   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (`fulfillment_id`),
-   UNIQUE KEY `uq_transaction` (`transaction_id`),
-   UNIQUE KEY `uq_token` (`token`),
-   KEY `idx_centre_id` (`centre_id`),
-   KEY `idx_status` (`status`),
-   KEY `product_fulfillments_ibfk_2` (`fulfilled_by_operator_id`),
-   CONSTRAINT `product_fulfillments_ibfk_1` FOREIGN KEY (`centre_id`) REFERENCES `centres` (`centre_id`) ON DELETE CASCADE,
-   CONSTRAINT `product_fulfillments_ibfk_2` FOREIGN KEY (`fulfilled_by_operator_id`) REFERENCES `operators` (`operator_id`) ON DELETE SET NULL
+
+CREATE TABLE product_buyer_settings (
+    id INT NOT NULL AUTO_INCREMENT,
+    centre_id INT NOT NULL,
+    seller_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    named_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    anon_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    updated_by_operator_id INT DEFAULT NULL,
+    updated_by_admin_id INT DEFAULT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_centre (centre_id),
+    KEY idx_centre_id (centre_id),
+    CONSTRAINT pbs_centre_fk FOREIGN KEY (centre_id)
+        REFERENCES centres (centre_id) ON DELETE CASCADE,
+    CONSTRAINT pbs_operator_fk FOREIGN KEY (updated_by_operator_id)
+        REFERENCES operators (operator_id) ON DELETE SET NULL,
+    CONSTRAINT pbs_admin_fk FOREIGN KEY (updated_by_admin_id)
+        REFERENCES admins (admin_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE product_fulfillments (
+   fulfillment_id int NOT NULL AUTO_INCREMENT,
+   transaction_id varchar(30) NOT NULL,
+   centre_id int NOT NULL,
+   token varchar(64) NOT NULL,
+   status enum('pending','fulfilled','cancelled') NOT NULL DEFAULT 'pending',
+   fulfilled_at datetime DEFAULT NULL,
+   fulfilled_by_operator_id int DEFAULT NULL,
+   created_at datetime DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (fulfillment_id),
+   UNIQUE KEY uq_transaction (transaction_id),
+   UNIQUE KEY uq_token (token),
+   KEY idx_centre_id (centre_id),
+   KEY idx_status (status),
+   KEY product_fulfillments_ibfk_2 (fulfilled_by_operator_id),
+   CONSTRAINT product_fulfillments_ibfk_1 FOREIGN KEY (centre_id) REFERENCES centres (centre_id) ON DELETE CASCADE,
+   CONSTRAINT product_fulfillments_ibfk_2 FOREIGN KEY (fulfilled_by_operator_id) REFERENCES operators (operator_id) ON DELETE SET NULL
  ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE product_named_buyers (
@@ -1200,41 +1249,64 @@ CREATE TABLE speed_products (
    CONSTRAINT speed_products_ibfk_4 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE tank_dispatch (
-   dispatch_id int NOT NULL AUTO_INCREMENT,
-   dispatch_date date NOT NULL,
-   milk_type enum('cow','buffalo','mixed') NOT NULL DEFAULT 'mixed',
-   shift enum('morning','evening') DEFAULT 'morning',
-   cow_liters decimal(10,2) DEFAULT '0.00',
-   buffalo_liters decimal(10,2) DEFAULT '0.00',
-   total_liters decimal(10,2) NOT NULL,
-   avg_fat decimal(5,2) DEFAULT NULL,
-   avg_snf decimal(5,2) DEFAULT NULL,
-   avg_fat_cow decimal(5,2) DEFAULT NULL,
-   avg_snf_cow decimal(5,2) DEFAULT NULL,
-   avg_fat_buffalo decimal(5,2) DEFAULT NULL,
-   avg_snf_buffalo decimal(5,2) DEFAULT NULL,
-   factory_name varchar(150) DEFAULT NULL,
-   vehicle_no varchar(20) DEFAULT NULL,
-   driver_name varchar(100) DEFAULT NULL,
-   factory_rate decimal(8,2) DEFAULT NULL,
-   total_amount decimal(12,2) DEFAULT NULL,
-   operator_id int DEFAULT NULL,
-   created_by_admin_id int DEFAULT NULL,
-   centre_id int NOT NULL,
-   remarks text,
-   acidity varchar(10) DEFAULT '12.5',
-   temperature varchar(10) DEFAULT '2',
-   fssai_code varchar(50) DEFAULT NULL,
-   created_at datetime DEFAULT CURRENT_TIMESTAMP,
-   PRIMARY KEY (dispatch_id),
-   KEY operator_id (operator_id),
-   KEY centre_id (centre_id),
-   KEY created_by_admin_id (created_by_admin_id),
-   CONSTRAINT tank_dispatch_ibfk_1 FOREIGN KEY (operator_id) REFERENCES operators (operator_id),
-   CONSTRAINT tank_dispatch_ibfk_2 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
-   CONSTRAINT tank_dispatch_ibfk_3 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
- ) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE stock_transfer_items (
+   item_id      INT NOT NULL AUTO_INCREMENT,
+   transfer_id  INT NOT NULL,
+   stock_type   ENUM('milk','product','cattle_feed') NOT NULL,
+   ref_id       INT DEFAULT NULL,             -- product_id / feed_id (null for milk)
+   item_name    VARCHAR(255) NOT NULL,
+   milk_type    ENUM('cow','buffalo','mixed') DEFAULT NULL,
+   unit         VARCHAR(20) NOT NULL DEFAULT 'L',
+   quantity     DECIMAL(12,2) NOT NULL,
+   rate         DECIMAL(10,2) DEFAULT '0.00',
+   total_amount DECIMAL(12,2) DEFAULT '0.00',
+   PRIMARY KEY (item_id),
+   KEY idx_transfer_id (transfer_id),
+   CONSTRAINT sti_transfer_fk FOREIGN KEY (transfer_id) REFERENCES stock_transfers (transfer_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE stock_transfer_sequences (
+   id              INT NOT NULL AUTO_INCREMENT,
+   dairy_id        INT NOT NULL,
+   financial_year  VARCHAR(10) NOT NULL,
+   last_number     INT NOT NULL DEFAULT 0,
+   PRIMARY KEY (id),
+   UNIQUE KEY uq_dairy_fy (dairy_id, financial_year),
+   CONSTRAINT sts_dairy_fk FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE stock_transfers (
+   transfer_id     INT NOT NULL AUTO_INCREMENT,
+   transfer_no     VARCHAR(50) NOT NULL,
+   from_centre_id  INT NOT NULL,
+   to_centre_id    INT NOT NULL,
+   dairy_id        INT NOT NULL,
+   transfer_date   DATE NOT NULL,
+   status          ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+   requires_approval TINYINT(1) NOT NULL DEFAULT 1,
+   remarks         TEXT,
+   created_by      INT DEFAULT NULL,          -- operator_id
+   created_by_admin_id INT DEFAULT NULL,      -- admin_id
+   approved_by     INT DEFAULT NULL,          -- operator_id who approved
+   approved_by_admin_id INT DEFAULT NULL,     -- admin_id who approved
+   approved_at     DATETIME DEFAULT NULL,
+   rejection_reason TEXT,
+   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+   updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY (transfer_id),
+   UNIQUE KEY transfer_no (transfer_no),
+   KEY idx_from_centre (from_centre_id),
+   KEY idx_to_centre (to_centre_id),
+   KEY idx_status (status),
+   KEY idx_transfer_date (transfer_date),
+   CONSTRAINT st_from_centre_fk FOREIGN KEY (from_centre_id) REFERENCES centres (centre_id),
+   CONSTRAINT st_to_centre_fk   FOREIGN KEY (to_centre_id)   REFERENCES centres (centre_id),
+   CONSTRAINT st_dairy_fk       FOREIGN KEY (dairy_id)       REFERENCES dairies (dairy_id),
+   CONSTRAINT st_created_by_fk  FOREIGN KEY (created_by)     REFERENCES operators (operator_id) ON DELETE SET NULL,
+   CONSTRAINT st_created_by_admin_fk FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL,
+   CONSTRAINT st_approved_by_fk FOREIGN KEY (approved_by)    REFERENCES operators (operator_id) ON DELETE SET NULL,
+   CONSTRAINT st_approved_by_admin_fk FOREIGN KEY (approved_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE transaction_sequences (
    id int NOT NULL AUTO_INCREMENT,
@@ -1311,6 +1383,28 @@ CREATE TABLE walkin_bill_sales_snapshot (
    CONSTRAINT walkin_bill_sales_snapshot_ibfk_2 FOREIGN KEY (sale_id) REFERENCES walkin_sales (sale_id),
    CONSTRAINT walkin_bill_sales_snapshot_ibfk_3 FOREIGN KEY (centre_id) REFERENCES centres (centre_id)
  ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE walkin_buyer_settings (
+    id INT NOT NULL AUTO_INCREMENT,
+    centre_id INT NOT NULL,
+    anon_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    named_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    seller_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    updated_by_operator_id INT DEFAULT NULL,
+    updated_by_admin_id INT DEFAULT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_centre (centre_id),
+    KEY idx_centre_id (centre_id),
+    CONSTRAINT wbs_centre_fk FOREIGN KEY (centre_id)
+        REFERENCES centres (centre_id) ON DELETE CASCADE,
+    CONSTRAINT wbs_operator_fk FOREIGN KEY (updated_by_operator_id)
+        REFERENCES operators (operator_id) ON DELETE SET NULL,
+    CONSTRAINT wbs_admin_fk FOREIGN KEY (updated_by_admin_id)
+        REFERENCES admins (admin_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE walkin_named_buyers (
    buyer_id int NOT NULL AUTO_INCREMENT,
@@ -1403,69 +1497,5 @@ CREATE TABLE walkin_sales (
    CONSTRAINT walkin_sales_ibfk_5 FOREIGN KEY (centre_id) REFERENCES centres (centre_id),
    CONSTRAINT walkin_sales_ibfk_6 FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL ON UPDATE CASCADE
  ) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
- -- ── Stock Transfers (header) ─────────────────────────────────
-CREATE TABLE stock_transfers (
-   transfer_id     INT NOT NULL AUTO_INCREMENT,
-   transfer_no     VARCHAR(50) NOT NULL,
-   from_centre_id  INT NOT NULL,
-   to_centre_id    INT NOT NULL,
-   dairy_id        INT NOT NULL,
-   transfer_date   DATE NOT NULL,
-   status          ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
-   requires_approval TINYINT(1) NOT NULL DEFAULT 1,
-   remarks         TEXT,
-   created_by      INT DEFAULT NULL,          -- operator_id
-   created_by_admin_id INT DEFAULT NULL,      -- admin_id
-   approved_by     INT DEFAULT NULL,          -- operator_id who approved
-   approved_by_admin_id INT DEFAULT NULL,     -- admin_id who approved
-   approved_at     DATETIME DEFAULT NULL,
-   rejection_reason TEXT,
-   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-   updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   PRIMARY KEY (transfer_id),
-   UNIQUE KEY transfer_no (transfer_no),
-   KEY idx_from_centre (from_centre_id),
-   KEY idx_to_centre (to_centre_id),
-   KEY idx_status (status),
-   KEY idx_transfer_date (transfer_date),
-   CONSTRAINT st_from_centre_fk FOREIGN KEY (from_centre_id) REFERENCES centres (centre_id),
-   CONSTRAINT st_to_centre_fk   FOREIGN KEY (to_centre_id)   REFERENCES centres (centre_id),
-   CONSTRAINT st_dairy_fk       FOREIGN KEY (dairy_id)       REFERENCES dairies (dairy_id),
-   CONSTRAINT st_created_by_fk  FOREIGN KEY (created_by)     REFERENCES operators (operator_id) ON DELETE SET NULL,
-   CONSTRAINT st_created_by_admin_fk FOREIGN KEY (created_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL,
-   CONSTRAINT st_approved_by_fk FOREIGN KEY (approved_by)    REFERENCES operators (operator_id) ON DELETE SET NULL,
-   CONSTRAINT st_approved_by_admin_fk FOREIGN KEY (approved_by_admin_id) REFERENCES admins (admin_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── Stock Transfer Items (lines) ─────────────────────────────
-CREATE TABLE stock_transfer_items (
-   item_id      INT NOT NULL AUTO_INCREMENT,
-   transfer_id  INT NOT NULL,
-   stock_type   ENUM('milk','product','cattle_feed') NOT NULL,
-   ref_id       INT DEFAULT NULL,             -- product_id / feed_id (null for milk)
-   item_name    VARCHAR(255) NOT NULL,
-   milk_type    ENUM('cow','buffalo','mixed') DEFAULT NULL,
-   unit         VARCHAR(20) NOT NULL DEFAULT 'L',
-   quantity     DECIMAL(12,2) NOT NULL,
-   rate         DECIMAL(10,2) DEFAULT '0.00',
-   total_amount DECIMAL(12,2) DEFAULT '0.00',
-   PRIMARY KEY (item_id),
-   KEY idx_transfer_id (transfer_id),
-   CONSTRAINT sti_transfer_fk FOREIGN KEY (transfer_id) REFERENCES stock_transfers (transfer_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── Sequence table for transfer numbers per centre/dairy ─────
-CREATE TABLE stock_transfer_sequences (
-   id              INT NOT NULL AUTO_INCREMENT,
-   dairy_id        INT NOT NULL,
-   financial_year  VARCHAR(10) NOT NULL,
-   last_number     INT NOT NULL DEFAULT 0,
-   PRIMARY KEY (id),
-   UNIQUE KEY uq_dairy_fy (dairy_id, financial_year),
-   CONSTRAINT sts_dairy_fk FOREIGN KEY (dairy_id) REFERENCES dairies (dairy_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
 
 SET FOREIGN_KEY_CHECKS = 1;

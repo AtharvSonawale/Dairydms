@@ -994,7 +994,9 @@ const en = {
                 "grandTotal": "Grand Total",
                 "cancel": "Cancel",
                 "saveChanges": "Save Changes",
-                "saving": "Saving…"
+                "saving": "Saving…",
+                "needAtLeastOneValidLine": "Enter quantity and rate greater than 0 for at least one line.",
+                "incompleteLines": "Some lines are incomplete. Fill feed, quantity, and rate — or remove them."
             },
             "deleteModal": {
                 "title": "Delete Sale?",
@@ -1080,6 +1082,21 @@ const en = {
                 "saleDeleted": "Sale deleted.",
                 "deleteFailed": "Delete failed.",
                 "saveFailed": "Save failed"
+            },
+
+            "buyerSettingsButton": "Buyer Types",
+            "buyerSettings": {
+                "title": "Buyer Types",
+                "desc": "Enable or disable buyer types for cattle feed sales",
+                "seller": "Seller",
+                "named": "Named Buyer",
+                "anon": "Anonymous",
+                "sellerHint": "Sell to registered sellers",
+                "namedHint": "Sell to named/registered buyers",
+                "anonHint": "Sell to anonymous walk-in buyers",
+                "mustKeepOne": "At least one buyer type must remain enabled.",
+                "saveSuccess": "Buyer settings updated.",
+                "saveError": "Failed to update buyer settings."
             }
         },
 
@@ -1373,7 +1390,6 @@ const en = {
         },
 
         // ── Dashboard ────────────────────────────────────────────────
-        // ── Dashboard ────────────────────────────────────────────────
         dashboard: {
             myDashboard: "My Dashboard",
             startTour: "Start a Tour",
@@ -1486,101 +1502,16 @@ const en = {
             th_totalQty: "Total Qty",
             th_amount: "Amount",
             total: "Total",
-            // ── Additional keys for the complete dashboard ──────────
-            greetMorning: "Good Morning",
-            greetAfternoon: "Good Afternoon",
-            greetEvening: "Good Evening",
             admin: "Admin",
             amount: "Amount",
-            milkEntries: "Milk Entries",
-            sellersActive: "Active Farmers",
-            walkinCount: "Walk-in Sales",
-            productSalesCount: "Product Sales",
-            dispatchCount: "Dispatches",
-            advanceCount: "Advances",
-            outOfStockLabel: "OUT OF STOCK",
-            lowStockLabel: "Low Stock",
-            revenueOverview: "Revenue Overview",
-            totalProfit: "Total Profit",
-            dairySale: "Dairy Sale",
-            walkinSales: "Walk-in Sales",
-            productSales: "Product Sales",
-            purchaseSpend: "Purchase Spend",
             cattleFeedSales: "Cattle Feed Sales",
             cattleFeedPurchases: "Cattle Feed Purchases",
             totalBonusPaid: "Total Bonus Paid",
-            transactions: "transactions",
-            itemsSold: "items sold",
-            purchases: "purchases",
-            dispatches: "dispatches",
-            milkCollection: "Milk Collection",
-            totalCollection: "Total Collection",
-            opening: "Opening",
-            milkPayable: "Milk Payable",
-            dueAllSellers: "Due to all Farmers",
-            avgFatSnf: "Avg Fat / SNF",
-            activeSellers: "Active Farmers",
-            cow: "Cow",
-            buffalo: "Buffalo",
-            walkinBreakdown: "Walk-in Breakdown",
-            cowWalkin: "Cow Walk-in",
-            bufWalkin: "Buffalo Walk-in",
-            sales: "sales",
-            tankDispatch: "Tank Dispatch",
-            dispatchesToday: "Dispatches",
-            trips: "trips",
-            totalDispatched: "Total Dispatched",
-            milkSentFactory: "Milk sent to factory",
-            factoryRevenue: "Factory Revenue",
-            fromFactory: "From factory",
-            avgFactoryRate: "Avg Factory Rate",
-            noDispatch: "No dispatches",
-            dispatchRecords: "Dispatch Records",
-            today: "today",
-            noDispatches: "No dispatches recorded",
-            ownerUsage: "Owner Usage",
-            totalUsed: "Total Used",
-            personalConsumption: "Personal consumption",
-            morningUsage: "Morning Usage",
-            eveningUsage: "Evening Usage",
-            usageRecords: "Usage Records",
-            noUsage: "No usage records",
-            personalUse: "Personal use",
-            cashAdvance: "Cash Advance",
-            givenToday: "Given Today",
-            receivedToday: "Received Today",
-            netAdvance: "Net Advance",
-            netGiven: "Net given",
-            netRecovered: "Net recovered",
-            sellerSummary: "Farmer Summary",
-            sellers: "farmers",
-            th_no: "#",
-            th_seller: "Farmer",
-            th_code: "Code",
-            th_entries: "Entries",
-            th_cow: "Cow (L)",
-            th_buffalo: "Buffalo (L)",
-            th_totalQty: "Total Qty",
-            th_amount: "Amount",
-            productStock: "Product Stock",
-            products: "products",
-            outOfStock: "Out of Stock",
-            noProducts: "No products found",
             cattleFeedStock: "Cattle Feed Stock",
-            recentMilk: "Recent Milk Entries",
-            total: "total",
-            noMilkEntries: "No milk entries",
-            noWalkin: "No walk-in sales",
-            anonymous: "Anonymous",
-            productPurchases: "Product Purchases",
-            spent: "spent",
-            noProductSales: "No product sales",
-            noPurchases: "No purchases",
             bonus: "Bonus",
             utpadakBonusPaid: "Utpadak Bonus Paid",
             gavaliBonusPaid: "Gavali Bonus Paid",
             bonusPayments: "Bonus Payments",
-            noAdvances: "No bonus payments",
             paid: "Paid",
             pending: "Pending",
             commission: "Commission",
@@ -1593,19 +1524,7 @@ const en = {
             noRules: "No commission rules configured",
             active: "Active",
             inactive: "Inactive",
-            advanceGiven: "Advance given",
-            installmentReceived: "Installment received",
-            noAdvances: "No advance transactions",
-            footerPeriod: "Period",
-            footerData: "Data from",
-            lowStock: "Low Stock",
-            footerLowStock: "less than 5 units",
-            footerOut: "zero stock",
-            footerDispatch: "Dispatch = milk sent to factory",
-            footerOwner: "Owner = personal consumption",
-            footerParallel: "All sections show parallel data",
             status: "Status",
-            // ── Bill related (shared with sellerPayments) ──────────
             bill: {
                 morning: "Morning",
                 evening: "Evening",
@@ -1617,7 +1536,6 @@ const en = {
 
         // ── Farmer Dashboard ──────────────────────────────────────────
         farmerDashboard: {
-            // Top Bar
             myDashboard: "My Dashboard",
             farmerLabel: "Farmer",
             referenceDate: "Reference Date",
@@ -1625,14 +1543,10 @@ const en = {
             paymentCycle: "Payment Cycle",
             customPeriod: "Custom Period",
             periodLabel: "Period",
-
-            // Cycle/Period indicators
             currentPaymentCycle: "Current Payment Cycle",
             customPeriodViewing: "Viewing Custom Period",
             cycleNote: "Data below reflects this cycle only",
             periodNote: "Data below reflects this custom period",
-
-            // Overview
             myOverview: "My Overview",
             milkDelivered: "Milk Delivered",
             milkEarnings: "Milk Earnings",
@@ -1641,17 +1555,11 @@ const en = {
             depositBalance: "Deposit Balance",
             heldByDairy: "Held by dairy",
             acrossAllEntries: "Across all your entries this period",
-
-            // My Milk Entries
             myMilkEntries: "My Milk Entries",
             viewAll: "View All",
             noMilkEntries: "No milk entries for this period",
-
-            // My Bills
             myBills: "My Bills",
             noBills: "No bills yet for this period",
-
-            // Advance & Deposit
             noAdvances: "No advance transactions",
             givenLabel: "Given",
             receivedLabel: "Received",
@@ -1661,17 +1569,11 @@ const en = {
             depositWithdrawn: "Deposit withdrawn",
             addedLabel: "Added",
             withdrawnLabel: "Withdrawn",
-
-            // Premium Rates
             myPremiumRates: "My Premium Rates",
             noPremiumRates: "No premium rates assigned",
             ongoing: "Ongoing",
-
-            // Product Purchases
             myProductPurchases: "My Product Purchases",
             noProductPurchases: "No product purchases this period",
-
-            // Bill Detail Modal
             billLoadFailed: "Failed to load bill details",
             loadFailed: "Failed to load dashboard data",
             milkAmount: "Milk Amount",
@@ -1690,12 +1592,8 @@ const en = {
             netCashToHand: "Net Cash To Hand",
             billNoLabel: "Bill No.",
             paidOn: "Paid On",
-
-            // Footer
             farmerFooter: "Showing only your own records",
         },
-
-
 
         // ── Expenses ─────────────────────────────────────────────────
         expenses: {
@@ -2437,7 +2335,7 @@ const en = {
 
         // ── Navigation ───────────────────────────────────────────────
         nav: {
-            utpadakBonusReport : "Utpadak Bonus Report",
+            utpadakBonusReport: "Utpadak Bonus Report",
             gavaliBonusReport: "Gavali Bonus Report",
             favourites: "Favourites",
             commissionSettings: "Commission Settings",
@@ -2797,8 +2695,6 @@ const en = {
             }
         },
 
-
-
         // ── Premium Rates ────────────────────────────────────────────
         premiumRates: {
             premiumRatesList: "Premium Rates List",
@@ -3046,13 +2942,11 @@ const en = {
             mrp: "MRP",
             loadError: "Failed to load payment data.",
             searchBillsPlaceholder: "Search bills...",
-            noBillsFound: "No bills found",
             cashPaid: "Cash Paid",
             advancePending: "Advance Pending",
             depositDeduction: "Deposit Deduction",
             productDeduction: "Product Deduction",
             walkinDeduction: "Walk-in Deduction",
-            netPayable: "Net Payable",
             payNow: "Pay Now",
             printReceipt: "Print Receipt",
             exportExcel: "Export Excel",
@@ -3228,7 +3122,6 @@ const en = {
             description: "Description",
             details: "Details",
             summary: "Summary",
-            total: "Total",
             average: "Average",
             minimum: "Minimum",
             maximum: "Maximum",
@@ -3335,6 +3228,31 @@ const en = {
             pdfSignatory: "Authorised Signatory: ___________________________",
             noSalesDaily: "No product sales for this date",
             noSalesRange: "No sales found for this range",
+            cancel: "Cancel",
+            update: "Update",
+
+            // ── Buyer Types (visibility settings) ──
+            buyerSettingsButton: "Buyer Types",
+            buyerSettings: {
+                title: "Buyer Types",
+                desc: "Enable or disable buyer types for product sales",
+                seller: "Seller",
+                named: "Named Buyer",
+                anon: "Anonymous",
+                sellerHint: "Sell to registered sellers",
+                namedHint: "Sell to named/registered buyers",
+                anonHint: "Sell to anonymous walk-in buyers",
+                mustKeepOne: "At least one buyer type must remain enabled.",
+                saveSuccess: "Buyer settings updated.",
+                saveError: "Failed to update buyer settings.",
+            },
+
+            // ── Buyer mode labels (used in the entry form) ──
+            form: {
+                sellerBuys: "Seller",
+                named: "Named",
+                anon: "Anonymous",
+            },
 
             // ── Receipt (used by ProductSalesReceipt.jsx print template) ──
             receipt: {
@@ -3351,206 +3269,6 @@ const en = {
                 preparing: "Preparing receipt…",
                 sendingToPrinter: "Sending to printer…",
             },
-        },
-
-        "cattleFeedSales": {
-            "pageTitle": "Cattle Feed Sales",
-            "pageSubtitle": "Record and manage feed sales — {{date}}",
-            "takeTour": "Take a Tour",
-            "speedConfigButton": "Speed Config",
-            "dateLabel": "Date",
-            "downloadPDF": "Download PDF",
-            "rangeDay": "Day",
-            "rangeWeek": "Week",
-            "rangeMonth": "Month",
-            "rangeCustom": "Custom",
-            "loading": "Loading…",
-            "tourDateDesc": "Select a date to view sales for that day",
-            "tourStatsDesc": "Quick overview of today's sales performance",
-            "tourFormDesc": "Record a new sale by selecting a farmer and adding feed items",
-            "tourTableDesc": "View and manage all sales transactions",
-            "stats": {
-                "todaySales": "Today's Sales",
-                "totalRevenue": "Total Revenue",
-                "sellersServed": "Farmers Served"
-            },
-            "form": {
-                "sellerBuys": "Seller",
-                "named": "Named",
-                "anon": "Anonymous",
-                "sellerCode": "Farmer Code",
-                "title": "New Sale Entry",
-                "seller": "Farmer",
-                "sellerPlaceholder": "Search farmer by name or code",
-                "sellerMatches": "{{count}} matches",
-                "sellersAZ": "Farmers A–Z",
-                "buyerName": "Buyer Name",
-                "buyerPlaceholder": "Search or add buyer...",
-                "registerBuyer": "Register \"{{name}}\"",
-                "buyer": "Buyer",
-                "anonymous": "Anonymous",
-                "addFeed": "Add Feed",
-                "grandTotal": "Grand Total:",
-                "recordSale": "Record Sale",
-                "saving": "Saving…",
-                "feed": "Feed",
-                "qty": "Qty",
-                "rate": "MRP Rate",
-                "total": "Total",
-                "feedPlaceholder": "Search feed…",
-                "stockLabel": "Stock: {{amount}} {{unit}}",
-                "outOfStock": "⚠ Out of stock",
-                "insufficientStock": "Insufficient stock for {{feed}}. Available: {{available}} {{unit}}",
-                "selectSeller": "Please select a farmer",
-                "addAtLeastOneFeed": "Add at least one feed with quantity and rate",
-                "saleRecorded": "Sale recorded",
-                "saveFailed": "Save failed",
-                "lineTotal": "₹{{amount}}",
-                "saleOn": "sale",
-                "totalRevenueText": "· ₹{{amount}} total",
-                "feedCount": "{{count}} feed",
-                "feedCount_plural": "{{count}} feeds"
-            },
-            "speedStrip": {
-                "quick": "Quick ({{count}})",
-                "cols": "Cols:",
-                "outOfStock": "Out of stock"
-            },
-            "table": {
-                "salesList": "Sales List",
-                "headers": {
-                    "seller": "Farmer",
-                    "feed": "Feed",
-                    "qty": "Qty",
-                    "rate": "Rate",
-                    "total": "Total",
-                    "time": "Time",
-                    "actions": ""
-                },
-                "noSalesDay": "No sales recorded for this day",
-                "noSalesRange": "No sales in this range",
-                "entries": "{{count}} entry",
-                "entries_plural": "{{count}} entries",
-                "salesToday": "sales recorded today",
-                "salesInRange": "sales in range",
-                "printReceipt": "Print receipt",
-                "edit": "Edit",
-                "delete": "Delete",
-                "totalRevenue": "₹{{amount}}"
-            },
-            "legend": {
-                "salesCount": "• <strong>{{count}}</strong> {{label}}",
-                "stockAutoUpdate": "• Stock updates automatically when recording or deleting",
-                "clickFeedCard": "• Click a feed card to add it quickly"
-            },
-            "editModal": {
-                "title": "Edit Sale",
-                "subtitle": "Editing transaction: {{id}}",
-                "seller": "Farmer",
-                "named": "Named",
-                "anon": "Anonymous",
-                "saleDate": "Sale Date",
-                "sellerPlaceholder": "Search seller...",
-                "buyerName": "Buyer Name",
-                "buyerPlaceholder": "Search or add buyer...",
-                "registerBuyer": "Will register \"{{name}}\" as a new buyer on save",
-                "anonymous": "Anonymous buyer",
-                "feed": "Feed",
-                "qty": "Qty",
-                "rate": "Rate",
-                "selectFeed": "Select feed…",
-                "addLine": "Add Line",
-                "grandTotal": "Grand Total",
-                "cancel": "Cancel",
-                "saveChanges": "Save Changes",
-                "saving": "Saving…"
-            },
-            "deleteModal": {
-                "title": "Delete Sale?",
-                "warning": "This will permanently delete the sale for <strong>{{label}}</strong>. Stock will be reversed.",
-                "cancel": "Cancel",
-                "confirm": "Yes, Delete"
-            },
-            "speedConfig": {
-                "title": "Speed Feeds Config",
-                "desc": "Add quick‑tap feeds with images",
-                "addNew": "Add New",
-                "editEntry": "Edit Entry",
-                "feed": "Feed",
-                "selectFeed": "Select feed…",
-                "displayName": "Display Name",
-                "displayPlaceholder": "Optional override",
-                "sortOrder": "Order / Sequence",
-                "image": "Feed Image",
-                "uploadImage": "Upload Image",
-                "changeImage": "Change Image",
-                "noFeeds": "No speed feeds yet",
-                "add": "Add",
-                "update": "Update",
-                "cancel": "Cancel",
-                "stock": "Stock: {{amount}} {{unit}}",
-                "supplier": "Supplier: {{name}}",
-                "rate": "₹{{rate}}",
-                "removeImage": "Remove image",
-                "imageTooLarge": "Image must be under 5MB",
-                "onlyImages": "Only images allowed",
-                "loadError": "Failed to load speed feeds",
-                "saveSuccess": "Updated!",
-                "addSuccess": "Added!",
-                "saveError": "Save failed",
-                "deleteSuccess": "Removed",
-                "deleteError": "Delete failed",
-                "count": "{{count}} Speed Feed",
-                "count_plural": "{{count}} Speed Feeds"
-            },
-            "pdf": {
-                "title": "Cattle Feed Sales",
-                "report": "Report",
-                "generated": "Generated",
-                "sales": "Sales",
-                "sellers": "Farmers",
-                "revenue": "Revenue",
-                "seller": "Farmer",
-                "feed": "Feed",
-                "qty": "Qty",
-                "rate": "Rate",
-                "amount": "Amount",
-                "dateTime": "Date / Time",
-                "grandTotal": "Grand Total",
-                "entries": "Entries",
-                "sellerCount": "Farmer",
-                "sellerCount_plural": "Farmers",
-                "footer": "This is a system‑generated report.",
-                "signatory": "Authorised Signatory",
-                "period": "{{mode}} Report · {{period}}"
-            },
-            "receipt": {
-                "scanToCollect": "Scan to Collect",
-                "title": "Cattle Feed Cash Memo",
-                "transactionId": "Transaction ID: {{id}}",
-                "date": "Date",
-                "time": "Time",
-                "custNo": "Cust No",
-                "custName": "Cust Name",
-                "grandTotal": "Grand Total",
-                "signatory": "Authorised Signatory",
-                "feed": "Feed",
-                "qty": "Qty",
-                "rate": "Rate",
-                "amount": "Amount",
-                "no": "#",
-                "preparing": "Preparing receipt…",
-                "sendingToPrinter": "Sending to printer…"
-            },
-            "messages": {
-                "loadRangeFailed": "Failed to load range entries",
-                "loadSalesFailed": "Failed to load sales",
-                "saleUpdated": "Sale updated",
-                "updateFailed": "Update failed",
-                "saleDeleted": "Sale deleted.",
-                "deleteFailed": "Delete failed.",
-                "saveFailed": "Save failed"
-            }
         },
 
         // ── Products ─────────────────────────────────────────────────
@@ -3764,17 +3482,14 @@ const en = {
             hoverTip: "Hover row to edit/delete",
             contactAdminTip: "Contact admin to edit rates",
 
-            // ── NEW: View toggle ──────────────────────────────
             viewMatrix: "Rate Sheet",
             viewList: "List",
 
-            // ── NEW: Tour descriptions ─────────────────────────
             tourDateDesc: "Pick the date to view or add rates for.",
             tourActionsDesc: "Carry rates forward to future dates, auto-generate a full chart by formula, assign premium rates to specific farmers, or add a single rate manually.",
             tourFilterDesc: "Switch between cow, buffalo, and mixed rate charts.",
             tourTableDesc: "Each row shows the rate for a specific FAT/SNF combination. Edit or delete rates here.",
 
-            // ── NEW: Import modal ──────────────────────────────
             import: {
                 button: "Import Rates",
                 title: "Import Rates",
@@ -3891,7 +3606,6 @@ const en = {
             advanceCut: "Advance Cut",
             closingAdvance: "Closing Advance",
             amt: "Amount",
-            // Page Header
             pageTitle: "Farmer Payments",
             pageSubtitle: "Manage and track farmer payments",
             startTour: "Take a Tour",
@@ -3914,7 +3628,6 @@ const en = {
             from: "From",
             to: "To",
 
-            // Stats
             totalSellers: "Total Farmers",
             milkAmount: "Milk Amount",
             advanceTaken: "Advance Taken",
@@ -3931,13 +3644,11 @@ const en = {
             paid: "Paid",
             done: "Done",
 
-            // Search & Filter
             searchPlaceholder: "Search by name or code...",
             all: "All",
             unpaid: "Unpaid",
             noSellersFound: "No farmers found for this period",
 
-            // Seller Card Labels
             milk: "Milk",
             advPending: "Adv. Pending",
             advInstCut: "Adv. Inst. Cut",
@@ -3953,7 +3664,6 @@ const en = {
             pay: "Pay",
             undo: "Undo",
 
-            // Daily Milk Entries
             dailyMilkEntries: "Daily Milk Entries",
             date: "Date",
             shift: "Shift",
@@ -3968,7 +3678,6 @@ const en = {
             morning: "Morning",
             evening: "Evening",
 
-            // Payment Summary
             milkPayable: "Milk Payable",
             advancePendingBefore: "Advance Pending Before",
             advanceAfterInstallment: "Advance After Installment",
@@ -3980,14 +3689,12 @@ const en = {
             netCashToHand: "Net Cash to Hand",
             cashPaidOn: "Cash paid on",
 
-            // Totals
             milkTotal: "Milk Total",
             totalAdvanceTaken: "Total Advance Taken",
             productDeductions: "Product Deductions",
             cattleFeedDeductions: "Cattle Feed Deductions",
             totalCashToHand: "Total Cash to Hand",
 
-            // Bill Registry
             billRegistry: "Bill Registry",
             billRegistryDesc: "Search and manage all payment bills",
             billSearchPlaceholder: "Search by bill no., farmer name, or code...",
@@ -4021,7 +3728,6 @@ const en = {
             cattleFeedSales: "Cattle Feed Sales",
             walkinSales: "Walk-in Sales",
 
-            // PDF Receipt Labels
             milkCollectionReceipt: "Milk Collection Receipt",
             accountSummary: "Account Summary",
             billNoLabel: "Bill No",
@@ -4074,7 +3780,6 @@ const en = {
             authorisedSignatory: "Authorised Signatory",
             sellerPaymentSummary: "Farmer Payment Summary",
 
-            // Cattle Feed
             cattleFeed: "Cattle Feed",
             feed: "Feed",
             cattleFeedDeduction: "Cattle Feed Deduction",
@@ -4083,7 +3788,6 @@ const en = {
             depositDeductedPerLitre: "Deposit Deducted (per litre)",
             milkBoughtBySellerWalkinShort: "Milk Bought (Walk-in)",
 
-            // Excel Config
             excelConfig: "Excel Configuration",
             configureExcelExport: "Configure Excel Export",
             plantCode: "Plant Code",
@@ -4095,7 +3799,6 @@ const en = {
             edit: "Edit",
             saving: "Saving...",
 
-            // Bulk Download
             bulkDownloadAllPDFs: "Download All PDFs",
             bulkDownloading: "Downloading…",
             combinedDownloadAll: "Combined PDF",
@@ -4104,22 +3807,18 @@ const en = {
             bulkDownloadSuccess: "Downloaded {count} receipt(s).",
             bulkDownloadError: "Some receipts failed to download.",
 
-            // Export
             exportExcel: "Export Excel",
             excelExportFailed: "Excel export failed",
             exporting: "Exporting...",
 
-            // Pagination
             prev: "Prev",
             next: "Next",
             of: "of",
             rowsPerPage: "Rows per page",
 
-            // Cycle Modes
             fixedMonthly: "Fixed Monthly",
             customCycle: "Custom Cycle",
 
-            // Flash Messages
             popupBlocked: "Popup blocked. Please allow popups for this site.",
             printLoadError: "Failed to load bill details for printing.",
             billNotFound: "Bill not found",
@@ -4133,11 +3832,9 @@ const en = {
             receiptGenerationError: "Failed to generate receipt",
             pdfGenerationError: "Failed to generate PDF",
 
-            // View Controls
             hideList: "Hide List",
             showList: "Show List",
 
-            // Seller Details
             sellers: "Farmers",
             entriesCount: "Entries",
             totalQuantity: "Total Quantity",
@@ -4516,7 +4213,6 @@ const en = {
             deleteModalWarning: "This action is permanent and cannot be undone. The farmer record will be removed from the database.",
             yesDelete: "Yes, Delete",
 
-            // Import Modal
             importFarmers: "Import Farmers",
             importDescription: "Bulk-add farmers from an Excel or CSV file",
             dropFileHere: "Drop the file here",
@@ -4533,7 +4229,6 @@ const en = {
             importResultsSkipped: "skipped",
             importResultsDetails: "See the details in the import window for why.",
 
-            // Error Messages
             invalidFileFormat: "Please upload a .xlsx, .xls, or .csv file.",
             emptyFileError: "The file is empty or has no data.",
             missingRequiredColumns: "Required columns 'Name' and 'Mobile' not found.",
@@ -4546,13 +4241,11 @@ const en = {
             pincodeInvalidError: "Pincode must be a valid 6-digit number.",
             passwordMinError: "Password must be at least 6 characters.",
 
-            // Tour Descriptions
             tourAddSellerDesc: "Click here to register a new farmer.",
             tourStatsDesc: "See your total farmers, broken down by milk type.",
             tourFilterDesc: "Filter the farmer list by cow, buffalo, or both milk type.",
             tourTableDesc: "Click a farmer's name to view their profile, or use Edit/Delete here.",
 
-            // Additional Labels
             cattleFeedSale: "Cattle Feed Sale",
             paymentTerm: "Payment Term",
         },
@@ -4564,7 +4257,6 @@ const en = {
             startTour: "Start Tour",
             adminOnly: "Admin only",
 
-            // App Identity
             appIdentity: "App Identity",
             appName: "App Name",
             appNamePlaceholder: "e.g. Shri Dairy",
@@ -4578,18 +4270,15 @@ const en = {
             logoTypeError: "Please upload a valid image file.",
             livePreview: "Live preview",
 
-            // Language
             language: "Language",
             languageHint: "Language affects UI labels and date formats throughout the app. Changes take effect immediately after saving.",
 
-            // Text Size
             textSize: "Text Size",
             textSizeHint: "Adjusts the base font size across the application.",
             textSm: "Small",
             textMd: "Medium",
             textLg: "Large",
 
-            // Fat-Only Rate Auto-Fill
             fatOnlyAutofill: {
                 title: "Fat-Only Rate Auto-Fill",
                 description: 'When enabled, the milk entry rate auto-fill looks up the rate using only the entered <strong>FAT %</strong>, always paired with a fixed SNF — <strong>8.5</strong> for Cow and <strong>9.0</strong> for Buffalo — regardless of the SNF the fat machine actually reads. Use this if your centre prices strictly off a standard SNF slab.',
@@ -4597,12 +4286,10 @@ const en = {
                 activeNotification: 'Active — rate lookups in Milk Entry will use FAT + fixed SNF (8.5 Cow / 9.0 Buffalo), not the measured SNF.',
             },
 
-            // Dispatch Settings
             dispatchSettings: "Dispatch Settings",
             fssaiCode: "FSSAI Code",
             fssaiCodeHint: "Enter your 14-digit FSSAI license number. This appears on dispatch and tanker documents.",
 
-            // Receipt Printer
             printSettings: "Receipt Printer",
             printerType: "Printer Type",
             printerThermal: "Thermal Roll",
@@ -4612,7 +4299,6 @@ const en = {
             autoPrint: "Auto-print receipt after recording a sale",
             autoPrintHint: "Skips the manual 'Print Receipt' click — the receipt opens the print dialog automatically right after Save. The browser's print dialog will still appear once; that's a browser security limit, not a setting.",
 
-            // Receipt Format
             receiptFormat: "Receipt Format",
             receiptFormatHint: "Controls what appears on every printed receipt — Cattle Feed sales, Product sales, and any future receipt type all use this same format.",
             txnPrefix: "Transaction ID prefix",
@@ -4640,7 +4326,6 @@ const en = {
             signatoryText: "Signatory text",
             livePreviewLabel: "Live Preview",
 
-            // Operator Access
             operatorAccess: "Operator Access Rights",
             selectOperator: "Select Operator",
             loadingOperators: "Loading operators…",
@@ -4651,7 +4336,6 @@ const en = {
             revokeAll: "Revoke all",
             selectOperatorHint: "Select an operator above to override their access rights",
 
-            // Page Visibility
             pageVisibility: "Page Visibility",
             pageVisibilityHint: "Turn a page off here and it disappears for ALL users in that role. The 'Flutter' toggle controls the mobile app; the 'Web' toggle controls this dashboard. Each role (Admin, Operator, Farmer) has its own independent visibility controls.",
             platformWeb: "Web",
@@ -4660,7 +4344,6 @@ const en = {
             roleOperator: "Operator",
             roleFarmer: "Farmer",
 
-            // Section labels for visibility
             visibilitySections: {
                 adminDashboard: "Dashboard (Admin)",
                 adminAdministration: "Administration (Admin)",
@@ -4686,7 +4369,6 @@ const en = {
                 farmerPortal: "Farmer Portal",
             },
 
-            // ── Tour descriptions ──
             tour: {
                 appIdentity: "Set your app name and upload a logo — this appears across the whole app.",
                 textSize: "Choose how large text appears throughout the app.",
@@ -4700,7 +4382,6 @@ const en = {
                 save: "Save all changes — app identity, appearance, and operator permissions.",
             },
 
-            // ── Permissions labels ──
             permissions: {
                 groups: {
                     dashboard: "Dashboard",
@@ -4766,7 +4447,6 @@ const en = {
             savedError: "Failed to save settings.",
             resetSuccess: "Access rights reset to defaults.",
 
-            // ── Actions ──
             actions: {
                 save: "Save",
                 saveAll: "Save All",
@@ -4776,7 +4456,6 @@ const en = {
                 resetDefaults: "Reset Defaults",
             },
 
-            // ── Status ──
             status: {
                 inactive: "Inactive",
             },
@@ -4784,7 +4463,6 @@ const en = {
 
         // ── Seller Profile ─────────────────────────────────────
         sellerProfile: {
-            // ── Page & Navigation ─────────────────────────────
             pageTitle: 'Farmer Profile',
             backToSellers: 'Farmers',
             editSeller: 'Edit Farmer',
@@ -4797,7 +4475,6 @@ const en = {
                 noRates: "No Rates",
             },
 
-            // ── Stats ──────────────────────────────────────────
             stats: {
                 totalMilk: 'Total Milk (L)',
                 totalMilkSub: '{{count}} entries',
@@ -4811,7 +4488,6 @@ const en = {
                 productsBoughtSub: '{{count}} transactions',
             },
 
-            // ── Personal Information Section ──────────────────
             personalInfo: {
                 title: 'Personal Information',
                 mobile: 'Mobile',
@@ -4833,7 +4509,6 @@ const en = {
                 pincode: ""
             },
 
-            // ── Bank Details Section ──────────────────────────
             bankDetails: {
                 title: 'Bank Details',
                 branchName: "",
@@ -4846,7 +4521,6 @@ const en = {
             editForm: {
             },
 
-            // ── Milk Entries Section ──────────────────────────
             milkEntries: {
                 title: 'Milk Entries',
                 noEntries: 'No milk entries for this period',
@@ -4875,7 +4549,6 @@ const en = {
                 },
             },
 
-            // ── Cash Advances Section ─────────────────────────
             cashAdvances: {
                 title: 'Cash Advances',
                 noRecords: 'No cash advance records for this period',
@@ -4894,7 +4567,6 @@ const en = {
                 },
             },
 
-            // ── Cash Deposits Section ─────────────────────────
             cashDeposits: {
                 title: 'Cash Deposits',
                 noRecords: 'No cash deposit records for this period',
@@ -4914,7 +4586,6 @@ const en = {
                 },
             },
 
-            // ── Products Purchased Section ────────────────────
             productsPurchased: {
                 title: 'Products Purchased',
                 noRecords: 'No product purchases for this period',
@@ -4931,10 +4602,8 @@ const en = {
                 },
             },
 
-            // ── Edit Form ──────────────────────────────────────
             editForm: {
                 sellerIdCode: "",
-                panNumber: "",
                 panNumber: "",
                 pincode: "",
                 branchName: "",
@@ -4987,7 +4656,6 @@ const en = {
                 cancel: 'Cancel',
                 updateSeller: 'Update Farmer',
                 saving: 'Saving…',
-                // Field validations
                 nameRequired: 'Full name must include first and surname.',
                 nameNoNumbers: 'Name must not contain numbers.',
                 mobileInvalid: 'Mobile must be 10–12 digits.',
@@ -4997,7 +4665,6 @@ const en = {
                 passwordSetHint: "",
             },
 
-            // ── Filter Bar ─────────────────────────────────────
             filterBar: {
                 all: 'all',
                 day: 'day',
@@ -5015,7 +4682,6 @@ const en = {
                 title: "Commission Paid"
             },
 
-            // ── Paginator ──────────────────────────────────────
             paginator: {
                 prev: '← Prev',
                 next: 'Next →',
@@ -5023,7 +4689,6 @@ const en = {
                 of: 'of',
             },
 
-            // ── Empty States ──────────────────────────────────
             emptyState: {
                 noMilk: 'No milk entries for this period',
                 noPremium: 'No premium rates assigned',
@@ -5032,7 +4697,6 @@ const en = {
                 noProducts: 'No product purchases for this period',
             },
 
-            // ── Status Badges ─────────────────────────────────
             status: {
                 enabled: 'Enabled',
                 disabled: 'Disabled',
@@ -5040,7 +4704,6 @@ const en = {
                 inactive: 'Inactive',
             },
 
-            // ── Delete Modal ──────────────────────────────────
             deleteModal: {
                 title: 'Delete Farmer?',
                 warning: '<strong>"{{name}}"</strong> will be permanently removed. If this farmer has linked milk entries or transactions, they will be <strong>marked as Inactive</strong> instead.',
@@ -5052,7 +4715,6 @@ const en = {
                 deleteError: 'Failed to delete.',
             },
 
-            // ── Flash Messages ────────────────────────────────
             flash: {
                 loadError: 'Failed to load farmer data.',
                 notFound: 'Farmer not found.',
@@ -5508,6 +5170,23 @@ const en = {
             month: "Month",
             custom: "Custom",
             all: "All",
+
+            // ── Buyer Types (visibility settings) ──
+            buyerSettingsButton: "Buyer Types",
+            buyerSettings: {
+                title: "Buyer Types",
+                desc: "Enable or disable buyer types for walk-in sales",
+                anon: "Anonymous",
+                named: "Named Buyer",
+                seller: "Farmer Buys",
+                anonHint: "Local walk-in buyers, no name required",
+                namedHint: "Registered regular buyers",
+                sellerHint: "Registered farmers buying milk back",
+                mustKeepOne: "At least one buyer type must remain enabled.",
+                saveSuccess: "Buyer settings updated.",
+                saveError: "Failed to update buyer settings.",
+            },
+            update: "Update",
         },
     },
 };

@@ -1,3 +1,4 @@
+// cattlefeedsales.controller.js
 const pool = require('../config/db');
 const path = require('path');
 const fs = require('fs');
@@ -38,8 +39,6 @@ const getFinancialYearCode = (date = new Date()) => {
 
 // ── helper: atomically get next transaction ID for this centre+FY ──
 // Format: PREFIX/FY/N  e.g.  KDM/2627/1
-// Must be called with an open transaction connection (conn), inside the
-// same DB transaction as the sale insert, so numbers never collide or skip.
 const nextTransactionId = async (conn, centreId, saleType = 'cattle_feed', asOfDate = new Date()) => {
     const fy = getFinancialYearCode(asOfDate);
 
@@ -61,6 +60,25 @@ const nextTransactionId = async (conn, centreId, saleType = 'cattle_feed', asOfD
     const [[seqRow]] = await conn.query(`SELECT LAST_INSERT_ID() AS n`);
 
     return `${prefix}/${fy}/${seqRow.n}`;
+};
+
+// ── helper: load buyer-type visibility settings for a centre ──
+// Returns { seller: bool, named: bool, anon: bool }
+// Falls back to all-enabled when no row exists (backwards compatible).
+const loadBuyerSettings = async (conn, centreId) => {
+    const [rows] = await conn.query(
+        `SELECT seller_enabled, named_enabled, anon_enabled
+         FROM cattle_feed_buyer_settings
+         WHERE centre_id = ?`,
+        [centreId]
+    );
+    if (!rows.length) return { seller: true, named: true, anon: true };
+    const r = rows[0];
+    return {
+        seller: !!r.seller_enabled,
+        named: !!r.named_enabled,
+        anon: !!r.anon_enabled,
+    };
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -95,14 +113,14 @@ exports.getSales = async (req, res) => {
                 f.token       AS fulfillment_token,
                 f.status      AS fulfillment_status
             FROM cattle_feed_sales cfs
-JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
-LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
-LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
-JOIN operators   o ON o.operator_id = cfs.operator_id
-LEFT JOIN cattle_feed_fulfillments f ON f.transaction_id = cfs.transaction_id
-WHERE cfs.centre_id = ?
-${dateCondition}
-ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
+            JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+            LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
+            LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
+            JOIN operators   o ON o.operator_id = cfs.operator_id
+            LEFT JOIN cattle_feed_fulfillments f ON f.transaction_id = cfs.transaction_id
+            WHERE cfs.centre_id = ?
+            ${dateCondition}
+            ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
         `;
         const params = [centreId, ...dateParams];
         const [rows] = await pool.query(query, params);
@@ -145,14 +163,14 @@ exports.getTransactions = async (req, res) => {
                 f.token       AS fulfillment_token,
                 f.status      AS fulfillment_status
             FROM cattle_feed_sales cfs
-JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
-LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
-LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
-JOIN operators   o ON o.operator_id = cfs.operator_id
-LEFT JOIN cattle_feed_fulfillments f ON f.transaction_id = cfs.transaction_id
-WHERE cfs.centre_id = ?
-${dateCondition}
-ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
+            JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+            LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
+            LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
+            JOIN operators   o ON o.operator_id = cfs.operator_id
+            LEFT JOIN cattle_feed_fulfillments f ON f.transaction_id = cfs.transaction_id
+            WHERE cfs.centre_id = ?
+            ${dateCondition}
+            ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
         `;
         const params = [centreId, ...dateParams];
         const [rows] = await pool.query(query, params);
@@ -204,10 +222,9 @@ ORDER BY cfs.transaction_id ASC, cfs.sale_id ASC
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/cattle-feed-sales
-//   Body: { seller_id, sale_date, lines: [{ feed_id, quantity, rate }] }
+//   Body: { buyer_mode, seller_id, buyer_id, buyer_name, sale_date, lines: [...] }
 //   Creates ONE transaction_id for all lines
 // ══════════════════════════════════════════════════════════════
-// ── POST /api/cattle-feed-sales ──────────────────────────────
 exports.createSale = async (req, res) => {
     const conn = await pool.getConnection();
     try {
@@ -246,6 +263,15 @@ exports.createSale = async (req, res) => {
 
         const { seller_id, buyer_mode, buyer_id, buyer_name, sale_date, lines } = req.body;
         const mode = buyer_mode || 'seller'; // default keeps old clients working
+
+        // ── Enforce buyer-type visibility settings ──
+        const cfg = await loadBuyerSettings(conn, centreId);
+        if (!cfg[mode]) {
+            await conn.rollback();
+            return res.status(403).json({
+                error: `Buyer type "${mode}" is disabled for this centre.`
+            });
+        }
 
         // ── top-level validation ──
         if (mode === 'seller' && !seller_id) {
@@ -290,7 +316,7 @@ exports.createSale = async (req, res) => {
             } else {
                 const [result] = await conn.query(
                     `INSERT INTO cattle_feed_named_buyers (operator_id, centre_id, name)
-             VALUES (?, ?, ?)`,
+                     VALUES (?, ?, ?)`,
                     [isAdmin ? null : userId, centreId, buyer_name.trim()]
                 );
                 resolvedBuyerId = result.insertId;
@@ -304,13 +330,21 @@ exports.createSale = async (req, res) => {
                 await conn.rollback();
                 return res.status(400).json({ error: `Line ${i + 1}: feed is required.` });
             }
-            if (!quantity || parseFloat(quantity) <= 0) {
+
+            const q = parseFloat(quantity);
+            if (!quantity || isNaN(q) || q <= 0) {
                 await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: quantity must be > 0.` });
+                return res.status(400).json({
+                    error: `Line ${i + 1}: quantity must be greater than 0.`
+                });
             }
-            if (!rate || parseFloat(rate) <= 0) {
+
+            const r = parseFloat(rate);
+            if (!rate || isNaN(r) || r <= 0) {
                 await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: rate must be > 0.` });
+                return res.status(400).json({
+                    error: `Line ${i + 1}: rate must be greater than 0.`
+                });
             }
 
             const [feed] = await conn.query(
@@ -322,7 +356,7 @@ exports.createSale = async (req, res) => {
                 await conn.rollback();
                 return res.status(404).json({ error: `Line ${i + 1}: feed not found in your centre.` });
             }
-            if (parseFloat(quantity) > parseFloat(feed[0].current_stock)) {
+            if (q > parseFloat(feed[0].current_stock)) {
                 await conn.rollback();
                 return res.status(400).json({
                     error: `Insufficient stock for "${feed[0].feed_name}". Only ${parseFloat(feed[0].current_stock).toFixed(2)} units available.`,
@@ -330,7 +364,7 @@ exports.createSale = async (req, res) => {
             }
         }
 
-        // ── generate one transaction ID (atomic, per centre+financial year of the entered sale_date) ──
+        // ── generate one transaction ID (atomic, per centre+financial year) ──
         const transaction_id = await nextTransactionId(conn, centreId, 'cattle_feed', new Date(sale_date));
 
         // ── insert all lines + deduct stock ──
@@ -343,9 +377,9 @@ exports.createSale = async (req, res) => {
 
             const [result] = await conn.query(
                 `INSERT INTO cattle_feed_sales
-        (transaction_id, feed_id, seller_id, buyer_id, buyer_name, buyer_type,
-         operator_id, centre_id, quantity, rate, total_amount, sale_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (transaction_id, feed_id, seller_id, buyer_id, buyer_name, buyer_type,
+                     operator_id, centre_id, quantity, rate, total_amount, sale_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     transaction_id, Number(feed_id),
                     mode === 'seller' ? Number(seller_id) : null,
@@ -366,8 +400,6 @@ exports.createSale = async (req, res) => {
         }
 
         // ── create a fulfillment record with a secure random token ──
-        // The QR on the receipt encodes this token, never the transaction_id
-        // alone, so a receipt can't be forged or guessed by trying numbers.
         const fulfillmentToken = crypto.randomBytes(24).toString('hex');
         await conn.query(
             `INSERT INTO cattle_feed_fulfillments (transaction_id, centre_id, token, status)
@@ -380,17 +412,17 @@ exports.createSale = async (req, res) => {
         // ── return all inserted rows with joins ──
         const [newRows] = await pool.query(
             `SELECT
-        cfs.*,
-        cf.feed_name, cf.unit,
-        s.name AS seller_name, s.seller_code, s.seller_type,
-        nb.name AS registered_buyer_name,
-        o.name AS operator_name
-     FROM cattle_feed_sales cfs
-     JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
-     LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
-     LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
-     JOIN operators   o ON o.operator_id = cfs.operator_id
-     WHERE cfs.sale_id IN (?) AND cfs.centre_id = ?`,
+                cfs.*,
+                cf.feed_name, cf.unit,
+                s.name AS seller_name, s.seller_code, s.seller_type,
+                nb.name AS registered_buyer_name,
+                o.name AS operator_name
+             FROM cattle_feed_sales cfs
+             JOIN cattle_feeds cf ON cf.feed_id = cfs.feed_id
+             LEFT JOIN sellers s ON s.seller_id  = cfs.seller_id
+             LEFT JOIN cattle_feed_named_buyers nb ON nb.buyer_id = cfs.buyer_id
+             JOIN operators   o ON o.operator_id = cfs.operator_id
+             WHERE cfs.sale_id IN (?) AND cfs.centre_id = ?`,
             [insertedIds, centreId]
         );
         res.status(201).json({ transaction_id, items: newRows, fulfillment_token: fulfillmentToken });
@@ -417,11 +449,13 @@ exports.updateSale = async (req, res) => {
         const centreId = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
 
-        if (!quantity || parseFloat(quantity) <= 0) {
+        const q = parseFloat(quantity);
+        if (!quantity || isNaN(q) || q <= 0) {
             await conn.rollback();
             return res.status(400).json({ error: 'Quantity must be greater than 0.' });
         }
-        if (!rate || parseFloat(rate) <= 0) {
+        const r = parseFloat(rate);
+        if (!rate || isNaN(r) || r <= 0) {
             await conn.rollback();
             return res.status(400).json({ error: 'Rate must be greater than 0.' });
         }
@@ -443,8 +477,8 @@ exports.updateSale = async (req, res) => {
             });
         }
 
-        const qtyDiff = parseFloat(quantity) - parseFloat(existing[0].quantity);
-        const newTotal = (parseFloat(quantity) * parseFloat(rate)).toFixed(2);
+        const qtyDiff = q - parseFloat(existing[0].quantity);
+        const newTotal = (q * r).toFixed(2);
 
         if (qtyDiff > 0) {
             const [feed] = await conn.query(
@@ -462,7 +496,7 @@ exports.updateSale = async (req, res) => {
         await conn.query(
             `UPDATE cattle_feed_sales SET quantity = ?, rate = ?, total_amount = ?, sale_date = ?
              WHERE sale_id = ? AND centre_id = ?`,
-            [parseFloat(quantity), parseFloat(rate), parseFloat(newTotal), sale_date, id, centreId]
+            [q, r, parseFloat(newTotal), sale_date, id, centreId]
         );
         await conn.query(
             `UPDATE cattle_feeds SET current_stock = current_stock - ? 
@@ -572,7 +606,29 @@ exports.updateTransaction = async (req, res) => {
             }
         }
 
+        // ── Enforce buyer-type visibility settings ──
+        const cfg = await loadBuyerSettings(conn, centreId);
+        if (!cfg[mode]) {
+            await conn.rollback();
+            return res.status(403).json({
+                error: `Buyer type "${mode}" is disabled for this centre.`
+            });
+        }
+
         if (!Array.isArray(items) || items.length === 0) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'At least one feed line is required.' });
+        }
+
+        // ── Drop fully-blank lines (user may have left an empty row in the edit modal) ──
+        const cleanItems = items.filter(it => {
+            const hasFeed = !!it.feed_id;
+            const hasQty = it.quantity !== undefined && it.quantity !== null && String(it.quantity).trim() !== '';
+            const hasRate = it.rate !== undefined && it.rate !== null && String(it.rate).trim() !== '';
+            return hasFeed || hasQty || hasRate;
+        });
+
+        if (cleanItems.length === 0) {
             await conn.rollback();
             return res.status(400).json({ error: 'At least one feed line is required.' });
         }
@@ -616,17 +672,28 @@ exports.updateTransaction = async (req, res) => {
         }
 
         // ── validate every incoming line up front ──
-        for (const [i, item] of items.entries()) {
+        for (const [i, item] of cleanItems.entries()) {
             const { feed_id, quantity, rate } = item;
-            if (!feed_id) { await conn.rollback(); return res.status(400).json({ error: `Line ${i + 1}: feed is required.` }); }
-            if (!quantity || parseFloat(quantity) <= 0) { await conn.rollback(); return res.status(400).json({ error: `Line ${i + 1}: quantity must be > 0.` }); }
-            if (!rate || parseFloat(rate) <= 0) { await conn.rollback(); return res.status(400).json({ error: `Line ${i + 1}: rate must be > 0.` }); }
+            if (!feed_id) {
+                await conn.rollback();
+                return res.status(400).json({ error: `Line ${i + 1}: feed is required.` });
+            }
+            const q = parseFloat(quantity);
+            if (!quantity || isNaN(q) || q <= 0) {
+                await conn.rollback();
+                return res.status(400).json({ error: `Line ${i + 1}: quantity must be greater than 0.` });
+            }
+            const r = parseFloat(rate);
+            if (!rate || isNaN(r) || r <= 0) {
+                await conn.rollback();
+                return res.status(400).json({ error: `Line ${i + 1}: rate must be greater than 0.` });
+            }
         }
 
         const existingById = new Map(existingSales.map(s => [s.sale_id, s]));
         const keepIds = new Set();
 
-        for (const item of items) {
+        for (const item of cleanItems) {
             const { sale_id, feed_id, quantity, rate } = item;
             const saleQty = parseFloat(quantity);
             const saleRate = parseFloat(rate);
@@ -661,7 +728,10 @@ exports.updateTransaction = async (req, res) => {
                         `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
                         [feed_id, centreId]
                     );
-                    if (!newFeed.length) { await conn.rollback(); return res.status(404).json({ error: 'Feed not found in your centre.' }); }
+                    if (!newFeed.length) {
+                        await conn.rollback();
+                        return res.status(404).json({ error: 'Feed not found in your centre.' });
+                    }
                     if (saleQty > parseFloat(newFeed[0].current_stock)) {
                         await conn.rollback();
                         return res.status(400).json({ error: `Insufficient stock for "${newFeed[0].feed_name}".` });
@@ -690,7 +760,10 @@ exports.updateTransaction = async (req, res) => {
                     `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
                     [feed_id, centreId]
                 );
-                if (!feedRow.length) { await conn.rollback(); return res.status(404).json({ error: 'Feed not found in your centre.' }); }
+                if (!feedRow.length) {
+                    await conn.rollback();
+                    return res.status(404).json({ error: 'Feed not found in your centre.' });
+                }
                 if (saleQty > parseFloat(feedRow[0].current_stock)) {
                     await conn.rollback();
                     return res.status(400).json({ error: `Insufficient stock for "${feedRow[0].feed_name}".` });
@@ -740,7 +813,9 @@ exports.updateTransaction = async (req, res) => {
     }
 };
 
-// ── GET /api/cattle-feed-sales/speed-feeds ──────────────────
+// ══════════════════════════════════════════════════════════════
+// GET /api/cattle-feed-sales/speed-feeds
+// ══════════════════════════════════════════════════════════════
 exports.getSpeedFeeds = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
@@ -764,7 +839,9 @@ exports.getSpeedFeeds = async (req, res) => {
     }
 };
 
-// ── POST /api/cattle-feed-sales/speed-feeds ─────────────────
+// ══════════════════════════════════════════════════════════════
+// POST /api/cattle-feed-sales/speed-feeds
+// ══════════════════════════════════════════════════════════════
 exports.createSpeedFeed = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
@@ -801,7 +878,9 @@ exports.createSpeedFeed = async (req, res) => {
     }
 };
 
-// ── PUT /api/cattle-feed-sales/speed-feeds/:id ──────────────
+// ══════════════════════════════════════════════════════════════
+// PUT /api/cattle-feed-sales/speed-feeds/:id
+// ══════════════════════════════════════════════════════════════
 exports.updateSpeedFeed = async (req, res) => {
     try {
         const operatorId = req.user.id;
@@ -851,7 +930,9 @@ exports.updateSpeedFeed = async (req, res) => {
     }
 };
 
-// ── DELETE /api/cattle-feed-sales/speed-feeds/:id ───────────
+// ══════════════════════════════════════════════════════════════
+// DELETE /api/cattle-feed-sales/speed-feeds/:id
+// ══════════════════════════════════════════════════════════════
 exports.deleteSpeedFeed = async (req, res) => {
     try {
         const operatorId = req.user.id;
@@ -882,7 +963,9 @@ exports.deleteSpeedFeed = async (req, res) => {
     }
 };
 
-// ── GET /api/cattle-feed-sales/named-buyers ──────────────────
+// ══════════════════════════════════════════════════════════════
+// GET /api/cattle-feed-sales/named-buyers
+// ══════════════════════════════════════════════════════════════
 exports.getFeedNamedBuyers = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
@@ -897,7 +980,9 @@ exports.getFeedNamedBuyers = async (req, res) => {
     }
 };
 
-// ── POST /api/cattle-feed-sales/named-buyers ─────────────────
+// ══════════════════════════════════════════════════════════════
+// POST /api/cattle-feed-sales/named-buyers
+// ══════════════════════════════════════════════════════════════
 exports.createFeedNamedBuyer = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
@@ -922,7 +1007,98 @@ exports.createFeedNamedBuyer = async (req, res) => {
     }
 };
 
-// ── GET /api/cattle-feed-sales/summary (Admin only) ─────────
+// ══════════════════════════════════════════════════════════════
+// GET /api/cattle-feed-sales/buyer-settings
+//   Returns the buyer-type visibility settings for the current centre.
+//   If no row exists yet, returns all-enabled defaults.
+// ══════════════════════════════════════════════════════════════
+exports.getBuyerSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+
+        const [rows] = await pool.query(
+            `SELECT seller_enabled, named_enabled, anon_enabled
+             FROM cattle_feed_buyer_settings
+             WHERE centre_id = ?`,
+            [centreId]
+        );
+
+        if (!rows.length) {
+            // No row yet → all types enabled (safe default)
+            return res.json({
+                seller_enabled: true,
+                named_enabled: true,
+                anon_enabled: true,
+            });
+        }
+
+        const r = rows[0];
+        res.json({
+            seller_enabled: !!r.seller_enabled,
+            named_enabled: !!r.named_enabled,
+            anon_enabled: !!r.anon_enabled,
+        });
+    } catch (err) {
+        console.error('getBuyerSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// PUT /api/cattle-feed-sales/buyer-settings
+//   Body: { seller_enabled, named_enabled, anon_enabled }
+//   Upserts the settings row for the current centre.
+//   Safety rule: at least one buyer type must remain enabled.
+// ══════════════════════════════════════════════════════════════
+exports.updateBuyerSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const adminId = isAdmin ? req.user.id : null;
+
+        const { seller_enabled, named_enabled, anon_enabled } = req.body;
+
+        const sellerOn = seller_enabled === true || seller_enabled === 1 ? 1 : 0;
+        const namedOn = named_enabled === true || named_enabled === 1 ? 1 : 0;
+        const anonOn = anon_enabled === true || anon_enabled === 1 ? 1 : 0;
+
+        // ── Safety: at least one buyer type must stay enabled ──
+        if (sellerOn + namedOn + anonOn === 0) {
+            return res.status(400).json({
+                error: 'At least one buyer type must remain enabled.',
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO cattle_feed_buyer_settings
+                (centre_id, seller_enabled, named_enabled, anon_enabled,
+                 updated_by_operator_id, updated_by_admin_id)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                seller_enabled = VALUES(seller_enabled),
+                named_enabled  = VALUES(named_enabled),
+                anon_enabled   = VALUES(anon_enabled),
+                updated_by_operator_id = VALUES(updated_by_operator_id),
+                updated_by_admin_id    = VALUES(updated_by_admin_id)`,
+            [centreId, sellerOn, namedOn, anonOn, operatorId, adminId]
+        );
+
+        res.json({
+            success: true,
+            seller_enabled: !!sellerOn,
+            named_enabled: !!namedOn,
+            anon_enabled: !!anonOn,
+        });
+    } catch (err) {
+        console.error('updateBuyerSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// GET /api/cattle-feed-sales/summary (Admin only)
+// ══════════════════════════════════════════════════════════════
 exports.getSalesSummary = async (req, res) => {
     try {
         const centreId = req.user.centre_id;

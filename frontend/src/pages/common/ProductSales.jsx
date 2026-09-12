@@ -6,7 +6,7 @@ import {
     BadgeCheck, RefreshCw, X, TrendingUp,
     ShoppingCart, Layers, Banknote, Users, FileDown,
     Zap, Settings, Trash2, GripVertical, Plus, ImagePlus,
-    Home, Tag, UserCircle2
+    Home, Tag, UserCircle2, SlidersHorizontal
 } from "lucide-react";
 
 import api from "../../api/axios";
@@ -71,6 +71,13 @@ const EMPTY_LINE = {
     mrp_rate: "",
 };
 
+// ── Default buyer-type visibility (all enabled) ──
+const DEFAULT_BUYER_SETTINGS = {
+    seller_enabled: true,
+    named_enabled: true,
+    anon_enabled: true,
+};
+
 // ── focus helper ──────────────────────────────────────────────
 function focusNextField(current) {
     const container = current?.closest('[data-entry-form]');
@@ -111,6 +118,125 @@ function TableCell({ children, className = "" }) {
     return (
         <div className={`px-1 py-2 flex items-center border-r border-gray-100/60 last:border-r-0 text-sm ${className}`}>
             {children}
+        </div>
+    );
+}
+
+// ── Buyer Settings Modal ────────────────────────────────────
+function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
+    const { t } = useTranslation();
+    const [local, setLocal] = useState(settings);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => { if (open) setLocal(settings); }, [open, settings]);
+
+    const toggle = (key) => {
+        setLocal(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            // Safety: don't allow all-off locally
+            if (!next.seller_enabled && !next.named_enabled && !next.anon_enabled) {
+                showFlash('error', t('productSales.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.');
+                return prev;
+            }
+            return next;
+        });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { data } = await api.put('/product-sales/buyer-settings', local);
+            onSaved({
+                seller_enabled: !!data.seller_enabled,
+                named_enabled: !!data.named_enabled,
+                anon_enabled: !!data.anon_enabled,
+            });
+            showFlash('success', t('productSales.buyerSettings.saveSuccess') || 'Buyer settings updated.');
+            onClose();
+        } catch (err) {
+            showFlash('error', err.response?.data?.error || t('productSales.buyerSettings.saveError') || 'Failed to update buyer settings.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (!open) return null;
+
+    const items = [
+        { key: 'seller_enabled', label: t('productSales.buyerSettings.seller') || 'Seller', hint: t('productSales.buyerSettings.sellerHint') || 'Sell to registered sellers', icon: <Users size={16} /> },
+        { key: 'named_enabled', label: t('productSales.buyerSettings.named') || 'Named Buyer', hint: t('productSales.buyerSettings.namedHint') || 'Sell to named/registered buyers', icon: <Tag size={16} /> },
+        { key: 'anon_enabled', label: t('productSales.buyerSettings.anon') || 'Anonymous', hint: t('productSales.buyerSettings.anonHint') || 'Sell to anonymous walk-in buyers', icon: <UserCircle2 size={16} /> },
+    ];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md flex flex-col">
+
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <SlidersHorizontal size={16} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-800">{t('productSales.buyerSettings.title') || 'Buyer Types'}</h2>
+                            <p className="text-[10px] text-gray-400">{t('productSales.buyerSettings.desc') || 'Enable or disable buyer types for product sales'}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                <div className="p-6 flex flex-col gap-3">
+                    {items.map(({ key, label, hint, icon }) => {
+                        const on = local[key];
+                        return (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => toggle(key)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition shadow-sm
+                                    ${on
+                                        ? 'border-indigo-200/80 bg-indigo-50/60 hover:bg-indigo-100/60'
+                                        : 'border-gray-200/60 bg-gray-50/40 hover:bg-gray-100/60'}`}
+                            >
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                                    ${on ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
+                                    {icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-semibold ${on ? 'text-indigo-800' : 'text-gray-600'}`}>{label}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>
+                                </div>
+                                <div className={`w-10 h-6 rounded-full transition relative shrink-0
+                                    ${on ? 'bg-indigo-500' : 'bg-gray-300'}`}>
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all
+                                        ${on ? 'left-[18px]' : 'left-0.5'}`} />
+                                </div>
+                            </button>
+                        );
+                    })}
+
+                    <p className="text-[10px] text-gray-400 mt-1">
+                        {t('productSales.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.'}
+                    </p>
+                </div>
+
+                <div className="flex gap-2 px-6 pb-5">
+                    <button onClick={onClose}
+                        className="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 transition shadow-sm">
+                        {t('productSales.cancel') || 'Cancel'}
+                    </button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-indigo-500 to-indigo-600 text-white hover:shadow-lg hover:shadow-indigo-500/30 transition disabled:opacity-50 shadow-sm">
+                        {saving
+                            ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <Save size={12} />}
+                        {t('productSales.update') || 'Update'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -248,8 +374,8 @@ function SpeedProductConfigModal({ open, onClose, products, showFlash }) {
                 <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
                     {/* Left — Add / Edit Form */}
                     <div className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-gray-200/60 px-5 py-4 flex flex-col gap-4 overflow-y-auto bg-white/30 backdrop-blur-sm">                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                            {editingId ? 'Edit Entry' : 'Add New'}
-                        </p>
+                        {editingId ? 'Edit Entry' : 'Add New'}
+                    </p>
 
                         {/* Product select (only when adding) */}
                         {!editingId && (
@@ -584,11 +710,38 @@ export default function ProductSales() {
             .then(({ data }) => setProductLabel(data?.productLabel || ""))
             .catch(() => { });
     }, []);
-    const BUYER_MODES = [
-        { val: "seller", label: "Seller", icon: <Users size={15} /> },
-        { val: "named", label: "Named", icon: <Tag size={15} /> },
-        { val: "anon", label: "Anonymous", icon: <UserCircle2 size={15} /> },
+
+    // ── Buyer-type visibility settings ──
+    const [buyerSettings, setBuyerSettings] = useState(DEFAULT_BUYER_SETTINGS);
+    const [buyerSettingsOpen, setBuyerSettingsOpen] = useState(false);
+    const [buyerSettingsLoaded, setBuyerSettingsLoaded] = useState(false);
+
+    // Fetch buyer-type visibility on mount
+    useEffect(() => {
+        api.get('/product-sales/buyer-settings')
+            .then(({ data }) => {
+                setBuyerSettings({
+                    seller_enabled: !!data.seller_enabled,
+                    named_enabled: !!data.named_enabled,
+                    anon_enabled: !!data.anon_enabled,
+                });
+            })
+            .catch(() => {
+                // Fall back to all-enabled — better UX than hiding everything
+                setBuyerSettings(DEFAULT_BUYER_SETTINGS);
+            })
+            .finally(() => setBuyerSettingsLoaded(true));
+    }, []);
+
+    // ── All buyer modes with their enabled flag ──
+    const ALL_BUYER_MODES = [
+        { val: "seller", label: t('productSales.form.sellerBuys') || 'Seller', icon: <Users size={15} />, enabledKey: 'seller_enabled' },
+        { val: "named", label: t('productSales.form.named') || 'Named', icon: <Tag size={15} />, enabledKey: 'named_enabled' },
+        { val: "anon", label: t('productSales.form.anon') || 'Anonymous', icon: <UserCircle2 size={15} />, enabledKey: 'anon_enabled' },
     ];
+
+    // Only the enabled ones are shown
+    const BUYER_MODES = ALL_BUYER_MODES.filter(m => buyerSettings[m.enabledKey]);
 
     const [form, setForm] = useState({
         buyer_mode: 'seller',
@@ -630,6 +783,27 @@ export default function ProductSales() {
     const sellerCodeRef = useRef(null);
     const lineAnchorRefs = useRef({});
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+    // ── Auto-switch buyer_mode when the selected mode becomes disabled ──
+    useEffect(() => {
+        if (!buyerSettingsLoaded) return;
+        if (BUYER_MODES.length === 0) return; // safety
+        const currentEnabled = BUYER_MODES.some(m => m.val === form.buyer_mode);
+        if (!currentEnabled) {
+            const first = BUYER_MODES[0].val;
+            setForm(prev => ({
+                ...prev,
+                buyer_mode: first,
+                seller_id: "",
+                seller_code: "",
+            }));
+            setSellerSearch("");
+            setSellerCodeInput("");
+            setNamedBuyerId("");
+            setNamedBuyerSearch("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [buyerSettings, buyerSettingsLoaded]);
 
     const handleAddSpeedLines = (newLines) => {
         setLines(prev => {
@@ -808,28 +982,28 @@ export default function ProductSales() {
     };
 
     const fetchNamedBuyers = async () => {
-    try {
-        const { data } = await api.get("/product-sales/named-buyers");
-        setNamedBuyers(data);
-    } catch { /* silent */ }
-};
+        try {
+            const { data } = await api.get("/product-sales/named-buyers");
+            setNamedBuyers(data);
+        } catch { /* silent */ }
+    };
 
-const saveProductNamedBuyer = async (name) => {
-    try {
-        const { data } = await api.post("/product-sales/named-buyers", { name: name.trim() });
-        await fetchNamedBuyers();
-        return data;
-    } catch (err) {
-        if (err.response?.status === 409) {
-            const existing = namedBuyers.find(b => b.name.toLowerCase() === name.toLowerCase());
-            if (existing) return existing;
+    const saveProductNamedBuyer = async (name) => {
+        try {
+            const { data } = await api.post("/product-sales/named-buyers", { name: name.trim() });
+            await fetchNamedBuyers();
+            return data;
+        } catch (err) {
+            if (err.response?.status === 409) {
+                const existing = namedBuyers.find(b => b.name.toLowerCase() === name.toLowerCase());
+                if (existing) return existing;
+            }
+            showFlash('error', 'Failed to register buyer');
+            return null;
         }
-        showFlash('error', 'Failed to register buyer');
-        return null;
-    }
-};
+    };
 
-useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
+    useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
     useEffect(() => { fetchSales(selectedDate); }, [selectedDate]);
 
     // ── FIXED: Seller filtering - search by name OR code (partial match) ──
@@ -1213,6 +1387,12 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                             <BadgeCheck size={15} /> Take a Tour
                         </button>
                         <button
+                            onClick={() => setBuyerSettingsOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-indigo-50/80 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100/80 transition shadow-sm"
+                        >
+                            <SlidersHorizontal size={15} /> {t('productSales.buyerSettingsButton') || 'Buyer Types'}
+                        </button>
+                        <button
                             onClick={() => setSpeedConfigOpen(true)}
                             className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-amber-100/80 text-amber-700 hover:bg-amber-200/80 transition border border-amber-200/60 backdrop-blur-sm shadow-sm">
                             <Settings size={15} /> Speed Config
@@ -1318,32 +1498,34 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
 
                         {/* Seller row */}
                         {/* Buyer mode selector */}
-                        <div className="flex gap-2 mb-4 relative z-10 min-w-0">
-                            {BUYER_MODES.map(({ val, label, icon }) => (
-                                <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => {
-                                        set("buyer_mode", val);
-                                        set("seller_id", "");
-                                        setSellerSearch("");
-                                        setSellerCodeInput("");
-                                        setNamedBuyerId("");
-                                        setNamedBuyerSearch("");
-                                    }}
-                                    className={`flex-1 min-w-0 flex items-center justify-center gap-1 py-2.5 px-1.5 rounded-xl border text-[11px] sm:text-xs font-semibold transition
+                        {BUYER_MODES.length > 0 && (
+                            <div className="flex gap-2 mb-4 relative z-10 min-w-0">
+                                {BUYER_MODES.map(({ val, label, icon }) => (
+                                    <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => {
+                                            set("buyer_mode", val);
+                                            set("seller_id", "");
+                                            setSellerSearch("");
+                                            setSellerCodeInput("");
+                                            setNamedBuyerId("");
+                                            setNamedBuyerSearch("");
+                                        }}
+                                        className={`flex-1 min-w-0 flex items-center justify-center gap-1 py-2.5 px-1.5 rounded-xl border text-[11px] sm:text-xs font-semibold transition
                 ${form.buyer_mode === val
-                                            ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
-                                            : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
-                                >
-                                    <span className="shrink-0">{icon}</span>
-                                    <span className="truncate">{label}</span>
-                                </button>
-                            ))}
-                        </div>
+                                                ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
+                                                : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
+                                    >
+                                        <span className="shrink-0">{icon}</span>
+                                        <span className="truncate">{label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Seller row (seller mode only) */}
-                        {form.buyer_mode === "seller" && (
+                        {form.buyer_mode === "seller" && buyerSettings.seller_enabled && (
                             <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
                                 {/* ── FIXED: Added Seller Code and Seller Name fields ── */}
                                 <div className="flex flex-col sm:flex-row items-start gap-2">                                    <Field label={t('productSales.sellerCode', { defaultValue: 'Code' })} icon={<User size={12} />}>
@@ -1356,8 +1538,8 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                     />
                                 </Field>
 
-                                <Field label={t('productSales.seller')} icon={<User size={12} />}>
-                                    <div className="relative w-full sm:w-[220px]" ref={sellerAnchorRef}>                                        <TinyInput
+                                    <Field label={t('productSales.seller')} icon={<User size={12} />}>
+                                        <div className="relative w-full sm:w-[220px]" ref={sellerAnchorRef}>                                        <TinyInput
                                             value={sellerSearch}
                                             onFocus={() => { setShowSellerDrop(true); setHighlightedIdx(-1); }}
                                             onBlur={() => setTimeout(() => {
@@ -1393,60 +1575,60 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                             placeholder={t('productSales.searchPlaceholder')}
                                             className="pr-7 w-full"
                                         />
-                                        <DropdownPortal
-                                            anchorRef={sellerAnchorRef}
-                                            open={showSellerDrop && !form.seller_id && filteredSellers.length > 0}
-                                            width={256}
-                                        >
-                                            <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
-                                                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
-                                                    {sellerSearch.trim() || sellerCodeInput.trim()
-                                                        ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('productSales.matchesPlural') : t('productSales.matches')}`
-                                                        : t('productSales.sellersAZ')}
-                                                </p>
-                                                {filteredSellers.map((s, idx) => (
-                                                    <button key={s.seller_id} type="button"
-                                                        onMouseEnter={() => setHighlightedIdx(idx)}
-                                                        onClick={() => {
-                                                            handleSellerSelect(s);
-                                                            focusNextField(sellerAnchorRef.current);
-                                                        }}
-                                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
+                                            <DropdownPortal
+                                                anchorRef={sellerAnchorRef}
+                                                open={showSellerDrop && !form.seller_id && filteredSellers.length > 0}
+                                                width={256}
+                                            >
+                                                <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
+                                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100/60">
+                                                        {sellerSearch.trim() || sellerCodeInput.trim()
+                                                            ? `${filteredSellers.length} ${filteredSellers.length !== 1 ? t('productSales.matchesPlural') : t('productSales.matches')}`
+                                                            : t('productSales.sellersAZ')}
+                                                    </p>
+                                                    {filteredSellers.map((s, idx) => (
+                                                        <button key={s.seller_id} type="button"
+                                                            onMouseEnter={() => setHighlightedIdx(idx)}
+                                                            onClick={() => {
+                                                                handleSellerSelect(s);
+                                                                focusNextField(sellerAnchorRef.current);
+                                                            }}
+                                                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition
                             ${highlightedIdx === idx ? "bg-gray-100/80" : "hover:bg-gray-50/80"}`}>
-                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition
                             ${highlightedIdx === idx ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white" : "bg-gray-100/80 text-gray-600"}`}>
-                                                            {s.name?.charAt(0)?.toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium text-gray-800 text-xs">{s.name}</p>
-                                                            <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </DropdownPortal>
-                                        {form.seller_id && (
-                                            <button type="button"
-                                                onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); }}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                                                <X size={12} />
-                                            </button>
-                                        )}
-                                    </div>
-                                                            </Field>
-                        </div>
-                        {selectedSeller && (
-                            <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                                {selectedSeller.seller_type || "—"}
-                            </p>
+                                                                {s.name?.charAt(0)?.toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium text-gray-800 text-xs">{s.name}</p>
+                                                                <p className="text-[10px] text-gray-400 font-mono">{s.seller_code}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </DropdownPortal>
+                                            {form.seller_id && (
+                                                <button type="button"
+                                                    onClick={() => { set("seller_id", ""); setSellerSearch(""); setSellerCodeInput(""); }}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                                                    <X size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </Field>
+                                </div>
+                                {selectedSeller && (
+                                    <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                                        {selectedSeller.seller_type || "—"}
+                                    </p>
+                                )}
+                            </div>
                         )}
-                    </div>
-                    )}
 
-                    {form.buyer_mode === "named" && (
-                        <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
-                            <Field label="Buyer Name" icon={<User size={12} />}>
-                                <div className="relative w-full sm:w-[220px]" ref={namedBuyerAnchorRef}>                                    <TinyInput
+                        {form.buyer_mode === "named" && buyerSettings.named_enabled && (
+                            <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
+                                <Field label="Buyer Name" icon={<User size={12} />}>
+                                    <div className="relative w-full sm:w-[220px]" ref={namedBuyerAnchorRef}>                                    <TinyInput
                                         value={namedBuyerSearch}
                                         onFocus={() => setNamedBuyerDropdownOpen(true)}
                                         onBlur={() => setTimeout(() => setNamedBuyerDropdownOpen(false), 150)}
@@ -1458,57 +1640,57 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                         placeholder="Search or add buyer..."
                                         className="pr-7 w-full"
                                     />
-                                    <DropdownPortal anchorRef={namedBuyerAnchorRef} open={namedBuyerDropdownOpen} width={256}>
-                                        {(() => {
-                                            const filtered = namedBuyerSearch
-                                                ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
-                                                : namedBuyers.slice(0, 5);
-                                            const showRegister = namedBuyerSearch.trim() &&
-                                                !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
-                                            return (filtered.length > 0 || showRegister) ? (
-                                                <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
-                                                    {filtered.map((b) => (
-                                                        <button key={b.buyer_id} type="button"
-                                                            onClick={() => { setNamedBuyerId(b.buyer_id); setNamedBuyerSearch(b.name); setNamedBuyerDropdownOpen(false); }}
-                                                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
-                                                            <div className="w-6 h-6 rounded-full bg-gray-100/80 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
-                                                                {b.name?.charAt(0)?.toUpperCase()}
-                                                            </div>
-                                                            <span className="font-medium text-gray-800 text-xs">{b.name}</span>
-                                                        </button>
-                                                    ))}
-                                                    {showRegister && (
-                                                        <button type="button"
-                                                            onClick={async () => {
-                                                                const nb = await saveProductNamedBuyer(namedBuyerSearch.trim());
-                                                                if (nb) { setNamedBuyerId(nb.buyer_id); setNamedBuyerSearch(nb.name); }
-                                                                setNamedBuyerDropdownOpen(false);
-                                                            }}
-                                                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 hover:bg-emerald-50 transition">
-                                                            <Plus size={12} className="text-emerald-600" />
-                                                            <span className="font-medium text-emerald-700 text-xs">Register "{namedBuyerSearch}"</span>
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ) : null;
-                                        })()}
-                                    </DropdownPortal>
-                                </div>
-                            </Field>
-                        </div>
-                    )}
+                                        <DropdownPortal anchorRef={namedBuyerAnchorRef} open={namedBuyerDropdownOpen} width={256}>
+                                            {(() => {
+                                                const filtered = namedBuyerSearch
+                                                    ? namedBuyers.filter(b => b.name.toLowerCase().includes(namedBuyerSearch.toLowerCase()))
+                                                    : namedBuyers.slice(0, 5);
+                                                const showRegister = namedBuyerSearch.trim() &&
+                                                    !namedBuyers.find(b => b.name.toLowerCase() === namedBuyerSearch.toLowerCase());
+                                                return (filtered.length > 0 || showRegister) ? (
+                                                    <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden">
+                                                        {filtered.map((b) => (
+                                                            <button key={b.buyer_id} type="button"
+                                                                onClick={() => { setNamedBuyerId(b.buyer_id); setNamedBuyerSearch(b.name); setNamedBuyerDropdownOpen(false); }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50/80 transition">
+                                                                <div className="w-6 h-6 rounded-full bg-gray-100/80 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                                                    {b.name?.charAt(0)?.toUpperCase()}
+                                                                </div>
+                                                                <span className="font-medium text-gray-800 text-xs">{b.name}</span>
+                                                            </button>
+                                                        ))}
+                                                        {showRegister && (
+                                                            <button type="button"
+                                                                onClick={async () => {
+                                                                    const nb = await saveProductNamedBuyer(namedBuyerSearch.trim());
+                                                                    if (nb) { setNamedBuyerId(nb.buyer_id); setNamedBuyerSearch(nb.name); }
+                                                                    setNamedBuyerDropdownOpen(false);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-t border-gray-100 hover:bg-emerald-50 transition">
+                                                                <Plus size={12} className="text-emerald-600" />
+                                                                <span className="font-medium text-emerald-700 text-xs">Register "{namedBuyerSearch}"</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </DropdownPortal>
+                                    </div>
+                                </Field>
+                            </div>
+                        )}
 
-                    {form.buyer_mode === "anon" && (
-                        <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
-                            <Field label="Buyer" icon={<UserCircle2 size={12} />}>
-                                <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
-                                    <UserCircle2 size={14} /> Anonymous
-                                </div>
-                            </Field>
-                        </div>
-                    )}
+                        {form.buyer_mode === "anon" && buyerSettings.anon_enabled && (
+                            <div className="flex flex-col gap-3 mb-4 relative z-10" data-entry-form>
+                                <Field label="Buyer" icon={<UserCircle2 size={12} />}>
+                                    <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium">
+                                        <UserCircle2 size={14} /> Anonymous
+                                    </div>
+                                </Field>
+                            </div>
+                        )}
 
-                    {/* ── Speed product quick-tap strip ─────────────────────── */}
+                        {/* ── Speed product quick-tap strip ─────────────────────── */}
                         <SpeedStripInForm products={products} onTap={(sp) => handleAddSpeedLines([{
                             product_id: String(sp.product_id),
                             quantity: "1",
@@ -1519,137 +1701,137 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
 
                         {/* Product lines */}
                         <div className="flex flex-col gap-3 mb-4 relative z-10 overflow-x-auto">
-  <div className="min-w-[560px] flex flex-col gap-3">
-    {/* Column headers */}
-    <div className="grid gap-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-1"
-        style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
-                                <span>{t('productSales.product')}</span>
-                                <span>{t('productSales.qty')}</span>
-                                <span>{t('productSales.mrpRate')}</span>
-                                <span>{t('productSales.total')}</span>
-                                <span />
-                            </div>
+                            <div className="min-w-[560px] flex flex-col gap-3">
+                                {/* Column headers */}
+                                <div className="grid gap-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-1"
+                                    style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                    <span>{t('productSales.product')}</span>
+                                    <span>{t('productSales.qty')}</span>
+                                    <span>{t('productSales.mrpRate')}</span>
+                                    <span>{t('productSales.total')}</span>
+                                    <span />
+                                </div>
 
-                            {lines.map((line) => {
-                                const lineProduct = products.find(p => String(p.product_id) === String(line.product_id));
-                                const lt = lineTotal(line);
-                                const searchVal = lineProductSearch[line._key] !== undefined
-                                    ? lineProductSearch[line._key]
-                                    : (lineProduct?.product_name || "");
+                                {lines.map((line) => {
+                                    const lineProduct = products.find(p => String(p.product_id) === String(line.product_id));
+                                    const lt = lineTotal(line);
+                                    const searchVal = lineProductSearch[line._key] !== undefined
+                                        ? lineProductSearch[line._key]
+                                        : (lineProduct?.product_name || "");
 
-                                return (
-                                    <div key={line._key} className="grid gap-2 items-start"
-                                        style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                    return (
+                                        <div key={line._key} className="grid gap-2 items-start"
+                                            style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
 
-                                        {/* Product picker */}
-                                        <div className="relative" ref={el => (lineAnchorRefs.current[line._key] = el)}>
+                                            {/* Product picker */}
+                                            <div className="relative" ref={el => (lineAnchorRefs.current[line._key] = el)}>
+                                                <TinyInput
+                                                    value={searchVal}
+                                                    onChange={(e) => {
+                                                        setLineProductSearch(p => ({ ...p, [line._key]: e.target.value }));
+                                                        setShowProductDrop(p => ({ ...p, [line._key]: true }));
+                                                    }}
+                                                    onFocus={() => {
+                                                        setLineProductSearch(p => ({ ...p, [line._key]: "" }));
+                                                        setShowProductDrop(p => ({ ...p, [line._key]: true }));
+                                                    }}
+                                                    onBlur={() => setTimeout(() => {
+                                                        setShowProductDrop(p => ({ ...p, [line._key]: false }));
+                                                        setLineProductSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
+                                                    }, 150)}
+                                                    placeholder={t('productSales.searchProductPlaceholder')}
+                                                    className="w-full"
+                                                />
+                                                <DropdownPortal
+                                                    anchorRef={{ current: lineAnchorRefs.current[line._key] }}
+                                                    open={!!showProductDrop[line._key]}
+                                                    width={288}
+                                                >
+                                                    <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
+                                                        {(lineProductSearch[line._key]?.trim()
+                                                            ? products.filter(p => p.product_name.toLowerCase().includes(lineProductSearch[line._key].toLowerCase()))
+                                                            : products
+                                                        ).map((p) => (
+                                                            <button key={p.product_id} type="button"
+                                                                onMouseDown={() => {
+                                                                    setLine(line._key, "product_id", String(p.product_id));
+                                                                    setLine(line._key, "rate", p.mrp_rate ? String(p.mrp_rate) : (p.rate ? String(p.rate) : ""));
+                                                                    setLine(line._key, "mrp_rate", p.mrp_rate ? String(p.mrp_rate) : "");
+                                                                    setLineProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
+                                                                    setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
+                                                                    focusNextField(lineAnchorRefs.current[line._key]);
+                                                                }}
+                                                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
+                                                                <div>
+                                                                    <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
+                                                                    <p className="text-[10px] text-gray-400">
+                                                                        {p.supplier_name && <span className="text-violet-500 font-semibold">{p.supplier_name}</span>}
+                                                                        {p.supplier_name && " · "}
+                                                                        {t('productSales.stock')}: {parseFloat(p.current_stock || 0).toFixed(1)} {p.unit}
+                                                                    </p>
+                                                                </div>
+                                                                <span className="text-[10px] text-violet-600 font-semibold">
+                                                                    ₹{parseFloat(p.mrp_rate || 0).toFixed(2)}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </DropdownPortal>
+                                                {lineProduct && (
+                                                    <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineProduct.current_stock) <= 0 ? "text-rose-500" : "text-emerald-600"}`}>
+                                                        {t('productSales.stock')}: {parseFloat(lineProduct.current_stock || 0).toFixed(2)} {lineProduct.unit}
+                                                        {parseFloat(lineProduct.current_stock) <= 0 && " · ⚠ " + t('productSales.outOfStock')}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Qty */}
                                             <TinyInput
-                                                value={searchVal}
-                                                onChange={(e) => {
-                                                    setLineProductSearch(p => ({ ...p, [line._key]: e.target.value }));
-                                                    setShowProductDrop(p => ({ ...p, [line._key]: true }));
+                                                value={line.quantity}
+                                                onChange={(e) => setLine(line._key, "quantity", e.target.value)}
+                                                placeholder="0.0" type="number" step="0.01"
+                                                className={`w-full ${lineProduct && parseFloat(line.quantity) > parseFloat(lineProduct.current_stock || 0)
+                                                    ? "border-rose-300 bg-rose-50/50 text-rose-700"
+                                                    : "border-blue-200/60 bg-blue-50/30 text-blue-700"}`}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        focusNextField(e.target);
+                                                    }
                                                 }}
-                                                onFocus={() => {
-                                                    setLineProductSearch(p => ({ ...p, [line._key]: "" }));
-                                                    setShowProductDrop(p => ({ ...p, [line._key]: true }));
-                                                }}
-                                                onBlur={() => setTimeout(() => {
-                                                    setShowProductDrop(p => ({ ...p, [line._key]: false }));
-                                                    setLineProductSearch(p => { const n = { ...p }; delete n[line._key]; return n; });
-                                                }, 150)}
-                                                placeholder={t('productSales.searchProductPlaceholder')}
-                                                className="w-full"
                                             />
-                                            <DropdownPortal
-                                                anchorRef={{ current: lineAnchorRefs.current[line._key] }}
-                                                open={!!showProductDrop[line._key]}
-                                                width={288}
-                                            >
-                                                <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
-                                                    {(lineProductSearch[line._key]?.trim()
-                                                        ? products.filter(p => p.product_name.toLowerCase().includes(lineProductSearch[line._key].toLowerCase()))
-                                                        : products
-                                                    ).map((p) => (
-                                                        <button key={p.product_id} type="button"
-                                                            onMouseDown={() => {
-                                                                setLine(line._key, "product_id", String(p.product_id));
-                                                                setLine(line._key, "rate", p.mrp_rate ? String(p.mrp_rate) : (p.rate ? String(p.rate) : ""));
-                                                                setLine(line._key, "mrp_rate", p.mrp_rate ? String(p.mrp_rate) : "");
-                                                                setLineProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
-                                                                setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
-                                                                focusNextField(lineAnchorRefs.current[line._key]);
-                                                            }}
-                                                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
-                                                            <div>
-                                                                <p className="text-xs font-medium text-gray-800">{p.product_name}</p>
-                                                                <p className="text-[10px] text-gray-400">
-                                                                    {p.supplier_name && <span className="text-violet-500 font-semibold">{p.supplier_name}</span>}
-                                                                    {p.supplier_name && " · "}
-                                                                    {t('productSales.stock')}: {parseFloat(p.current_stock || 0).toFixed(1)} {p.unit}
-                                                                </p>
-                                                            </div>
-                                                            <span className="text-[10px] text-violet-600 font-semibold">
-                                                                ₹{parseFloat(p.mrp_rate || 0).toFixed(2)}
-                                                            </span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </DropdownPortal>
-                                            {lineProduct && (
-                                                <p className={`text-[10px] font-medium mt-0.5 ${parseFloat(lineProduct.current_stock) <= 0 ? "text-rose-500" : "text-emerald-600"}`}>
-                                                    {t('productSales.stock')}: {parseFloat(lineProduct.current_stock || 0).toFixed(2)} {lineProduct.unit}
-                                                    {parseFloat(lineProduct.current_stock) <= 0 && " · ⚠ " + t('productSales.outOfStock')}
-                                                </p>
-                                            )}
-                                        </div>
 
-                                        {/* Qty */}
-                                        <TinyInput
-                                            value={line.quantity}
-                                            onChange={(e) => setLine(line._key, "quantity", e.target.value)}
-                                            placeholder="0.0" type="number" step="0.01"
-                                            className={`w-full ${lineProduct && parseFloat(line.quantity) > parseFloat(lineProduct.current_stock || 0)
-                                                ? "border-rose-300 bg-rose-50/50 text-rose-700"
-                                                : "border-blue-200/60 bg-blue-50/30 text-blue-700"}`}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    focusNextField(e.target);
-                                                }
-                                            }}
-                                        />
+                                            {/* Rate */}
+                                            <TinyInput
+                                                value={line.rate}
+                                                onChange={(e) => setLine(line._key, "rate", e.target.value)}
+                                                placeholder="₹0.00" type="number" step="0.01"
+                                                className={`w-full ${line.rate ? "bg-amber-50/30 border-amber-200/60 text-amber-700" : "bg-amber-50/30 border-amber-200/60"}`}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        focusNextField(e.target);
+                                                    }
+                                                }}
+                                            />
 
-                                        {/* Rate */}
-                                        <TinyInput
-                                            value={line.rate}
-                                            onChange={(e) => setLine(line._key, "rate", e.target.value)}
-                                            placeholder="₹0.00" type="number" step="0.01"
-                                            className={`w-full ${line.rate ? "bg-amber-50/30 border-amber-200/60 text-amber-700" : "bg-amber-50/30 border-amber-200/60"}`}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    focusNextField(e.target);
-                                                }
-                                            }}
-                                        />
-
-                                        {/* Line total */}
-                                        <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
+                                            {/* Line total */}
+                                            <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
                                         ${lt ? "bg-emerald-50/80 border-emerald-200/60 text-emerald-700" : "bg-gray-50/80 border-gray-200/60 text-gray-300"}`}>
-                                            {lt ? `₹${lt}` : "—"}
-                                        </div>
+                                                {lt ? `₹${lt}` : "—"}
+                                            </div>
 
-                                        {/* Remove line */}
-                                        <button type="button" onClick={() => removeLine(line._key)}
-                                            disabled={lines.length === 1}
-                                            className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
-                                            <X size={12} />
-                                        </button>
-                                    </div>
-                                 );
-                            })}
+                                            {/* Remove line */}
+                                            <button type="button" onClick={() => removeLine(line._key)}
+                                                disabled={lines.length === 1}
+                                                className="w-7 h-[35px] flex items-center justify-center rounded-xl bg-rose-50/80 hover:bg-rose-100/80 text-rose-400 disabled:opacity-20 transition border border-rose-200/60 backdrop-blur-sm shadow-sm">
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
 
                         {/* Add line + grand total */}
                         <div className="flex items-center justify-between mb-4 relative z-10">
@@ -1686,30 +1868,30 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                 )}
 
                 {/* ── Sales Table ── */}
-<div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-x-auto" data-tour="sales-table">
-  <div className="min-w-[820px]">
-    {/* Header */}
-    <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
-                        {COLS.map((label) => (
-                            <div key={label} className="px-2.5 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
-                                {label}
-                            </div>
-                        ))}
-                    </div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 overflow-x-auto" data-tour="sales-table">
+                    <div className="min-w-[820px]">
+                        {/* Header */}
+                        <div className="grid border-b border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50" style={{ gridTemplateColumns: GRID }}>
+                            {COLS.map((label) => (
+                                <div key={label} className="px-2.5 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200/60 last:border-r-0">
+                                    {label}
+                                </div>
+                            ))}
+                        </div>
 
-                    {loading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
-                        </div>
-                    ) : activeData.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
-                            <ShoppingCart size={40} className="text-gray-200" />
-                            <p className="text-sm font-medium">
-                                {rangeMode === "daily"
-                                    ? t('productSales.noSalesDaily')
-                                    : t('productSales.noSalesRange')}
-                            </p>
-                        </div>
+                        {loading ? (
+                            <div className="flex items-center justify-center py-16">
+                                <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+                            </div>
+                        ) : activeData.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-300">
+                                <ShoppingCart size={40} className="text-gray-200" />
+                                <p className="text-sm font-medium">
+                                    {rangeMode === "daily"
+                                        ? t('productSales.noSalesDaily')
+                                        : t('productSales.noSalesRange')}
+                                </p>
+                            </div>
                         ) : (
                             <div>
                                 {[...activeData].reverse().map((txn, i) => (
@@ -1825,31 +2007,31 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                                         </TableCell>
                                     </div>
                                 ))}
-                        </div>
-                    )}
+                            </div>
+                        )}
 
-                    {/* Totals footer */}
-                    {activeData.length > 0 && (
-                        <div className="grid border-t-2 border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50"
-                            style={{ gridTemplateColumns: GRID }}>
-                            <div className="px-2.5 py-2 text-xs font-bold text-gray-600 border-r border-gray-200/60">
-                                {activeData.length} {activeData.length === 1 ? t('productSales.entry') : t('productSales.entries')}
+                        {/* Totals footer */}
+                        {activeData.length > 0 && (
+                            <div className="grid border-t-2 border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50"
+                                style={{ gridTemplateColumns: GRID }}>
+                                <div className="px-2.5 py-2 text-xs font-bold text-gray-600 border-r border-gray-200/60">
+                                    {activeData.length} {activeData.length === 1 ? t('productSales.entry') : t('productSales.entries')}
+                                </div>
+                                <div className="px-2.5 py-2 border-r border-gray-200/60" />
+                                <div className="px-2.5 py-2 text-xs font-bold text-blue-600 border-r border-gray-200/60 flex flex-col gap-0.5">
+                                    {qtyByUnitEntries.length === 0 ? "—"
+                                        : qtyByUnitEntries.map(([u, q]) => (
+                                            <span key={u}>{q.toFixed(2)} {u}</span>
+                                        ))}
+                                </div>
+                                <div className="px-2.5 py-2 border-r border-gray-200/60" />
+                                <div className="px-2.5 py-2 text-xs font-bold text-gray-900 border-r border-gray-200/60">
+                                    ₹{totalRevenue.toFixed(2)}
+                                </div>
+                                <div className="px-2.5 py-2" />
                             </div>
-                            <div className="px-2.5 py-2 border-r border-gray-200/60" />
-                            <div className="px-2.5 py-2 text-xs font-bold text-blue-600 border-r border-gray-200/60 flex flex-col gap-0.5">
-                                {qtyByUnitEntries.length === 0 ? "—"
-                                    : qtyByUnitEntries.map(([u, q]) => (
-                                        <span key={u}>{q.toFixed(2)} {u}</span>
-                                    ))}
-                            </div>
-                            <div className="px-2.5 py-2 border-r border-gray-200/60" />
-                            <div className="px-2.5 py-2 text-xs font-bold text-gray-900 border-r border-gray-200/60">
-                                ₹{totalRevenue.toFixed(2)}
-                            </div>
-                            <div className="px-2.5 py-2" />
-                        </div>
-                    )}
-                  </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── Legend ── */}
@@ -1869,11 +2051,19 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
                 showFlash={showFlash}
             />
 
+            <BuyerSettingsModal
+                open={buyerSettingsOpen}
+                onClose={() => setBuyerSettingsOpen(false)}
+                settings={buyerSettings}
+                onSaved={setBuyerSettings}
+                showFlash={showFlash}
+            />
+
             {/* ── Edit Sale Modal ── */}
             {editingSale && can('product_sales', 'U') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-gray-800 font-bold text-base">Edit Sale</h2>
                                 <p className="text-gray-500 text-xs mt-0.5">
@@ -1963,8 +2153,8 @@ useEffect(() => { fetchSellers(); fetchProducts(); fetchNamedBuyers(); }, []);
             {/* ── Confirm Delete Modal ── */}
             {confirmDelete && can('product_sales', 'D') && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[340px] flex flex-col gap-4">
-            <div className="flex items-start gap-3">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 p-6 w-full max-w-[340px] flex flex-col gap-4">
+                        <div className="flex items-start gap-3">
                             <div className="w-10 h-10 rounded-xl bg-rose-50/80 border border-rose-200/60 flex items-center justify-center shadow-sm">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5">
                                     <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />

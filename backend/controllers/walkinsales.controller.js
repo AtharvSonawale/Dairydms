@@ -1,5 +1,31 @@
 const pool = require('../config/db');
 
+// ── helper: load buyer-type visibility settings for a centre ──
+// Returns { anon: bool, named: bool, seller: bool }
+// Falls back to all-enabled when no row exists (backwards compatible).
+const loadBuyerSettings = async (conn, centreId) => {
+    const [rows] = await conn.query(
+        `SELECT anon_enabled, named_enabled, seller_enabled
+         FROM walkin_buyer_settings
+         WHERE centre_id = ?`,
+        [centreId]
+    );
+    if (!rows.length) return { anon: true, named: true, seller: true };
+    const r = rows[0];
+    return {
+        anon: !!r.anon_enabled,
+        named: !!r.named_enabled,
+        seller: !!r.seller_enabled,
+    };
+};
+
+// ── helper: infer buyer mode from a walk-in sale row ──
+const inferBuyerMode = (row) => {
+    if (row.seller_id) return 'seller';
+    if (row.buyer_id || (row.buyer_name && row.buyer_name !== 'ANON')) return 'named';
+    return 'anon';
+};
+
 // ── GET /api/walkin-sales?date=YYYY-MM-DD
 //        OR ?from=YYYY-MM-DD&to=YYYY-MM-DD ──────────────────────
 exports.getSales = async (req, res) => {
@@ -99,10 +125,24 @@ exports.createSale = async (req, res) => {
             return res.status(400).json({ error: 'Sale date is required' });
         }
 
-         const centre_id = req.user.centre_id;
+        const centre_id = req.user.centre_id;
         const isAdmin = req.user.role === 'admin';
         const operator_id = isAdmin ? null : req.user.id;
         const created_by_admin_id = isAdmin ? req.user.id : null;
+
+        // ── Enforce buyer-type visibility settings ──
+        const mode = seller_id
+            ? 'seller'
+            : buyer_id || (buyer_name && buyer_name !== 'ANON')
+                ? 'named'
+                : 'anon';
+        const cfg = await loadBuyerSettings(conn, centre_id);
+        if (!cfg[mode]) {
+            await conn.rollback();
+            return res.status(403).json({
+                error: `Buyer type "${mode}" is disabled for this centre.`
+            });
+        }
 
         // Verify seller if provided
         if (seller_id) {
@@ -417,7 +457,7 @@ exports.updateProductType = async (req, res) => {
              WHERE product_type_id = ? AND centre_id = ?`,
             [
                 name || null,
-                milk_type || 'cow',                type || 'loose',
+                milk_type || 'cow', type || 'loose',
                 parseFloat(extra_rate) || 0,
                 is_active !== undefined ? is_active : 1,
                 id,
@@ -762,6 +802,20 @@ exports.updateSale = async (req, res) => {
             payment_mode, shift, sale_date,
         } = req.body;
 
+        // ── Enforce buyer-type visibility settings ──
+        const mode = seller_id
+            ? 'seller'
+            : buyer_id || (buyer_name && buyer_name !== 'ANON')
+                ? 'named'
+                : 'anon';
+        const cfg = await loadBuyerSettings(conn, centre_id);
+        if (!cfg[mode]) {
+            await conn.rollback();
+            return res.status(403).json({
+                error: `Buyer type "${mode}" is disabled for this centre.`
+            });
+        }
+
         // Verify seller if provided
         if (seller_id) {
             const [sellerCheck] = await conn.query(
@@ -1032,3 +1086,96 @@ exports.getAvailableStock = async (req, res) => {
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };
+
+// ══════════════════════════════════════════════════════════════
+// GET /api/walkin-sales/buyer-settings
+//   Returns the buyer-type visibility settings for the current centre.
+//   If no row exists yet, returns all-enabled defaults.
+// ══════════════════════════════════════════════════════════════
+exports.getBuyerSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+
+        const [rows] = await pool.query(
+            `SELECT anon_enabled, named_enabled, seller_enabled
+             FROM walkin_buyer_settings
+             WHERE centre_id = ?`,
+            [centreId]
+        );
+
+        if (!rows.length) {
+            // No row yet → all types enabled (safe default)
+            return res.json({
+                anon_enabled: true,
+                named_enabled: true,
+                seller_enabled: true,
+            });
+        }
+
+        const r = rows[0];
+        res.json({
+            anon_enabled: !!r.anon_enabled,
+            named_enabled: !!r.named_enabled,
+            seller_enabled: !!r.seller_enabled,
+        });
+    } catch (err) {
+        console.error('getBuyerSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// PUT /api/walkin-sales/buyer-settings
+//   Body: { anon_enabled, named_enabled, seller_enabled }
+//   Upserts the settings row for the current centre.
+//   Safety rule: at least one buyer type must remain enabled.
+// ══════════════════════════════════════════════════════════════
+exports.updateBuyerSettings = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const isAdmin = req.user.role === 'admin';
+        const operatorId = isAdmin ? null : req.user.id;
+        const adminId = isAdmin ? req.user.id : null;
+
+        const { anon_enabled, named_enabled, seller_enabled } = req.body;
+
+        const anonOn = anon_enabled === true || anon_enabled === 1 ? 1 : 0;
+        const namedOn = named_enabled === true || named_enabled === 1 ? 1 : 0;
+        const sellerOn = seller_enabled === true || seller_enabled === 1 ? 1 : 0;
+
+        // ── Safety: at least one buyer type must stay enabled ──
+        if (anonOn + namedOn + sellerOn === 0) {
+            return res.status(400).json({
+                error: 'At least one buyer type must remain enabled.',
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO walkin_buyer_settings
+                (centre_id, anon_enabled, named_enabled, seller_enabled,
+                 updated_by_operator_id, updated_by_admin_id)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                anon_enabled   = VALUES(anon_enabled),
+                named_enabled  = VALUES(named_enabled),
+                seller_enabled = VALUES(seller_enabled),
+                updated_by_operator_id = VALUES(updated_by_operator_id),
+                updated_by_admin_id    = VALUES(updated_by_admin_id)`,
+            [centreId, anonOn, namedOn, sellerOn, operatorId, adminId]
+        );
+
+        res.json({
+            success: true,
+            anon_enabled: !!anonOn,
+            named_enabled: !!namedOn,
+            seller_enabled: !!sellerOn,
+        });
+    } catch (err) {
+        console.error('updateBuyerSettings error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ── Exports for reuse (optional) ──
+exports._inferBuyerMode = inferBuyerMode;
+exports._loadBuyerSettings = loadBuyerSettings;

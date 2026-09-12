@@ -5,7 +5,7 @@ import {
     AlertTriangle, BadgeCheck, X, User,
     Banknote, Smartphone, CreditCard, Waves, Users, Settings,
     CheckCircle2, Clock, Tag, UserCircle2, Plus, Package,
-    Trash2, Home
+    Trash2, Home, SlidersHorizontal
 } from "lucide-react";
 import api from "../api/axios";
 import { usePermission } from '../context/PermissionContext';
@@ -46,6 +46,13 @@ const EMPTY_FORM = {
     shift: getShiftByTime(),
 };
 
+// ── Default buyer-type visibility (all enabled) ──
+const DEFAULT_BUYER_SETTINGS = {
+    anon_enabled: true,
+    named_enabled: true,
+    seller_enabled: true,
+};
+
 // ── SectionCard Component (matching Settings page) ────────────────────────────
 function SectionCard({ title, icon, children, className = "", ...rest }) {
     return (
@@ -58,6 +65,125 @@ function SectionCard({ title, icon, children, className = "", ...rest }) {
                 <h2 className="text-sm font-bold text-gray-800">{title}</h2>
             </div>
             <div className="p-6 relative z-10">{children}</div>
+        </div>
+    );
+}
+
+// ── Buyer Settings Modal ────────────────────────────────────
+function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
+    const { t } = useTranslation();
+    const [local, setLocal] = useState(settings);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => { if (open) setLocal(settings); }, [open, settings]);
+
+    const toggle = (key) => {
+        setLocal(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            // Safety: don't allow all-off locally
+            if (!next.anon_enabled && !next.named_enabled && !next.seller_enabled) {
+                showFlash('error', t('walkinSale.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.');
+                return prev;
+            }
+            return next;
+        });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { data } = await api.put('/walkin-sales/buyer-settings', local);
+            onSaved({
+                anon_enabled: !!data.anon_enabled,
+                named_enabled: !!data.named_enabled,
+                seller_enabled: !!data.seller_enabled,
+            });
+            showFlash('success', t('walkinSale.buyerSettings.saveSuccess') || 'Buyer settings updated.');
+            onClose();
+        } catch (err) {
+            showFlash('error', err.response?.data?.error || t('walkinSale.buyerSettings.saveError') || 'Failed to update buyer settings.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (!open) return null;
+
+    const items = [
+        { key: 'anon_enabled', label: t('walkinSale.buyerSettings.anon') || 'Anonymous', hint: t('walkinSale.buyerSettings.anonHint') || 'Local walk-in buyers, no name required', icon: <UserCircle2 size={16} /> },
+        { key: 'named_enabled', label: t('walkinSale.buyerSettings.named') || 'Named Buyer', hint: t('walkinSale.buyerSettings.namedHint') || 'Registered regular buyers', icon: <Tag size={16} /> },
+        { key: 'seller_enabled', label: t('walkinSale.buyerSettings.seller') || 'Farmer Buys', hint: t('walkinSale.buyerSettings.sellerHint') || 'Registered farmers buying milk back', icon: <Users size={16} /> },
+    ];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/60 w-full max-w-md flex flex-col">
+
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <SlidersHorizontal size={16} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-800">{t('walkinSale.buyerSettings.title') || 'Buyer Types'}</h2>
+                            <p className="text-[10px] text-gray-400">{t('walkinSale.buyerSettings.desc') || 'Enable or disable buyer types for walk-in sales'}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-500 transition">
+                        <X size={15} />
+                    </button>
+                </div>
+
+                <div className="p-6 flex flex-col gap-3">
+                    {items.map(({ key, label, hint, icon }) => {
+                        const on = local[key];
+                        return (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => toggle(key)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition shadow-sm
+                                    ${on
+                                        ? 'border-indigo-200/80 bg-indigo-50/60 hover:bg-indigo-100/60'
+                                        : 'border-gray-200/60 bg-gray-50/40 hover:bg-gray-100/60'}`}
+                            >
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                                    ${on ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
+                                    {icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-semibold ${on ? 'text-indigo-800' : 'text-gray-600'}`}>{label}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>
+                                </div>
+                                <div className={`w-10 h-6 rounded-full transition relative shrink-0
+                                    ${on ? 'bg-indigo-500' : 'bg-gray-300'}`}>
+                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all
+                                        ${on ? 'left-[18px]' : 'left-0.5'}`} />
+                                </div>
+                            </button>
+                        );
+                    })}
+
+                    <p className="text-[10px] text-gray-400 mt-1">
+                        {t('walkinSale.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.'}
+                    </p>
+                </div>
+
+                <div className="flex gap-2 px-6 pb-5">
+                    <button onClick={onClose}
+                        className="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-gray-200/60 bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80 transition shadow-sm">
+                        {t('walkinSale.cancel') || 'Cancel'}
+                    </button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-br from-indigo-500 to-indigo-600 text-white hover:shadow-lg hover:shadow-indigo-500/30 transition disabled:opacity-50 shadow-sm">
+                        {saving
+                            ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <Save size={12} />}
+                        {t('walkinSale.update') || 'Update'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -150,10 +276,11 @@ export default function WalkinSales() {
     const { t } = useTranslation();
     const { can, loading: permLoading } = usePermission();
 
-    const BUYER_MODES = [
-        { val: "anon", label: t('walkinSale.anon'), icon: <UserCircle2 size={18} />, desc: t('walkinSale.anonDesc') },
-        { val: "named", label: t('walkinSale.named'), icon: <Tag size={18} />, desc: t('walkinSale.namedDesc') },
-        { val: "seller", label: t('walkinSale.sellerBuys'), icon: <Users size={18} />, desc: t('walkinSale.sellerDesc') },
+    // ── All buyer modes with their enabled flag ──
+    const ALL_BUYER_MODES = [
+        { val: "anon", label: t('walkinSale.anon'), icon: <UserCircle2 size={18} />, desc: t('walkinSale.anonDesc'), enabledKey: 'anon_enabled' },
+        { val: "named", label: t('walkinSale.named'), icon: <Tag size={18} />, desc: t('walkinSale.namedDesc'), enabledKey: 'named_enabled' },
+        { val: "seller", label: t('walkinSale.sellerBuys'), icon: <Users size={18} />, desc: t('walkinSale.sellerDesc'), enabledKey: 'seller_enabled' },
     ];
 
     const PAYMENT_MODES = [
@@ -188,6 +315,14 @@ export default function WalkinSales() {
     const [searchName, setSearchName] = useState("");
     const sellerCodeRef = useRef(null);
     const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+    // ── Buyer-type visibility settings ──
+    const [buyerSettings, setBuyerSettings] = useState(DEFAULT_BUYER_SETTINGS);
+    const [buyerSettingsOpen, setBuyerSettingsOpen] = useState(false);
+    const [buyerSettingsLoaded, setBuyerSettingsLoaded] = useState(false);
+
+    // Only the enabled ones are shown
+    const BUYER_MODES = ALL_BUYER_MODES.filter(m => buyerSettings[m.enabledKey]);
 
     const startWalkinSalesTour = () => {
         const driverObj = driver({
@@ -557,6 +692,46 @@ export default function WalkinSales() {
         fetchProductTypes();
         fetchNamedBuyers();
     }, []);
+
+    // Fetch buyer-type visibility on mount
+    useEffect(() => {
+        api.get('/walkin-sales/buyer-settings')
+            .then(({ data }) => {
+                setBuyerSettings({
+                    anon_enabled: !!data.anon_enabled,
+                    named_enabled: !!data.named_enabled,
+                    seller_enabled: !!data.seller_enabled,
+                });
+            })
+            .catch(() => {
+                // Fall back to all-enabled — better UX than hiding everything
+                setBuyerSettings(DEFAULT_BUYER_SETTINGS);
+            })
+            .finally(() => setBuyerSettingsLoaded(true));
+    }, []);
+
+    // ── Auto-switch buyer_mode when the selected mode becomes disabled ──
+    useEffect(() => {
+        if (!buyerSettingsLoaded) return;
+        if (BUYER_MODES.length === 0) return; // safety
+        const currentEnabled = BUYER_MODES.some(m => m.val === form.buyer_mode);
+        if (!currentEnabled) {
+            const first = BUYER_MODES[0].val;
+            setForm(prev => ({
+                ...prev,
+                buyer_mode: first,
+                seller_id: "",
+                buyer_id: "",
+                buyer_name: first === "anon" ? "ANON" : "",
+            }));
+            setSellerSearch("");
+            setSellerCodeInput("");
+            setNamedBuyerSearch("");
+            setBuyerBalance(0);
+            setAmountPaid("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [buyerSettings, buyerSettingsLoaded]);
 
     useEffect(() => {
         if (rangeMode === "daily") {
@@ -1256,6 +1431,12 @@ export default function WalkinSales() {
                         >
                             <BadgeCheck size={15} /> {t('walkinSale.startTour')}
                         </button>
+                        <button
+                            onClick={() => setBuyerSettingsOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-indigo-50/80 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100/80 transition shadow-sm"
+                        >
+                            <SlidersHorizontal size={15} /> {t('walkinSale.buyerSettingsButton') || 'Buyer Types'}
+                        </button>
                     </div>
                 </div>
 
@@ -1420,29 +1601,31 @@ export default function WalkinSales() {
                         </div>
                     </div>
 
-                    {/* Buyer Mode Selector */}
-                    <div className="flex gap-2 mb-5" data-tour="buyer-modes">
-                        {BUYER_MODES.map(({ val, label, icon, desc }) => (
-                            <button
-                                key={val}
-                                type="button"
-                                onClick={() => handleBuyerModeChange(val)}
-                                className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border text-xs font-semibold transition
-                                    ${form.buyer_mode === val
-                                        ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
-                                        : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
-                            >
-                                {icon}
-                                <span>{label}</span>
-                                <span className="text-[10px] font-normal text-gray-400">{desc}</span>
-                            </button>
-                        ))}
-                    </div>
+                    {/* Buyer Mode Selector — only enabled modes shown */}
+                    {BUYER_MODES.length > 0 && (
+                        <div className="flex gap-2 mb-5" data-tour="buyer-modes">
+                            {BUYER_MODES.map(({ val, label, icon, desc }) => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => handleBuyerModeChange(val)}
+                                    className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border text-xs font-semibold transition
+                                        ${form.buyer_mode === val
+                                            ? "bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-900 shadow-lg shadow-gray-900/30"
+                                            : "bg-white/60 backdrop-blur-sm text-gray-500 border-gray-200/60 hover:border-gray-400 hover:bg-gray-50/80 shadow-sm"}`}
+                                >
+                                    {icon}
+                                    <span>{label}</span>
+                                    <span className="text-[10px] font-normal text-gray-400">{desc}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Form Inputs */}
                     <div className="flex items-start gap-3 flex-wrap" data-entry-form onKeyDown={handleFormKeyDown}>
                         {/* Anonymous Buyer */}
-                        {form.buyer_mode === "anon" && (
+                        {form.buyer_mode === "anon" && buyerSettings.anon_enabled && (
                             <Field label={t('walkinSale.buyer')} icon={<User size={12} />}>
                                 <div className="h-[35px] px-3 flex items-center gap-1.5 rounded-xl bg-gray-100/80 border border-gray-200/60 text-gray-400 text-sm font-medium w-28">
                                     <UserCircle2 size={14} /> {t('walkinSale.anonymous')}
@@ -1451,7 +1634,7 @@ export default function WalkinSales() {
                         )}
 
                         {/* Named Buyer */}
-                        {form.buyer_mode === "named" && (
+                        {form.buyer_mode === "named" && buyerSettings.named_enabled && (
                             <Field label={t('walkinSale.buyerName')} icon={<User size={12} />}>
                                 <div className="relative w-44">
                                     <TinyInput
@@ -1552,7 +1735,7 @@ export default function WalkinSales() {
                         )}
 
                         {/* Seller Buyer */}
-                        {form.buyer_mode === "seller" && (
+                        {form.buyer_mode === "seller" && buyerSettings.seller_enabled && (
                             <>
                                 <Field label="Code" icon={<User size={12} />}>
                                     <TinyInput
@@ -1899,9 +2082,7 @@ export default function WalkinSales() {
                         </span>
                     </div>
 
-                    {/* Table Header + Rows: wrapped together in ONE horizontal-scroll
-                        container so header and body columns always stay aligned on
-                        mobile/tablet screens narrower than the table's min width */}
+                    {/* Table Header + Rows */}
                     <div className="overflow-x-auto">
                         <div className="min-w-max">
                             <div className="grid border-b border-gray-200/60 bg-gray-50/80 rounded-t-xl" style={{ gridTemplateColumns: GRID }}>
@@ -1913,97 +2094,97 @@ export default function WalkinSales() {
                             </div>
 
                             {!loading && sales.length > 0 && paginatedSales.map((s, i) => (
-                                    <div key={s.sale_id || i} className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors" style={{ gridTemplateColumns: GRID }}>
-                                        {/* Buyer */}
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+                                <div key={s.sale_id || i} className="grid border-b border-gray-200/60 hover:bg-blue-50/20 transition-colors" style={{ gridTemplateColumns: GRID }}>
+                                    {/* Buyer */}
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
             ${s.buyer_name === "ANON" ? "bg-gray-100 text-gray-400" : "bg-gray-900 text-white"}`}>
-                                                    {s.buyer_name === "ANON" ? "?" : s.buyer_name?.charAt(0)?.toUpperCase()}
-                                                </div>
-                                                <span className={`text-xs font-medium truncate ${s.buyer_name === "ANON" ? "text-gray-400 italic" : "text-gray-800"}`}>
-                                                    {s.buyer_name === "ANON" ? t('walkinSale.anonymous') : s.buyer_name}
-                                                </span>
+                                                {s.buyer_name === "ANON" ? "?" : s.buyer_name?.charAt(0)?.toUpperCase()}
                                             </div>
-                                        </TableCell>
+                                            <span className={`text-xs font-medium truncate ${s.buyer_name === "ANON" ? "text-gray-400 italic" : "text-gray-800"}`}>
+                                                {s.buyer_name === "ANON" ? t('walkinSale.anonymous') : s.buyer_name}
+                                            </span>
+                                        </div>
+                                    </TableCell>
 
-                                        {/* Date */}
-                                        <TableCell className="text-gray-500 font-mono text-xs">
-                                            {fmtRowDate(s)}
-                                        </TableCell>
+                                    {/* Date */}
+                                    <TableCell className="text-gray-500 font-mono text-xs">
+                                        {fmtRowDate(s)}
+                                    </TableCell>
 
-                                        {/* Milk Type */}
-                                        <TableCell>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
+                                    {/* Milk Type */}
+                                    <TableCell>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
                                                 ${s.milk_type === "cow" ? "bg-amber-50/80 text-amber-700 border-amber-200/60" : "bg-blue-50/80 text-blue-700 border-blue-200/60"}`}>
-                                                {s.milk_type === "cow" ? t('walkinSale.cow') : t('walkinSale.buffalo')}
-                                            </span>
-                                        </TableCell>
+                                            {s.milk_type === "cow" ? t('walkinSale.cow') : t('walkinSale.buffalo')}
+                                        </span>
+                                    </TableCell>
 
-                                        {/* Quantity */}
-                                        <TableCell className="text-blue-600 font-mono font-semibold text-xs">
-                                            {s.quantity}
-                                        </TableCell>
+                                    {/* Quantity */}
+                                    <TableCell className="text-blue-600 font-mono font-semibold text-xs">
+                                        {s.quantity}
+                                    </TableCell>
 
-                                        {/* MRP */}
-                                        <TableCell className="text-gray-600 font-mono text-xs">
-                                            ₹{parseFloat(s.mrp || 0).toFixed(2)}
-                                        </TableCell>
+                                    {/* MRP */}
+                                    <TableCell className="text-gray-600 font-mono text-xs">
+                                        ₹{parseFloat(s.mrp || 0).toFixed(2)}
+                                    </TableCell>
 
-                                        {/* Amount */}
-                                        <TableCell className="text-gray-900 font-bold text-xs">
-                                            ₹{parseFloat(s.total_amount).toFixed(2)}
-                                        </TableCell>
+                                    {/* Amount */}
+                                    <TableCell className="text-gray-900 font-bold text-xs">
+                                        ₹{parseFloat(s.total_amount).toFixed(2)}
+                                    </TableCell>
 
-                                        {/* Payment Mode */}
-                                        <TableCell>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${paymentBadge(s.payment_mode, t)}`}>
-                                                {s.payment_mode === "cash" ? t('walkinSale.cash') : s.payment_mode === "upi" ? t('walkinSale.upi') : t('walkinSale.credit')}
-                                            </span>
-                                        </TableCell>
+                                    {/* Payment Mode */}
+                                    <TableCell>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${paymentBadge(s.payment_mode, t)}`}>
+                                            {s.payment_mode === "cash" ? t('walkinSale.cash') : s.payment_mode === "upi" ? t('walkinSale.upi') : t('walkinSale.credit')}
+                                        </span>
+                                    </TableCell>
 
-                                        {/* Shift */}
-                                        <TableCell>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
+                                    {/* Shift */}
+                                    <TableCell>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border
                                                 ${s.shift === "morning" ? "bg-yellow-50/80 text-yellow-700 border-yellow-200/60" : "bg-indigo-50/80 text-indigo-600 border-indigo-200/60"}`}>
-                                                {s.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}
-                                                {s.shift === "morning" ? t('walkinSale.morning') : t('walkinSale.evening')}
-                                            </span>
-                                        </TableCell>
+                                            {s.shift === "morning" ? <Sun size={10} /> : <Moon size={10} />}
+                                            {s.shift === "morning" ? t('walkinSale.morning') : t('walkinSale.evening')}
+                                        </span>
+                                    </TableCell>
 
-                                        {/* Time */}
-                                        <TableCell className="text-gray-400 font-mono text-xs">
-                                            {fmtTime(s.created_at)}
-                                        </TableCell>
+                                    {/* Time */}
+                                    <TableCell className="text-gray-400 font-mono text-xs">
+                                        {fmtTime(s.created_at)}
+                                    </TableCell>
 
-                                        {/* Actions */}
-                                        <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => handleEditSale(s)}
-                                                    className={`w-6 h-6 flex items-center justify-center rounded-lg transition
+                                    {/* Actions */}
+                                    <TableCell>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleEditSale(s)}
+                                                className={`w-6 h-6 flex items-center justify-center rounded-lg transition
                 ${editingSaleId === s.sale_id
-                                                            ? "bg-amber-500 text-white"
-                                                            : "bg-gray-100/80 hover:bg-amber-100 text-gray-400 hover:text-amber-600"}`}
-                                                    title="Edit"
+                                                        ? "bg-amber-500 text-white"
+                                                        : "bg-gray-100/80 hover:bg-amber-100 text-gray-400 hover:text-amber-600"}`}
+                                                title="Edit"
+                                            >
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                </svg>
+                                            </button>
+                                            {can('walkin_sales', 'D') && (
+                                                <button
+                                                    onClick={() => confirmDelete(s.sale_id)}
+                                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
+                                                    title="Delete"
                                                 >
-                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                    </svg>
+                                                    <Trash2 size={11} />
                                                 </button>
-                                                {can('walkin_sales', 'D') && (
-                                                    <button
-                                                        onClick={() => confirmDelete(s.sale_id)}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100/80 hover:bg-rose-100 text-gray-400 hover:text-rose-600 transition"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={11} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </div>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -2387,6 +2568,15 @@ export default function WalkinSales() {
                     </div>
                 </div>
             )}
+
+            {/* ── Buyer Settings Modal ── */}
+            <BuyerSettingsModal
+                open={buyerSettingsOpen}
+                onClose={() => setBuyerSettingsOpen(false)}
+                settings={buyerSettings}
+                onSaved={setBuyerSettings}
+                showFlash={showFlash}
+            />
         </div>
     );
 }
