@@ -2,6 +2,7 @@ const router = require('express').Router();
 const protect = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const upload = require('../middleware/upload');
+const usbRoles = require('../controllers/usbRoles.controller');
 const settingsController = require('../controllers/settings.controller');
 
 // Global settings
@@ -43,5 +44,8 @@ router.post('/print', protect, isAdmin, settingsController.savePrintSettings);
 // Receipt template (shared header/footer format across all receipt printers)
 router.get('/receipt-template', protect, settingsController.getReceiptTemplate);
 router.post('/receipt-template', protect, isAdmin, settingsController.saveReceiptTemplate);
+
+router.get('/usb-roles', usbRoles.getUsbRoles);
+router.post('/usb-roles', usbRoles.saveUsbRoles);
 
 module.exports = router;
