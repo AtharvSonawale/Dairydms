@@ -4,7 +4,7 @@ import { getReceiptTemplate } from "../utils/receiptTemplate";
 import { renderReceiptHeader, renderReceiptFooter } from "../utils/receiptTemplateRenderer";
 import QRCode from "qrcode";
 
-export const printReceipt = async (txn, t, appName, centreName, { onStart, onReady, onDone } = {}) => {
+export const printReceipt = async (txn, t, appName, centreName, { onStart, onReady, onDone, qrEnabled = true } = {}) => {
   const { printerType, paperWidthMm } = getPrintSettings();
   const tpl = getReceiptTemplate();
   const isThermal = printerType === "thermal";
@@ -32,8 +32,10 @@ export const printReceipt = async (txn, t, appName, centreName, { onStart, onRea
   const showSellerCode = tpl.showSellerCode;
 
   // ── QR code for pickup verification at the storage counter ──
+  // Driven by product_buyer_settings.qr_printing_enabled, passed in as
+  // qrEnabled from ProductSales.jsx — NOT the centre-wide print_settings.
   let qrDataUrl = "";
-  if (txn.fulfillment_token) {
+  if (qrEnabled && txn.fulfillment_token) {
     try {
       const verifyUrl = `${window.location.origin}/product-scan/${txn.fulfillment_token}`;
       qrDataUrl = await QRCode.toDataURL(verifyUrl, {

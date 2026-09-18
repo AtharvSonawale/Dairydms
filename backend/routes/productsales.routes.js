@@ -5,6 +5,7 @@ const protect = require('../middleware/auth');
 // Import controllers
 const salesCtrl = require('../controllers/productsales.controller');
 const reportCtrl = require('../controllers/productSalesReport.controller');
+const purchaseCtrl = require('../controllers/productpurchase.controller');
 
 // ── Main Product Sales (CRUD) ──────────────────────────────
 router.get('/transactions', protect, salesCtrl.getTransactions);
@@ -24,6 +25,9 @@ router.get('/speed-products', protect, salesCtrl.getSpeedProducts);
 router.post('/speed-products', protect, salesCtrl.createSpeedProduct);
 router.put('/speed-products/:id', protect, salesCtrl.updateSpeedProduct);
 router.delete('/speed-products/:id', protect, salesCtrl.deleteSpeedProduct);
+
+// ── Batches (per-product sellable stock, for line-item batch picker) ──
+router.get('/batches', protect, purchaseCtrl.getProductBatches);
 
 // ── Named Buyers ────────────────────────────────────────────
 router.get('/named-buyers', protect, salesCtrl.getProductNamedBuyers);

@@ -66,6 +66,7 @@ const EMPTY_FORM = {
 
 const EMPTY_LINE = {
     product_id: "",
+    batch_id: "",
     quantity: "",
     rate: "",
     mrp_rate: "",
@@ -150,6 +151,7 @@ function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
                 seller_enabled: !!data.seller_enabled,
                 named_enabled: !!data.named_enabled,
                 anon_enabled: !!data.anon_enabled,
+                qr_printing_enabled: !!data.qr_printing_enabled,
             });
             showFlash('success', t('productSales.buyerSettings.saveSuccess') || 'Buyer settings updated.');
             onClose();
@@ -221,6 +223,34 @@ function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
                     <p className="text-[10px] text-gray-400 mt-1">
                         {t('productSales.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.'}
                     </p>
+
+                    {/* ── QR printing toggle — independent of buyer-type rules ── */}
+                    <button
+                        type="button"
+                        onClick={() => setLocal(prev => ({ ...prev, qr_printing_enabled: !prev.qr_printing_enabled }))}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition shadow-sm mt-1
+                            ${local.qr_printing_enabled
+                                ? 'border-amber-200/80 bg-amber-50/60 hover:bg-amber-100/60'
+                                : 'border-gray-200/60 bg-gray-50/40 hover:bg-gray-100/60'}`}
+                    >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                            ${local.qr_printing_enabled ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
+                            <BadgeCheck size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold ${local.qr_printing_enabled ? 'text-amber-800' : 'text-gray-600'}`}>
+                                Print QR on Receipt
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                Pickup-verification QR shown on printed Product Sales receipts
+                            </p>
+                        </div>
+                        <div className={`w-10 h-6 rounded-full transition relative shrink-0
+                            ${local.qr_printing_enabled ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all
+                                ${local.qr_printing_enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                        </div>
+                    </button>
                 </div>
 
                 <div className="flex gap-2 px-6 pb-5">
@@ -724,6 +754,7 @@ export default function ProductSales() {
                     seller_enabled: !!data.seller_enabled,
                     named_enabled: !!data.named_enabled,
                     anon_enabled: !!data.anon_enabled,
+                    qr_printing_enabled: data.qr_printing_enabled === undefined ? true : !!data.qr_printing_enabled,
                 });
             })
             .catch(() => {
@@ -763,6 +794,7 @@ export default function ProductSales() {
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [lineProductSearch, setLineProductSearch] = useState({});
     const [showProductDrop, setShowProductDrop] = useState({});
+    const [lineBatches, setLineBatches] = useState({});
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
@@ -968,6 +1000,17 @@ export default function ProductSales() {
         } catch { /* silent */ }
     };
 
+    const fetchBatchesForLine = async (lineKey, productId) => {
+        try {
+            const { data } = await api.get(`/product-sales/batches?product_id=${productId}`);
+            setLineBatches(prev => ({ ...prev, [lineKey]: data }));
+            return data;
+        } catch {
+            setLineBatches(prev => ({ ...prev, [lineKey]: [] }));
+            return [];
+        }
+    };
+
     // fetch sales for date
     const fetchSales = async (date) => {
         setLoading(true);
@@ -1086,7 +1129,7 @@ export default function ProductSales() {
         if (form.buyer_mode === "seller" && !form.seller_id) { showFlash("error", t('productSales.selectSellerError')); return; }
         if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) { showFlash("error", "Buyer name is required."); return; }
 
-        const validLines = lines.filter(l => l.product_id && l.quantity && l.rate);
+        const validLines = lines.filter(l => l.product_id && l.batch_id && l.quantity && parseFloat(l.quantity) > 0);
         if (validLines.length === 0) {
             showFlash("error", t('productSales.selectProductError'));
             return;
@@ -1113,9 +1156,8 @@ export default function ProductSales() {
                 buyer_name: form.buyer_mode === "named" ? namedBuyerSearch.trim() : null,
                 sale_date: selectedDate,
                 lines: validLines.map(l => ({
-                    product_id: Number(l.product_id),
+                    batch_id: Number(l.batch_id),
                     quantity: parseFloat(l.quantity),
-                    rate: parseFloat(l.rate),
                 })),
             });
             await fetchSales(selectedDate);
@@ -1164,7 +1206,7 @@ export default function ProductSales() {
     const isFormReady = () => {
         if (form.buyer_mode === "seller" && !form.seller_id) return false;
         if (form.buyer_mode === "named" && !namedBuyerId && !namedBuyerSearch.trim()) return false;
-        const validLines = lines.filter(l => l.product_id && l.quantity && l.rate);
+        const validLines = lines.filter(l => l.product_id && l.batch_id && l.quantity && parseFloat(l.quantity) > 0);
         if (validLines.length === 0) return false;
         for (const l of validLines) {
             const product = products.find(p => String(p.product_id) === String(l.product_id));
@@ -1332,6 +1374,7 @@ export default function ProductSales() {
             onStart: () => setPrintStatus('preparing'),
             onReady: () => setPrintStatus('printing'),
             onDone: () => setPrintStatus(null),
+            qrEnabled: buyerSettings.qr_printing_enabled,
         });
     };
 
@@ -1691,21 +1734,29 @@ export default function ProductSales() {
                         )}
 
                         {/* ── Speed product quick-tap strip ─────────────────────── */}
-                        <SpeedStripInForm products={products} onTap={(sp) => handleAddSpeedLines([{
-                            product_id: String(sp.product_id),
-                            quantity: "1",
-                            rate: String(sp.mrp_rate || sp.rate || ""),
-                            mrp_rate: String(sp.mrp_rate || ""),
-                            _key: Date.now() + Math.random(),
-                        }])} />
+                        <SpeedStripInForm products={products} onTap={async (sp) => {
+                            const key = Date.now() + Math.random();
+                            let batchId = "", rate = String(sp.mrp_rate || sp.rate || "");
+                            const batches = await fetchBatchesForLine(key, sp.product_id);
+                            if (batches.length > 0) { batchId = String(batches[0].batch_id); rate = String(batches[0].mrp_rate); }
+                            handleAddSpeedLines([{
+                                product_id: String(sp.product_id),
+                                batch_id: batchId,
+                                quantity: "1",
+                                rate,
+                                mrp_rate: String(sp.mrp_rate || ""),
+                                _key: key,
+                            }]);
+                        }} />
 
                         {/* Product lines */}
                         <div className="flex flex-col gap-3 mb-4 relative z-10 overflow-x-auto">
                             <div className="min-w-[560px] flex flex-col gap-3">
                                 {/* Column headers */}
                                 <div className="grid gap-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-1"
-                                    style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                    style={{ gridTemplateColumns: "minmax(0, 190px) minmax(0, 150px) 80px 80px 90px 28px" }}>
                                     <span>{t('productSales.product')}</span>
+                                    <span>Batch</span>
                                     <span>{t('productSales.qty')}</span>
                                     <span>{t('productSales.mrpRate')}</span>
                                     <span>{t('productSales.total')}</span>
@@ -1721,7 +1772,7 @@ export default function ProductSales() {
 
                                     return (
                                         <div key={line._key} className="grid gap-2 items-start"
-                                            style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                            style={{ gridTemplateColumns: "minmax(0, 190px) minmax(0, 150px) 80px 80px 90px 28px" }}>
 
                                             {/* Product picker */}
                                             <div className="relative" ref={el => (lineAnchorRefs.current[line._key] = el)}>
@@ -1753,12 +1804,18 @@ export default function ProductSales() {
                                                             : products
                                                         ).map((p) => (
                                                             <button key={p.product_id} type="button"
-                                                                onMouseDown={() => {
+                                                                onMouseDown={async () => {
                                                                     setLine(line._key, "product_id", String(p.product_id));
-                                                                    setLine(line._key, "rate", p.mrp_rate ? String(p.mrp_rate) : (p.rate ? String(p.rate) : ""));
+                                                                    setLine(line._key, "batch_id", "");
+                                                                    setLine(line._key, "rate", "");
                                                                     setLine(line._key, "mrp_rate", p.mrp_rate ? String(p.mrp_rate) : "");
                                                                     setLineProductSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                                     setShowProductDrop(prev => ({ ...prev, [line._key]: false }));
+                                                                    const batches = await fetchBatchesForLine(line._key, p.product_id);
+                                                                    if (batches.length > 0) {
+                                                                        setLine(line._key, "batch_id", String(batches[0].batch_id));
+                                                                        setLine(line._key, "rate", String(batches[0].mrp_rate));
+                                                                    }
                                                                     focusNextField(lineAnchorRefs.current[line._key]);
                                                                 }}
                                                                 className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
@@ -1785,6 +1842,27 @@ export default function ProductSales() {
                                                 )}
                                             </div>
 
+                                            {/* Batch */}
+                                            <select
+                                                value={line.batch_id}
+                                                onChange={(e) => {
+                                                    const bId = e.target.value;
+                                                    setLine(line._key, "batch_id", bId);
+                                                    const batches = lineBatches[line._key] || [];
+                                                    const b = batches.find(x => String(x.batch_id) === bId);
+                                                    if (b) setLine(line._key, "rate", String(b.mrp_rate));
+                                                }}
+                                                disabled={!line.product_id}
+                                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 disabled:opacity-40"
+                                            >
+                                                <option value="">{line.product_id ? "Select batch…" : "Pick product first"}</option>
+                                                {(lineBatches[line._key] || []).map(b => (
+                                                    <option key={b.batch_id} value={b.batch_id}>
+                                                        {b.batch_no} — {parseFloat(b.remaining_quantity).toFixed(1)} left @ ₹{parseFloat(b.mrp_rate).toFixed(2)}
+                                                    </option>
+                                                ))}
+                                            </select>
+
                                             {/* Qty */}
                                             <TinyInput
                                                 value={line.quantity}
@@ -1801,18 +1879,12 @@ export default function ProductSales() {
                                                 }}
                                             />
 
-                                            {/* Rate */}
+                                            {/* Rate — authoritative from the selected batch */}
                                             <TinyInput
                                                 value={line.rate}
-                                                onChange={(e) => setLine(line._key, "rate", e.target.value)}
+                                                readOnly
                                                 placeholder="₹0.00" type="number" step="0.01"
-                                                className={`w-full ${line.rate ? "bg-amber-50/30 border-amber-200/60 text-amber-700" : "bg-amber-50/30 border-amber-200/60"}`}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        focusNextField(e.target);
-                                                    }
-                                                }}
+                                                className="w-full bg-amber-50/30 border-amber-200/60 text-amber-700 cursor-not-allowed"
                                             />
 
                                             {/* Line total */}

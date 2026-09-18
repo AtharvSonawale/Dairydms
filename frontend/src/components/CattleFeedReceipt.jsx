@@ -4,7 +4,7 @@ import { getReceiptTemplate } from "../utils/receiptTemplate";
 import { renderReceiptHeader, renderReceiptFooter } from "../utils/receiptTemplateRenderer";
 import QRCode from "qrcode";
 
-export const printReceipt = async (txn, t, appName, centreName, { onStart, onReady, onDone } = {}) => {
+export const printReceipt = async (txn, t, appName, centreName, { onStart, onReady, onDone, qrEnabled = true } = {}) => {
   const { printerType, paperWidthMm } = getPrintSettings();
   const tpl = getReceiptTemplate();
   const isThermal = printerType === "thermal";
@@ -38,8 +38,10 @@ export const printReceipt = async (txn, t, appName, centreName, { onStart, onRea
   const showSellerCode = tpl.showSellerCode;
 
   // ── QR code for pickup verification at the feed storage ──
+  // Driven by cattle_feed_buyer_settings.qr_printing_enabled, passed in
+  // as qrEnabled from CattleFeedSales.jsx.
   let qrDataUrl = "";
-  if (txn.fulfillment_token) {
+  if (qrEnabled && txn.fulfillment_token) {
     try {
       const verifyUrl = `${window.location.origin}/feed-scan/${txn.fulfillment_token}`;
       qrDataUrl = await QRCode.toDataURL(verifyUrl, {

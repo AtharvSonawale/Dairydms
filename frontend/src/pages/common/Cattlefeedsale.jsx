@@ -60,13 +60,14 @@ const imgUrl = (url) =>
         : null;
 
 const EMPTY_FORM = { seller_id: "", seller_code: "" };
-const EMPTY_LINE = { feed_id: "", quantity: "", rate: "", mrp_rate: "" };
+const EMPTY_LINE = { feed_id: "", batch_id: "", quantity: "", rate: "", mrp_rate: "" };
 
 // ── Default buyer-type visibility (all enabled) ──
 const DEFAULT_BUYER_SETTINGS = {
     seller_enabled: true,
     named_enabled: true,
     anon_enabled: true,
+    qr_printing_enabled: true,
 };
 
 // ── Numeric input normalizer: keeps field as string, blocks negatives/NaN ──
@@ -151,6 +152,7 @@ function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
                 seller_enabled: !!data.seller_enabled,
                 named_enabled: !!data.named_enabled,
                 anon_enabled: !!data.anon_enabled,
+                qr_printing_enabled: !!data.qr_printing_enabled,
             });
             showFlash('success', t('cattleFeedSales.buyerSettings.saveSuccess') || 'Buyer settings updated.');
             onClose();
@@ -222,6 +224,34 @@ function BuyerSettingsModal({ open, onClose, settings, onSaved, showFlash }) {
                     <p className="text-[10px] text-gray-400 mt-1">
                         {t('cattleFeedSales.buyerSettings.mustKeepOne') || 'At least one buyer type must remain enabled.'}
                     </p>
+
+                    {/* ── QR printing toggle — independent of buyer-type rules ── */}
+                    <button
+                        type="button"
+                        onClick={() => setLocal(prev => ({ ...prev, qr_printing_enabled: !prev.qr_printing_enabled }))}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition shadow-sm mt-1
+                            ${local.qr_printing_enabled
+                                ? 'border-amber-200/80 bg-amber-50/60 hover:bg-amber-100/60'
+                                : 'border-gray-200/60 bg-gray-50/40 hover:bg-gray-100/60'}`}
+                    >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                            ${local.qr_printing_enabled ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
+                            <BadgeCheck size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold ${local.qr_printing_enabled ? 'text-amber-800' : 'text-gray-600'}`}>
+                                {t('cattleFeedSales.buyerSettings.qrPrinting') || 'Print QR on Receipt'}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                {t('cattleFeedSales.buyerSettings.qrPrintingHint') || 'Pickup-verification QR shown on printed Cattle Feed receipts'}
+                            </p>
+                        </div>
+                        <div className={`w-10 h-6 rounded-full transition relative shrink-0
+                            ${local.qr_printing_enabled ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all
+                                ${local.qr_printing_enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                        </div>
+                    </button>
                 </div>
 
                 <div className="flex gap-2 px-6 pb-5">
@@ -705,6 +735,7 @@ export default function CattleFeedSales() {
                     seller_enabled: !!data.seller_enabled,
                     named_enabled: !!data.named_enabled,
                     anon_enabled: !!data.anon_enabled,
+                    qr_printing_enabled: data.qr_printing_enabled === undefined ? true : !!data.qr_printing_enabled,
                 });
             })
             .catch(() => {
@@ -740,6 +771,7 @@ export default function CattleFeedSales() {
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [lineFeedSearch, setLineFeedSearch] = useState({});
     const [showFeedDrop, setShowFeedDrop] = useState({});
+    const [lineBatches, setLineBatches] = useState({});
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [flash, setFlash] = useState(null);
@@ -791,7 +823,7 @@ export default function CattleFeedSales() {
         setLines(prev => {
             const existingEmpty = prev.filter(l => !l.feed_id && !l.quantity && !l.rate);
             const existingFilled = prev.filter(l => l.feed_id || l.quantity || l.rate);
-            const mapped = newLines.map(l => ({ ...l, _key: Date.now() + Math.random() }));
+            const mapped = newLines.map(l => ({ ...l, _key: l._key || Date.now() + Math.random() }));
             return [...existingFilled, ...mapped, ...(existingEmpty.length ? [] : [{ ...EMPTY_LINE, _key: Date.now() }])];
         });
     };
@@ -1031,6 +1063,17 @@ export default function CattleFeedSales() {
         } catch { /* silent */ }
     };
 
+    const fetchBatchesForLine = async (lineKey, feedId) => {
+        try {
+            const { data } = await api.get(`/cattle-feed-sales/batches?feed_id=${feedId}`);
+            setLineBatches(prev => ({ ...prev, [lineKey]: data }));
+            return data;
+        } catch {
+            setLineBatches(prev => ({ ...prev, [lineKey]: [] }));
+            return [];
+        }
+    };
+
     const fetchSales = async (date) => {
         setLoading(true);
         try {
@@ -1173,9 +1216,8 @@ export default function CattleFeedSales() {
                 buyer_name: form.buyer_mode === "named" ? namedBuyerSearch.trim() : null,
                 sale_date: selectedDate,
                 lines: validLines.map(l => ({
-                    feed_id: Number(l.feed_id),
+                    batch_id: Number(l.batch_id),
                     quantity: parseFloat(l.quantity),
-                    rate: parseFloat(l.rate),
                 })),
             });
             await fetchSales(selectedDate);
@@ -1269,6 +1311,7 @@ export default function CattleFeedSales() {
             onStart: () => setPrintStatus('preparing'),
             onReady: () => setPrintStatus('printing'),
             onDone: () => setPrintStatus(null),
+            qrEnabled: buyerSettings.qr_printing_enabled,
         });
     };
 
@@ -1640,19 +1683,27 @@ export default function CattleFeedSales() {
                             )}
 
                             {/* Speed strip */}
-                            <SpeedStripInForm onTap={(sp) => handleAddSpeedLines([{
-                                feed_id: String(sp.feed_id),
-                                quantity: "1",
-                                rate: String(sp.mrp_rate || sp.rate || ""),
-                                mrp_rate: String(sp.mrp_rate || ""),
-                                _key: Date.now() + Math.random(),
-                            }])} t={t} />
+                            <SpeedStripInForm onTap={async (sp) => {
+                                const key = Date.now() + Math.random();
+                                let batchId = "", rate = String(sp.mrp_rate || sp.rate || "");
+                                const batches = await fetchBatchesForLine(key, sp.feed_id);
+                                if (batches.length > 0) { batchId = String(batches[0].batch_id); rate = String(batches[0].mrp_rate); }
+                                handleAddSpeedLines([{
+                                    feed_id: String(sp.feed_id),
+                                    batch_id: batchId,
+                                    quantity: "1",
+                                    rate,
+                                    mrp_rate: String(sp.mrp_rate || ""),
+                                    _key: key,
+                                }]);
+                            }} t={t} />
 
                             {/* Feed lines */}
                             <div className="flex flex-col gap-3 mb-4">
                                 <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
-                                    style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                    style={{ gridTemplateColumns: "minmax(0, 190px) minmax(0, 150px) 80px 80px 90px 28px" }}>
                                     <span>{productLabel || t('cattleFeedSales.form.feed')}</span>
+                                    <span>Batch</span>
                                     <span>{t('cattleFeedSales.form.qty')}</span>
                                     <span>{t('cattleFeedSales.form.rate')}</span>
                                     <span>{t('cattleFeedSales.form.total')}</span>
@@ -1668,7 +1719,7 @@ export default function CattleFeedSales() {
 
                                     return (
                                         <div key={line._key} className="grid gap-2 items-start"
-                                            style={{ gridTemplateColumns: "minmax(0, 220px) 80px 80px 90px 28px" }}>
+                                            style={{ gridTemplateColumns: "minmax(0, 190px) minmax(0, 150px) 80px 80px 90px 28px" }}>
 
                                             <div className="relative">
                                                 <TinyInput
@@ -1695,13 +1746,17 @@ export default function CattleFeedSales() {
                                                             : feeds
                                                         ).map((f) => (
                                                             <button key={f.feed_id} type="button"
-                                                                onMouseDown={() => {
+                                                                onMouseDown={async () => {
                                                                     setLine(line._key, "feed_id", String(f.feed_id));
-                                                                    setLine(line._key, "rate", f.mrp_rate ? String(f.mrp_rate) : (f.rate ? String(f.rate) : ""));
-                                                                    setLine(line._key, "mrp_rate", f.mrp_rate ? String(f.mrp_rate) : "");
+                                                                    setLine(line._key, "batch_id", "");
+                                                                    setLine(line._key, "rate", "");
                                                                     setLineFeedSearch(prev => { const n = { ...prev }; delete n[line._key]; return n; });
                                                                     setShowFeedDrop(prev => ({ ...prev, [line._key]: false }));
-                                                                    focusNextField(e.currentTarget);
+                                                                    const batches = await fetchBatchesForLine(line._key, f.feed_id);
+                                                                    if (batches.length > 0) {
+                                                                        setLine(line._key, "batch_id", String(batches[0].batch_id));
+                                                                        setLine(line._key, "rate", String(batches[0].mrp_rate));
+                                                                    }
                                                                 }}
                                                                 className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50/80 text-left transition">
                                                                 <div>
@@ -1727,6 +1782,26 @@ export default function CattleFeedSales() {
                                                 )}
                                             </div>
 
+                                            <select
+                                                value={line.batch_id}
+                                                onChange={(e) => {
+                                                    const bId = e.target.value;
+                                                    setLine(line._key, "batch_id", bId);
+                                                    const batches = lineBatches[line._key] || [];
+                                                    const b = batches.find(x => String(x.batch_id) === bId);
+                                                    if (b) setLine(line._key, "rate", String(b.mrp_rate));
+                                                }}
+                                                disabled={!line.feed_id}
+                                                className="border border-gray-200/60 bg-white/50 backdrop-blur-sm rounded-xl px-2 py-2 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 disabled:opacity-40"
+                                            >
+                                                <option value="">{line.feed_id ? "Select batch…" : "Pick feed first"}</option>
+                                                {(lineBatches[line._key] || []).map(b => (
+                                                    <option key={b.batch_id} value={b.batch_id}>
+                                                        {b.batch_no} — {parseFloat(b.remaining_quantity).toFixed(1)} left @ ₹{parseFloat(b.mrp_rate).toFixed(2)}
+                                                    </option>
+                                                ))}
+                                            </select>
+
                                             <TinyInput
                                                 value={line.quantity}
                                                 onChange={(e) => setLine(line._key, "quantity", normalizeNumericInput(e.target.value))}
@@ -1744,15 +1819,9 @@ export default function CattleFeedSales() {
 
                                             <TinyInput
                                                 value={line.rate}
-                                                onChange={(e) => setLine(line._key, "rate", normalizeNumericInput(e.target.value))}
+                                                readOnly
                                                 placeholder="₹0.00" type="number" step="0.01" min="0"
-                                                className="w-full bg-amber-50/80 border-amber-200/60 text-amber-700"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        focusNextField(e.target);
-                                                    }
-                                                }}
+                                                className="w-full bg-amber-50/80 border-amber-200/60 text-amber-700 cursor-not-allowed"
                                             />
 
                                             <div className={`h-[35px] px-2 flex items-center rounded-xl border text-xs font-bold whitespace-nowrap shadow-sm
@@ -2150,10 +2219,12 @@ export default function CattleFeedSales() {
                         {/* Line items — fully editable */}
                         <div className="flex flex-col gap-2">
                             <div className="grid gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1"
-                                style={{ gridTemplateColumns: "1fr 90px 90px 28px" }}>
-                                <span>{t('cattleFeedSales.editModal.feed') || "Feed"}</span>
-                                <span>{t('cattleFeedSales.editModal.qty') || "Qty"}</span>
-                                <span>{t('cattleFeedSales.editModal.rate') || "Rate"}</span>
+                                style={{ gridTemplateColumns: "minmax(0, 190px) minmax(0, 150px) 80px 80px 90px 28px" }}>
+                                <span>{productLabel || t('cattleFeedSales.form.feed')}</span>
+                                <span>Batch</span>
+                                <span>{t('cattleFeedSales.form.qty')}</span>
+                                <span>{t('cattleFeedSales.form.rate')}</span>
+                                <span>{t('cattleFeedSales.form.total')}</span>
                                 <span />
                             </div>
                             {editingSale.items.map((item) => (

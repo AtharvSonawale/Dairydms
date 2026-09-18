@@ -2,7 +2,7 @@
 
 const router = require('express').Router();
 const protect = require('../middleware/auth');
-const ctrl = require('../controllers/cattlefeedpurchase.controller');
+const ctrl = require('../controllers/Cattlefeedpurchase.controller');
 
 // ── Cattle Feeds catalogue ─────────────────────────────────────
 // GET  /api/cattle-feeds      → list all feeds (with current stock)
@@ -12,7 +12,7 @@ router.get('/all', protect, ctrl.getAllCentreFeeds);
 router.post('/', protect, ctrl.createFeed);
 router.put('/:id', protect, ctrl.updateFeed);
 router.delete('/:id', protect, ctrl.deleteFeed);
-
+router.get('/batches', protect, ctrl.getFeedBatches);
 
 // ── Cattle Feed Purchases (stock IN) ───────────────────────────
 // GET  /api/cattle-feeds/purchases?date=  → purchases for that date

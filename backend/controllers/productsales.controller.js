@@ -67,17 +67,18 @@ const nextTransactionId = async (conn, centreId, saleType = 'product') => {
 // Falls back to all-enabled when no row exists (backwards compatible).
 const loadBuyerSettings = async (conn, centreId) => {
     const [rows] = await conn.query(
-        `SELECT seller_enabled, named_enabled, anon_enabled
+        `SELECT seller_enabled, named_enabled, anon_enabled, qr_printing_enabled
          FROM product_buyer_settings
          WHERE centre_id = ?`,
         [centreId]
     );
-    if (!rows.length) return { seller: true, named: true, anon: true };
+    if (!rows.length) return { seller: true, named: true, anon: true, qrPrinting: true };
     const r = rows[0];
     return {
         seller: !!r.seller_enabled,
         named: !!r.named_enabled,
         anon: !!r.anon_enabled,
+        qrPrinting: !!r.qr_printing_enabled,   // ADD THIS LINE
     };
 };
 
@@ -328,71 +329,84 @@ exports.createSale = async (req, res) => {
             }
         }
 
-        // ── validate & stock-check every line up front ──
+        // ── validate & stock-check every line up front, batch by batch ──
+        // Each line sells from one specific batch, so old stock keeps its
+        // old rate even after a newer purchase changes the product's rate.
+        const resolvedLines = [];
         for (const [i, line] of lines.entries()) {
-            const { product_id, quantity, rate } = line;
-            if (!product_id) {
+            const { batch_id, quantity } = line;
+            if (!batch_id) {
                 await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: product is required.` });
-            }
-            if (!quantity || parseFloat(quantity) <= 0) {
-                await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: quantity must be > 0.` });
-            }
-            if (!rate || parseFloat(rate) <= 0) {
-                await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: rate must be > 0.` });
+                return res.status(400).json({ error: `Line ${i + 1}: batch is required.` });
             }
 
-            const [product] = await conn.query(
-                `SELECT product_id, product_name, current_stock FROM products 
-                 WHERE product_id = ? AND centre_id = ?`,
-                [product_id, centreId]
-            );
-            if (!product.length) {
+            const q = parseFloat(quantity);
+            if (!quantity || isNaN(q) || q <= 0) {
                 await conn.rollback();
-                return res.status(404).json({ error: `Line ${i + 1}: product not found in your centre.` });
+                return res.status(400).json({ error: `Line ${i + 1}: quantity must be greater than 0.` });
             }
-            if (parseFloat(quantity) > parseFloat(product[0].current_stock)) {
+
+            const [batchRows] = await conn.query(
+                `SELECT b.*, p.product_name FROM product_batches b
+                 JOIN products p ON p.product_id = b.product_id
+                 WHERE b.batch_id = ? AND b.centre_id = ? FOR UPDATE`,
+                [batch_id, centreId]
+            );
+            if (!batchRows.length) {
+                await conn.rollback();
+                return res.status(404).json({ error: `Line ${i + 1}: batch not found in your centre.` });
+            }
+            const batch = batchRows[0];
+            if (q > parseFloat(batch.remaining_quantity)) {
                 await conn.rollback();
                 return res.status(400).json({
-                    error: `Insufficient stock for "${product[0].product_name}". Only ${parseFloat(product[0].current_stock).toFixed(2)} units available.`,
+                    error: `Insufficient stock in batch "${batch.batch_no}" for "${batch.product_name}". Only ${parseFloat(batch.remaining_quantity).toFixed(2)} units left in this batch.`,
                 });
             }
+
+            resolvedLines.push({
+                product_id: batch.product_id,
+                batch_id: batch.batch_id,
+                quantity: q,
+                rate: parseFloat(batch.mrp_rate),
+            });
         }
 
         // ── generate transaction ID (atomic, per centre+financial year) ──
         const transaction_id = await nextTransactionId(conn, centreId, 'product');
 
-        // ── insert all lines + deduct stock ──
+        // ── insert all lines + deduct stock from both the batch and the product total ──
         const insertedIds = [];
-        for (const line of lines) {
-            const { product_id, quantity, rate } = line;
-            const saleQty = parseFloat(quantity);
-            const saleRate = parseFloat(rate);
-            const saleTotal = parseFloat((saleQty * saleRate).toFixed(2));
+        for (const line of resolvedLines) {
+            const { product_id, batch_id, quantity, rate } = line;
+            const saleTotal = parseFloat((quantity * rate).toFixed(2));
 
             const [result] = await conn.query(
                 `INSERT INTO product_sales
-        (transaction_id, product_id, seller_id, buyer_id, buyer_name, buyer_type,
+        (transaction_id, product_id, batch_id, seller_id, buyer_id, buyer_name, buyer_type,
          operator_id, centre_id, quantity, rate, total_amount, sale_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    transaction_id, Number(product_id),
+                    transaction_id, product_id, batch_id,
                     mode === 'seller' ? Number(seller_id) : null,
                     mode === 'named' ? resolvedBuyerId : null,
                     mode === 'anon' ? 'ANON' : null,
                     mode,
                     effectiveOperatorId, centreId,
-                    saleQty, saleRate, saleTotal, sale_date,
+                    quantity, rate, saleTotal, sale_date,
                 ]
             );
             insertedIds.push(result.insertId);
 
             await conn.query(
+                `UPDATE product_batches SET remaining_quantity = remaining_quantity - ?
+                 WHERE batch_id = ? AND centre_id = ?`,
+                [quantity, batch_id, centreId]
+            );
+            await conn.query(
                 `UPDATE products SET current_stock = current_stock - ? 
                  WHERE product_id = ? AND centre_id = ?`,
-                [saleQty, Number(product_id), centreId]
+                [quantity, product_id, centreId]
             );
         }
 
@@ -559,6 +573,13 @@ exports.deleteSale = async (req, res) => {
              WHERE product_id = ? AND centre_id = ?`,
             [parseFloat(existing[0].quantity), existing[0].product_id, centreId]
         );
+        if (existing[0].batch_id) {
+            await conn.query(
+                `UPDATE product_batches SET remaining_quantity = remaining_quantity + ?
+                 WHERE batch_id = ? AND centre_id = ?`,
+                [parseFloat(existing[0].quantity), existing[0].batch_id, centreId]
+            );
+        }
 
         await conn.commit();
         res.json({ message: 'Sale deleted successfully.' });
@@ -618,7 +639,9 @@ exports.updateTransaction = async (req, res) => {
             });
         }
 
-        // Process each item in the transaction
+        // Process each item in the transaction — quantity changes are
+        // applied against the sale's existing batch (batch itself can't be
+        // reassigned from this simplified edit modal; only qty/rate move).
         for (const item of items) {
             const { sale_id, quantity, rate } = item;
             const existingSale = existingSales.find(s => s.sale_id === sale_id);
@@ -630,16 +653,16 @@ exports.updateTransaction = async (req, res) => {
             const qtyDiff = parseFloat(quantity) - parseFloat(existingSale.quantity);
             const newTotal = (parseFloat(quantity) * parseFloat(rate)).toFixed(2);
 
-            // Check stock if quantity is increased
-            if (qtyDiff > 0) {
-                const [product] = await conn.query(
-                    `SELECT current_stock FROM products WHERE product_id = ? AND centre_id = ?`,
-                    [existingSale.product_id, centreId]
+            // Check batch stock if quantity is increased
+            if (qtyDiff > 0 && existingSale.batch_id) {
+                const [[batch]] = await conn.query(
+                    `SELECT remaining_quantity FROM product_batches WHERE batch_id = ? AND centre_id = ? FOR UPDATE`,
+                    [existingSale.batch_id, centreId]
                 );
-                if (qtyDiff > parseFloat(product[0].current_stock)) {
+                if (batch && qtyDiff > parseFloat(batch.remaining_quantity)) {
                     await conn.rollback();
                     return res.status(400).json({
-                        error: `Insufficient stock for product ${existingSale.product_id}. Only ${parseFloat(product[0].current_stock).toFixed(2)} units available.`,
+                        error: `Insufficient stock in batch for product ${existingSale.product_id}. Only ${parseFloat(batch.remaining_quantity).toFixed(2)} more available.`,
                     });
                 }
             }
@@ -651,7 +674,13 @@ exports.updateTransaction = async (req, res) => {
                 [parseFloat(quantity), parseFloat(rate), parseFloat(newTotal), sale_date, sale_id, centreId]
             );
 
-            // Adjust stock
+            // Adjust batch remaining + product stock
+            if (existingSale.batch_id) {
+                await conn.query(
+                    `UPDATE product_batches SET remaining_quantity = remaining_quantity - ? WHERE batch_id = ?`,
+                    [qtyDiff, existingSale.batch_id]
+                );
+            }
             await conn.query(
                 `UPDATE products SET current_stock = current_stock - ? 
                  WHERE product_id = ? AND centre_id = ?`,
@@ -1020,18 +1049,19 @@ exports.getBuyerSettings = async (req, res) => {
         const centreId = req.user.centre_id;
 
         const [rows] = await pool.query(
-            `SELECT seller_enabled, named_enabled, anon_enabled
+            `SELECT seller_enabled, named_enabled, anon_enabled, qr_printing_enabled
              FROM product_buyer_settings
              WHERE centre_id = ?`,
             [centreId]
         );
 
         if (!rows.length) {
-            // No row yet → all types enabled (safe default)
+            // No row yet → all types enabled, QR printing on (safe defaults)
             return res.json({
                 seller_enabled: true,
                 named_enabled: true,
                 anon_enabled: true,
+                qr_printing_enabled: true,   // ADD THIS LINE
             });
         }
 
@@ -1040,6 +1070,7 @@ exports.getBuyerSettings = async (req, res) => {
             seller_enabled: !!r.seller_enabled,
             named_enabled: !!r.named_enabled,
             anon_enabled: !!r.anon_enabled,
+            qr_printing_enabled: !!r.qr_printing_enabled,   // ADD THIS LINE
         });
     } catch (err) {
         console.error('getBuyerSettings error:', err);
@@ -1060,11 +1091,14 @@ exports.updateBuyerSettings = async (req, res) => {
         const operatorId = isAdmin ? null : req.user.id;
         const adminId = isAdmin ? req.user.id : null;
 
-        const { seller_enabled, named_enabled, anon_enabled } = req.body;
+        const { seller_enabled, named_enabled, anon_enabled, qr_printing_enabled } = req.body;
 
         const sellerOn = seller_enabled === true || seller_enabled === 1 ? 1 : 0;
         const namedOn = named_enabled === true || named_enabled === 1 ? 1 : 0;
         const anonOn = anon_enabled === true || anon_enabled === 1 ? 1 : 0;
+        // Independent of buyer-type safety check below — QR printing can be
+        // turned off entirely without affecting buyer-type availability.
+        const qrOn = qr_printing_enabled === false || qr_printing_enabled === 0 ? 0 : 1;
 
         // ── Safety: at least one buyer type must stay enabled ──
         if (sellerOn + namedOn + anonOn === 0) {
@@ -1075,16 +1109,17 @@ exports.updateBuyerSettings = async (req, res) => {
 
         await pool.query(
             `INSERT INTO product_buyer_settings
-                (centre_id, seller_enabled, named_enabled, anon_enabled,
+                (centre_id, seller_enabled, named_enabled, anon_enabled, qr_printing_enabled,
                  updated_by_operator_id, updated_by_admin_id)
-             VALUES (?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 seller_enabled = VALUES(seller_enabled),
                 named_enabled  = VALUES(named_enabled),
                 anon_enabled   = VALUES(anon_enabled),
+                qr_printing_enabled = VALUES(qr_printing_enabled),
                 updated_by_operator_id = VALUES(updated_by_operator_id),
                 updated_by_admin_id    = VALUES(updated_by_admin_id)`,
-            [centreId, sellerOn, namedOn, anonOn, operatorId, adminId]
+            [centreId, sellerOn, namedOn, anonOn, qrOn, operatorId, adminId]
         );
 
         res.json({
@@ -1092,6 +1127,7 @@ exports.updateBuyerSettings = async (req, res) => {
             seller_enabled: !!sellerOn,
             named_enabled: !!namedOn,
             anon_enabled: !!anonOn,
+            qr_printing_enabled: !!qrOn,
         });
     } catch (err) {
         console.error('updateBuyerSettings error:', err);

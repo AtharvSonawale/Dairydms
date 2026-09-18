@@ -86,7 +86,7 @@ function ToggleGroup({ value, onChange, options, t }) {
                     key={opt.value}
                     type="button"
                     onClick={() => onChange(opt.value)}
-                    className={`flex items-center gap-1.5 px-3 text-xs font-semibold whitespace-nowrap transition-all duration-200
+                    className={`fleax items-center gap-1.5 px-3 text-xs font-semibold whitespace-nowrap transition-all duration-200
                         ${i > 0 ? "border-l border-gray-200/60" : ""}
                         ${value === opt.value ? opt.activeClass : "bg-white/60 backdrop-blur-sm text-gray-500 hover:bg-gray-50/80"}`}
                 >

@@ -5,6 +5,7 @@ const protect = require('../middleware/auth');
 // Import controllers
 const salesCtrl = require('../controllers/cattlefeedsales.controller');
 const reportCtrl = require('../controllers/cattleFeedSalesReport.controller');
+const purchaseCtrl = require('../controllers/Cattlefeedpurchase.controller');
 
 // ── Main Cattle Feed Sales (CRUD) ──────────────────────────
 router.get('/transactions', protect, salesCtrl.getTransactions);
@@ -24,6 +25,9 @@ router.get('/speed-feeds', protect, salesCtrl.getSpeedFeeds);
 router.post('/speed-feeds', protect, salesCtrl.createSpeedFeed);
 router.put('/speed-feeds/:id', protect, salesCtrl.updateSpeedFeed);
 router.delete('/speed-feeds/:id', protect, salesCtrl.deleteSpeedFeed);
+
+// ── Batches (per-feed sellable stock, for line-item batch picker) ──
+router.get('/batches', protect, purchaseCtrl.getFeedBatches);
 
 // ── Named Buyers ────────────────────────────────────────────
 router.get('/named-buyers', protect, salesCtrl.getFeedNamedBuyers);

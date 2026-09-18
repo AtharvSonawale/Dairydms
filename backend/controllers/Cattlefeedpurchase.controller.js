@@ -2,6 +2,26 @@
 
 const pool = require('../config/db');
 
+// ── helper: generate a batch number from purchase date+time (to the second) ──
+// Format: YYYYMMDD-HHMMSS. Retries with "-2", "-3" on the rare chance two
+// purchases of the SAME feed land in the same second.
+const generateBatchNo = async (conn, feedId) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const base = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+    let candidate = base;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        const [existing] = await conn.query(
+            `SELECT batch_id FROM cattle_feed_batches WHERE feed_id = ? AND batch_no = ?`,
+            [feedId, candidate]
+        );
+        if (!existing.length) return candidate;
+        candidate = `${base}-${attempt + 1}`;
+    }
+    return `${base}-${Date.now()}`;
+};
+
 // ══════════════════════════════════════════════════════════════
 //  CATTLE FEEDS CATALOGUE
 // ══════════════════════════════════════════════════════════════
@@ -150,7 +170,7 @@ exports.createFeed = async (req, res) => {
             const openingTotal = (openingQty * openingRate).toFixed(2);
             const effectiveDate = purchase_date || new Date().toISOString().split('T')[0];
 
-            await conn.query(
+            const [purchaseResult] = await conn.query(
                 `INSERT INTO cattle_feed_purchases
                     (feed_id, operator_id, centre_id, supplier_name, quantity, rate, mrp_rate, total_amount, purchase_date)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -170,6 +190,19 @@ exports.createFeed = async (req, res) => {
             await conn.query(
                 `UPDATE cattle_feeds SET current_stock = current_stock + ? WHERE feed_id = ? AND centre_id = ?`,
                 [openingQty, result.insertId, centreId]
+            );
+
+            // ── create the opening-stock batch so it's sellable on the Sales page ──
+            const batchNo = await generateBatchNo(conn, result.insertId);
+            await conn.query(
+                `INSERT INTO cattle_feed_batches
+                    (centre_id, feed_id, purchase_id, batch_no, supplier_name, quantity, remaining_quantity, rate, mrp_rate, purchase_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    centreId, result.insertId, purchaseResult.insertId, batchNo,
+                    supplier_name?.trim() || '', openingQty, openingQty,
+                    openingRate, openingMrp, effectiveDate
+                ]
             );
         }
 
@@ -542,6 +575,21 @@ exports.createPurchase = async (req, res) => {
             ]
         );
 
+        // ── create the batch for this purchase — this is what shows up as a
+        // pickable rate on the Sales page, so old stock keeps its old rate
+        // even after a new purchase changes the feed's rate ──
+        const batchNo = await generateBatchNo(conn, targetFeedId);
+        const [batchResult] = await conn.query(
+            `INSERT INTO cattle_feed_batches
+                (centre_id, feed_id, purchase_id, batch_no, supplier_name, quantity, remaining_quantity, rate, mrp_rate, purchase_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                centreId, targetFeedId, result.insertId, batchNo,
+                trimmedSupplier, parseFloat(quantity), parseFloat(quantity),
+                parseFloat(rate), parseFloat(mrp_rate || 0), purchase_date
+            ]
+        );
+
         await conn.commit();
 
         const [newRow] = await pool.query(
@@ -552,7 +600,7 @@ exports.createPurchase = async (req, res) => {
              WHERE fp.purchase_id = ? AND fp.centre_id = ?`,
             [result.insertId, centreId]
         );
-        res.status(201).json(newRow[0]);
+        res.status(201).json({ ...newRow[0], batch_no: batchNo, batch_id: batchResult.insertId });
 
     } catch (err) {
         await conn.rollback();
@@ -666,6 +714,28 @@ exports.updatePurchase = async (req, res) => {
             ]
         );
 
+        // ── adjust the linked batch (one purchase = one batch) ──
+        const [[batch]] = await conn.query(
+            `SELECT * FROM cattle_feed_batches WHERE purchase_id = ? AND centre_id = ?`,
+            [id, centreId]
+        );
+        if (batch) {
+            const consumed = parseFloat(batch.quantity) - parseFloat(batch.remaining_quantity);
+            if (parseFloat(quantity) < consumed) {
+                await conn.rollback();
+                return res.status(400).json({
+                    error: `Cannot reduce quantity below ${consumed.toFixed(2)} — that much has already been sold from this batch.`
+                });
+            }
+            const newRemaining = parseFloat(quantity) - consumed;
+            await conn.query(
+                `UPDATE cattle_feed_batches
+                 SET quantity = ?, remaining_quantity = ?, rate = ?, mrp_rate = ?, supplier_name = ?
+                 WHERE batch_id = ?`,
+                [parseFloat(quantity), newRemaining, parseFloat(rate), parseFloat(mrp_rate || 0), trimmedSupplier, batch.batch_id]
+            );
+        }
+
         await conn.commit();
 
         // ── Fetch updated purchase with details ──
@@ -706,6 +776,18 @@ exports.deletePurchase = async (req, res) => {
         const isAdmin = req.user.role === 'admin';
 
         // ── Check purchase exists and user has access ──
+
+        // ── guard: block deleting a purchase whose batch has already been sold from ──
+        const [[batch]] = await conn.query(
+            `SELECT * FROM cattle_feed_batches WHERE purchase_id = ? AND centre_id = ?`,
+            [id, centreId]
+        );
+        if (batch && parseFloat(batch.remaining_quantity) < parseFloat(batch.quantity)) {
+            await conn.rollback();
+            return res.status(400).json({
+                error: 'This purchase\'s batch has already been used in a sale and cannot be deleted. Adjust the sale first.'
+            });
+        }
         const [existing] = await conn.query(
             `SELECT fp.* 
              FROM cattle_feed_purchases fp
@@ -745,6 +827,9 @@ exports.deletePurchase = async (req, res) => {
              WHERE purchase_id = ? AND centre_id = ?`,
             [id, centreId]
         );
+
+        // ── batch is guarded above to only be deletable when unused ──
+        await conn.query(`DELETE FROM cattle_feed_batches WHERE purchase_id = ? AND centre_id = ?`, [id, centreId]);
 
         // ── Update feed stock (reverse the quantity) ──
         await conn.query(
@@ -872,6 +957,31 @@ exports.getPurchaseStats = async (req, res) => {
         });
     } catch (err) {
         console.error('getPurchaseStats error:', err);
+        res.status(500).json({ error: 'Server error', message: err.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════
+// GET /api/cattle-feed-sales/batches?feed_id=X
+//   Sellable batches for a feed, oldest purchase first, remaining > 0
+// ══════════════════════════════════════════════════════════════
+exports.getFeedBatches = async (req, res) => {
+    try {
+        const centreId = req.user.centre_id;
+        const { feed_id } = req.query;
+        if (!feed_id) return res.status(400).json({ error: 'feed_id is required.' });
+
+        const [rows] = await pool.query(
+            `SELECT batch_id, batch_no, supplier_name, quantity, remaining_quantity,
+                    rate, mrp_rate, purchase_date, is_legacy
+             FROM cattle_feed_batches
+             WHERE feed_id = ? AND centre_id = ? AND remaining_quantity > 0
+             ORDER BY purchase_date ASC, batch_id ASC`,
+            [feed_id, centreId]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('getFeedBatches error:', err);
         res.status(500).json({ error: 'Server error', message: err.message });
     }
 };

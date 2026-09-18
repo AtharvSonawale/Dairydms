@@ -86,6 +86,7 @@ export default function CattleFeedPurchase() {
     const [editingPurchase, setEditingPurchase] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [lineBatches, setLineBatches] = useState({}); // { [line._key]: [batch, ...] }
 
     // ── Custom delete modal state ──────────────────────────────
     const [deleteModal, setDeleteModal] = useState({ open: false, purchaseId: null });
@@ -279,6 +280,18 @@ export default function CattleFeedPurchase() {
                 set("feed_id", String(data[0].feed_id));
             }
         } catch { /* silent */ }
+    };
+
+    const fetchBatchesForLine = async (lineKey, feedId) => {
+        if (!feedId) { setLineBatches(p => ({ ...p, [lineKey]: [] })); return []; }
+        try {
+            const { data } = await api.get(`/cattle-feed-sales/batches?feed_id=${feedId}`);
+            setLineBatches(p => ({ ...p, [lineKey]: data }));
+            return data;
+        } catch {
+            setLineBatches(p => ({ ...p, [lineKey]: [] }));
+            return [];
+        }
     };
 
     const fetchPurchases = async (date) => {

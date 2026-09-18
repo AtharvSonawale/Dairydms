@@ -37,6 +37,26 @@ const getFinancialYearCode = (date = new Date()) => {
     return `${String(startYear).slice(-2)}${String(endYear).slice(-2)}`;
 };
 
+// ── helper: generate a batch number from purchase date+time (to the second) ──
+// Format: YYYYMMDD-HHMMSS. Retries with "-2", "-3" on the rare chance two
+// purchases of the SAME feed land in the same second.
+const generateBatchNo = async (conn, feedId) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const base = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+    let candidate = base;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        const [existing] = await conn.query(
+            `SELECT batch_id FROM cattle_feed_batches WHERE feed_id = ? AND batch_no = ?`,
+            [feedId, candidate]
+        );
+        if (!existing.length) return candidate;
+        candidate = `${base}-${attempt + 1}`;
+    }
+    return `${base}-${Date.now()}`;
+};
+
 // ── helper: atomically get next transaction ID for this centre+FY ──
 // Format: PREFIX/FY/N  e.g.  KDM/2627/1
 const nextTransactionId = async (conn, centreId, saleType = 'cattle_feed', asOfDate = new Date()) => {
@@ -67,17 +87,18 @@ const nextTransactionId = async (conn, centreId, saleType = 'cattle_feed', asOfD
 // Falls back to all-enabled when no row exists (backwards compatible).
 const loadBuyerSettings = async (conn, centreId) => {
     const [rows] = await conn.query(
-        `SELECT seller_enabled, named_enabled, anon_enabled
+        `SELECT seller_enabled, named_enabled, anon_enabled, qr_printing_enabled
          FROM cattle_feed_buyer_settings
          WHERE centre_id = ?`,
         [centreId]
     );
-    if (!rows.length) return { seller: true, named: true, anon: true };
+    if (!rows.length) return { seller: true, named: true, anon: true, qrPrinting: true };
     const r = rows[0];
     return {
         seller: !!r.seller_enabled,
         named: !!r.named_enabled,
         anon: !!r.anon_enabled,
+        qrPrinting: !!r.qr_printing_enabled,
     };
 };
 
@@ -323,79 +344,85 @@ exports.createSale = async (req, res) => {
             }
         }
 
-        // ── validate & stock-check every line up front ──
+        // ── validate & stock-check every line up front, batch by batch ──
+        // Each line sells from one specific batch, so old stock keeps its
+        // old rate even after a newer purchase changes the feed's rate.
+        // The rate is authoritative from the batch, not from the client.
+        const resolvedLines = [];
         for (const [i, line] of lines.entries()) {
-            const { feed_id, quantity, rate } = line;
-            if (!feed_id) {
+            const { batch_id, quantity } = line;
+            if (!batch_id) {
                 await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: feed is required.` });
+                return res.status(400).json({ error: `Line ${i + 1}: batch is required.` });
             }
 
             const q = parseFloat(quantity);
             if (!quantity || isNaN(q) || q <= 0) {
                 await conn.rollback();
-                return res.status(400).json({
-                    error: `Line ${i + 1}: quantity must be greater than 0.`
-                });
+                return res.status(400).json({ error: `Line ${i + 1}: quantity must be greater than 0.` });
             }
 
-            const r = parseFloat(rate);
-            if (!rate || isNaN(r) || r <= 0) {
-                await conn.rollback();
-                return res.status(400).json({
-                    error: `Line ${i + 1}: rate must be greater than 0.`
-                });
-            }
-
-            const [feed] = await conn.query(
-                `SELECT feed_id, feed_name, current_stock FROM cattle_feeds 
-                 WHERE feed_id = ? AND centre_id = ?`,
-                [feed_id, centreId]
+            const [batchRows] = await conn.query(
+                `SELECT b.*, f.feed_name FROM cattle_feed_batches b
+                 JOIN cattle_feeds f ON f.feed_id = b.feed_id
+                 WHERE b.batch_id = ? AND b.centre_id = ? FOR UPDATE`,
+                [batch_id, centreId]
             );
-            if (!feed.length) {
+            if (!batchRows.length) {
                 await conn.rollback();
-                return res.status(404).json({ error: `Line ${i + 1}: feed not found in your centre.` });
+                return res.status(404).json({ error: `Line ${i + 1}: batch not found in your centre.` });
             }
-            if (q > parseFloat(feed[0].current_stock)) {
+            const batch = batchRows[0];
+            if (q > parseFloat(batch.remaining_quantity)) {
                 await conn.rollback();
                 return res.status(400).json({
-                    error: `Insufficient stock for "${feed[0].feed_name}". Only ${parseFloat(feed[0].current_stock).toFixed(2)} units available.`,
+                    error: `Insufficient stock in batch "${batch.batch_no}" for "${batch.feed_name}". Only ${parseFloat(batch.remaining_quantity).toFixed(2)} units left in this batch.`,
                 });
             }
+
+            resolvedLines.push({
+                feed_id: batch.feed_id,
+                batch_id: batch.batch_id,
+                quantity: q,
+                rate: parseFloat(batch.mrp_rate),
+            });
         }
 
         // ── generate one transaction ID (atomic, per centre+financial year) ──
         const transaction_id = await nextTransactionId(conn, centreId, 'cattle_feed', new Date(sale_date));
 
-        // ── insert all lines + deduct stock ──
+        // ── insert all lines + deduct stock from both the batch and the feed total ──
         const insertedIds = [];
-        for (const line of lines) {
-            const { feed_id, quantity, rate } = line;
-            const saleQty = parseFloat(quantity);
-            const saleRate = parseFloat(rate);
-            const saleTotal = parseFloat((saleQty * saleRate).toFixed(2));
+        for (const line of resolvedLines) {
+            const { feed_id, batch_id, quantity, rate } = line;
+            const saleTotal = parseFloat((quantity * rate).toFixed(2));
 
             const [result] = await conn.query(
                 `INSERT INTO cattle_feed_sales
-                    (transaction_id, feed_id, seller_id, buyer_id, buyer_name, buyer_type,
+                    (transaction_id, feed_id, batch_id, seller_id, buyer_id, buyer_name, buyer_type,
                      operator_id, centre_id, quantity, rate, total_amount, sale_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    transaction_id, Number(feed_id),
+                    transaction_id, feed_id, batch_id,
                     mode === 'seller' ? Number(seller_id) : null,
                     mode === 'named' ? resolvedBuyerId : null,
                     mode === 'anon' ? 'ANON' : null,
                     mode,
                     effectiveOperatorId, centreId,
-                    saleQty, saleRate, saleTotal, sale_date,
+                    quantity, rate, saleTotal, sale_date,
                 ]
             );
             insertedIds.push(result.insertId);
 
             await conn.query(
+                `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity - ?
+                 WHERE batch_id = ? AND centre_id = ?`,
+                [quantity, batch_id, centreId]
+            );
+            await conn.query(
                 `UPDATE cattle_feeds SET current_stock = current_stock - ? 
                  WHERE feed_id = ? AND centre_id = ?`,
-                [saleQty, Number(feed_id), centreId]
+                [quantity, feed_id, centreId]
             );
         }
 
@@ -562,6 +589,13 @@ exports.deleteSale = async (req, res) => {
              WHERE feed_id = ? AND centre_id = ?`,
             [parseFloat(existing[0].quantity), existing[0].feed_id, centreId]
         );
+        if (existing[0].batch_id) {
+            await conn.query(
+                `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity + ?
+                 WHERE batch_id = ? AND centre_id = ?`,
+                [parseFloat(existing[0].quantity), existing[0].batch_id, centreId]
+            );
+        }
 
         await conn.commit();
         res.json({ message: 'Sale deleted successfully.' });
@@ -606,13 +640,10 @@ exports.updateTransaction = async (req, res) => {
             }
         }
 
-        // ── Enforce buyer-type visibility settings ──
         const cfg = await loadBuyerSettings(conn, centreId);
         if (!cfg[mode]) {
             await conn.rollback();
-            return res.status(403).json({
-                error: `Buyer type "${mode}" is disabled for this centre.`
-            });
+            return res.status(403).json({ error: `Buyer type "${mode}" is disabled for this centre.` });
         }
 
         if (!Array.isArray(items) || items.length === 0) {
@@ -620,20 +651,16 @@ exports.updateTransaction = async (req, res) => {
             return res.status(400).json({ error: 'At least one feed line is required.' });
         }
 
-        // ── Drop fully-blank lines (user may have left an empty row in the edit modal) ──
         const cleanItems = items.filter(it => {
-            const hasFeed = !!it.feed_id;
+            const hasBatch = !!it.batch_id;
             const hasQty = it.quantity !== undefined && it.quantity !== null && String(it.quantity).trim() !== '';
-            const hasRate = it.rate !== undefined && it.rate !== null && String(it.rate).trim() !== '';
-            return hasFeed || hasQty || hasRate;
+            return hasBatch || hasQty;
         });
-
         if (cleanItems.length === 0) {
             await conn.rollback();
             return res.status(400).json({ error: 'At least one feed line is required.' });
         }
 
-        // ── resolve buyer/seller depending on mode ──
         let resolvedBuyerId = null;
         if (mode === 'seller') {
             if (!seller_id) {
@@ -671,84 +698,95 @@ exports.updateTransaction = async (req, res) => {
             }
         }
 
-        // ── validate every incoming line up front ──
+        // ── validate every incoming line & lock its batch row ──
+        const resolvedItems = [];
         for (const [i, item] of cleanItems.entries()) {
-            const { feed_id, quantity, rate } = item;
-            if (!feed_id) {
+            const { sale_id, batch_id, quantity } = item;
+            if (!batch_id) {
                 await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: feed is required.` });
+                return res.status(400).json({ error: `Line ${i + 1}: batch is required.` });
             }
             const q = parseFloat(quantity);
             if (!quantity || isNaN(q) || q <= 0) {
                 await conn.rollback();
                 return res.status(400).json({ error: `Line ${i + 1}: quantity must be greater than 0.` });
             }
-            const r = parseFloat(rate);
-            if (!rate || isNaN(r) || r <= 0) {
+
+            const [batchRows] = await conn.query(
+                `SELECT b.*, f.feed_name FROM cattle_feed_batches b
+                 JOIN cattle_feeds f ON f.feed_id = b.feed_id
+                 WHERE b.batch_id = ? AND b.centre_id = ? FOR UPDATE`,
+                [batch_id, centreId]
+            );
+            if (!batchRows.length) {
                 await conn.rollback();
-                return res.status(400).json({ error: `Line ${i + 1}: rate must be greater than 0.` });
+                return res.status(404).json({ error: `Line ${i + 1}: batch not found in your centre.` });
             }
+            resolvedItems.push({ sale_id: sale_id || null, batch: batchRows[0], quantity: q });
         }
 
         const existingById = new Map(existingSales.map(s => [s.sale_id, s]));
         const keepIds = new Set();
 
-        for (const item of cleanItems) {
-            const { sale_id, feed_id, quantity, rate } = item;
-            const saleQty = parseFloat(quantity);
-            const saleRate = parseFloat(rate);
+        for (const { sale_id, batch, quantity: saleQty } of resolvedItems) {
+            const saleRate = parseFloat(batch.mrp_rate); // batch rate is authoritative
             const saleTotal = parseFloat((saleQty * saleRate).toFixed(2));
 
             if (sale_id && existingById.has(sale_id)) {
                 const existing = existingById.get(sale_id);
                 keepIds.add(sale_id);
 
-                if (Number(existing.feed_id) === Number(feed_id)) {
+                if (existing.batch_id === batch.batch_id) {
                     const qtyDiff = saleQty - parseFloat(existing.quantity);
-                    if (qtyDiff > 0) {
-                        const [feedRow] = await conn.query(
-                            `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
-                            [feed_id, centreId]
-                        );
-                        if (!feedRow.length || qtyDiff > parseFloat(feedRow[0].current_stock)) {
-                            await conn.rollback();
-                            return res.status(400).json({ error: `Insufficient stock for "${feedRow[0]?.feed_name || 'feed'}".` });
-                        }
+                    if (qtyDiff > 0 && qtyDiff > parseFloat(batch.remaining_quantity)) {
+                        await conn.rollback();
+                        return res.status(400).json({
+                            error: `Insufficient stock in batch "${batch.batch_no}" for "${batch.feed_name}". Only ${parseFloat(batch.remaining_quantity).toFixed(2)} more available.`
+                        });
                     }
                     await conn.query(
+                        `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity - ? WHERE batch_id = ?`,
+                        [qtyDiff, batch.batch_id]
+                    );
+                    await conn.query(
                         `UPDATE cattle_feeds SET current_stock = current_stock - ? WHERE feed_id = ? AND centre_id = ?`,
-                        [qtyDiff, feed_id, centreId]
+                        [qtyDiff, batch.feed_id, centreId]
                     );
                 } else {
+                    if (existing.batch_id) {
+                        await conn.query(
+                            `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity + ? WHERE batch_id = ?`,
+                            [parseFloat(existing.quantity), existing.batch_id]
+                        );
+                    }
                     await conn.query(
                         `UPDATE cattle_feeds SET current_stock = current_stock + ? WHERE feed_id = ? AND centre_id = ?`,
                         [parseFloat(existing.quantity), existing.feed_id, centreId]
                     );
-                    const [newFeed] = await conn.query(
-                        `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
-                        [feed_id, centreId]
-                    );
-                    if (!newFeed.length) {
+
+                    if (saleQty > parseFloat(batch.remaining_quantity)) {
                         await conn.rollback();
-                        return res.status(404).json({ error: 'Feed not found in your centre.' });
-                    }
-                    if (saleQty > parseFloat(newFeed[0].current_stock)) {
-                        await conn.rollback();
-                        return res.status(400).json({ error: `Insufficient stock for "${newFeed[0].feed_name}".` });
+                        return res.status(400).json({
+                            error: `Insufficient stock in batch "${batch.batch_no}" for "${batch.feed_name}".`
+                        });
                     }
                     await conn.query(
+                        `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity - ? WHERE batch_id = ?`,
+                        [saleQty, batch.batch_id]
+                    );
+                    await conn.query(
                         `UPDATE cattle_feeds SET current_stock = current_stock - ? WHERE feed_id = ? AND centre_id = ?`,
-                        [saleQty, feed_id, centreId]
+                        [saleQty, batch.feed_id, centreId]
                     );
                 }
 
                 await conn.query(
                     `UPDATE cattle_feed_sales
-                     SET feed_id = ?, seller_id = ?, buyer_id = ?, buyer_name = ?, buyer_type = ?,
+                     SET feed_id = ?, batch_id = ?, seller_id = ?, buyer_id = ?, buyer_name = ?, buyer_type = ?,
                          quantity = ?, rate = ?, total_amount = ?, sale_date = ?
                      WHERE sale_id = ? AND centre_id = ?`,
                     [
-                        Number(feed_id),
+                        batch.feed_id, batch.batch_id,
                         mode === 'seller' ? Number(seller_id) : null,
                         mode === 'named' ? resolvedBuyerId : null,
                         mode === 'anon' ? 'ANON' : null,
@@ -756,26 +794,20 @@ exports.updateTransaction = async (req, res) => {
                     ]
                 );
             } else {
-                const [feedRow] = await conn.query(
-                    `SELECT current_stock, feed_name FROM cattle_feeds WHERE feed_id = ? AND centre_id = ?`,
-                    [feed_id, centreId]
-                );
-                if (!feedRow.length) {
+                if (saleQty > parseFloat(batch.remaining_quantity)) {
                     await conn.rollback();
-                    return res.status(404).json({ error: 'Feed not found in your centre.' });
-                }
-                if (saleQty > parseFloat(feedRow[0].current_stock)) {
-                    await conn.rollback();
-                    return res.status(400).json({ error: `Insufficient stock for "${feedRow[0].feed_name}".` });
+                    return res.status(400).json({
+                        error: `Insufficient stock in batch "${batch.batch_no}" for "${batch.feed_name}".`
+                    });
                 }
 
                 await conn.query(
                     `INSERT INTO cattle_feed_sales
-                        (transaction_id, feed_id, seller_id, buyer_id, buyer_name, buyer_type,
+                        (transaction_id, feed_id, batch_id, seller_id, buyer_id, buyer_name, buyer_type,
                          operator_id, centre_id, quantity, rate, total_amount, sale_date)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
-                        transaction_id, Number(feed_id),
+                        transaction_id, batch.feed_id, batch.batch_id,
                         mode === 'seller' ? Number(seller_id) : null,
                         mode === 'named' ? resolvedBuyerId : null,
                         mode === 'anon' ? 'ANON' : null,
@@ -785,16 +817,25 @@ exports.updateTransaction = async (req, res) => {
                 );
 
                 await conn.query(
+                    `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity - ? WHERE batch_id = ?`,
+                    [saleQty, batch.batch_id]
+                );
+                await conn.query(
                     `UPDATE cattle_feeds SET current_stock = current_stock - ? WHERE feed_id = ? AND centre_id = ?`,
-                    [saleQty, feed_id, centreId]
+                    [saleQty, batch.feed_id, centreId]
                 );
             }
         }
 
-        // ── delete lines removed in the edit form, restore their stock ──
         for (const existing of existingSales) {
             if (!keepIds.has(existing.sale_id)) {
                 await conn.query(`DELETE FROM cattle_feed_sales WHERE sale_id = ? AND centre_id = ?`, [existing.sale_id, centreId]);
+                if (existing.batch_id) {
+                    await conn.query(
+                        `UPDATE cattle_feed_batches SET remaining_quantity = remaining_quantity + ? WHERE batch_id = ?`,
+                        [parseFloat(existing.quantity), existing.batch_id]
+                    );
+                }
                 await conn.query(
                     `UPDATE cattle_feeds SET current_stock = current_stock + ? WHERE feed_id = ? AND centre_id = ?`,
                     [parseFloat(existing.quantity), existing.feed_id, centreId]
@@ -1017,18 +1058,19 @@ exports.getBuyerSettings = async (req, res) => {
         const centreId = req.user.centre_id;
 
         const [rows] = await pool.query(
-            `SELECT seller_enabled, named_enabled, anon_enabled
+            `SELECT seller_enabled, named_enabled, anon_enabled, qr_printing_enabled
              FROM cattle_feed_buyer_settings
              WHERE centre_id = ?`,
             [centreId]
         );
 
         if (!rows.length) {
-            // No row yet → all types enabled (safe default)
+            // No row yet → all types enabled, QR printing on (safe defaults)
             return res.json({
                 seller_enabled: true,
                 named_enabled: true,
                 anon_enabled: true,
+                qr_printing_enabled: true,
             });
         }
 
@@ -1037,6 +1079,7 @@ exports.getBuyerSettings = async (req, res) => {
             seller_enabled: !!r.seller_enabled,
             named_enabled: !!r.named_enabled,
             anon_enabled: !!r.anon_enabled,
+            qr_printing_enabled: !!r.qr_printing_enabled,
         });
     } catch (err) {
         console.error('getBuyerSettings error:', err);
@@ -1057,11 +1100,14 @@ exports.updateBuyerSettings = async (req, res) => {
         const operatorId = isAdmin ? null : req.user.id;
         const adminId = isAdmin ? req.user.id : null;
 
-        const { seller_enabled, named_enabled, anon_enabled } = req.body;
+        const { seller_enabled, named_enabled, anon_enabled, qr_printing_enabled } = req.body;
 
         const sellerOn = seller_enabled === true || seller_enabled === 1 ? 1 : 0;
         const namedOn = named_enabled === true || named_enabled === 1 ? 1 : 0;
         const anonOn = anon_enabled === true || anon_enabled === 1 ? 1 : 0;
+        // Independent of buyer-type safety check below — QR printing can be
+        // turned off entirely without affecting buyer-type availability.
+        const qrOn = qr_printing_enabled === false || qr_printing_enabled === 0 ? 0 : 1;
 
         // ── Safety: at least one buyer type must stay enabled ──
         if (sellerOn + namedOn + anonOn === 0) {
@@ -1072,16 +1118,17 @@ exports.updateBuyerSettings = async (req, res) => {
 
         await pool.query(
             `INSERT INTO cattle_feed_buyer_settings
-                (centre_id, seller_enabled, named_enabled, anon_enabled,
+                (centre_id, seller_enabled, named_enabled, anon_enabled, qr_printing_enabled,
                  updated_by_operator_id, updated_by_admin_id)
-             VALUES (?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 seller_enabled = VALUES(seller_enabled),
                 named_enabled  = VALUES(named_enabled),
                 anon_enabled   = VALUES(anon_enabled),
+                qr_printing_enabled = VALUES(qr_printing_enabled),
                 updated_by_operator_id = VALUES(updated_by_operator_id),
                 updated_by_admin_id    = VALUES(updated_by_admin_id)`,
-            [centreId, sellerOn, namedOn, anonOn, operatorId, adminId]
+            [centreId, sellerOn, namedOn, anonOn, qrOn, operatorId, adminId]
         );
 
         res.json({
@@ -1089,6 +1136,7 @@ exports.updateBuyerSettings = async (req, res) => {
             seller_enabled: !!sellerOn,
             named_enabled: !!namedOn,
             anon_enabled: !!anonOn,
+            qr_printing_enabled: !!qrOn,
         });
     } catch (err) {
         console.error('updateBuyerSettings error:', err);
