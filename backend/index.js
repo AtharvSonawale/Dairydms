@@ -60,6 +60,17 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+    const send = res.json.bind(res);
+    res.json = (body) => {
+        if (res.statusCode === 404) {
+            console.log('404 →', req.method, req.originalUrl, JSON.stringify(body));
+        }
+        return send(body);
+    };
+    next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/operators', operatorRoutes);
 app.use('/api/rates', rateRoutes);
@@ -99,6 +110,10 @@ app.use('/api/fulfillments', fulfillmentRoutes);
 app.use('/api/admin-management', adminManagementRoutes);
 app.use('/api/admins', adminsRoutes);
 app.use('/api', stockTransferRoutes);
+app.use('/api', (req, res) => {
+    console.log('API 404 →', req.method, req.originalUrl);
+    res.status(404).json({ error: 'Route not found', path: req.originalUrl });
+});
 
 
 

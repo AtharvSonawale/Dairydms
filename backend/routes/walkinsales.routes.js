@@ -1,44 +1,50 @@
-// ── Combined routes file (cattle-feed-sales.js) ──────────────
+// routes/walkinsales.routes.js
+// Mounted in app.js as:  app.use('/api/walkin-sales', walkinRoutes);
+//
+// RULE: every fixed-path route (e.g. '/buyer-settings') must be registered
+// BEFORE the '/:id' routes at the bottom, otherwise Express treats the fixed
+// word as an :id and calls updateSale/deleteSale -> "Sale not found" 404.
+
 const router = require('express').Router();
 const protect = require('../middleware/auth');
+const ctrl = require('../controllers/walkinsales.controller');
 
-// Import controllers
-const salesCtrl = require('../controllers/cattlefeedsales.controller');
-const reportCtrl = require('../controllers/cattleFeedSalesReport.controller');
+// ── Sales: list + create ─────────────────────────────────────
+router.get('/', protect, ctrl.getSales);
+router.post('/', protect, ctrl.createSale);
 
-// ── Main Cattle Feed Sales (CRUD) ──────────────────────────
-router.get('/transactions', protect, salesCtrl.getTransactions);
-router.get('/', protect, salesCtrl.getSales);
-router.post('/', protect, salesCtrl.createSale);
+// ── Stock & summaries ────────────────────────────────────────
+router.get('/available-stock', protect, ctrl.getAvailableStock);
+router.get('/billing-summary', protect, ctrl.getBillingSummary);
 
-// ── Buyer-type Visibility Settings (must precede '/:id') ────
-router.get('/buyer-settings', protect, salesCtrl.getBuyerSettings);
-router.put('/buyer-settings', protect, salesCtrl.updateBuyerSettings);
+// ── MRP rates (Flutter calls /api/walkin-sales/mrp-rates) ────
+router.get('/mrp-rates', protect, ctrl.getMRPRates);
+router.post('/mrp-rates', protect, ctrl.saveMRPRates);
 
-router.put('/:id', protect, salesCtrl.updateSale);
-router.put('/transaction/:transaction_id', protect, salesCtrl.updateTransaction);
-router.delete('/:id', protect, salesCtrl.deleteSale);
+// ── Buyer-type visibility settings ───────────────────────────
+router.get('/buyer-settings', protect, ctrl.getBuyerSettings);
+router.put('/buyer-settings', protect, ctrl.updateBuyerSettings);
 
-// ── Speed Feeds ─────────────────────────────────────────────
-router.get('/speed-feeds', protect, salesCtrl.getSpeedFeeds);
-router.post('/speed-feeds', protect, salesCtrl.createSpeedFeed);
-router.put('/speed-feeds/:id', protect, salesCtrl.updateSpeedFeed);
-router.delete('/speed-feeds/:id', protect, salesCtrl.deleteSpeedFeed);
+// ── Product types ────────────────────────────────────────────
+router.get('/product-types', protect, ctrl.getProductTypes);
+router.post('/product-types', protect, ctrl.saveProductType);
+router.put('/product-types/:id', protect, ctrl.updateProductType);
+router.delete('/product-types/:id', protect, ctrl.deleteProductType);
 
-// ── Named Buyers ────────────────────────────────────────────
-router.get('/named-buyers', protect, salesCtrl.getFeedNamedBuyers);
-router.post('/named-buyers', protect, salesCtrl.createFeedNamedBuyer);
+// ── Named buyers ─────────────────────────────────────────────
+router.get('/named-buyers', protect, ctrl.getNamedBuyers);
+router.post('/named-buyers', protect, ctrl.saveNamedBuyer);
+router.put('/named-buyers/:id', protect, ctrl.updateNamedBuyer);
+router.patch('/named-buyers/:id/status', protect, ctrl.toggleBuyerStatus);
+router.delete('/named-buyers/:id', protect, ctrl.deleteNamedBuyer);
 
-// ── Fulfillment (QR pickup verification) ─────────────────────
-router.get('/fulfillment/:token', protect, salesCtrl.getFulfillmentByToken);
-router.post('/fulfillment/:token/confirm', protect, salesCtrl.confirmFulfillment);
+// ── Named buyer balances / bill clearing ─────────────────────
+router.get('/named-buyer-balance/:buyerId', protect, ctrl.getNamedBuyerBalance);
+router.get('/named-buyer-summaries', protect, ctrl.getNamedBuyerSummaries);
+router.post('/clear-buyer-bill', protect, ctrl.clearBuyerBill);
 
-// ── Report Routes ────────────────────────────────────────────
-router.get('/report', protect, reportCtrl.getSalesReport);
-router.get('/report/summary', protect, reportCtrl.getReportSummary);
-router.get('/report/export', protect, reportCtrl.exportReport);
-
-// ── Admin summary ────────────────────────────────────────────
-router.get('/summary', protect, salesCtrl.getSalesSummary);
+// ── Single-sale update/delete (KEEP LAST) ────────────────────
+router.put('/:id', protect, ctrl.updateSale);
+router.delete('/:id', protect, ctrl.deleteSale);
 
 module.exports = router;
