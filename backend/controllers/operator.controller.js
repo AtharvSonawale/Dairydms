@@ -364,7 +364,10 @@ exports.toggleOperatorStatus = async (req, res) => {
             return res.status(404).json({ message: 'Operator not found in your centre.' });
         }
 
-        const newStatus = existing[0].is_active === 1 ? 0 : 1;
+        // MySQL TINYINT(1) can come back as number, string, or Buffer depending
+        // on driver config. Coerce safely before comparing.
+        const currentActive = Number(existing[0].is_active) === 1 ? 1 : 0;
+        const newStatus = currentActive === 1 ? 0 : 1;
 
         await pool.query(
             `UPDATE operators SET is_active = ? WHERE operator_id = ? AND centre_id = ?`,

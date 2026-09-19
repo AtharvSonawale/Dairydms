@@ -52,7 +52,9 @@ exports.createAdmin = async (req, res) => {
         );
 
         const [rows] = await pool.query(
-            'SELECT admin_id, centre_id, name, email, mobile, created_at, has_seen_tour FROM admins WHERE admin_id = ?',
+            `SELECT admin_id, centre_id, name, email, mobile, is_active,
+                    created_at, has_seen_tour
+             FROM admins WHERE admin_id = ?`,
             [result.insertId]
         );
 
@@ -68,7 +70,11 @@ exports.listAdmins = async (req, res) => {
     try {
         const centreId = req.user.centre_id;
         const [rows] = await pool.query(
-            'SELECT admin_id, centre_id, name, email, mobile, created_at, has_seen_tour FROM admins WHERE centre_id = ? ORDER BY created_at DESC',
+            `SELECT admin_id, centre_id, name, email, mobile, is_active,
+                    created_at, has_seen_tour
+             FROM admins
+             WHERE centre_id = ?
+             ORDER BY created_at DESC`,
             [centreId]
         );
         res.json(rows);
@@ -157,6 +163,156 @@ exports.updateAdmin = async (req, res) => {
         );
         res.json(rows[0]);
     } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── PATCH /api/admins/:id/status ────────────────────────────
+// Toggles or sets another admin's is_active within the same centre.
+// Guards: caller cannot deactivate themselves, and cannot touch admins
+// outside their own centre.
+exports.updateAdminStatus = async (req, res) => {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const selfId = req.user.admin_id || req.user.id;
+        const centreId = req.user.centre_id;
+        const { is_active } = req.body;
+
+        if (isNaN(targetId))
+            return res.status(400).json({ message: 'Invalid admin id.' });
+        if (targetId === selfId)
+            return res.status(400).json({ message: 'You cannot change your own status.' });
+        if (is_active !== 0 && is_active !== 1)
+            return res.status(400).json({ message: 'is_active must be 0 or 1.' });
+
+        // Verify the target admin belongs to the caller's centre
+        const [existing] = await pool.query(
+            'SELECT admin_id FROM admins WHERE admin_id = ? AND centre_id = ?',
+            [targetId, centreId]
+        );
+        if (!existing.length)
+            return res.status(404).json({ message: 'Admin not found in your centre.' });
+
+        await pool.query(
+            'UPDATE admins SET is_active = ? WHERE admin_id = ?',
+            [is_active, targetId]
+        );
+
+        const [rows] = await pool.query(
+            `SELECT admin_id, centre_id, name, email, mobile, is_active,
+                    created_at, has_seen_tour
+             FROM admins WHERE admin_id = ?`,
+            [targetId]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('updateAdminStatus error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── PUT /api/admins/:id/manage ──────────────────────────────
+// Centre-scoped edit for admins to edit *other* admins' profile fields.
+// Only name/email/mobile are editable here — password, role, centre are not.
+exports.manageUpdateAdmin = async (req, res) => {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const centreId = req.user.centre_id;
+
+        if (isNaN(targetId))
+            return res.status(400).json({ message: 'Invalid admin id.' });
+
+        const { name, email } = req.body;
+        const mobile = normalizeMobile(req.body.mobile);
+
+        if (!name || name.trim().length < 2)
+            return res.status(400).json({ message: 'Name must be at least 2 characters.' });
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+            return res.status(400).json({ message: 'A valid email is required.' });
+        if (mobile && !/^[6-9]\d{9}$/.test(mobile))
+            return res.status(400).json({ message: 'Invalid mobile number.' });
+
+        const [existing] = await pool.query(
+            'SELECT admin_id FROM admins WHERE admin_id = ? AND centre_id = ?',
+            [targetId, centreId]
+        );
+        if (!existing.length)
+            return res.status(404).json({ message: 'Admin not found in your centre.' });
+
+        const [emailCheck] = await pool.query(
+            'SELECT admin_id FROM admins WHERE email = ? AND admin_id != ?',
+            [email.trim(), targetId]
+        );
+        if (emailCheck.length)
+            return res.status(409).json({ message: 'Another admin with this email already exists.' });
+
+        await pool.query(
+            `UPDATE admins SET name = ?, email = ?, mobile = ? WHERE admin_id = ? AND centre_id = ?`,
+            [name.trim(), email.trim(), mobile || null, targetId, centreId]
+        );
+
+        const [rows] = await pool.query(
+            `SELECT admin_id, centre_id, name, email, mobile, is_active,
+                    created_at, has_seen_tour
+             FROM admins WHERE admin_id = ?`,
+            [targetId]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('manageUpdateAdmin error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ── DELETE /api/admins/:id ──────────────────────────────────
+// Centre-scoped delete of another admin. Guards:
+//   - caller cannot delete themselves
+//   - caller cannot delete an admin outside their centre
+//   - caller cannot delete the LAST active admin in the centre
+//     (would lock everyone out)
+exports.deleteAdmin = async (req, res) => {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const selfId = req.user.admin_id || req.user.id;
+        const centreId = req.user.centre_id;
+
+        if (isNaN(targetId))
+            return res.status(400).json({ message: 'Invalid admin id.' });
+        if (targetId === selfId)
+            return res.status(400).json({ message: 'You cannot delete your own account.' });
+
+        // Verify target belongs to this centre
+        const [existing] = await pool.query(
+            'SELECT admin_id, is_active FROM admins WHERE admin_id = ? AND centre_id = ?',
+            [targetId, centreId]
+        );
+        if (!existing.length)
+            return res.status(404).json({ message: 'Admin not found in your centre.' });
+
+        // Refuse if this is the only active admin left in the centre
+        const [activeCount] = await pool.query(
+            'SELECT COUNT(*) AS cnt FROM admins WHERE centre_id = ? AND is_active = 1',
+            [centreId]
+        );
+        if (activeCount[0].cnt <= 1 && existing[0].is_active === 1)
+            return res.status(400).json({
+                message: 'Cannot delete the last active admin in this centre.'
+            });
+
+        await pool.query(
+            'DELETE FROM admins WHERE admin_id = ? AND centre_id = ?',
+            [targetId, centreId]
+        );
+
+        res.json({ message: 'Admin deleted successfully.' });
+    } catch (err) {
+        if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(409).json({
+                message:
+                    'Cannot delete — this admin has linked records. Deactivate instead.'
+            });
+        }
+        console.error('deleteAdmin error:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

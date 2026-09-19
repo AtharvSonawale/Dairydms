@@ -107,6 +107,14 @@ function StatusBadge({ rate, t }) {
     );
 }
 
+const detectMilkType = (s) => {
+    const raw = [s?.milk_type, s?.seller_type, s?.animal_type, s?.type]
+        .filter(Boolean).join(" ").toLowerCase();
+    if (raw.includes("buffalo")) return "buffalo";
+    if (raw.includes("cow")) return "cow";
+    return null;
+};
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function PremiumRates() {
     const { t } = useTranslation();
@@ -128,6 +136,14 @@ export default function PremiumRates() {
     const [expanded, setExpanded] = useState({});
     const [sellerSearch, setSellerSearch] = useState("");
     const [formError, setFormError] = useState("");
+    const [milkAuto, setMilkAuto] = useState(false);
+
+    const pickSeller = (s) => {
+        const detected = detectMilkType(s);
+        setForm(p => ({ ...p, seller_id: s.seller_id, milk_type: detected || p.milk_type }));
+        setSellerSearch(s.name);
+        setMilkAuto(!!detected);
+    };
 
     // ── confirmation modal state ──
     const [confirmModal, setConfirmModal] = useState({ open: false, id: null, action: null });
@@ -177,6 +193,7 @@ export default function PremiumRates() {
     const fetchSellers = useCallback(async () => {
         try {
             const { data } = await api.get("/sellers");
+            console.log("SELLER SAMPLE:", data[0]);
             setSellers(data);
         } catch { /* silent */ }
     }, []);
@@ -399,7 +416,7 @@ export default function PremiumRates() {
                                                     s.name.toLowerCase() === val.toLowerCase() ||
                                                     (s.seller_code || "").toLowerCase() === val.toLowerCase()
                                                 );
-                                                if (exact) { set("seller_id", exact.seller_id); setSellerSearch(exact.name); }
+                                                if (exact) { pickSeller(exact); }
                                                 else set("seller_id", "");
                                             }}
                                             placeholder={t('premiumRates.searchPlaceholder')}
@@ -409,7 +426,7 @@ export default function PremiumRates() {
                                             <div className="absolute top-full left-0 mt-1 w-full bg-white/90 backdrop-blur-sm border border-gray-200/60 rounded-xl shadow-lg z-30 overflow-hidden max-h-44 overflow-y-auto">
                                                 {filteredSellers.map(s => (
                                                     <button key={s.seller_id} type="button"
-                                                        onClick={() => { set("seller_id", s.seller_id); setSellerSearch(s.name); }}
+                                                        onClick={() => pickSeller(s)}
                                                         className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-amber-50/80 text-left transition">
                                                         <div className="w-6 h-6 rounded-full bg-amber-100/80 flex items-center justify-center text-xs font-bold text-amber-700 shrink-0">
                                                             {s.name?.charAt(0)?.toUpperCase()}
@@ -443,7 +460,7 @@ export default function PremiumRates() {
                                             { val: "cow", label: t('premiumRates.cow'), active: "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 shadow-sm" },
                                             { val: "buffalo", label: t('premiumRates.buffalo'), active: "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm" },
                                         ].map(({ val, label, active }) => (
-                                            <button key={val} type="button" onClick={() => set("milk_type", val)}
+                                            <button key={val} type="button" onClick={() => { set("milk_type", val); setMilkAuto(false); }}
                                                 className={`flex-1 px-4 py-2.5 transition
                                                     ${form.milk_type === val ? active : "bg-white/50 text-gray-400 hover:bg-gray-100/50"}`}>
                                                 {label}
