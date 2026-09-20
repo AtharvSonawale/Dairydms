@@ -349,11 +349,20 @@ exports.undoBonusPaid = async (req, res) => {
             if (!ownerCheck.length) return res.status(403).json({ message: "Access denied." });
         }
 
-        await pool.query(
+        const [result] = await pool.query(
             `UPDATE bonus_payments SET is_paid=0, paid_at=NULL, paid_by=NULL
              WHERE event_id=? AND seller_id=? AND centre_id=?`,
             [eventId, sellerId, centreId]
         );
+
+        if (result.affectedRows === 0) {
+            // Row may not exist yet (e.g. admin clicking Undo on an entry
+            // that only exists in the register view). Return a clear error
+            // instead of silently reporting success.
+            return res.status(404).json({
+                message: "No payment record found for this seller in this event."
+            });
+        }
 
         res.json({ message: "Bonus payment reversed successfully." });
     } catch (err) {

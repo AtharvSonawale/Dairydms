@@ -2,7 +2,7 @@ const router = require('express').Router();
 const protect = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const upload = require('../middleware/upload');
-const usbRoles = require('../controllers/usbRoles.controller');
+const usb = require('../controllers/usbSettings.controller');
 const settingsController = require('../controllers/settings.controller');
 
 // Global settings
@@ -45,7 +45,11 @@ router.post('/print', protect, isAdmin, settingsController.savePrintSettings);
 router.get('/receipt-template', protect, settingsController.getReceiptTemplate);
 router.post('/receipt-template', protect, isAdmin, settingsController.saveReceiptTemplate);
 
-router.get('/usb-roles', usbRoles.getUsbRoles);
-router.post('/usb-roles', usbRoles.saveUsbRoles);
+// ── USB device settings (Android) ─────────────────────────────
+// NOTE: `auth` was never imported — using `protect` which is the same
+// middleware every other route here uses.
+router.get('/usb-roles', protect, isAdmin, usb.getUsbRoles);
+router.post('/usb-roles', protect, isAdmin, usb.saveUsbRoles);
+router.get('/usb-settings/active', protect, usb.getActiveUsbSettings);
 
 module.exports = router;
