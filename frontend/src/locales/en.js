@@ -3818,6 +3818,13 @@ const en = {
 
             fixedMonthly: "Fixed Monthly",
             customCycle: "Custom Cycle",
+            startTour: "Take a Tour",
+            commissionSettings: "Commission Settings",
+            configureCycle: "Configure Cycle",
+            sortCodeAsc: "Seller Code: 1 → 100",
+            sortCodeDesc: "Seller Code: 100 → 1",
+            sortBillDesc: "Bill: Biggest First",
+            sortBillAsc: "Bill: Smallest First",
 
             popupBlocked: "Popup blocked. Please allow popups for this site.",
             printLoadError: "Failed to load bill details for printing.",

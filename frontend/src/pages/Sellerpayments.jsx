@@ -454,6 +454,7 @@ const handleResetCustomCut = (sellerId) => {
     const [flash, setFlash] = useState(null);
     const [search, setSearch] = useState("");
     const [filterPaid, setFilterPaid] = useState("all");
+    const [sortMode, setSortMode] = useState("code_asc");
     const [billSearchOpen, setBillSearchOpen] = useState(false);
     const [billQuery, setBillQuery] = useState("");
     const [billResults, setBillResults] = useState([]);
@@ -730,8 +731,10 @@ const handleResetCustomCut = (sellerId) => {
         }
     };
 
+    // Cards are expanded by default; expanded[id] === false means the
+    // user explicitly collapsed that seller with the chevron button.
     const toggleExpand = (id) =>
-        setExpanded(p => ({ ...p, [id]: !p[id] }));
+        setExpanded(p => ({ ...p, [id]: p[id] === false ? true : false }));
 
     // ─────────────────────────────────────────────────────────────
     // Prepare receipt data for ReceiptPDF component
@@ -2076,8 +2079,30 @@ const handleResetCustomCut = (sellerId) => {
         return matchSearch && matchPaid;
     });
 
-    const totalPages = Math.ceil(filtered.length / pageSize);
-    const paginatedSellers = filtered.slice(
+    // ── Sorting ──
+    // "Bill" = the amount actually payable this cycle, using the same
+    // effective-payable logic the Pay button and cards already use.
+    const sortedFiltered = [...filtered].sort((a, b) => {
+        switch (sortMode) {
+            case "code_asc":
+                return (a.seller_code || "").localeCompare(
+                    b.seller_code || "", undefined, { numeric: true, sensitivity: "base" }
+                );
+            case "code_desc":
+                return (b.seller_code || "").localeCompare(
+                    a.seller_code || "", undefined, { numeric: true, sensitivity: "base" }
+                );
+            case "bill_desc":
+                return getEffectiveFinalPayable(b) - getEffectiveFinalPayable(a);
+            case "bill_asc":
+                return getEffectiveFinalPayable(a) - getEffectiveFinalPayable(b);
+            default:
+                return 0;
+        }
+    });
+
+    const totalPages = Math.ceil(sortedFiltered.length / pageSize);
+    const paginatedSellers = sortedFiltered.slice(
         (currentPage - 1) * pageSize,
         currentPage * pageSize
     );
@@ -2366,7 +2391,7 @@ const handleResetCustomCut = (sellerId) => {
                 )}
 
                 {/* Search + Filter */}
-                <div className="flex items-center gap-2 no-print">
+                <div className="flex items-center gap-2 no-print flex-wrap">
                     <div className="relative flex-1 max-w-xs">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -2386,6 +2411,15 @@ const handleResetCustomCut = (sellerId) => {
                             </button>
                         ))}
                     </div>
+                    <select
+                        value={sortMode}
+                        onChange={e => { setSortMode(e.target.value); setCurrentPage(1); }}
+                        className="text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-black/20 transition shadow-sm">
+                        <option value="code_asc">{t('sellerPayments.sortCodeAsc') || 'Seller Code: A → Z'}</option>
+                        <option value="code_desc">{t('sellerPayments.sortCodeDesc') || 'Seller Code: Z → A'}</option>
+                        <option value="bill_desc">{t('sellerPayments.sortBillDesc') || 'Bill: Biggest First'}</option>
+                        <option value="bill_asc">{t('sellerPayments.sortBillAsc') || 'Bill: Smallest First'}</option>
+                    </select>
                 </div>
 
                 {/* Seller Cards */}
@@ -2401,7 +2435,7 @@ const handleResetCustomCut = (sellerId) => {
                         </div>
                     ) : paginatedSellers.map(seller => {
                         const entries = seller.entries || [];
-                        const isOpen = expanded[seller.seller_id];
+                        const isOpen = expanded[seller.seller_id] !== false;
                         const milkAmt = parseFloat(seller.milk_amount || 0);
                         const advGiven = parseFloat(seller.advance_given || 0);
                         const isPaid = !!(seller.is_paid || seller.bill_no);
