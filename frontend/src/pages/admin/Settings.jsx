@@ -187,6 +187,7 @@ const VISIBILITY_SECTIONS = [
             { key: 'admin_operators', label: 'Operators' },
             { key: 'admin_admin_list', label: 'Admin List' },
             { key: 'admin_port_settings', label: 'Port Settings' },
+            { key: 'admin_usb_settings', label: 'USB Settings', platforms: ['flutter'] },
             { key: 'admin_commission_settings', label: 'Commission Settings' },
             { key: 'admin_clear_data', label: 'Clear All Data' },
         ],
@@ -209,6 +210,7 @@ const VISIBILITY_SECTIONS = [
             { key: 'admin_milk_entry', label: 'Milk Entry' },
             { key: 'admin_utpadak_milk_entry', label: 'Utpadak Milk Entry' },
             { key: 'admin_gavali_milk_entry', label: 'Gavali Milk Entry' },
+            { key: 'admin_gavali_milk_entry_new', label: 'Gavali Milk Entry (New)', platforms: ['flutter'] },
             { key: 'admin_owner_usage', label: 'Owner Usage' },
             { key: 'admin_tank_dispatch', label: 'Tank Dispatch' },
             { key: 'admin_all_milk_entries', label: 'All Milk Entries' },
@@ -278,6 +280,7 @@ const VISIBILITY_SECTIONS = [
             { key: 'admin_farmer_ledger', label: 'Farmer Ledger' },
             { key: 'admin_utpadak_bonus_report', label: 'Utpadak Bonus Report' },
             { key: 'admin_gavali_bonus_report', label: 'Gavali Bonus Report' },
+            { key: 'admin_stock_transfer', label: 'Stock Transfer' },
         ],
     },
     {
@@ -310,11 +313,18 @@ const VISIBILITY_SECTIONS = [
         ],
     },
     {
-        groupKey: 'operatorSettings',
-        label: 'Settings (Operator)',
+        groupKey: 'operatorAdministration',
+        label: 'Administration (Operator)',
         role: 'Operator',
         pages: [
             { key: 'operator_settings', label: 'Settings' },
+            { key: 'operator_centres', label: 'Centres' },
+            { key: 'operator_premium_rates', label: 'Premium Rates' },
+            { key: 'operator_operators', label: 'Operators' },
+            { key: 'operator_admin_list', label: 'Admin List' },
+            { key: 'operator_port_settings', label: 'Port Settings' },
+            { key: 'operator_commission_settings', label: 'Commission Settings' },
+            { key: 'operator_clear_data', label: 'Clear All Data' },
         ],
     },
     {
@@ -325,7 +335,6 @@ const VISIBILITY_SECTIONS = [
             { key: 'operator_seller_register', label: 'Sellers' },
             { key: 'operator_rate_chart', label: 'Rate Chart' },
             { key: 'operator_seller_payments', label: 'Seller Payments' },
-            { key: 'operator_premium_rates', label: 'Premium Rates' },
         ],
     },
     {
@@ -336,8 +345,10 @@ const VISIBILITY_SECTIONS = [
             { key: 'operator_milk_entry', label: 'Milk Entry' },
             { key: 'operator_utpadak_milk_entry', label: 'Utpadak Milk Entry' },
             { key: 'operator_gavali_milk_entry', label: 'Gavali Milk Entry' },
+            { key: 'operator_gavali_milk_entry_new', label: 'Gavali Milk Entry (New)', platforms: ['flutter'] },
             { key: 'operator_owner_usage', label: 'Owner Usage' },
             { key: 'operator_tank_dispatch', label: 'Tank Dispatch' },
+            { key: 'operator_all_milk_entries', label: 'All Milk Entries' },
         ],
     },
     {
@@ -348,6 +359,9 @@ const VISIBILITY_SECTIONS = [
             { key: 'operator_walkin_sales', label: 'Walk-in Sale' },
             { key: 'operator_walkin_payments', label: 'Walk-in Payments' },
             { key: 'operator_named_buyers', label: 'Named Buyers' },
+            { key: 'operator_walkin_seller_report', label: 'Seller Report' },
+            { key: 'operator_walkin_named_buyer_reports', label: 'Named Buyer Reports' },
+            { key: 'operator_walkin_anon_reports', label: 'Anon Reports' },
         ],
     },
     {
@@ -358,6 +372,8 @@ const VISIBILITY_SECTIONS = [
             { key: 'operator_products', label: 'Catalogue' },
             { key: 'operator_product_purchases', label: 'Purchase' },
             { key: 'operator_product_sales', label: 'Sales' },
+            { key: 'operator_product_purchase_payment', label: 'Product Purchase Payment' },
+            { key: 'operator_product_sales_report', label: 'Product Sales Report' },
         ],
     },
     {
@@ -368,6 +384,8 @@ const VISIBILITY_SECTIONS = [
             { key: 'operator_cattle_feed_catalogue', label: 'Catalogue' },
             { key: 'operator_cattle_feed_purchase', label: 'Purchase' },
             { key: 'operator_cattle_feed_sales', label: 'Sales' },
+            { key: 'operator_cattle_feed_purchase_payment', label: 'Cattlefeed Purchase Payment' },
+            { key: 'operator_cattle_feed_sales_report', label: 'Cattle Feed Sales Report' },
         ],
     },
     {
@@ -394,8 +412,19 @@ const VISIBILITY_SECTIONS = [
         role: 'Operator',
         pages: [
             { key: 'operator_sum_report', label: 'Summary Report' },
+            { key: 'operator_farmer_ledger', label: 'Farmer Ledger' },
             { key: 'operator_utpadak_bonus_report', label: 'Utpadak Bonus Report' },
             { key: 'operator_gavali_bonus_report', label: 'Gavali Bonus Report' },
+            { key: 'operator_stock_transfer', label: 'Stock Transfer' },
+        ],
+    },
+    {
+        groupKey: 'operatorExpenses',
+        label: 'Expenses (Operator)',
+        role: 'Operator',
+        pages: [
+            { key: 'operator_expenses', label: 'Expenses' },
+            { key: 'operator_expenses_report', label: 'Expenses Report' },
         ],
     },
 
@@ -1460,32 +1489,43 @@ export default function AdminSettings() {
                                                         ${idx !== section.pages.length - 1 ? 'border-b border-gray-200/60' : ''}
                                                         hover:bg-gray-50/50 transition`}
                                                 >
-                                                    <span className="text-sm font-medium text-gray-700">{page.label}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-medium text-gray-700">{page.label}</span>
+                                                        {page.platforms && !page.platforms.includes('web') && (
+                                                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">
+                                                                App only
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className="flex items-center gap-5">
-                                                        <label className="flex items-center gap-2 text-xs text-gray-500">
-                                                            Web
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleVisibility(page.key, 'web')}
-                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm
-                                                                    ${v.web ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                                                            >
-                                                                <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
-                                                                    ${v.web ? 'translate-x-6' : 'translate-x-1'}`} />
-                                                            </button>
-                                                        </label>
-                                                        <label className="flex items-center gap-2 text-xs text-gray-500">
-                                                            Flutter
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleVisibility(page.key, 'flutter')}
-                                                                className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm
-                                                                    ${v.flutter ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                                                            >
-                                                                <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
-                                                                    ${v.flutter ? 'translate-x-6' : 'translate-x-1'}`} />
-                                                            </button>
-                                                        </label>
+                                                        {(!page.platforms || page.platforms.includes('web')) && (
+                                                            <label className="flex items-center gap-2 text-xs text-gray-500">
+                                                                Web
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleVisibility(page.key, 'web')}
+                                                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm
+                                                                        ${v.web ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                                                                >
+                                                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
+                                                                        ${v.web ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                                </button>
+                                                            </label>
+                                                        )}
+                                                        {(!page.platforms || page.platforms.includes('flutter')) && (
+                                                            <label className="flex items-center gap-2 text-xs text-gray-500">
+                                                                Flutter
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleVisibility(page.key, 'flutter')}
+                                                                    className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors shadow-sm
+                                                                        ${v.flutter ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                                                                >
+                                                                    <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform
+                                                                        ${v.flutter ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                                </button>
+                                                            </label>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
