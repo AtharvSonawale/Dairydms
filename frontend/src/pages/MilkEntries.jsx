@@ -16,6 +16,7 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { io } from "socket.io-client";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // ── helpers ───────────────────────────────────────────────────
 const getShiftByTime = () => {
@@ -778,6 +779,8 @@ export default function MilkEntryBase({ fixedSellerType }) {
     const sellerCodeRef = useRef(null);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [editingEntry, setEditingEntry] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deletingEntryBusy, setDeletingEntryBusy] = useState(false);
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
     const { appName, fatOnlyAutofill } = useAppConfig();
@@ -1394,18 +1397,31 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
         }
     };
 
-    const handleDelete = async (entry) => {
-        if (!window.confirm(`Delete this entry for ${entry.seller_name || entry.seller_code || 'this seller'}?`)) return;
+    const handleDelete = (entry) => {
+        setDeleteTarget(entry);
+    };
+
+    const confirmDeleteEntry = async () => {
+        if (!deleteTarget || deletingEntryBusy) return;
+        setDeletingEntryBusy(true);
         try {
-            await api.delete(`/milk-entries/${entry.entry_id}`);
+            await api.delete(`/milk-entries/${deleteTarget.entry_id}`);
             showFlash("success", "Entry deleted successfully.");
-            if (editingEntry?.entry_id === entry.entry_id) {
+            if (editingEntry?.entry_id === deleteTarget.entry_id) {
                 handleCancelEdit();
             }
             await fetchEntries(selectedDate, selectedDate);
         } catch (err) {
             showFlash("error", err.response?.data?.error || "Failed to delete entry.");
+        } finally {
+            setDeletingEntryBusy(false);
+            setDeleteTarget(null);
         }
+    };
+
+    const cancelDeleteEntry = () => {
+        if (deletingEntryBusy) return;
+        setDeleteTarget(null);
     };
 
     const isFormReady = () =>
@@ -2209,6 +2225,25 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                     </div>
                 </div>
             </main>
+
+            {/* ── Delete Entry Confirmation ── */}
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title="Delete this entry?"
+                message={
+                    <>
+                        This will permanently delete the milk entry for{" "}
+                        <strong className="text-gray-700">
+                            {deleteTarget?.seller_name || deleteTarget?.seller_code || "this seller"}
+                        </strong>
+                        . This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete Entry"
+                loading={deletingEntryBusy}
+                onConfirm={confirmDeleteEntry}
+                onCancel={cancelDeleteEntry}
+            />
 
             {/* ── Quick Sale Modals ── */}
             {showProductModal && (

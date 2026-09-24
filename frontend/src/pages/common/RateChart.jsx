@@ -36,6 +36,7 @@ import {
   Eraser,
 } from "lucide-react";
 import { driver } from "driver.js";
+import ActionBar from "../../components/ActionBar";
 import "driver.js/dist/driver.css";
 
 // ── SectionCard Component ────────────────────────────────
@@ -1510,7 +1511,7 @@ export default function RateChart() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
       <main className="max-w-screen mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
         {/* ── Top Bar ── */}
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
+        <div className="relative z-30 flex flex-col lg:flex-row lg:items-start justify-between gap-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 p-5">
           <div className="flex items-center gap-3 shrink-0">
             <div className="min-w-0">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
@@ -1526,142 +1527,32 @@ export default function RateChart() {
               </p>
             </div>
           </div>
-          <div
-            className="flex items-end gap-2 flex-wrap"
-            data-tour="action-buttons"
-          >
-            <button
-              onClick={startRateChartTour}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80 transition shadow-sm"
-            >
-              <BadgeCheck size={15} /> {t("rateChart.startTour")}
-            </button>
-
-            <button
-              onClick={() => setShowExportModal(true)}
-              disabled={exportLoading}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50"
-            >
-              <Download size={15} /> {t("rateChart.exportButton")}
-            </button>
-
-            <button
-              onClick={() => {
-                setShowCopyModal(true);
-                setCopyStartDate("");
-                setCopyEndDate("");
-              }}
-              disabled={copyingForward}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-200 disabled:opacity-50"
-            >
-              {copyingForward ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />{" "}
-                  {t("rateChart.copying")}
-                </>
-              ) : (
-                <>
-                  <ChevronRight size={15} /> {t("rateChart.carryForward")}
-                </>
-              )}
-            </button>
-
-            {isAdmin && (
-              <button
-                onClick={handleToggleAutoCarryForward}
-                disabled={autoCarryForwardLoading}
-                title="When ON, today's Cow, Buffalo and Mixed rates are automatically copied to tomorrow every night."
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 disabled:opacity-50
-                  ${autoCarryForward
-                    ? "bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40"
-                    : "bg-white/60 backdrop-blur-sm border border-gray-200/60 text-gray-600 hover:bg-gray-50/80"}`}
-              >
-                {autoCarryForwardLoading ? (
-                  <RefreshCw size={15} className="animate-spin" />
-                ) : (
-                  <ChevronRight size={15} />
-                )}
-                {autoCarryForward ? "Auto Carry-Forward: ON" : "Auto Carry-Forward: OFF"}
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                setShowRecomputeModal(true);
-                setRecomputeFrom("");
-                setRecomputeTo("");
-                setRecomputeDiffs([]);
-                setSelectedDiffIds([]);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all duration-200"
-            >
-              <RefreshCw size={15} /> Recompute Past Rates
-            </button>
-
-            <button
-              onClick={() => {
-                setShowGenerateModal(true);
-                setGenPreview([]);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200"
-            >
-              <FlaskConical size={15} /> {t("rateChart.generateRates")}
-            </button>
-
-            <button
-              onClick={openMatrixModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 text-white shadow-lg shadow-fuchsia-500/30 hover:shadow-xl hover:shadow-fuchsia-500/40 transition-all duration-200"
-            >
-              <LayoutGrid size={15} />{" "}
-              {t(
-                "rateChart.matrixGen.button",
-                "Generate Rate Matrix by Fat Step and SNF Step",
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                setShowRateImportModal(true);
-                resetRateImport();
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-gray-600 to-gray-700 text-white shadow-lg shadow-gray-600/30 hover:shadow-xl hover:shadow-gray-600/40 transition-all duration-200"
-            >
-              <Import size={15} /> {t("rateChart.import.button")}
-            </button>
-
-            {isAdmin && (
-              <button
-                onClick={openDeleteRangeModal}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200"
-              >
-                <CalendarRange size={15} /> {t("rateChart.deleteByRange", "Delete by Date Range")}
-              </button>
-            )}
-
-            <button
-              onClick={openPremiumModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 transition-all duration-200"
-            >
-              <Star size={15} /> {t("rateChart.premiumRates")}
-            </button>
-
-            <button
-              onClick={openAdd}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-all duration-200
-                                ${isAdmin ? "bg-gradient-to-br from-gray-900 to-gray-800 shadow-gray-900/30 hover:shadow-xl hover:shadow-gray-900/40" : "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40"}`}
-            >
-              <span className="text-base leading-none">+</span>{" "}
-              {t("rateChart.addRate")}
-            </button>
-            {rates.length > 0 && (
-              <button
-                onClick={handleDeleteAllRates}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 transition-all duration-200"
-              >
-                <Trash2 size={15} /> {t("rateChart.deleteAll")}
-              </button>
-            )}
-          </div>
+          <ActionBar
+            pageKey="rate_chart"
+            actions={[
+              { key: "add", label: t("rateChart.addRate"), icon: undefined, onClick: openAdd, variant: isAdmin ? "dark" : "emerald", defaultPinned: true },
+              { key: "export", label: t("rateChart.exportButton"), icon: Download, onClick: () => setShowExportModal(true), variant: "blue", disabled: exportLoading, defaultPinned: true },
+              { key: "carry", label: copyingForward ? t("rateChart.copying") : t("rateChart.carryForward"), icon: ChevronRight, onClick: () => { setShowCopyModal(true); setCopyStartDate(""); setCopyEndDate(""); }, variant: "emerald", disabled: copyingForward, loading: copyingForward, defaultPinned: true },
+              ...(isAdmin ? [{
+                key: "autoCarry",
+                label: autoCarryForward ? "Auto Carry-Forward: ON" : "Auto Carry-Forward: OFF",
+                icon: ChevronRight,
+                onClick: handleToggleAutoCarryForward,
+                variant: autoCarryForward ? "teal" : "neutral",
+                disabled: autoCarryForwardLoading,
+                loading: autoCarryForwardLoading,
+                defaultPinned: true,
+              }] : []),
+              { key: "tour", label: t("rateChart.startTour"), icon: BadgeCheck, onClick: startRateChartTour, defaultPinned: false },
+              { key: "recompute", label: "Recompute Past Rates", icon: RefreshCw, onClick: () => { setShowRecomputeModal(true); setRecomputeFrom(""); setRecomputeTo(""); setRecomputeDiffs([]); setSelectedDiffIds([]); }, defaultPinned: false },
+              { key: "generate", label: t("rateChart.generateRates"), icon: FlaskConical, onClick: () => { setShowGenerateModal(true); setGenPreview([]); }, defaultPinned: false },
+              { key: "matrix", label: t("rateChart.matrixGen.button", "Generate Rate Matrix"), icon: LayoutGrid, onClick: openMatrixModal, defaultPinned: false },
+              { key: "import", label: t("rateChart.import.button"), icon: Import, onClick: () => { setShowRateImportModal(true); resetRateImport(); }, defaultPinned: false },
+              ...(isAdmin ? [{ key: "deleteRange", label: t("rateChart.deleteByRange", "Delete by Date Range"), icon: CalendarRange, onClick: openDeleteRangeModal, defaultPinned: false }] : []),
+              { key: "premium", label: t("rateChart.premiumRates"), icon: Star, onClick: openPremiumModal, defaultPinned: false },
+              ...(rates.length > 0 ? [{ key: "deleteAll", label: t("rateChart.deleteAll"), icon: Trash2, onClick: handleDeleteAllRates, defaultPinned: false }] : []),
+            ]}
+          />
         </div>
 
         {/* ── Flash ── */}

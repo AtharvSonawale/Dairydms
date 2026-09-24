@@ -17,6 +17,7 @@ import { usePermission } from '../context/PermissionContext';
 import AccessDenied from '../components/AccessDenied';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import ActionBar from "../components/ActionBar";
 
 // Import for PDF generation
 import jsPDF from 'jspdf';
@@ -2168,7 +2169,7 @@ const handleResetCustomCut = (sellerId) => {
             <main className="max-w-screen mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
+                <div className="relative z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-lg shadow-gray-200/50 px-5 py-4">
                     <div className="flex items-center gap-3 shrink-0">
                         <div className="min-w-0">
                             <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-tight">
@@ -2180,98 +2181,112 @@ const handleResetCustomCut = (sellerId) => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap" data-tour="header-actions">
-                        <button onClick={startSellerPaymentsTour}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 transition shadow-sm">
-                            <BadgeCheck size={13} /> {t('sellerPayments.startTour') || 'Take a Tour'}
-                        </button>
-                        <button onClick={() => { setBillSearchOpen(true); searchBills(""); }}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-violet-600 text-white hover:bg-violet-700 transition shadow-lg shadow-violet-600/20">
-                            <FileSearch size={13} /> {t('sellerPayments.searchBills')}
-                        </button>
-                        <button onClick={() => navigate('/commission-settings')}
-                            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                bg-amber-100/80 text-amber-700 hover:bg-amber-200/80 transition border border-amber-200/60 shadow-sm">
-                            <Percent size={13} /> {t('sellerPayments.commissionSettings') || 'Commission Settings'}
-                        </button>
-                        {useCustomCycle && (
-                            <button onClick={() => setCycleConfigOpen(true)}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-violet-100/80 text-violet-700 hover:bg-violet-200/80 transition border border-violet-200/60 shadow-sm">
-                                <Calendar size={13} /> {t('sellerPayments.configureCycle') || 'Configure Cycle'}
-                            </button>
-                        )}
-                        {can('seller_payments', 'R') && (
-                            <button onClick={printRegister}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-gray-900 text-white hover:bg-gray-800 transition shadow-lg shadow-gray-900/20">
-                                <Printer size={13} /> {t('sellerPayments.printRegister')}
-                            </button>
-                        )}
-                        {can('seller_payments', 'R') && (
-                            <button onClick={handleBulkDownloadPDFs} disabled={bulkDownloading}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg shadow-indigo-600/20">
-                                {bulkDownloading
-                                    ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    : <Download size={13} />}
-                                {bulkDownloading
-                                    ? (t('sellerPayments.bulkDownloading') || 'Downloading…')
-                                    : (t('sellerPayments.bulkDownloadAllPDFs') || 'Download All PDFs')}
-                            </button>
-                        )}
-                        {can('seller_payments', 'R') && (
-                            <button
-                                onClick={handleCombinedDownload}
-                                disabled={combinedDownloading}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-purple-600 text-white hover:bg-purple-700 transition disabled:opacity-50 shadow-lg shadow-purple-600/20">
-                                {combinedDownloading
-                                    ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    : <Download size={13} />}
-                                {combinedDownloading
-                                    ? (t('sellerPayments.combinedDownloading') || 'Processing…')
-                                    : (t('sellerPayments.combinedDownloadAll') || 'Combined PDF')}
-                            </button>
-                        )}
-                        {can('seller_payments', 'R') && (
-                            <button
-                                onClick={() => setExcelConfigOpen(true)}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-emerald-100/80 text-emerald-700 hover:bg-emerald-200/80 transition border border-emerald-200/60 shadow-sm">
-                                <Download size={13} /> Excel Config
-                            </button>
-                        )}
-                        {can('seller_payments', 'R') && (
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        const response = await api.get(
-                                            `/payments/export-excel?from=${customFrom}&to=${customTo}`,
-                                            { responseType: 'blob' }
-                                        );
-                                        const url = window.URL.createObjectURL(new Blob([response.data]));
-                                        const link = document.createElement('a');
-                                        link.href = url;
-                                        link.setAttribute('download', `payments_${customFrom}_to_${customTo}.xlsx`);
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        link.remove();
-                                        window.URL.revokeObjectURL(url);
-                                    } catch (err) {
-                                        const text = await err.response?.data?.text?.();
-                                        let msg = 'Export failed';
-                                        try { msg = JSON.parse(text)?.message || msg; } catch { }
-                                        showFlash('error', msg);
-                                    }
-                                }}
-                                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl
-                                    bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20">
-                                <Download size={13} /> Export Excel
-                            </button>
-                        )}
+                    <div data-tour="header-actions">
+                        <ActionBar
+                            pageKey="seller_payments"
+                            actions={[
+                                {
+                                    key: "tour",
+                                    label: t('sellerPayments.startTour') || 'Take a Tour',
+                                    icon: BadgeCheck,
+                                    onClick: startSellerPaymentsTour,
+                                    variant: "neutral",
+                                    defaultPinned: false,
+                                },
+                                {
+                                    key: "searchBills",
+                                    label: t('sellerPayments.searchBills'),
+                                    icon: FileSearch,
+                                    onClick: () => { setBillSearchOpen(true); searchBills(""); },
+                                    variant: "violet",
+                                    defaultPinned: true,
+                                },
+                                {
+                                    key: "commissionSettings",
+                                    label: t('sellerPayments.commissionSettings') || 'Commission Settings',
+                                    icon: Percent,
+                                    onClick: () => navigate('/commission-settings'),
+                                    variant: "amber",
+                                    defaultPinned: false,
+                                },
+                                ...(useCustomCycle ? [{
+                                    key: "configureCycle",
+                                    label: t('sellerPayments.configureCycle') || 'Configure Cycle',
+                                    icon: Calendar,
+                                    onClick: () => setCycleConfigOpen(true),
+                                    variant: "violet",
+                                    defaultPinned: false,
+                                }] : []),
+                                ...(can('seller_payments', 'R') ? [{
+                                    key: "printRegister",
+                                    label: t('sellerPayments.printRegister'),
+                                    icon: Printer,
+                                    onClick: printRegister,
+                                    variant: "dark",
+                                    defaultPinned: true,
+                                }] : []),
+                                ...(can('seller_payments', 'R') ? [{
+                                    key: "bulkDownload",
+                                    label: bulkDownloading
+                                        ? (t('sellerPayments.bulkDownloading') || 'Downloading…')
+                                        : (t('sellerPayments.bulkDownloadAllPDFs') || 'Download All PDFs'),
+                                    icon: Download,
+                                    onClick: handleBulkDownloadPDFs,
+                                    variant: "blue",
+                                    disabled: bulkDownloading,
+                                    loading: bulkDownloading,
+                                    defaultPinned: false,
+                                }] : []),
+                                ...(can('seller_payments', 'R') ? [{
+                                    key: "combinedDownload",
+                                    label: combinedDownloading
+                                        ? (t('sellerPayments.combinedDownloading') || 'Processing…')
+                                        : (t('sellerPayments.combinedDownloadAll') || 'Combined PDF'),
+                                    icon: Download,
+                                    onClick: handleCombinedDownload,
+                                    variant: "violet",
+                                    disabled: combinedDownloading,
+                                    loading: combinedDownloading,
+                                    defaultPinned: false,
+                                }] : []),
+                                ...(can('seller_payments', 'R') ? [{
+                                    key: "excelConfig",
+                                    label: "Excel Config",
+                                    icon: Download,
+                                    onClick: () => setExcelConfigOpen(true),
+                                    variant: "emerald",
+                                    defaultPinned: false,
+                                }] : []),
+                                ...(can('seller_payments', 'R') ? [{
+                                    key: "exportExcel",
+                                    label: "Export Excel",
+                                    icon: Download,
+                                    onClick: async () => {
+                                        try {
+                                            const response = await api.get(
+                                                `/payments/export-excel?from=${customFrom}&to=${customTo}`,
+                                                { responseType: 'blob' }
+                                            );
+                                            const url = window.URL.createObjectURL(new Blob([response.data]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `payments_${customFrom}_to_${customTo}.xlsx`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.remove();
+                                            window.URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                            const text = await err.response?.data?.text?.();
+                                            let msg = 'Export failed';
+                                            try { msg = JSON.parse(text)?.message || msg; } catch { }
+                                            showFlash('error', msg);
+                                        }
+                                    },
+                                    variant: "emerald",
+                                    defaultPinned: true,
+                                }] : []),
+                            ]}
+                        />
                     </div>
                 </div>
 

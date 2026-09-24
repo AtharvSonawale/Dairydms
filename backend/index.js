@@ -46,6 +46,7 @@ const fulfillmentRoutes = require('./routes/fulfillment.routes');
 const scheduleAutoCarryForward = require('./jobs/autoCarryForward.job');
 const adminsRoutes = require('./routes/admin.routes');
 const stockTransferRoutes = require('./routes/stockTransfer.routes');
+const actionBarRoutes = require('./routes/actionBar.routes');
 
 
 const app = express();
@@ -74,6 +75,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/operators', operatorRoutes);
 app.use('/api/rates', rateRoutes);
+app.use('/api/action-bar', actionBarRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/farmer', farmerRoutes);
 app.use('/api/milk-entries', require('./routes/milkEntry.routes'));

@@ -16,6 +16,7 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { io } from "socket.io-client";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // ── helpers ───────────────────────────────────────────────────
 const getShiftByTime = () => {
@@ -745,6 +746,8 @@ export default function MilkEntryBase({ sellerType }) {
     const sellerCodeRef = useRef(null);
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const [editingEntry, setEditingEntry] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deletingEntryBusy, setDeletingEntryBusy] = useState(false);
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
     const { appName, fatOnlyAutofill } = useAppConfig();
@@ -2432,6 +2435,25 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                     </div>
                 </div>
             )}
+
+            {/* ── Delete Entry Confirmation ── */}
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title="Delete this entry?"
+                message={
+                    <>
+                        This will permanently delete the milk entry for{" "}
+                        <strong className="text-gray-700">
+                            {deleteTarget?.seller_name || deleteTarget?.seller_code || "this seller"}
+                        </strong>
+                        . This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete Entry"
+                loading={deletingEntryBusy}
+                onConfirm={confirmDeleteEntry}
+                onCancel={cancelDeleteEntry}
+            />
 
             {/* ── Quick Sale Modals ── */}
             {showProductModal && (
