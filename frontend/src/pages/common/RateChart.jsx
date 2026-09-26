@@ -810,7 +810,10 @@ export default function RateChart() {
 
   // ── Bulk rate import ──
   const isValidRateRow = (row) => {
-    const milkOk = row.milk_type === "cow" || row.milk_type === "buffalo";
+    const milkOk =
+      row.milk_type === "cow" ||
+      row.milk_type === "buffalo" ||
+      row.milk_type === "mixed";
     const fatOk =
       row.fat !== "" && row.fat !== undefined && !isNaN(parseFloat(row.fat));
     const snfOk =
@@ -837,50 +840,21 @@ export default function RateChart() {
       try {
         const data = new Uint8Array(evt.target.result);
         const workbook = XLSX.read(data, { type: "array" });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
 
-        if (json.length === 0) {
-          setRateImportErrors([t("rateChart.import.errors.emptyFile")]);
-          return;
-        }
-
-        const headers = Object.keys(json[0]);
-        const mappedHeaders = headers.map(
-          (h) => rateColumnMap[h.trim().toLowerCase()] || null,
+        // Detect the "Export Rate Chart" matrix format by checking the
+        // first sheet's A1 cell, e.g. "Cow Rate Chart - 26 Sep 2026".
+        const firstSheetGrid = XLSX.utils.sheet_to_json(
+          workbook.Sheets[workbook.SheetNames[0]],
+          { header: 1, defval: "" },
         );
+        const firstCell = String(firstSheetGrid?.[0]?.[0] || "");
+        const isMatrixExport = /Rate Chart\s*-/.test(firstCell);
 
-        const fatIdx = mappedHeaders.indexOf("fat");
-        const snfIdx = mappedHeaders.indexOf("snf");
-        const rateIdx = mappedHeaders.indexOf("rate");
-        if (fatIdx === -1 || snfIdx === -1 || rateIdx === -1) {
-          setRateImportErrors([t("rateChart.import.errors.missingColumns")]);
-          return;
-        }
+        const rows = isMatrixExport
+          ? parseMatrixWorkbook(workbook)
+          : parseFlatWorkbook(workbook);
 
-        const rows = json.map((row, idx) => {
-          const obj = {};
-          headers.forEach((h, i) => {
-            const field = mappedHeaders[i];
-            if (field) {
-              let val = row[h];
-              if (field === "milk_type") val = String(val).trim().toLowerCase();
-              if (field === "effective_from" || field === "effective_to") {
-                if (val instanceof Date) {
-                  val = val.toISOString().split("T")[0];
-                } else if (typeof val === "number") {
-                  const d = XLSX.SSF.parse_date_code(val);
-                  val = d
-                    ? `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`
-                    : "";
-                }
-              }
-              obj[field] = val;
-            }
-          });
-          if (!obj.milk_type) obj.milk_type = filter;
-          return { ...obj, _rowIndex: idx + 1 };
-        });
+        if (rows === null) return; // the parser already set an error
 
         const errors = [];
         rows.forEach((row, idx) => {
@@ -905,6 +879,127 @@ export default function RateChart() {
       setRateParsingFile(false);
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // Turns "Cow" / "Buffalo" / "Mixed" (however t() renders them) back into
+  // "cow" / "buffalo" / "mixed".
+  const milkTypeFromLabel = (label) => {
+    const clean = String(label || "").trim().toLowerCase();
+    if (clean.startsWith(milkTypeLabel("buffalo", t).toLowerCase())) return "buffalo";
+    if (clean.startsWith(milkTypeLabel("mixed", t).toLowerCase())) return "mixed";
+    if (clean.startsWith(milkTypeLabel("cow", t).toLowerCase())) return "cow";
+    return null;
+  };
+
+  const RATE_EXPORT_MONTHS = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  };
+  // "26 Sep 2026" -> "2026-09-26" (matches exportToExcel's dateStr format).
+  const parseExportDate = (str) => {
+    const m = String(str || "").trim().match(/(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})/);
+    if (!m) return null;
+    const [, day, mon, year] = m;
+    const month = RATE_EXPORT_MONTHS[mon.toLowerCase()];
+    if (!month) return null;
+    return `${year}-${month}-${day.padStart(2, "0")}`;
+  };
+
+  // Flattens the "Export Rate Chart" matrix workbook (one sheet per milk
+  // type: title row, blank row, "FAT \ SNF" header row, then one row per
+  // FAT with rates across SNF columns) back into add/update-ready rows.
+  const parseMatrixWorkbook = (workbook) => {
+    const rows = [];
+    workbook.SheetNames.forEach((sheetName) => {
+      const sheet = workbook.Sheets[sheetName];
+      const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      if (grid.length < 3) return; // "no rates found" placeholder sheet
+
+      const titleRow = String(grid[0]?.[0] || "");
+      const milk_type = milkTypeFromLabel(titleRow) || milkTypeFromLabel(sheetName);
+      const effective_from = parseExportDate(titleRow.split(" - ")[1]);
+      if (!milk_type || !effective_from) return;
+
+      const headerRow = grid[2] || [];
+      const snfValues = headerRow.slice(1);
+
+      grid.slice(3).forEach((row) => {
+        const fat = row[0];
+        if (fat === "" || fat === undefined) return;
+        snfValues.forEach((snf, colIdx) => {
+          const cell = row[colIdx + 1];
+          if (cell === "" || cell === undefined || cell === "—" || cell === "-") return;
+          const rate = parseFloat(cell);
+          if (isNaN(rate)) return;
+          rows.push({
+            milk_type,
+            fat: String(fat),
+            snf: String(snf),
+            rate: String(rate),
+            mrp: "",
+            effective_from,
+            effective_to: "",
+            _rowIndex: rows.length + 1,
+          });
+        });
+      });
+    });
+
+    if (rows.length === 0) {
+      setRateImportErrors([t("rateChart.import.errors.emptyFile")]);
+      return null;
+    }
+    return rows;
+  };
+
+  // The original flat-column parser (milk_type/fat/snf/rate/... headers on
+  // one sheet), used for files that don't match the matrix export format —
+  // e.g. the downloadRateTemplate() file.
+  const parseFlatWorkbook = (workbook) => {
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+    if (json.length === 0) {
+      setRateImportErrors([t("rateChart.import.errors.emptyFile")]);
+      return null;
+    }
+
+    const headers = Object.keys(json[0]);
+    const mappedHeaders = headers.map(
+      (h) => rateColumnMap[h.trim().toLowerCase()] || null,
+    );
+
+    const fatIdx = mappedHeaders.indexOf("fat");
+    const snfIdx = mappedHeaders.indexOf("snf");
+    const rateIdx = mappedHeaders.indexOf("rate");
+    if (fatIdx === -1 || snfIdx === -1 || rateIdx === -1) {
+      setRateImportErrors([t("rateChart.import.errors.missingColumns")]);
+      return null;
+    }
+
+    return json.map((row, idx) => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        const field = mappedHeaders[i];
+        if (field) {
+          let val = row[h];
+          if (field === "milk_type") val = String(val).trim().toLowerCase();
+          if (field === "effective_from" || field === "effective_to") {
+            if (val instanceof Date) {
+              val = val.toISOString().split("T")[0];
+            } else if (typeof val === "number") {
+              const d = XLSX.SSF.parse_date_code(val);
+              val = d
+                ? `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`
+                : "";
+            }
+          }
+          obj[field] = val;
+        }
+      });
+      if (!obj.milk_type) obj.milk_type = filter;
+      return { ...obj, _rowIndex: idx + 1 };
+    });
   };
 
   const handleRateFileUpload = (e) => processRateFile(e.target.files[0]);

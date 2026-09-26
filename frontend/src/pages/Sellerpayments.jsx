@@ -632,11 +632,31 @@ const handleResetCustomCut = (sellerId) => {
     const getEffectiveInstallmentCut = (seller) => {
         const override = customCutOverrides[seller.seller_id];
         const advGivenP = toPaise(seller.advance_given || 0);
+        const remainderP = toPaise(getRemainderForInstallment(seller));
         if (override !== undefined && override !== "") {
             const valP = toPaise(override);
-            if (!isNaN(valP)) return fromPaise(Math.max(0, Math.min(valP, advGivenP)));
+            if (!isNaN(valP)) return roundAmt(fromPaise(Math.max(0, Math.min(valP, advGivenP, remainderP))));
         }
-        return fromPaise(toPaise(seller.installment_cut || 0));
+        // seller.installment_cut now already reflects the 3-way logic from the
+        // backend (profile default, or the remainder fallback when no profile
+        // deduction is configured), but re-clamp here too in case the summary is
+        // stale relative to the current remainder. Rounded to the nearest whole
+        // rupee — the cut should read as ₹8425, not ₹8424.70 — to match what the
+        // backend actually records in cash_advance.
+        return roundAmt(fromPaise(Math.max(0, Math.min(toPaise(seller.installment_cut || 0), advGivenP, remainderP))));
+    };
+
+    // How much of the milk amount was actually left over (after Cattle Feed,
+    // Deposit, and Product cuts) for the advance installment to be cut from.
+    // This is the number that explains why the installment cut is what it is —
+    // showing only the opening/closing advance balance hides this.
+    const getRemainderForInstallment = (seller) => {
+        const milkP = toPaise(seller.milk_amount || 0);
+        const cattleFeedP = toPaise(seller.cattle_feed_deduction || 0);
+        const depositP = toPaise(seller.deposit_amount || 0);
+        const productP = toPaise(seller.product_deduction || 0);
+        const remainderP = milkP - cattleFeedP - depositP - productP;
+        return Math.max(0, fromPaise(remainderP));
     };
 
     const getEffectiveFinalPayable = (seller) => {
@@ -763,6 +783,10 @@ const handleResetCustomCut = (sellerId) => {
         const walkinDed = roundAmt(seller.walkin_deduction || 0);
         const cattleFeedDed = roundAmt(seller.cattle_feed_deduction || 0);
         const openingDeposit = roundAmt(seller.deposit_balance || 0);
+        // Milk left over after Cattle Feed -> Deposit -> Product — this is what the
+        // advance installment cut is actually capped against, NOT the raw advance
+        // balance. Shown on the receipt so it's clear why the cut is what it is.
+        const remainderForInstallment = Math.max(0, milkAmt - cattleFeedDed - depositAmt - productDed);
         // IMPORTANT: derive Net Cash from the SAME rounded line items shown in the
         // breakdown (milk - deposit - installment - product - cattleFeed - walkin),
         // instead of trusting a separately-stored/rounded seller.final_payable value.
@@ -846,8 +870,11 @@ const handleResetCustomCut = (sellerId) => {
             advance: {
                 opening: `₹${advGiven.toFixed(2)}`,
                 given: `₹${0}`,
-                cut: `− ₹${installmentCut.toFixed(2)}`,
-                closing: `₹${Math.max(0, advGiven - installmentCut).toFixed(2)}`,
+                // "Installment Cut" now shows the remainder (Milk - Cattle Feed - Product
+                // - Deposit) instead of the DB-stored installment_cut, and that same
+                // remainder is what's subtracted to arrive at Closing Balance.
+                cut: `− ₹${remainderForInstallment.toFixed(2)}`,
+                closing: `₹${Math.max(0, advGiven - remainderForInstallment).toFixed(2)}`,
             },
             deposit: {
                 opening: `₹${openingDeposit.toFixed(2)}`,
@@ -864,7 +891,7 @@ const handleResetCustomCut = (sellerId) => {
             breakdown: {
                 milkAmount: `+ ₹${milkAmt.toFixed(2)}`,
                 openingAdvance: `₹${advGiven.toFixed(2)}`,
-                advanceSub: `(₹${advGiven.toFixed(2)} → ₹${Math.max(0, advGiven - installmentCut).toFixed(2)} remaining)`,
+                advanceSub: `(Available after cuts: ₹${remainderForInstallment.toFixed(2)} · ₹${advGiven.toFixed(2)} → ₹${Math.max(0, advGiven - installmentCut).toFixed(2)} remaining)`,
                 advanceCut: `− ₹${installmentCut.toFixed(2)}`,
                 depositSub: `(${totalQty.toFixed(2)}L × ₹${(seller.deposit_per_litre || 0).toFixed(2)}/L · Balance: ₹${openingDeposit.toFixed(2)} → ₹${(openingDeposit + depositAmt).toFixed(2)})`,
                 depositDeducted: `− ₹${depositAmt.toFixed(2)}`,
@@ -874,6 +901,9 @@ const handleResetCustomCut = (sellerId) => {
                 // ── Cattle Feed Cuts ──
                 cattleFeedCut: `− ₹${cattleFeedDed.toFixed(2)}`,
                 cattleFeedSub: cattleFeedDed > 0 ? `(cattle feed deducted)` : '',
+                // ── Milk Bought by Seller (Walk-in) — was missing from breakdown entirely ──
+                walkinCut: `− ₹${walkinDed.toFixed(2)}`,
+                walkinSub: walkinDed > 0 ? `(milk bought by seller, walk-in)` : '',
                 netCash: `₹${finalPayable.toFixed(2)}`,
             },
         };
@@ -1336,6 +1366,10 @@ const handleResetCustomCut = (sellerId) => {
                     const cattleFeedDed = roundAmt(sellerObj.cattle_feed_deduction || 0);
                     const advGiven = roundAmt(sellerObj.advance_given || 0);
                     const openingDeposit = roundAmt(sellerObj.opening_deposit || 0);
+                    // Same remainder logic as prepareReceiptData — what was actually
+                    // available for the advance installment cut, after Cattle Feed,
+                    // Deposit and Product cuts came out of the milk amount.
+                    const remainderForInstallment = Math.max(0, milkAmt - cattleFeedDed - depositAmt - productDed);
                     // Derive Net Cash from the SAME rounded components shown in the
                     // Payment Summary block below, so the numbers always sum to it exactly.
                     const finalPayable = Math.max(
@@ -1577,11 +1611,11 @@ const handleResetCustomCut = (sellerId) => {
                                     </div>
                                     <div class="bs-row-compact" style="background:#faf5ff;">
                                         <span class="key">${t('sellerPayments.installmentCut')}</span>
-                                        <span class="val">− ${fmtR(installmentCut)}</span>
+                                        <span class="val">− ${fmtR(remainderForInstallment)}</span>
                                     </div>
                                     <div class="bs-total-row-compact">
                                         <span>${t('sellerPayments.closingBalance')}</span>
-                                        <span>${fmtR(Math.max(0, advGiven - installmentCut))}</span>
+                                        <span>${fmtR(Math.max(0, advGiven - remainderForInstallment))}</span>
                                     </div>
                                 </div>
                                 <div class="bs-col-compact">
@@ -1605,10 +1639,10 @@ const handleResetCustomCut = (sellerId) => {
                                         <span class="key">${t('sellerPayments.milkAmount')}</span>
                                         <span class="val">+ ${fmtR(milkAmt)}</span>
                                     </div>
-                                    ${depositAmt > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.depositCut')}</span><span class="val">− ${fmtR(depositAmt)}</span></div>` : ''}
-                                    ${installmentCut > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.advInstallment')}</span><span class="val">− ${fmtR(installmentCut)}</span></div>` : ''}
-                                    ${productDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.products')}</span><span class="val">− ${fmtR(productDed)}</span></div>` : ''}
                                     ${cattleFeedDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.cattleFeed')}</span><span class="val">− ${fmtR(cattleFeedDed)}</span></div>` : ''}
+                                    ${depositAmt > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.depositCut')}</span><span class="val">− ${fmtR(depositAmt)}</span></div>` : ''}
+                                    ${productDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.products')}</span><span class="val">− ${fmtR(productDed)}</span></div>` : ''}
+                                    ${installmentCut > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.advInstallment')}</span><span class="val">− ${fmtR(installmentCut)}</span></div>` : ''}
                                     ${walkinDed > 0 ? `<div class="bs-row-compact"><span class="key">${t('sellerPayments.milkBought')}</span><span class="val">− ${fmtR(walkinDed)}</span></div>` : ''}
                                 </div>
                             </div>
@@ -2720,6 +2754,12 @@ const handleResetCustomCut = (sellerId) => {
                                                         </p>
                                                     )}
                                                 </div>
+                                            )}
+                                            {advGiven > 0 && (
+                                                <p>{t('sellerPayments.availableForAdvCut') || 'Available for Advance Cut'}:
+                                                    <strong className="text-gray-700 ml-1">{fmt(getRemainderForInstallment(seller))}</strong>
+                                                    <span className="text-gray-400 ml-1 font-normal text-[10px]">(milk after cattle feed, deposit &amp; product cuts)</span>
+                                                </p>
                                             )}
                                             {effectiveInstallmentCut > 0 && (
                                                 <p>{t('sellerPayments.advInstallmentCut')}:

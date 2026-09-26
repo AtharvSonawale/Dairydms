@@ -480,6 +480,8 @@ const ReceiptPDF = ({ data, onClose }) => {
         const netRowH = mm(8);
 
         // ── Build rows dynamically, including product cuts and cattle feed cuts ──
+        // Order matches the deduction flow: Milk -> Cattle Feed -> Deposit -> Product
+        // -> Advance Installment (from the remainder) -> Walk-in.
         const dRows = [
             {
                 label: 'Milk Amount Payable',
@@ -487,17 +489,12 @@ const ReceiptPDF = ({ data, onClose }) => {
                 value: data.breakdown.milkAmount,
                 fill: [240, 253, 244],
             },
+            // ── Cattle Feed Cuts (1st deduction from milk amount) ──
             {
-                label: 'Opening Advance Balance',
-                sub: '',
-                value: data.breakdown.openingAdvance,
-                fill: [250, 245, 255],
-            },
-            {
-                label: 'Advance Installment Cut',
-                sub: data.breakdown.advanceSub || '',
-                value: data.breakdown.advanceCut,
-                fill: [255, 245, 245],
+                label: 'Cattle Feed Cuts',
+                sub: data.breakdown.cattleFeedSub || '',
+                value: data.breakdown.cattleFeedCut || 'Rs. 0.00',
+                fill: [209, 250, 229], // emerald tint
             },
             {
                 label: 'Deposit Deducted',
@@ -512,12 +509,24 @@ const ReceiptPDF = ({ data, onClose }) => {
                 value: data.breakdown.productCut || 'Rs. 0.00',
                 fill: [254, 243, 199], // amber tint
             },
-            // ── Cattle Feed Cuts ──
             {
-                label: 'Cattle Feed Cuts',
-                sub: data.breakdown.cattleFeedSub || '',
-                value: data.breakdown.cattleFeedCut || 'Rs. 0.00',
-                fill: [209, 250, 229], // emerald tint
+                label: 'Opening Advance Balance',
+                sub: '',
+                value: data.breakdown.openingAdvance,
+                fill: [250, 245, 255],
+            },
+            {
+                label: 'Advance Installment Cut',
+                sub: data.breakdown.advanceSub || '',
+                value: data.breakdown.advanceCut,
+                fill: [255, 245, 245],
+            },
+            // ── Milk Bought by Seller (Walk-in) — was missing from this table entirely ──
+            {
+                label: 'Milk Bought (Walk-in)',
+                sub: data.breakdown.walkinSub || '',
+                value: data.breakdown.walkinCut || 'Rs. 0.00',
+                fill: [255, 237, 213], // orange tint
             },
         ];
 

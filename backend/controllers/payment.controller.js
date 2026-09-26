@@ -3,6 +3,10 @@ const ExcelJS = require('exceljs');
 const { applyCommissionToEntries, getCommissionSettingsMap, getSellerCommissionOverridesMap, getSellerCommissionOverrides } = require('../utils/commission');
 
 const round2 = (n) => Math.round((parseFloat(n || 0) + Number.EPSILON) * 100) / 100;
+// Rounds to the nearest whole rupee (no decimals) — used specifically for the
+// advance installment cut amount, since that should always be a clean figure
+// like ₹8425, not a paise-precise value like ₹8424.70.
+const roundAmt = (n) => Math.round(parseFloat(n || 0) + Number.EPSILON);
 /*
   ── REQUIRED SQL MIGRATIONS ──────────────────────────────────
   See migration block above (commission_settings table +
@@ -277,19 +281,28 @@ exports.getSellerSummary = async (req, res) => {
             const cattleFeedDeduction = round2(cattleFeedMap[s.seller_id] || 0);
             const deductionAmt = parseFloat(s.advance_deduction || 0);
 
-            // Installment cut: min(deductionAmt, advGiven)
-            const installmentCut = round2(advGiven > 0
-                ? (deductionAmt > 0 ? Math.min(deductionAmt, advGiven) : advGiven)
-                : 0);
+            // Step 1: Deduct Cattle Feed → Deposit → Product from the milk amount FIRST.
+            const milkAfterCattleFeed = milkAmt - cattleFeedDeduction;
+            const milkAfterDeposit = milkAfterCattleFeed - depositAmount;
+            const remainderForInstallment = milkAfterDeposit - productDeduction;
 
-            // Deduct deposit from milk payable
-            const milkAfterDeposit = milkAmt - depositAmount;
+            // Installment cut candidate: use the profile-configured amount (deductionAmt)
+            // when it's set; otherwise fall back to cutting as much of the advance as
+            // the milk payment can actually cover this cycle (the remainder itself) —
+            // this is the 3rd cut method and was previously missing, which meant a
+            // seller with no profile advance_deduction never got any cut applied here,
+            // even though the receipt PDF displayed the remainder as if it had been cut.
+            const candidateInstallmentCut = deductionAmt > 0 ? deductionAmt : Math.max(0, remainderForInstallment);
+            // Round to the nearest whole rupee — an installment cut should read as
+            // ₹8425, not ₹8424.70.
+            const installmentCut = roundAmt(
+                advGiven > 0
+                    ? Math.min(candidateInstallmentCut, advGiven, Math.max(0, remainderForInstallment))
+                    : 0
+            );
 
-            // Deduct installment from milk payable
-            const milkAfterInstallment = milkAfterDeposit - installmentCut;
-
-            // Deduct product, walk-in, and cattle feed sales
-            const milkAfterAllDeductions = milkAfterInstallment - productDeduction - walkinDeduction - cattleFeedDeduction;
+            // Deduct installment cut and walk-in sales from the remainder
+            const milkAfterAllDeductions = remainderForInstallment - installmentCut - walkinDeduction;
 
             const finalPayable = round2(milkAfterAllDeductions);
             // Update deposit balance
@@ -399,15 +412,58 @@ exports.markPaid = async (req, res) => {
         );
         const advanceBalanceBefore = parseFloat(advRowBefore.advance_balance || 0);
 
-        // 5. Calculate installment cut if not provided
-        let finalInstallmentCut = round2(parseFloat(installment_cut) || 0);
-        if (finalInstallmentCut === 0) {
-            finalInstallmentCut = advanceBalanceBefore > 0
-                ? (advanceDeduction > 0
-                    ? Math.min(advanceDeduction, advanceBalanceBefore)
-                    : advanceBalanceBefore)
-                : 0;
+        // 4b. Fetch product deductions
+        const [[productRows]] = await conn.query(
+            `SELECT COALESCE(SUM(total_amount), 0) AS product_total
+             FROM product_sales
+             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
+            [seller_id, centreId, from_date, to_date]
+        );
+        const productDeduction = parseFloat(productRows.product_total || 0);
+
+        // 4c. Fetch walkin deductions
+        const [[walkinRows]] = await conn.query(
+            `SELECT COALESCE(SUM(total_amount), 0) AS walkin_total
+             FROM walkin_sales
+             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
+            [seller_id, centreId, from_date, to_date]
+        );
+        const walkinDeduction = parseFloat(walkinRows.walkin_total || 0);
+
+        // 4d. Fetch cattle feed deductions
+        const [[cattleFeedRows]] = await conn.query(
+            `SELECT COALESCE(SUM(total_amount), 0) AS cattle_feed_total
+             FROM cattle_feed_sales
+             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
+            [seller_id, centreId, from_date, to_date]
+        );
+        const cattleFeedDeduction = parseFloat(cattleFeedRows.cattle_feed_total || 0);
+
+        // 5. Calculate installment cut if not provided.
+        // Deduction order: Milk - CattleFeed - Deposit - Product = remainder;
+        // the advance installment cut (if configured) can only come out of that remainder.
+        const remainderForInstallment = milkAmount - cattleFeedDeduction - finalDepositAmount - productDeduction;
+
+        let finalInstallmentCut = roundAmt(parseFloat(installment_cut) || 0);
+        if (finalInstallmentCut === 0 && advanceBalanceBefore > 0) {
+            // No cut amount was sent from the client (or it computed to 0) — fall back
+            // to the profile-configured deduction if set, otherwise cut as much of the
+            // advance as the milk payment can actually cover this cycle (the
+            // remainder). This is what makes the cash_advance "received" row actually
+            // get created for sellers with no profile advance_deduction configured.
+            const candidateCut = advanceDeduction > 0 ? advanceDeduction : Math.max(0, remainderForInstallment);
+            finalInstallmentCut = roundAmt(candidateCut);
         }
+        // Whatever produced the candidate above (a value sent from the client, the
+        // profile default, or the remainder fallback), it can never exceed the actual
+        // advance balance or the actual remainder available after Cattle Feed /
+        // Deposit / Product have already been deducted from the milk payment.
+        // Rounded to the nearest whole rupee so the cut recorded in cash_advance
+        // reads as a clean amount (e.g. ₹8425) instead of a paise-precise figure
+        // (e.g. ₹8424.70).
+        finalInstallmentCut = roundAmt(
+            Math.max(0, Math.min(finalInstallmentCut, advanceBalanceBefore, Math.max(0, remainderForInstallment)))
+        );
 
         let installmentTransId = null;
         if (finalInstallmentCut > 0) {
@@ -433,38 +489,8 @@ exports.markPaid = async (req, res) => {
             depositTransId = depRes.insertId;
         }
 
-        // 8. Fetch product deductions
-        const [[productRows]] = await conn.query(
-            `SELECT COALESCE(SUM(total_amount), 0) AS product_total
-             FROM product_sales
-             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
-            [seller_id, centreId, from_date, to_date]
-        );
-        const productDeduction = parseFloat(productRows.product_total || 0);
-
-        // 9. Fetch walkin deductions
-        const [[walkinRows]] = await conn.query(
-            `SELECT COALESCE(SUM(total_amount), 0) AS walkin_total
-             FROM walkin_sales
-             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
-            [seller_id, centreId, from_date, to_date]
-        );
-        const walkinDeduction = parseFloat(walkinRows.walkin_total || 0);
-
-        // 9b. Fetch cattle feed deductions
-        const [[cattleFeedRows]] = await conn.query(
-            `SELECT COALESCE(SUM(total_amount), 0) AS cattle_feed_total
-             FROM cattle_feed_sales
-             WHERE seller_id = ? AND centre_id = ? AND sale_date BETWEEN ? AND ?`,
-            [seller_id, centreId, from_date, to_date]
-        );
-        const cattleFeedDeduction = parseFloat(cattleFeedRows.cattle_feed_total || 0);
-
         // 10. Calculate final payable (no TDS)
-        const milkAfterDeposit = milkAmount - finalDepositAmount;
-        const milkAfterInstallment = milkAfterDeposit - finalInstallmentCut;
-        const milkAfterAllDeductions = milkAfterInstallment - productDeduction - walkinDeduction - cattleFeedDeduction;
-        const finalPayable = round2(milkAfterAllDeductions);
+        const finalPayable = round2(remainderForInstallment - finalInstallmentCut - walkinDeduction);
 
         // 11. Generate bill number
         const toDateObj = new Date(to_date);
