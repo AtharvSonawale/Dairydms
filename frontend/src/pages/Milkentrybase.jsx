@@ -799,6 +799,8 @@ const handleQuickSaleSellerCodeChange = (code) => {
     // weight_utpadak) and never switches or falls back to the Default Scale.
     const activeWeightKey = sellerType === "Gavali" ? "weight_gavali" : "weight_utpadak";
     const activeWeightSubtypeParam = sellerType === "Gavali" ? "gavali" : "utpadak";
+    const activeFatKey = sellerType === "Gavali" ? "fat_gavali" : "fat_utpadak";
+    const activeFatSubtypeParam = sellerType === "Gavali" ? "gavali" : "utpadak";
     const activeWeight = weightBySubtype[activeWeightKey];
     const machineQty = activeWeight.qty;
     const machineQty2 = activeWeight.qty2;
@@ -810,7 +812,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
     const [machineProtein, setMachineProtein] = useState("");
     const [isFatConnected, setIsFatConnected] = useState(false);
     const [lastFatRaw, setLastFatRaw] = useState("");
-    const [fatPortConfig, setFatPortConfig] = useState(null);
+    const [fatPortConfig, setFatPortConfig] = useState({ fat_gavali: null, fat_utpadak: null, fat: null });
     const [lastFatUpdateAt, setLastFatUpdateAt] = useState(null);
 
     // Track if fat/snf was saved to form
@@ -834,7 +836,11 @@ const handleQuickSaleSellerCodeChange = (code) => {
                     weight_utpadak: data?.weight_utpadak || null,
                     weight: data?.weight || null,
                 });
-                setFatPortConfig(data?.fat || null);
+                setFatPortConfig({
+                    fat_gavali: data?.fat_gavali || null,
+                    fat_utpadak: data?.fat_utpadak || null,
+                    fat: data?.fat || null,
+                });
             })
             .catch(() => { });
     }, []);
@@ -883,7 +889,9 @@ const handleQuickSaleSellerCodeChange = (code) => {
         socket.on("weight:update:utpadak", handleWeightUpdate("weight_utpadak"));
         socket.on("weight:update:default", handleWeightUpdate("weight"));
 
-        socket.on("fat:update:default", (reading) => {            setIsFatConnected(!!reading.connected);
+        const fatSocketEvent = sellerType === "Gavali" ? "fat:update:gavali" : "fat:update:utpadak";
+        socket.on(fatSocketEvent, (reading) => {
+            setIsFatConnected(!!reading.connected);
 
             if (!reading.connected || !reading.raw || reading.raw === lastAppliedFatRaw.current) {
                 return;
@@ -978,9 +986,10 @@ const handleQuickSaleSellerCodeChange = (code) => {
     };
 
     const connectFatPort = async (silent = false) => {
-        if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
+        const label = sellerType === "Gavali" ? "Gavali" : "Utpadak";
+        if (!silent) showFlash("success", `Connecting to ${label} Fat & SNF machine…`);
         try {
-            const { data } = await api.post("/settings/ports/fat/default/connect");
+            const { data } = await api.post(`/settings/ports/fat/${activeFatSubtypeParam}/connect`);
             if (!silent || data.success) {
                 showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
             }
@@ -993,7 +1002,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
 
     const disconnectFatMachine = async () => {
         try {
-            await api.post("/settings/ports/fat/default/disconnect");
+            await api.post(`/settings/ports/fat/${activeFatSubtypeParam}/disconnect`);
             showFlash("info", "Disconnected from Fat & SNF machine.");
         } catch {
             showFlash("error", "Failed to disconnect.");
@@ -1863,7 +1872,7 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
 
                                 <div className="flex items-center justify-between gap-1 px-3 py-1 border-t border-gray-100/60 bg-gray-50/60">
                                     <span className="text-[9px] text-gray-500 font-mono truncate">
-                                        {fatPortConfig?.serial_port || "No port"}
+                                        {fatPortConfig[activeFatKey]?.serial_port || "No port"}
                                     </span>
                                     <div className="flex items-center gap-1">
                                         <button
