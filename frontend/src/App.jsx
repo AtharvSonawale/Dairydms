@@ -122,11 +122,10 @@ function AppRoutes() {
 
         {/* ── Admin ── */}
         <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/operators/new" element={<ProtectedRoute role="admin"><CreateOperator /></ProtectedRoute>} />
-        <Route path="/admin/adminlist" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
+        <Route path="/admin/operators/new" element={<ProtectedRoute allowedRoles={['admin']}><CreateOperator /></ProtectedRoute>} />        <Route path="/admin/adminlist" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins" element={<ProtectedRoute role="admin"><AdminList /></ProtectedRoute>} />
         <Route path="/admin/admins/:id" element={<ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>} />
-        <Route path="/admin/ports" element={<ProtectedRoute role="aadmin"><PortSettings /></ProtectedRoute>} />
+        <Route path="/admin/ports" element={<ProtectedRoute allowedRoles={['admin']}><PortSettings /></ProtectedRoute>} />
         <Route path="/all-milk-entries" element={<ProtectedRoute role="admin"><AllMilkEntries /></ProtectedRoute>} />
 
         {/* ── Operator ── */}

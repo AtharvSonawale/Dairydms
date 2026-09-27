@@ -38,7 +38,7 @@ exports.saveGlobalSettings = async (req, res) => {
 
         const { app_name, logo_url, fat_only_autofill } = req.body;
         const entries = [
-            [dairyId, 'app_name', app_name ?? 'MilkApp'],
+            [dairyId, 'app_name', app_name ?? 'MilkyWay'],
             [dairyId, 'logo_url', logo_url ?? ''],
             [dairyId, 'fat_only_autofill', fat_only_autofill ?? '0'],
         ];

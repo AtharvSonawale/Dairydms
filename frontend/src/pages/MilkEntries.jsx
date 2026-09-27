@@ -830,6 +830,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
     const [portSwitchingEnabled, setPortSwitchingEnabled] = useState(true);
     const portSwitchingEnabledRef = useRef(true);
     const [savingWeightConfig, setSavingWeightConfig] = useState(false);
+    const [weightConfigLoaded, setWeightConfigLoaded] = useState(false);
     const weightPortConfigRef = useRef({ weight_gavali: null, weight_utpadak: null, weight: null });
 
     const [liveMilkCaptureEnabled, setLiveMilkCaptureEnabled] = useState(false);
@@ -894,7 +895,8 @@ const handleQuickSaleSellerCodeChange = (code) => {
             .then(({ data }) => {
                 setPortSwitchingEnabled(data?.portSwitchingEnabled ?? true);
             })
-            .catch(() => { });
+            .catch(() => { })
+            .finally(() => setWeightConfigLoaded(true));
     }, []);
 
     useEffect(() => { portSwitchingEnabledRef.current = portSwitchingEnabled; }, [portSwitchingEnabled]);
@@ -1090,12 +1092,19 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
 
     const autoConnectFired = useRef(false);
     useEffect(() => {
+        if (!weightConfigLoaded) return;
         if (autoConnectFired.current) return;
         autoConnectFired.current = true;
-        connectSerialPort("gavali", true);
-        connectSerialPort("utpadak", true);
-        connectSerialPort("default", true);
-    }, []);
+        if (portSwitchingEnabled) {
+            // Auto-switching mode — only the two role-specific scales are ever
+            // read from, so only connect those two, never the Default Scale.
+            connectSerialPort("gavali", true);
+            connectSerialPort("utpadak", true);
+        } else {
+            // Switching disabled — the page reads only from the Default Scale.
+            connectSerialPort("default", true);
+        }
+    }, [weightConfigLoaded, portSwitchingEnabled]);
 
     const autoConnectFatFired = useRef(false);
     useEffect(() => {
@@ -1693,7 +1702,7 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
-                                            onClick={connectFatPort}
+                                            onClick={() => connectFatPort(false)}
                                             disabled={isFatConnected}
                                             className={`flex items-center gap-0.5 text-[9px] font-bold px-2.5 py-1 rounded-lg transition ${isFatConnected
                                                 ? "bg-amber-400 text-amber-950"

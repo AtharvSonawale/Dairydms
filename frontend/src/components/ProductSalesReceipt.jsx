@@ -8,7 +8,7 @@ export const printReceipt = async (txn, t, appName, centreName, { onStart, onRea
   const { printerType, paperWidthMm } = getPrintSettings();
   const tpl = getReceiptTemplate();
   const isThermal = printerType === "thermal";
-  const displayAppName = appName || t('appName') || 'MilkApp';
+  const displayAppName = appName || t('appName') || 'MilkyWay';
   const displayCentreName = centreName || t('productSales.receipt.centerName') || 'Product Sales Center';
   const dateStr = new Date(txn.sale_date).toLocaleDateString("en-IN", {
     day: "2-digit", month: "2-digit", year: "numeric"

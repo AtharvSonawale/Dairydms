@@ -113,10 +113,13 @@ function unregisterCloser(path) {
 
 // ─── Force-release any handle on a given port path, whoever holds it ─────────
 async function forceClosePortPath(path) {
-    // 1) If this module itself still thinks it owns this path, close it
-    //    and WAIT for the OS to actually release the handle.
-    if (activePort && activePort.path === path) {
-        await disconnectAndWait();
+    // 1) If this module itself still thinks it owns this path (under ANY
+    //    subtype), close that subtype's handle and WAIT for the OS to
+    //    actually release it, before the caller tries to reopen it.
+    for (const st of SUBTYPES) {
+        if (activePort[st] && activePort[st].path === path) {
+            await disconnectAndWait(st);
+        }
     }
     // 2) If another module (e.g. portController's test-connection registry)
     //    registered a closer for this exact path, invoke it too.

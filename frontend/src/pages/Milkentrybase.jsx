@@ -1413,6 +1413,26 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
         setEntryToDelete(null);
     };
 
+    const confirmDeleteEntry = async () => {
+        if (!deleteTarget) return;
+        setDeletingEntryBusy(true);
+        try {
+            await api.delete(`/milk-entries/${deleteTarget.entry_id}`);
+            showFlash("success", t('milkEntry.deletedSuccess'));
+            await fetchEntries(selectedDate, selectedDate);
+            await fetchLiveStock(selectedDate);
+        } catch (err) {
+            showFlash("error", err.response?.data?.error || t('milkEntry.deleteError'));
+        } finally {
+            setDeletingEntryBusy(false);
+            setDeleteTarget(null);
+        }
+    };
+
+    const cancelDeleteEntry = () => {
+        setDeleteTarget(null);
+    };
+
     const fetchRangeEntries = async (from = fromDate, to = toDate) => {
         setLoadingRange(true);
         try {

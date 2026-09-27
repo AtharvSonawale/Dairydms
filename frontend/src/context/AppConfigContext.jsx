@@ -6,7 +6,7 @@ import { useAuth } from './AuthContext';
 import { fetchCentreName } from '../utils/centreName';
 
 const AppConfigContext = createContext({
-    appName: 'MilkApp',
+    appName: 'MilkyWay',
     logoUrl: '',
     language: 'en',
     textSize: 'base',
@@ -18,7 +18,7 @@ const AppConfigContext = createContext({
 
 export function AppConfigProvider({ children }) {
     const { user } = useAuth();
-    const [appName, setAppName] = useState('MilkApp');
+    const [appName, setAppName] = useState('MilkyWay');
     const [logoUrl, setLogoUrl] = useState('');
     const [language, setLanguage] = useState('en');
     const [textSize, setTextSize] = useState('base');

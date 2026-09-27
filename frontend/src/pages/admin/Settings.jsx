@@ -451,7 +451,7 @@ const VISIBILITY_PAGES = VISIBILITY_SECTIONS.flatMap(section => section.pages);
 
 // ── Saved-state defaults ──────────────────────────────────────
 const SERVER_DEFAULTS = {
-    appName: 'MilkApp',
+    appName: 'MilkyWay',
     logoUrl: '',
     textSize: 'base',
     language: 'en',
@@ -1305,7 +1305,7 @@ export default function AdminSettings() {
                             <div className="rounded-xl border border-gray-200/60 bg-white p-5 shadow-sm text-[13px]" style={{ fontFamily: 'Arial, sans-serif' }}>
                                 <div style={{ textAlign: 'center', borderBottom: '2px solid #111', paddingBottom: 10, marginBottom: 12 }}>
                                     {receiptTpl.showTopSymbol && <div style={{ fontSize: receiptTpl.topSymbolFontSize, fontWeight: 700 }}>{receiptTpl.topSymbolText}</div>}
-                                    {receiptTpl.showAppName && <div style={{ fontSize: receiptTpl.appNameFontSize, fontWeight: 700, marginTop: 2 }}>{appName || 'MilkApp'}</div>}
+                                    {receiptTpl.showAppName && <div style={{ fontSize: receiptTpl.appNameFontSize, fontWeight: 700, marginTop: 2 }}>{appName || 'MilkyWay'}</div>}
                                     {receiptTpl.showCentreName && <div style={{ fontSize: receiptTpl.centreNameFontSize, color: '#555', marginTop: 2 }}>{receiptTpl.centreNameOverride || 'Your Centre Name'}</div>}
                                 </div>
                                 {receiptTpl.showTransactionId && (
