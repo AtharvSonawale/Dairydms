@@ -950,8 +950,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
         socket.on("weight:update:utpadak", handleWeightUpdate("weight_utpadak"));
         socket.on("weight:update:default", handleWeightUpdate("weight"));
 
-        socket.on("fat:update", (reading) => {
-            setIsFatConnected(!!reading.connected);
+        socket.on("fat:update:default", (reading) => {            setIsFatConnected(!!reading.connected);
 
             if (!reading.connected || !reading.raw || reading.raw === lastAppliedFatRaw.current) {
                 return;
@@ -1047,8 +1046,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
     const connectFatPort = async (silent = false) => {
     if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
     try {
-        const { data } = await api.post("/settings/ports/fat/connect");
-        if (!silent || data.success) {
+        const { data } = await api.post("/settings/ports/fat/default/connect");        if (!silent || data.success) {
             showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
         }
     } catch (err) {
@@ -1060,8 +1058,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
 
     const disconnectFatMachine = async () => {
         try {
-            await api.post("/settings/ports/fat/disconnect");
-            showFlash("info", "Disconnected from Fat & SNF machine.");
+            await api.post("/settings/ports/fat/default/disconnect");            showFlash("info", "Disconnected from Fat & SNF machine.");
         } catch {
             showFlash("error", "Failed to disconnect.");
         }

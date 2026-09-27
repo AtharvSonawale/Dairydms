@@ -75,6 +75,8 @@ exports.getPortSettings = async (req, res) => {
             weight_gavali: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none', kg_unit_label: 'Kg', ltr_unit_label: 'Ltr', default_weight_unit: 'ltr' },
             weight_utpadak: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none', kg_unit_label: 'Kg', ltr_unit_label: 'Ltr', default_weight_unit: 'ltr' },
             weight: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none', kg_unit_label: 'Kg', ltr_unit_label: 'Ltr', default_weight_unit: 'ltr' },
+            fat_gavali: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
+            fat_utpadak: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
             fat: { serial_port: '', serial_baud_rate: '9600', serial_data_bits: '8', serial_stop_bits: '1', serial_parity: 'none' },
         };
 
@@ -107,7 +109,7 @@ exports.savePortSettings = async (req, res) => {
 
     try {
         const dairyId = req.user.dairy_id;
-        const ALLOWED_MACHINE_TYPES = ['weight_gavali', 'weight_utpadak', 'weight', 'fat'];
+        const ALLOWED_MACHINE_TYPES = ['weight_gavali', 'weight_utpadak', 'weight', 'fat_gavali', 'fat_utpadak', 'fat'];
         const machineType = ALLOWED_MACHINE_TYPES.includes(req.body.machine_type)
             ? req.body.machine_type
             : 'weight_utpadak';
@@ -159,9 +161,9 @@ exports.savePortSettings = async (req, res) => {
                     warning: connectErr.message,
                 });
             }
-        } else if (machineType === 'fat') {
+        } else if (machineType === 'fat_gavali' || machineType === 'fat_utpadak' || machineType === 'fat') {
             try {
-                await fatMachine.connect(dairyId);
+                await fatMachine.connect(dairyId, machineType);
             } catch (connectErr) {
                 console.error('fatMachine reconnect error:', connectErr.message);
                 return res.json({
@@ -269,8 +271,8 @@ exports.testPortConnection = async (req, res) => {
 
         // Release any live machine connection that might be holding this exact
         // port path, on either machine type, before testing it.
-        weightMachine.disconnect();
-        fatMachine.disconnect();
+        ['weight_gavali', 'weight_utpadak', 'weight'].forEach(st => weightMachine.disconnect(st));
+        ['fat_gavali', 'fat_utpadak', 'fat'].forEach(st => fatMachine.disconnect(st));
 
         // If we already have this port open from a previous test, close it
         // first so we don't leak duplicate handles on repeated test clicks.
@@ -358,28 +360,41 @@ exports.disconnectWeightMachine = async (req, res) => {
 res.json({ success: true, message: `Disconnected from ${label} weight machine.` });
 };
 
-// ─── GET /api/settings/ports/fat/status ──────────────────────────────────────
+// ─── GET /api/settings/ports/fat/:subtype/status ─────────────────────────────
 exports.getFatStatus = async (req, res) => {
     if (!(await canAccessPorts(req, res, 'R'))) return;
-    res.json(fatMachine.getLatest());
+    const subtype =
+        req.params.subtype === 'gavali' ? 'fat_gavali'
+        : req.params.subtype === 'utpadak' ? 'fat_utpadak'
+        : 'fat'; // 'default' subtype → the standalone Default Fat Testing Machine
+    res.json(fatMachine.getLatest(subtype));
 };
 
-// ─── POST /api/settings/ports/fat/connect ────────────────────────────────────
+// ─── POST /api/settings/ports/fat/:subtype/connect ───────────────────────────
 exports.connectFatMachine = async (req, res) => {
     if (!(await canAccessPorts(req, res, 'U'))) return;
+    const subtype =
+        req.params.subtype === 'gavali' ? 'fat_gavali'
+        : req.params.subtype === 'utpadak' ? 'fat_utpadak'
+        : 'fat'; // 'default' subtype → the standalone Default Fat Testing Machine
     try {
-        await fatMachine.connect(req.user.dairy_id);
+        await fatMachine.connect(req.user.dairy_id, subtype);
         res.json({ success: true, message: 'Connected to the serial port.' });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
 };
 
-// ─── POST /api/settings/ports/fat/disconnect ─────────────────────────────────
+// ─── POST /api/settings/ports/fat/:subtype/disconnect ────────────────────────
 exports.disconnectFatMachine = async (req, res) => {
     if (!(await canAccessPorts(req, res, 'U'))) return;
-    fatMachine.disconnect();
-    res.json({ success: true, message: 'Disconnected from Fat & SNF machine.' });
+    const subtype =
+        req.params.subtype === 'gavali' ? 'fat_gavali'
+        : req.params.subtype === 'utpadak' ? 'fat_utpadak'
+        : 'fat'; // 'default' subtype → the standalone Default Fat Testing Machine
+    fatMachine.disconnect(subtype);
+    const label = subtype === 'fat_gavali' ? 'Gavali' : subtype === 'fat_utpadak' ? 'Utpadak' : 'Default';
+    res.json({ success: true, message: `Disconnected from ${label} Fat & SNF machine.` });
 };
 
 // ─── GET /api/settings/weight-config ─────────────────────────────────────────

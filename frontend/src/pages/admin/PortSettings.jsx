@@ -26,7 +26,9 @@ const MACHINE_TYPES = [
     { value: 'weight_gavali', labelKey: 'portSettings.machineType.weightGavali' },
     { value: 'weight_utpadak', labelKey: 'portSettings.machineType.weightUtpadak' },
     { value: 'weight', labelKey: 'portSettings.machineType.weightDefault' },
-    { value: 'fat', labelKey: 'portSettings.machineType.fat' },
+    { value: 'fat_gavali', labelKey: 'portSettings.machineType.fatGavali' },
+    { value: 'fat_utpadak', labelKey: 'portSettings.machineType.fatUtpadak' },
+    { value: 'fat', labelKey: 'portSettings.machineType.fatDefault' },
 ];
 
 const BAUD_RATES = ['300', '600', '1200', '2400', '4800', '9600', '14400', '19200', '38400', '57600', '115200'];
@@ -107,12 +109,16 @@ export default function PortSettings() {
         weight_gavali: { ...SERIAL_DEFAULTS },
         weight_utpadak: { ...SERIAL_DEFAULTS },
         weight: { ...SERIAL_DEFAULTS },
+        fat_gavali: { ...SERIAL_DEFAULTS },
+        fat_utpadak: { ...SERIAL_DEFAULTS },
         fat: { ...SERIAL_DEFAULTS },
     });
     const [savedByMachine, setSavedByMachine] = useState({
         weight_gavali: { ...SERIAL_DEFAULTS },
         weight_utpadak: { ...SERIAL_DEFAULTS },
         weight: { ...SERIAL_DEFAULTS },
+        fat_gavali: { ...SERIAL_DEFAULTS },
+        fat_utpadak: { ...SERIAL_DEFAULTS },
         fat: { ...SERIAL_DEFAULTS },
     });
     const [saving, setSaving] = useState(false);
@@ -142,6 +148,8 @@ export default function PortSettings() {
                     weight_gavali: { ...SERIAL_DEFAULTS, ...(data?.weight_gavali || {}) },
                     weight_utpadak: { ...SERIAL_DEFAULTS, ...(data?.weight_utpadak || {}) },
                     weight: { ...SERIAL_DEFAULTS, ...(data?.weight || {}) },
+                    fat_gavali: { ...SERIAL_DEFAULTS, ...(data?.fat_gavali || {}) },
+                    fat_utpadak: { ...SERIAL_DEFAULTS, ...(data?.fat_utpadak || {}) },
                     fat: { ...SERIAL_DEFAULTS, ...(data?.fat || {}) },
                 };
                 setByMachine(next);
@@ -449,7 +457,7 @@ export default function PortSettings() {
                                 className="w-full"
                             />
                         </PortField>
-                        {machineType !== 'fat' && (
+                        {!machineType.startsWith('fat') && (
                             <PortField label="Default Weight Unit" hint="Which reading auto-fills Quantity in Milk Entry">
                                 <PortSelect
                                     value={form.default_weight_unit}

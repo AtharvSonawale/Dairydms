@@ -883,8 +883,7 @@ const handleQuickSaleSellerCodeChange = (code) => {
         socket.on("weight:update:utpadak", handleWeightUpdate("weight_utpadak"));
         socket.on("weight:update:default", handleWeightUpdate("weight"));
 
-        socket.on("fat:update", (reading) => {
-            setIsFatConnected(!!reading.connected);
+        socket.on("fat:update:default", (reading) => {            setIsFatConnected(!!reading.connected);
 
             if (!reading.connected || !reading.raw || reading.raw === lastAppliedFatRaw.current) {
                 return;
@@ -979,22 +978,22 @@ const handleQuickSaleSellerCodeChange = (code) => {
     };
 
     const connectFatPort = async (silent = false) => {
-    if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
-    try {
-        const { data } = await api.post("/settings/ports/fat/connect");
-        if (!silent || data.success) {
-            showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
+        if (!silent) showFlash("success", "Connecting to Fat & SNF machine…");
+        try {
+            const { data } = await api.post("/settings/ports/fat/default/connect");
+            if (!silent || data.success) {
+                showFlash(data.success ? "success" : "error", data.message || (data.success ? "Connected." : "Connection failed."));
+            }
+        } catch (err) {
+            if (!silent) {
+                showFlash("error", err.response?.data?.message || "Failed to connect to Fat & SNF machine.");
+            }
         }
-    } catch (err) {
-        if (!silent) {
-            showFlash("error", err.response?.data?.message || "Failed to connect to Fat & SNF machine.");
-        }
-    }
-};
+    };
 
     const disconnectFatMachine = async () => {
         try {
-            await api.post("/settings/ports/fat/disconnect");
+            await api.post("/settings/ports/fat/default/disconnect");
             showFlash("info", "Disconnected from Fat & SNF machine.");
         } catch {
             showFlash("error", "Failed to disconnect.");
@@ -1869,7 +1868,7 @@ if (fatForRate && snfForRate) fetchAutoRate(fatForRate, snfForRate, form.milk_ty
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
-                                            onClick={connectFatPort}
+                                            onClick={() => connectFatPort(false)}
                                             disabled={isFatConnected}
                                             className={`flex items-center gap-0.5 text-[9px] font-bold px-2.5 py-1 rounded-lg transition ${isFatConnected
                                                 ? "bg-amber-400 text-amber-950"
